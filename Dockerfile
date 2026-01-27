@@ -24,6 +24,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
 RUN npm run build
 
+# ビルド確認（デバッグ用）
+RUN echo "=== Build output ===" && \
+    ls -la .next/ && \
+    echo "=== Standalone check ===" && \
+    ls -la .next/standalone/ || echo "No standalone directory"
+
 # ランナー
 FROM base AS runner
 WORKDIR /app
