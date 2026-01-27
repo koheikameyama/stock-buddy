@@ -3,10 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm start"
+# startCommandを削除してDockerfileのCMDを使用
+# DockerfileのCMD: npx prisma migrate deploy && npm start
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
-
-# デプロイ前にマイグレーションを実行
-# Railwayダッシュボードで設定: Settings → Deploy → Custom Build Command
-# コマンド: npm run migrate:deploy
