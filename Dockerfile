@@ -9,7 +9,7 @@ WORKDIR /app
 # 依存関係ファイルとPrisma schemaをコピー
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm ci --include=dev
 
 # ビルダー
 FROM base AS builder
