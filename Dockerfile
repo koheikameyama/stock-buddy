@@ -6,8 +6,9 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
-# 依存関係ファイルをコピー
+# 依存関係ファイルとPrisma schemaをコピー
 COPY package.json package-lock.json* ./
+COPY prisma ./prisma
 RUN npm ci
 
 # ビルダー
