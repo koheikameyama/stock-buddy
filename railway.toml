@@ -3,5 +3,10 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# デプロイ前にマイグレーションを実行
+# Railwayダッシュボードで設定: Settings → Deploy → Custom Build Command
+# コマンド: npm run migrate:deploy

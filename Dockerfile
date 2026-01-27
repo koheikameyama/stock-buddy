@@ -44,15 +44,13 @@ RUN adduser --system --uid 1001 nextjs
 RUN mkdir -p /app/public
 
 # 必要なファイルをコピー
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package*.json ./
 
-# node_modulesの一部をコピー（prisma cliに必要）
-COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
+# publicディレクトリもコピー
+COPY --from=builder /app/public ./public
 
 # 所有権を変更
 RUN chown -R nextjs:nodejs /app
@@ -64,6 +62,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# サーバー起動（railway.jsonのstartCommandで上書きされる）
-# デフォルトはマイグレーション付き起動
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+# サーバー起動（マイグレーションはRailwayのpre-deploy commandで実行）
+CMD ["npm", "start"]

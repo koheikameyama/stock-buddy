@@ -12,7 +12,31 @@
 1. **Settings**タブをクリック
 2. 下にスクロールして**Deploy**セクションを探す
 
-### 3. Custom Start Command（不要）
+### 3. Pre-Deploy Command設定（重要）
+
+デプロイ前に毎回マイグレーションを自動実行する設定：
+
+1. **Deploy**セクションで**「Custom Build Command」**を探す
+2. その下に**「Custom Install Command」**と**「Custom Start Command」**がある
+3. **「Custom Start Command」の上**に、`railway run`というセクションがあれば、そこに以下を設定：
+
+```bash
+npm install && npm run migrate:deploy
+```
+
+または、シンプルに：
+
+```bash
+npm run migrate:deploy
+```
+
+**注意**: Railwayの仕様により、pre-deploy commandが見つからない場合は、次の手順を使用してください：
+
+### 3-Alternative. Railway CLI経由でpre-deploy設定
+
+`railway.toml`を作成して、pre-deployコマンドを設定する方法もあります（後述）。
+
+### 4. Custom Start Command（不要）
 
 Dockerfileを使用しているため、Start Commandは設定不要です。
 
@@ -38,9 +62,38 @@ next.config.js
 Dockerfile
 ```
 
-## マイグレーション実行方法
+## デプロイ時のマイグレーション自動実行設定
 
-### オプション1: Railwayのワンクリックコマンド（推奨）
+### 方法: Custom Build Command（推奨）
+
+Railwayでは、ビルド完了後・デプロイ前に実行するコマンドを設定できます。
+
+1. Railwayダッシュボードで**Next.jsサービス**を開く
+2. **Settings**タブをクリック
+3. **Deploy**セクションまでスクロール
+4. **「Custom Build Command」**を探す
+5. 以下のコマンドを入力：
+   ```bash
+   npm run build && npm run migrate:deploy
+   ```
+
+   または、buildは自動実行されるので：
+   ```bash
+   npm run migrate:deploy
+   ```
+
+6. **「Save」**をクリック
+
+これで、次回デプロイ時から自動的にマイグレーションが実行されます。
+
+**注意事項:**
+- ✅ ビルド成功後、コンテナ起動前にマイグレーションが実行されます
+- ✅ マイグレーション失敗時はデプロイが中止されます（安全）
+- ✅ 再起動時には実行されません（デプロイ時のみ）
+
+## 手動でマイグレーションを実行する方法
+
+### オプション1: Railwayのワンクリックコマンド
 
 1. Railwayダッシュボードで**Next.jsサービス**を開く
 2. 右上の**「・・・」メニュー**
