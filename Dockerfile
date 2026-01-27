@@ -55,5 +55,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# マイグレーション実行後にサーバー起動
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+# サーバー起動（マイグレーションはpre-deploy commandで実行）
+CMD ["node", "server.js"]
