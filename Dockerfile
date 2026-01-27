@@ -62,5 +62,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# サーバー起動（マイグレーションはRailwayのpre-deploy commandで実行）
-CMD ["npm", "start"]
+# マイグレーション実行後にサーバー起動
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
