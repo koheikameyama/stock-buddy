@@ -90,6 +90,7 @@ export default function OnboardingPage() {
   const handleGetRecommendations = async () => {
     setLoading(true)
     try {
+      console.log("Sending formData:", formData)
       const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: {
@@ -99,7 +100,9 @@ export default function OnboardingPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to generate recommendations")
+        const errorData = await response.json()
+        console.error("API Error:", errorData)
+        throw new Error(errorData.error || "Failed to generate recommendations")
       }
 
       const data = await response.json()
@@ -107,7 +110,7 @@ export default function OnboardingPage() {
       setStep(5) // 提案表示へ
     } catch (error) {
       console.error("Error:", error)
-      alert("エラーが発生しました。もう一度お試しください。")
+      alert(`エラーが発生しました: ${error instanceof Error ? error.message : "もう一度お試しください"}`)
     } finally {
       setLoading(false)
     }
