@@ -6,11 +6,23 @@ import { useRouter } from "next/navigation"
 export default function OnboardingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [showCustomBudget, setShowCustomBudget] = useState(false)
+  const [customBudgetValue, setCustomBudgetValue] = useState("")
   const [formData, setFormData] = useState({
     budget: "100000", // デフォルト値を設定
     investmentPeriod: "medium", // short, medium, long
     riskTolerance: "medium", // low, medium, high
   })
+
+  const handleBudgetSelect = (value: string) => {
+    if (value === "custom") {
+      setShowCustomBudget(true)
+      setFormData({ ...formData, budget: customBudgetValue || "10000" })
+    } else {
+      setShowCustomBudget(false)
+      setFormData({ ...formData, budget: value })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,13 +79,18 @@ export default function OnboardingPage() {
                 { value: "300000", label: "30万円", desc: "本格的に運用" },
                 { value: "500000", label: "50万円", desc: "分散投資向け" },
                 { value: "1000000", label: "100万円", desc: "しっかり運用" },
+                { value: "custom", label: "その他", desc: "金額を入力する" },
               ].map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => setFormData({ ...formData, budget: option.value })}
+                  onClick={() => handleBudgetSelect(option.value)}
                   className={`p-4 border-2 rounded-lg transition-all ${
-                    formData.budget === option.value
+                    option.value === "custom"
+                      ? showCustomBudget
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                      : formData.budget === option.value && !showCustomBudget
                       ? "border-blue-600 bg-blue-50"
                       : "border-gray-200 hover:border-gray-300"
                   }`}
@@ -83,6 +100,33 @@ export default function OnboardingPage() {
                 </button>
               ))}
             </div>
+
+            {/* カスタム金額入力 */}
+            {showCustomBudget && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                <label htmlFor="customBudget" className="block text-sm font-semibold text-gray-700 mb-2">
+                  金額を入力してください（円）
+                </label>
+                <input
+                  type="number"
+                  id="customBudget"
+                  min="10000"
+                  step="10000"
+                  value={customBudgetValue}
+                  onChange={(e) => {
+                    setCustomBudgetValue(e.target.value)
+                    setFormData({ ...formData, budget: e.target.value })
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="例: 150000"
+                  autoFocus
+                />
+                <p className="mt-2 text-sm text-gray-600">
+                  ※ 最低 1万円から始められます
+                </p>
+              </div>
+            )}
+
             <p className="mt-3 text-sm text-gray-500">
               ※ 後から変更できます
             </p>
