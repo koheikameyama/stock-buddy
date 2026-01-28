@@ -28,6 +28,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // ログインしているユーザーのみアクセス可能
       return !!auth
     },
+    async redirect({ url, baseUrl }) {
+      // ログイン後の処理
+      if (url.startsWith(baseUrl)) {
+        // 既にbaseURLで始まる場合はそのまま返す
+        return url
+      }
+      // それ以外の場合はオンボーディングページにリダイレクト
+      return `${baseUrl}/onboarding`
+    },
   },
   trustHost: true,
   useSecureCookies: process.env.NODE_ENV === "production",
