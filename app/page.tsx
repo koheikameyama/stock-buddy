@@ -10,10 +10,10 @@ export default function Home() {
             Stock Buddy
           </h1>
           <p className="text-2xl md:text-3xl text-gray-700 mb-4">
-            任せるから、増える
+            任せて学んで、一緒に増やす
           </p>
           <p className="text-xl text-gray-600 mb-12">
-            AIに任せて、毎日ちょっと分かる投資
+            AIに判断を任せながら、理由を理解できる投資
           </p>
 
           <Link

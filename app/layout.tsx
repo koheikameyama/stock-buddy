@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Stock Buddy - AI投資アシスタント',
-  description: '任せるから、増える - AIに任せて、毎日ちょっと分かる投資',
+  description: '任せて学んで、一緒に増やす - AIに判断を任せながら、理由を理解できる投資',
 }
 
 export default function RootLayout({
