@@ -290,12 +290,13 @@ export default function OnboardingPage() {
 
     const handleComplete = async () => {
       if (holdings.length === 0) {
-        router.push("/dashboard/portfolio")
+        alert("少なくとも1つの保有銘柄を登録してください")
         return
       }
 
       setLoading(true)
       try {
+        // 保有銘柄を登録
         const response = await fetch("/api/onboarding/add-holdings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -306,11 +307,11 @@ export default function OnboardingPage() {
           throw new Error("Failed to add holdings")
         }
 
-        router.push("/dashboard/portfolio")
+        // 保有銘柄を考慮した銘柄提案へ
+        await handleGetRecommendations()
       } catch (error) {
         console.error("Error:", error)
         alert("銘柄の追加に失敗しました。もう一度お試しください。")
-      } finally {
         setLoading(false)
       }
     }
@@ -451,10 +452,10 @@ export default function OnboardingPage() {
 
             <button
               onClick={handleComplete}
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300"
+              disabled={loading || holdings.length === 0}
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              {loading ? "保存中..." : holdings.length > 0 ? `完了（${holdings.length}銘柄を追加）` : "スキップして完了"}
+              {loading ? "保存中..." : `次へ（${holdings.length}銘柄登録済み）`}
             </button>
           </div>
         </div>
