@@ -136,9 +136,22 @@ export default function OnboardingPage() {
     return false
   }
 
+  // 新規投資家向け（最低1万円から）
   const budgetOptions = [
     { value: "10000", label: "1万円", desc: "まずは少額から" },
     { value: "30000", label: "3万円", desc: "無理なく始める" },
+    { value: "50000", label: "5万円", desc: "少しずつ増やす" },
+    { value: "100000", label: "10万円", desc: "バランスの取れた金額", badge: true },
+    { value: "300000", label: "30万円", desc: "本格的に始める" },
+    { value: "500000", label: "50万円", desc: "分散投資" },
+    { value: "1000000", label: "100万円", desc: "しっかり運用" },
+    { value: "custom", label: "その他の金額", desc: "自由に入力" },
+  ]
+
+  // 既存投資家向け（追加投資なし=0円もOK）
+  const existingInvestorBudgetOptions = [
+    { value: "0", label: "追加投資なし", desc: "保有銘柄のみ管理" },
+    { value: "30000", label: "3万円", desc: "まずは少額から" },
     { value: "50000", label: "5万円", desc: "少しずつ増やす" },
     { value: "100000", label: "10万円", desc: "バランスの取れた金額", badge: true },
     { value: "300000", label: "30万円", desc: "本格的に始める" },
@@ -638,7 +651,7 @@ export default function OnboardingPage() {
               </p>
 
               <div className="space-y-2">
-                {budgetOptions.map((option) => (
+                {(isExistingInvestor ? existingInvestorBudgetOptions : budgetOptions).map((option) => (
                   <button
                     key={option.value}
                     type="button"
