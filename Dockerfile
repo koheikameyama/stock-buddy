@@ -10,10 +10,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 
-# キャッシュマウントを使用してnpm ciを高速化
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production && \
-    npm ci --only=development
+# 依存関係をインストール
+RUN npm ci --include=dev
 
 # ビルダー
 FROM base AS builder
