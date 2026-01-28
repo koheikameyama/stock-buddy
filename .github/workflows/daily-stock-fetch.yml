@@ -31,6 +31,21 @@ jobs:
         run: |
           python scripts/fetch_stocks.py
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Calculate stock scores
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run calculate-scores
+
       - name: Notify success to Slack
         if: success()
         run: |
@@ -43,7 +58,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ 株価データ取得成功*\n毎日の株価データ取得が正常に完了しました。"
+                    "text": "*✅ 株価データ取得・スコア計算成功*\n毎日の株価データ取得とスコア再計算が正常に完了しました。"
                   }
                 },
                 {
@@ -70,7 +85,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*❌ 株価データ取得失敗*\n株価データの取得中にエラーが発生しました。"
+                    "text": "*❌ 株価データ取得・スコア計算失敗*\n株価データの取得またはスコア計算中にエラーが発生しました。"
                   }
                 },
                 {
