@@ -7,7 +7,7 @@ export default function OnboardingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    budget: "",
+    budget: "100000", // デフォルト値を設定
     investmentPeriod: "medium", // short, medium, long
     riskTolerance: "medium", // low, medium, high
   })
@@ -56,22 +56,35 @@ export default function OnboardingPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-md p-8 space-y-6">
           {/* 予算 */}
           <div>
-            <label htmlFor="budget" className="block text-sm font-semibold text-gray-700 mb-2">
-              投資予算（円）
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              投資予算
             </label>
-            <input
-              type="number"
-              id="budget"
-              required
-              min="10000"
-              step="10000"
-              value={formData.budget}
-              onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="例: 100000"
-            />
-            <p className="mt-1 text-sm text-gray-500">
-              最低 10,000円から始められます
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { value: "30000", label: "3万円", desc: "まずは少額から" },
+                { value: "50000", label: "5万円", desc: "お試しで始める" },
+                { value: "100000", label: "10万円", desc: "おすすめ" },
+                { value: "300000", label: "30万円", desc: "本格的に運用" },
+                { value: "500000", label: "50万円", desc: "分散投資向け" },
+                { value: "1000000", label: "100万円", desc: "しっかり運用" },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, budget: option.value })}
+                  className={`p-4 border-2 rounded-lg transition-all ${
+                    formData.budget === option.value
+                      ? "border-blue-600 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900">{option.label}</div>
+                  <div className="text-sm text-gray-500">{option.desc}</div>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-gray-500">
+              ※ 後から変更できます
             </p>
           </div>
 
@@ -134,7 +147,7 @@ export default function OnboardingPage() {
           {/* 送信ボタン */}
           <button
             type="submit"
-            disabled={loading || !formData.budget}
+            disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "分析中..." : "AIに銘柄を提案してもらう"}
