@@ -199,6 +199,17 @@ export default function OnboardingPage() {
             <button
               onClick={async () => {
                 setHasExistingHoldings(false)
+
+                // 投資金額が0円の場合はシミュレーション案内
+                if (formData.budget === "0") {
+                  const confirmed = window.confirm(
+                    "投資金額が0円、かつ保有銘柄もない場合、実際の資産運用はできませんが、\n" +
+                    "シミュレーションモードとして銘柄提案やポートフォリオ管理を体験できます。\n\n" +
+                    "このまま進みますか？"
+                  )
+                  if (!confirmed) return
+                }
+
                 await handleGetRecommendations()
               }}
               className="w-full bg-white text-gray-700 py-4 px-6 rounded-xl font-semibold border-2 border-gray-300 hover:bg-gray-50 transition-colors"
