@@ -1,5 +1,6 @@
 import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -15,6 +16,32 @@ export default async function DashboardPage() {
         <p className="text-xl text-gray-600">
           AIに任せて、毎日ちょっと分かる投資
         </p>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
+          <Link
+            href="/dashboard/portfolio"
+            className="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
+          >
+            <h2 className="text-lg font-bold mb-2">ポートフォリオ</h2>
+            <p className="text-sm text-gray-600">保有銘柄の確認</p>
+          </Link>
+
+          <Link
+            href="/dashboard/reports"
+            className="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
+          >
+            <h2 className="text-lg font-bold mb-2">レポート</h2>
+            <p className="text-sm text-gray-600">日次分析レポート</p>
+          </Link>
+
+          <Link
+            href="/dashboard/settings"
+            className="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
+          >
+            <h2 className="text-lg font-bold mb-2">投資スタイル設定</h2>
+            <p className="text-sm text-gray-600">投資方針の変更</p>
+          </Link>
+        </div>
 
         <div className="mt-8 p-4 bg-white rounded-lg shadow">
           <p className="text-sm text-gray-500">ログイン中</p>
