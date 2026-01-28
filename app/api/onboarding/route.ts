@@ -209,37 +209,41 @@ export async function POST(request: NextRequest) {
       liquidityScore: s.liquidityScore,
     }))
 
-    // 目標銘柄数を決定
-    const targetStockCount = budgetNum <= 100000 ? 3 : budgetNum <= 500000 ? 4 : 5
+    // 目標銘柄数を動的に決定（予算に応じて柔軟に）
+    const targetStockCount = budgetNum <= 50000 ? 1 : budgetNum <= 100000 ? 2 : budgetNum <= 300000 ? 3 : budgetNum <= 500000 ? 4 : 5
 
-    // 各プラン用に候補銘柄を絞る（予算内で購入可能な銘柄のみ）
+    // 予算に余裕を持たせる（10-30%超過を許容）
+    const maxBudgetMultiplier = budgetNum <= 100000 ? 1.3 : budgetNum <= 300000 ? 1.2 : 1.1
+
+    // 各プラン用に候補銘柄を絞る（購入可能性がある銘柄）
     const conservativeCandidates = stocksForPortfolio
-      .filter(s => s.currentPrice * 100 <= budgetNum * 0.4) // 予算の40%以内
+      .filter(s => s.currentPrice * 100 <= budgetNum * maxBudgetMultiplier) // 予算+α以内
       .sort((a, b) => {
         const scoreA = (a.beginnerScore || 0) * 0.5 + (a.stabilityScore || 0) * 0.4 + (a.growthScore || 0) * 0.1
         const scoreB = (b.beginnerScore || 0) * 0.5 + (b.stabilityScore || 0) * 0.4 + (b.growthScore || 0) * 0.1
         return scoreB - scoreA
       })
-      .slice(0, 12) // 上位12銘柄をAIに渡す
+      .slice(0, Math.max(12, targetStockCount * 3)) // 最低でもtargetの3倍
 
     const balancedCandidates = stocksForPortfolio
-      .filter(s => s.currentPrice * 100 <= budgetNum * 0.35)
+      .filter(s => s.currentPrice * 100 <= budgetNum * maxBudgetMultiplier)
       .sort((a, b) => {
         const scoreA = (a.beginnerScore || 0) * 0.3 + (a.growthScore || 0) * 0.4 + (a.stabilityScore || 0) * 0.3
         const scoreB = (b.beginnerScore || 0) * 0.3 + (b.growthScore || 0) * 0.4 + (b.stabilityScore || 0) * 0.3
         return scoreB - scoreA
       })
-      .slice(0, 12)
+      .slice(0, Math.max(12, targetStockCount * 3))
 
     const aggressiveCandidates = stocksForPortfolio
-      .filter(s => s.currentPrice * 100 <= budgetNum * 0.35)
+      .filter(s => s.currentPrice * 100 <= budgetNum * maxBudgetMultiplier)
       .sort((a, b) => {
         const scoreA = (a.beginnerScore || 0) * 0.1 + (a.growthScore || 0) * 0.7 + (a.stabilityScore || 0) * 0.2
         const scoreB = (b.beginnerScore || 0) * 0.1 + (b.growthScore || 0) * 0.7 + (b.stabilityScore || 0) * 0.2
         return scoreB - scoreA
       })
-      .slice(0, 12)
+      .slice(0, Math.max(12, targetStockCount * 3))
 
+    console.log(`Budget: ${budgetNum}, Target stocks: ${targetStockCount}, Max multiplier: ${maxBudgetMultiplier}`)
     console.log(`Candidate stocks - Conservative: ${conservativeCandidates.length}, Balanced: ${balancedCandidates.length}, Aggressive: ${aggressiveCandidates.length}`)
 
     if (conservativeCandidates.length < targetStockCount || balancedCandidates.length < targetStockCount || aggressiveCandidates.length < targetStockCount) {
@@ -268,24 +272,22 @@ export async function POST(request: NextRequest) {
 各プラン用に提供された候補銘柄リストから、最適な銘柄を選択してポートフォリオを構成してください。
 
 **重要な選択基準**:
-1. **セクター分散**: 同じセクターから最大2銘柄まで。最低2セクター以上
-2. **予算遵守**: 選択した銘柄の合計金額が予算の90%以内
-3. **各銘柄100株ずつ購入**: quantityは必ず100
+1. **銘柄数**: ${targetStockCount}銘柄を選択（予算が少ない場合は1銘柄でもOK）
+2. **セクター分散**: できるだけ異なるセクターから選択（2銘柄以上の場合）
+3. **予算**: 合計金額が予算の${Math.round(maxBudgetMultiplier * 100)}%以内（若干の超過は許容）
+4. **各銘柄100株ずつ購入**: quantityは必ず100
 
 **保守的プラン**:
-- ${targetStockCount}銘柄を選択
 - 初心者スコアと安定性スコアが高い銘柄を優先
-- セクター分散を重視
+- リスクを最小限に
 
 **バランスプラン**:
-- ${targetStockCount}銘柄を選択
 - 成長性と安定性のバランス
-- セクター分散を重視
+- 適度なリスクとリターン
 
 **積極的プラン**:
-- ${targetStockCount}銘柄を選択
 - 成長性スコアが高い銘柄を優先
-- セクター分散を重視
+- 高リターンを狙う
 
 必ず以下の形式でJSONを返してください：
 {
@@ -335,7 +337,7 @@ export async function POST(request: NextRequest) {
             content: `以下の候補銘柄リストから最適な銘柄を選択し、3つのプランを作成してください。
 
 【ユーザーの投資スタイル】
-- 予算: ${budget}円（選択した銘柄の合計金額が予算の90%以内になるようにしてください）
+- 予算: ${budget}円（合計金額が${Math.round(budgetNum * maxBudgetMultiplier).toLocaleString()}円以内であれば許容）
 - 投資期間: ${investmentPeriod}
 - リスク許容度: ${riskTolerance}
 
@@ -373,9 +375,9 @@ ${JSON.stringify(aggressiveCandidates.map(s => ({
 })), null, 2)}
 
 **重要な制約**:
-1. 各プランで${targetStockCount}銘柄を選択
-2. 同じセクターから最大2銘柄まで
-3. 合計金額が予算${budget}円の90%以内
+1. 各プランで${targetStockCount}銘柄を選択（予算が少ない場合は${targetStockCount}銘柄未満でもOK）
+2. できるだけ異なるセクターから選択（2銘柄以上の場合）
+3. 合計金額が${Math.round(budgetNum * maxBudgetMultiplier).toLocaleString()}円以内
 4. 各銘柄100株ずつ購入
 5. recommendedPriceはcurrentPriceをそのまま使用
 
