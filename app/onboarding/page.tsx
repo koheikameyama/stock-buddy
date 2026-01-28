@@ -14,10 +14,11 @@ type Recommendation = {
 export default function OnboardingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState(0) // 0: 初期選択, 1: 予算, 2: 期間, 3: リスク, 4: 提案表示
+  const [step, setStep] = useState(0) // 0: 初期選択, 1: 予算, 2: 期間, 3: リスク, 4: 提案表示, 5: 保有銘柄入力
   const [showCustomBudget, setShowCustomBudget] = useState(false)
   const [customBudgetValue, setCustomBudgetValue] = useState("")
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [isSkipped, setIsSkipped] = useState(false) // スキップフラグ
   const [formData, setFormData] = useState({
     budget: "",
     investmentPeriod: "",
@@ -25,8 +26,9 @@ export default function OnboardingPage() {
   })
 
   const handleSkip = () => {
-    // オンボーディングをスキップしてダッシュボードへ
-    router.push("/dashboard/portfolio")
+    // スキップフラグを立てて投資スタイル入力へ
+    setIsSkipped(true)
+    setStep(1)
   }
 
   const handleStart = () => {
@@ -51,6 +53,34 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (isSkipped) {
+      // スキップの場合は投資スタイルのみ保存して保有銘柄入力へ
+      setLoading(true)
+      try {
+        const response = await fetch("/api/onboarding/settings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to save settings")
+        }
+
+        setStep(5) // 保有銘柄入力へ
+      } catch (error) {
+        console.error("Error:", error)
+        alert("エラーが発生しました。もう一度お試しください。")
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // 通常のオンボーディングフロー
     setLoading(true)
 
     try {
@@ -137,6 +167,44 @@ export default function OnboardingPage() {
           <p className="text-sm text-gray-500 text-center mt-6">
             すでに投資をしている方は、スキップして直接ポートフォリオに銘柄を追加できます
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  // 保有銘柄入力画面（スキップ時）
+  if (step === 5) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+        <div className="max-w-2xl mx-auto py-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">保有銘柄を入力</h1>
+            <p className="text-gray-600 mb-8">
+              現在保有している銘柄を入力してください。正確な分析のために、購入価格と株数を記録しましょう。
+            </p>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-blue-800 font-semibold mb-2">
+                💡 ヒント
+              </p>
+              <p className="text-sm text-blue-700">
+                まだ保有銘柄がない場合は、「後で追加する」をクリックしてダッシュボードへ進めます。
+                ダッシュボードからいつでも追加できます。
+              </p>
+            </div>
+
+            <div className="text-center py-12">
+              <p className="text-gray-500 mb-6">
+                銘柄入力機能は次のアップデートで実装予定です
+              </p>
+              <button
+                onClick={() => router.push("/dashboard/portfolio")}
+                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+              >
+                後で追加する
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
