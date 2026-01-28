@@ -56,7 +56,55 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // OpenAI APIを使って銘柄を提案
+    // DBから実際の銘柄データを取得（最新株価付き）
+    const stocks = await prisma.stock.findMany({
+      where: {
+        tickerCode: {
+          endsWith: ".T",
+        },
+      },
+      include: {
+        prices: {
+          orderBy: {
+            date: "desc",
+          },
+          take: 30, // 直近30日分
+        },
+      },
+    })
+
+    // 株価データがある銘柄のみをフィルタ
+    const stocksWithPrice = stocks
+      .filter((s) => s.prices.length > 0)
+      .map((s) => {
+        const latestPrice = s.prices[0]
+        const priceHistory = s.prices.slice(0, 30)
+
+        // 価格変動率を計算（過去30日）
+        const oldestPrice = priceHistory[priceHistory.length - 1]
+        const priceChange =
+          oldestPrice
+            ? ((Number(latestPrice.close) - Number(oldestPrice.close)) /
+                Number(oldestPrice.close)) *
+              100
+            : 0
+
+        // 平均出来高を計算
+        const avgVolume =
+          priceHistory.reduce((sum, p) => sum + Number(p.volume), 0) /
+          priceHistory.length
+
+        return {
+          tickerCode: s.tickerCode.replace(".T", ""),
+          name: s.name,
+          sector: s.sector,
+          currentPrice: Number(latestPrice.close),
+          priceChange30d: priceChange,
+          avgVolume: avgVolume,
+        }
+      })
+
+    // AIに実データを渡して提案
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -68,30 +116,32 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `あなたは日本株の投資アドバイザーです。ユーザーの投資スタイルに基づいて、適切な銘柄を3〜5個提案してください。
+            content: `あなたは日本株の投資アドバイザーです。以下の実際の株価データを基に、ユーザーの投資スタイルに適した銘柄を3〜5個提案してください。
 
 **重要な制約**:
-- 提案する全銘柄の合計投資金額（recommendedPrice × quantity）は、必ずユーザーの予算の80%以内に収めてください
+- 提案する全銘柄の合計投資金額は、必ずユーザーの予算の80%以内に収めてください
 - 予算が少ない場合は、銘柄数を減らしてください（1〜2銘柄でも可）
 - 単元株制度を考慮し、quantityは100株単位を基本としてください
 - 1銘柄あたりの投資額が予算の50%を超えないように分散してください
+- **tickerCodeは提供されたリストから正確に選択してください（数字のみ、.Tは付けない）**
+- **recommendedPriceは必ずcurrentPriceを使用してください**
 
 各銘柄について以下の情報をJSON形式で返してください：
-- tickerCode: 銘柄コード（数字のみ、例: 7203）
+- tickerCode: 銘柄コード（提供リストから選択、例: "7203"）
 - name: 銘柄名
-- recommendedPrice: 推奨購入価格（円）
-- quantity: 推奨購入株数
-- reason: 推奨理由（100文字程度）
+- recommendedPrice: 推奨購入価格（currentPriceの値を使用）
+- quantity: 推奨購入株数（100株単位）
+- reason: 推奨理由（セクター、価格動向、出来高などを考慮して100文字程度）
 
-リスク許容度：
-- low: 大型株、配当銘柄中心
-- medium: 成長株と安定株のバランス
-- high: 成長株、新興市場も含む
+リスク許容度の考慮：
+- low: 価格変動が小さい安定した大型株を優先（priceChange30dが小さい銘柄）
+- medium: 適度な成長性と安定性のバランス
+- high: 成長性が高い銘柄を優先（priceChange30dがプラスの銘柄）
 
-投資期間：
-- short: 短期的な値動きが期待できる銘柄
-- medium: 中期的な成長が見込める銘柄
-- long: 長期保有に適した安定銘柄
+投資期間の考慮：
+- short: 出来高が多く流動性が高い銘柄
+- medium: 安定した業績が期待できるセクター
+- long: 配当や長期成長が期待できる銘柄
 
 必ず以下の形式でJSONを返してください：
 {
@@ -99,9 +149,9 @@ export async function POST(request: NextRequest) {
     {
       "tickerCode": "7203",
       "name": "トヨタ自動車",
-      "recommendedPrice": 2500,
+      "recommendedPrice": 3347,
       "quantity": 100,
-      "reason": "..."
+      "reason": "輸送用機器セクターの大型株。直近30日で安定した値動き。高い流動性で売買しやすい。"
     }
   ]
 }`,
@@ -109,11 +159,16 @@ export async function POST(request: NextRequest) {
           {
             role: "user",
             content: `以下の条件で銘柄を提案してください：
+
+【投資条件】
 - 予算: ${budget}円
 - 投資期間: ${investmentPeriod}
 - リスク許容度: ${riskTolerance}
 
-JSON形式で返してください。`,
+【利用可能な銘柄データ（実際の株価）】
+${JSON.stringify(stocksWithPrice, null, 2)}
+
+上記のデータから適切な銘柄を選んで、JSON形式で返してください。`,
           },
         ],
         temperature: 0.7,
@@ -131,9 +186,15 @@ JSON形式で返してください。`,
 
     // 提案をウォッチリストに保存
     const watchlistPromises = recommendations.stocks.map(async (stock: any) => {
-      // 銘柄がDBに存在するか確認
+      // 銘柄がDBに存在するか確認（.Tあり/なし両方に対応）
+      const tickerCodeWithT = stock.tickerCode.includes(".T")
+        ? stock.tickerCode
+        : `${stock.tickerCode}.T`
+
       let dbStock = await prisma.stock.findFirst({
-        where: { tickerCode: stock.tickerCode },
+        where: {
+          OR: [{ tickerCode: stock.tickerCode }, { tickerCode: tickerCodeWithT }],
+        },
       })
 
       // 存在しない場合は作成
