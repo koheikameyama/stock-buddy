@@ -216,41 +216,10 @@ function calculateLiquidityScore(stats: PriceStats): number {
 }
 
 /**
- * 時価総額と配当利回りを推定（簡易版）
- */
-async function estimateStockMetrics(stockId: string): Promise<{
-  marketCap: number | null
-  dividendYield: number | null
-}> {
-  const latestPrice = await prisma.stockPrice.findFirst({
-    where: { stockId },
-    orderBy: { date: "desc" },
-  })
-
-  if (!latestPrice) {
-    return { marketCap: null, dividendYield: null }
-  }
-
-  const price = Number(latestPrice.close)
-
-  // 株価から時価総額を推定（非常に大雑把）
-  let estimatedMarketCap = null
-  if (price > 10000) estimatedMarketCap = 100000
-  else if (price > 5000) estimatedMarketCap = 50000
-  else if (price > 3000) estimatedMarketCap = 30000
-  else if (price > 1500) estimatedMarketCap = 10000
-  else if (price > 800) estimatedMarketCap = 5000
-  else estimatedMarketCap = 1000
-
-  // 配当利回りは仮で設定（実際にはyfinanceから取得すべき）
-  // セクター別の平均的な配当利回り
-  const dividendYield = null // TODO: 外部APIから取得
-
-  return { marketCap: estimatedMarketCap, dividendYield }
-}
-
-/**
  * メイン処理
+ *
+ * 時価総額と配当利回りはinit_data.pyで既にDBに保存済み。
+ * このスクリプトは株価データから統計情報を計算し、各種スコアを算出する。
  */
 async function main() {
   console.log("🚀 銘柄スコア計算を開始します\n")
@@ -261,6 +230,8 @@ async function main() {
       tickerCode: true,
       name: true,
       sector: true,
+      marketCap: true,
+      dividendYield: true,
     },
   })
 
@@ -276,8 +247,9 @@ async function main() {
       // 株価統計情報を計算
       const stats = await calculatePriceStats(stock.id)
 
-      // 時価総額と配当利回りを推定
-      const { marketCap, dividendYield } = await estimateStockMetrics(stock.id)
+      // 時価総額と配当利回りをDBから取得
+      const marketCap = stock.marketCap ? Number(stock.marketCap) : null
+      const dividendYield = stock.dividendYield ? Number(stock.dividendYield) : null
 
       // 各スコアを計算
       const beginnerScore = calculateBeginnerScore(stock.sector, marketCap, stats)
@@ -286,12 +258,10 @@ async function main() {
       const stabilityScore = calculateStabilityScore(marketCap, stats)
       const liquidityScore = calculateLiquidityScore(stats)
 
-      // データベース更新
+      // データベース更新（スコアのみ）
       await prisma.stock.update({
         where: { id: stock.id },
         data: {
-          marketCap,
-          dividendYield,
           beginnerScore,
           growthScore,
           dividendScore,

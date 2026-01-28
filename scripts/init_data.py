@@ -274,18 +274,36 @@ def init_stocks():
             try:
                 print(f"\nInitializing {ticker} - {name}...")
 
+                # yfinanceから銘柄情報を取得
+                stock = yf.Ticker(ticker)
+                info = stock.info
+
+                # 時価総額（円 → 億円に変換）
+                market_cap = info.get('marketCap')
+                market_cap_oku = None
+                if market_cap:
+                    market_cap_oku = market_cap / 100000000  # 円 → 億円
+
+                # 配当利回り（小数 → %に変換）
+                dividend_yield = info.get('dividendYield')
+                dividend_yield_pct = None
+                if dividend_yield:
+                    dividend_yield_pct = dividend_yield * 100  # 0.0284 → 2.84%
+
                 # 銘柄マスタ登録
                 cur.execute("""
-                    INSERT INTO "Stock" (id, "tickerCode", name, market, sector, "createdAt")
-                    VALUES (gen_random_uuid(), %s, %s, %s, %s, NOW())
-                    ON CONFLICT ("tickerCode") DO NOTHING
+                    INSERT INTO "Stock" (id, "tickerCode", name, market, sector, "marketCap", "dividendYield", "createdAt")
+                    VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT ("tickerCode") DO UPDATE SET
+                        "marketCap" = EXCLUDED."marketCap",
+                        "dividendYield" = EXCLUDED."dividendYield"
                     RETURNING id
-                """, (ticker, name, market, sector))
+                """, (ticker, name, market, sector, market_cap_oku, dividend_yield_pct))
 
                 result = cur.fetchone()
                 if result:
                     stock_id = result[0]
-                    print(f"  ✓ Stock registered with ID: {stock_id}")
+                    print(f"  ✓ Stock registered (時価総額: {market_cap_oku:.0f if market_cap_oku else 0}億円, 配当: {dividend_yield_pct:.2f if dividend_yield_pct else 0}%)")
                 else:
                     # 既存レコードのIDを取得
                     cur.execute('SELECT id FROM "Stock" WHERE "tickerCode" = %s', (ticker,))
@@ -294,7 +312,6 @@ def init_stocks():
 
                 # 過去2年分の株価データ取得
                 print(f"  Fetching 2 years of historical data...")
-                stock = yf.Ticker(ticker)
                 hist = stock.history(period="2y")
 
                 if hist.empty:
