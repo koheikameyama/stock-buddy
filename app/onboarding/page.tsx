@@ -137,8 +137,8 @@ export default function OnboardingPage() {
   }
 
   const budgetOptions = [
-    { value: "0", label: "追加投資の予定なし", desc: "今は様子見" },
-    { value: "30000", label: "3万円", desc: "まずは少額から" },
+    { value: "10000", label: "1万円", desc: "まずは少額から" },
+    { value: "30000", label: "3万円", desc: "無理なく始める" },
     { value: "50000", label: "5万円", desc: "少しずつ増やす" },
     { value: "100000", label: "10万円", desc: "バランスの取れた金額", badge: true },
     { value: "300000", label: "30万円", desc: "本格的に始める" },

@@ -104,7 +104,7 @@ export default function SettingsPage() {
   }
 
   const investmentOptions = [
-    { value: "0", label: "追加投資の予定なし", desc: "今は様子見" },
+    { value: "0", label: "新規投資なし", desc: "保有銘柄のみ管理" },
     { value: "30000", label: "3万円", desc: "まずは少額から" },
     { value: "50000", label: "5万円", desc: "少しずつ増やす" },
     { value: "100000", label: "10万円", desc: "バランスの取れた金額" },
@@ -168,6 +168,9 @@ export default function SettingsPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               追加投資予定金額
             </h2>
+            <p className="text-sm text-gray-600 mb-3">
+              今後新たに投資する予定の金額（既に保有している銘柄は含みません）
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {investmentOptions.map((option) => (
                 <button
