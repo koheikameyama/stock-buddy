@@ -129,7 +129,51 @@ JSON形式で返してください。`,
     const openaiData = await openaiResponse.json()
     const recommendations = JSON.parse(openaiData.choices[0].message.content)
 
-    // 提案のみを返す（DBには保存しない）
+    // 提案をウォッチリストに保存
+    const watchlistPromises = recommendations.stocks.map(async (stock: any) => {
+      // 銘柄がDBに存在するか確認
+      let dbStock = await prisma.stock.findFirst({
+        where: { tickerCode: stock.tickerCode },
+      })
+
+      // 存在しない場合は作成
+      if (!dbStock) {
+        dbStock = await prisma.stock.create({
+          data: {
+            tickerCode: stock.tickerCode,
+            name: stock.name,
+            market: "TSE",
+          },
+        })
+      }
+
+      // ウォッチリストに追加（既存の場合は更新）
+      return prisma.watchlist.upsert({
+        where: {
+          userId_stockId: {
+            userId: user.id,
+            stockId: dbStock.id,
+          },
+        },
+        update: {
+          recommendedPrice: stock.recommendedPrice,
+          recommendedQty: stock.quantity,
+          reason: stock.reason,
+          source: "onboarding",
+        },
+        create: {
+          userId: user.id,
+          stockId: dbStock.id,
+          recommendedPrice: stock.recommendedPrice,
+          recommendedQty: stock.quantity,
+          reason: stock.reason,
+          source: "onboarding",
+        },
+      })
+    })
+
+    await Promise.all(watchlistPromises)
+
     return NextResponse.json({
       success: true,
       recommendations: recommendations.stocks,
