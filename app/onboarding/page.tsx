@@ -3,17 +3,35 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
+type Recommendation = {
+  tickerCode: string
+  name: string
+  recommendedPrice: number
+  quantity: number
+  reason: string
+}
+
 export default function OnboardingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState(1) // 1: 予算, 2: 期間, 3: リスク
+  const [step, setStep] = useState(0) // 0: 初期選択, 1: 予算, 2: 期間, 3: リスク, 4: 提案表示
   const [showCustomBudget, setShowCustomBudget] = useState(false)
   const [customBudgetValue, setCustomBudgetValue] = useState("")
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [formData, setFormData] = useState({
     budget: "",
     investmentPeriod: "",
     riskTolerance: "",
   })
+
+  const handleSkip = () => {
+    // オンボーディングをスキップしてダッシュボードへ
+    router.push("/dashboard/portfolio")
+  }
+
+  const handleStart = () => {
+    setStep(1) // 予算選択へ
+  }
 
   const handleBudgetSelect = (value: string) => {
     if (value === "custom") {
@@ -49,7 +67,8 @@ export default function OnboardingPage() {
       }
 
       const data = await response.json()
-      router.push("/dashboard/portfolio")
+      setRecommendations(data.recommendations)
+      setStep(4) // 提案表示へ
     } catch (error) {
       console.error("Error:", error)
       alert("エラーが発生しました。もう一度お試しください。")
@@ -65,215 +84,291 @@ export default function OnboardingPage() {
     return false
   }
 
-  const renderOption = (option: any, selectedValue: string, onChange: (value: string) => void) => {
-    const isSelected = selectedValue === option.value
+  const budgetOptions = [
+    { value: "30000", label: "3万円", desc: "まずは少額から" },
+    { value: "50000", label: "5万円", desc: "少しずつ増やす" },
+    { value: "100000", label: "10万円", desc: "おすすめ", badge: true },
+    { value: "300000", label: "30万円", desc: "本格的に始める" },
+    { value: "500000", label: "50万円", desc: "分散投資" },
+    { value: "1000000", label: "100万円", desc: "しっかり運用" },
+    { value: "custom", label: "その他の金額", desc: "自由に入力" },
+  ]
 
+  const periodOptions = [
+    { value: "short", label: "短期（〜1年）", desc: "短期的な値動きを狙う" },
+    { value: "medium", label: "中期（1〜3年）", desc: "バランスの取れた運用" },
+    { value: "long", label: "長期（3年〜）", desc: "じっくり育てる" },
+  ]
+
+  const riskOptions = [
+    { value: "low", label: "低リスク", desc: "安定した大型株中心" },
+    { value: "medium", label: "中リスク", desc: "成長性と安定性のバランス" },
+    { value: "high", label: "高リスク", desc: "成長株・新興市場も含む" },
+  ]
+
+  // 初期選択画面
+  if (step === 0) {
     return (
-      <button
-        key={option.value}
-        type="button"
-        onClick={() => onChange(option.value)}
-        className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
-          isSelected
-            ? "bg-blue-600 text-white shadow-lg scale-[1.02]"
-            : "bg-white border-2 border-gray-200 hover:border-blue-300 active:scale-[0.98]"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-            isSelected ? "border-white" : "border-gray-300"
-          }`}>
-            {isSelected && (
-              <div className="w-3 h-3 rounded-full bg-white"></div>
-            )}
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Stock Buddyへようこそ</h1>
+            <p className="text-gray-600">
+              あなたの投資スタイルに合わせた銘柄を提案します
+            </p>
           </div>
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg">{option.label}</span>
-              {option.badge && !isSelected && (
-                <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold">
-                  おすすめ
-                </span>
-              )}
-            </div>
-            <div className={`text-sm ${isSelected ? "text-blue-100" : "text-gray-500"}`}>
-              {option.desc}
-            </div>
+
+          <div className="space-y-4">
+            <button
+              onClick={handleStart}
+              className="w-full bg-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+            >
+              銘柄提案を受ける
+            </button>
+
+            <button
+              onClick={handleSkip}
+              className="w-full bg-white text-gray-700 py-4 px-6 rounded-xl font-semibold hover:bg-gray-50 transition-colors border-2 border-gray-200"
+            >
+              スキップして始める
+            </button>
           </div>
+
+          <p className="text-sm text-gray-500 text-center mt-6">
+            すでに投資をしている方は、スキップして直接ポートフォリオに銘柄を追加できます
+          </p>
         </div>
-        {isSelected && (
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-        )}
-      </button>
+      </div>
     )
   }
 
+  // 提案表示画面
+  if (step === 4) {
+    const totalCost = recommendations.reduce(
+      (sum, rec) => sum + rec.recommendedPrice * rec.quantity,
+      0
+    )
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+        <div className="max-w-4xl mx-auto py-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">おすすめ銘柄</h1>
+            <p className="text-gray-600 mb-8">
+              以下は参考情報です。実際に購入した銘柄は、ダッシュボードから手動で追加してください。
+            </p>
+
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700 font-semibold">推定投資総額</span>
+                <span className="text-2xl font-bold text-blue-600">
+                  {totalCost.toLocaleString()}円
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                予算: {parseInt(formData.budget).toLocaleString()}円 の{" "}
+                {Math.round((totalCost / parseInt(formData.budget)) * 100)}%
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              {recommendations.map((rec, index) => (
+                <div key={index} className="border rounded-xl p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">{rec.name}</h3>
+                      <p className="text-gray-600">{rec.tickerCode}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">推奨購入額</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {(rec.recommendedPrice * rec.quantity).toLocaleString()}円
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div>
+                      <p className="text-gray-600">株価</p>
+                      <p className="font-semibold">{rec.recommendedPrice.toLocaleString()}円</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">推奨株数</p>
+                      <p className="font-semibold">{rec.quantity}株</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">推奨理由</p>
+                    <p className="text-sm text-gray-600">{rec.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-800 font-semibold mb-2">
+                ⚠️ この提案は参考情報です
+              </p>
+              <p className="text-sm text-yellow-700">
+                実際に購入した銘柄は、ダッシュボードのポートフォリオから手動で追加してください。
+                購入日、購入価格、株数を正確に入力することで、正確な分析が可能になります。
+              </p>
+            </div>
+
+            <button
+              onClick={() => router.push("/dashboard/portfolio")}
+              className="w-full bg-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+            >
+              ダッシュボードへ
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ステップ表示（予算・期間・リスク）
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-8 px-4">
-      <div className="max-w-lg mx-auto">
-        {/* プログレスバー */}
-        <div className="mb-8">
-          <div className="flex items-center mb-3">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="flex items-center mb-6">
             {[1, 2, 3].map((s, index) => (
-              <div key={s} className="flex items-center" style={{ flex: index < 2 ? '1' : '0 0 auto' }}>
+              <div
+                key={s}
+                className="flex items-center"
+                style={{ flex: index < 2 ? "1" : "0 0 auto" }}
+              >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
-                    s < step
-                      ? "bg-blue-600 text-white"
-                      : s === step
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                    s === step
                       ? "bg-blue-600 text-white scale-110"
-                      : "bg-gray-200 text-gray-400"
+                      : s < step
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {s < step ? "✓" : s}
                 </div>
                 {s < 3 && (
                   <div
-                    className={`h-1 flex-1 mx-2 transition-all ${
-                      s < step ? "bg-blue-600" : "bg-gray-200"
-                    }`}
+                    className={`h-1 flex-1 mx-2 transition-colors ${s < step ? "bg-blue-600" : "bg-gray-200"}`}
                   />
                 )}
               </div>
             ))}
           </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              ステップ {step} / 3
-            </p>
-          </div>
-        </div>
 
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {step === 1 && "投資予算"}
-            {step === 2 && "投資期間"}
-            {step === 3 && "リスク許容度"}
-          </h1>
-          <p className="text-gray-600">
-            {step === 1 && "どのくらいの金額で投資を始めますか？"}
-            {step === 2 && "どのくらいの期間で運用しますか？"}
-            {step === 3 && "どのくらいのリスクを取れますか？"}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ステップ1: 予算 */}
           {step === 1 && (
-            <div className="space-y-2">
-              {[
-                { value: "30000", label: "3万円", desc: "まずは少額から" },
-                { value: "50000", label: "5万円", desc: "お試しで始める" },
-                { value: "100000", label: "10万円", desc: "おすすめ", badge: true },
-                { value: "300000", label: "30万円", desc: "本格的に運用" },
-                { value: "500000", label: "50万円", desc: "分散投資向け" },
-                { value: "1000000", label: "100万円", desc: "しっかり運用" },
-                { value: "custom", label: "その他の金額", desc: "自由に入力" },
-              ].map((option) =>
-                option.value === "custom" ? (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">投資予算を選んでください</h2>
+              <p className="text-gray-600 mb-6 text-sm">月々の投資に回せる金額はどのくらいですか？</p>
+
+              <div className="space-y-2">
+                {budgetOptions.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => handleBudgetSelect(option.value)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
-                      showCustomBudget
-                        ? "bg-blue-600 text-white shadow-lg scale-[1.02]"
-                        : "bg-white border-2 border-gray-200 hover:border-blue-300 active:scale-[0.98]"
+                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                      formData.budget === option.value ||
+                      (option.value === "custom" && showCustomBudget)
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-200 hover:border-blue-300"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        showCustomBudget ? "border-white" : "border-gray-300"
-                      }`}>
-                        {showCustomBudget && (
-                          <div className="w-3 h-3 rounded-full bg-white"></div>
-                        )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{option.label}</p>
+                        <p className="text-sm text-gray-600">{option.desc}</p>
                       </div>
-                      <div className="text-left">
-                        <span className="font-bold text-lg">{option.label}</span>
-                        <div className={`text-sm ${showCustomBudget ? "text-blue-100" : "text-gray-500"}`}>
-                          {option.desc}
-                        </div>
-                      </div>
+                      {option.badge && (
+                        <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                          おすすめ
+                        </span>
+                      )}
                     </div>
                   </button>
-                ) : (
-                  renderOption(option, formData.budget, (value) => handleBudgetSelect(value))
-                )
-              )}
+                ))}
 
-              {/* カスタム金額入力 */}
-              {showCustomBudget && (
-                <div className="mt-3 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-                  <label htmlFor="customBudget" className="block text-sm font-semibold text-gray-700 mb-2">
-                    金額を入力
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      id="customBudget"
-                      min="10000"
-                      step="10000"
-                      value={customBudgetValue}
-                      onChange={(e) => {
-                        setCustomBudgetValue(e.target.value)
-                        setFormData({ ...formData, budget: e.target.value })
-                      }}
-                      className="w-full px-4 py-3 pr-12 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="100000"
-                      autoFocus
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
-                      円
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-gray-600">
-                    最低 1万円から始められます
-                  </p>
-                </div>
-              )}
+                {showCustomBudget && (
+                  <input
+                    type="number"
+                    min="10000"
+                    value={customBudgetValue}
+                    onChange={(e) => {
+                      setCustomBudgetValue(e.target.value)
+                      setFormData({ ...formData, budget: e.target.value })
+                    }}
+                    placeholder="10,000円以上"
+                    className="w-full p-4 border-2 border-blue-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                )}
+              </div>
             </div>
           )}
 
-          {/* ステップ2: 投資期間 */}
           {step === 2 && (
-            <div className="space-y-2">
-              {[
-                { value: "short", label: "短期", desc: "〜3ヶ月" },
-                { value: "medium", label: "中期", desc: "3ヶ月〜1年", badge: true },
-                { value: "long", label: "長期", desc: "1年以上" },
-              ].map((option) =>
-                renderOption(option, formData.investmentPeriod, (value) =>
-                  setFormData({ ...formData, investmentPeriod: value })
-                )
-              )}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">投資期間を選んでください</h2>
+              <p className="text-gray-600 mb-6 text-sm">どのくらいの期間で運用しますか？</p>
+
+              <div className="space-y-2">
+                {periodOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, investmentPeriod: option.value })}
+                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                      formData.investmentPeriod === option.value
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-200 hover:border-blue-300"
+                    }`}
+                  >
+                    <p className="font-semibold text-gray-900">{option.label}</p>
+                    <p className="text-sm text-gray-600">{option.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* ステップ3: リスク許容度 */}
           {step === 3 && (
-            <div className="space-y-2">
-              {[
-                { value: "low", label: "低", desc: "安定重視" },
-                { value: "medium", label: "中", desc: "バランス型", badge: true },
-                { value: "high", label: "高", desc: "成長重視" },
-              ].map((option) =>
-                renderOption(option, formData.riskTolerance, (value) =>
-                  setFormData({ ...formData, riskTolerance: value })
-                )
-              )}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                リスク許容度を選んでください
+              </h2>
+              <p className="text-gray-600 mb-6 text-sm">
+                どのくらいのリスクを取れますか？
+              </p>
+
+              <div className="space-y-2">
+                {riskOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, riskTolerance: option.value })}
+                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                      formData.riskTolerance === option.value
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-200 hover:border-blue-300"
+                    }`}
+                  >
+                    <p className="font-semibold text-gray-900">{option.label}</p>
+                    <p className="text-sm text-gray-600">{option.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* ナビゲーションボタン */}
-          <div className="flex gap-3 pt-4">
+          <div className="mt-8 flex gap-4">
             {step > 1 && (
               <button
                 type="button"
                 onClick={() => setStep(step - 1)}
-                className="flex-1 bg-white border-2 border-gray-300 text-gray-700 font-semibold py-4 px-6 rounded-xl transition-all hover:border-gray-400 active:scale-[0.98]"
+                className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
               >
                 戻る
               </button>
@@ -284,27 +379,17 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={handleNext}
                 disabled={!canProceed()}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-blue-700"
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 次へ
               </button>
             ) : (
               <button
                 type="submit"
-                disabled={loading || !canProceed()}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-blue-700"
+                disabled={!canProceed() || loading}
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    分析中...
-                  </span>
-                ) : (
-                  "銘柄を提案してもらう"
-                )}
+                {loading ? "提案を生成中..." : "銘柄を提案してもらう"}
               </button>
             )}
           </div>

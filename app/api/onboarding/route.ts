@@ -129,72 +129,9 @@ JSON形式で返してください。`,
     const openaiData = await openaiResponse.json()
     const recommendations = JSON.parse(openaiData.choices[0].message.content)
 
-    // ポートフォリオを作成または取得
-    let portfolio = user.portfolio
-    if (!portfolio) {
-      portfolio = await prisma.portfolio.create({
-        data: {
-          userId: user.id,
-          name: "マイポートフォリオ",
-        },
-      })
-    }
-
-    // 推奨銘柄を保存
-    const stockPromises = recommendations.stocks.map(async (stock: any) => {
-      // 銘柄がDBに存在するか確認
-      let dbStock = await prisma.stock.findFirst({
-        where: { tickerCode: stock.tickerCode },
-      })
-
-      // 存在しない場合は作成
-      if (!dbStock) {
-        dbStock = await prisma.stock.create({
-          data: {
-            tickerCode: stock.tickerCode,
-            name: stock.name,
-            market: "TSE", // デフォルトで東証
-          },
-        })
-      }
-
-      // 既存のポートフォリオ銘柄を確認
-      const existing = await prisma.portfolioStock.findUnique({
-        where: {
-          portfolioId_stockId: {
-            portfolioId: portfolio.id,
-            stockId: dbStock.id,
-          },
-        },
-      })
-
-      if (existing) {
-        // 既存の場合は更新
-        return prisma.portfolioStock.update({
-          where: { id: existing.id },
-          data: {
-            quantity: stock.quantity,
-            averagePrice: stock.recommendedPrice,
-          },
-        })
-      } else {
-        // 新規作成
-        return prisma.portfolioStock.create({
-          data: {
-            portfolioId: portfolio.id,
-            stockId: dbStock.id,
-            quantity: stock.quantity,
-            averagePrice: stock.recommendedPrice,
-          },
-        })
-      }
-    })
-
-    await Promise.all(stockPromises)
-
+    // 提案のみを返す（DBには保存しない）
     return NextResponse.json({
       success: true,
-      portfolioId: portfolio.id,
       recommendations: recommendations.stocks,
     })
   } catch (error) {
