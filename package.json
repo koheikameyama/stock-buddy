@@ -19,6 +19,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "python scripts/init_data.py",
+    "db:sync": "bash scripts/sync-stocks-from-production.sh",
     "fetch-news": "tsx scripts/fetch-market-news.ts",
     "generate-reports": "tsx scripts/generate-daily-reports.ts"
   },
