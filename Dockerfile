@@ -9,7 +9,11 @@ WORKDIR /app
 # 依存関係ファイルとPrisma schemaをコピー
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm ci --include=dev
+
+# キャッシュマウントを使用してnpm ciを高速化
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production && \
+    npm ci --only=development
 
 # ビルダー
 FROM base AS builder
@@ -24,13 +28,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
 RUN npm run build
 
-# ビルド確認（デバッグ用）
-RUN echo "=== Build output ===" && \
-    ls -la .next/ && \
-    echo "=== Standalone check ===" && \
-    ls -la .next/standalone/ || echo "No standalone directory"
-
-# ランナー
+# ランナー（standaloneビルドを使用）
 FROM base AS runner
 WORKDIR /app
 
@@ -40,20 +38,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# publicディレクトリを作成（Next.jsで必要）
-RUN mkdir -p /app/public
+# Standaloneビルドの出力をコピー
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-# 必要なファイルをコピー
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package*.json ./
-
-# publicディレクトリもコピー
-COPY --from=builder /app/public ./public
-
-# 所有権を変更
-RUN chown -R nextjs:nodejs /app
+# node_modules/.prismaも必要
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 USER nextjs
 
@@ -63,4 +56,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # マイグレーション実行後にサーバー起動
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
