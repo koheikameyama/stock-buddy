@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 
     // エラーのある銘柄を除外
     const validStocks = stocksData.filter(
-      (s): s is NonNullable<typeof s> => s !== null && s.data
+      (s): s is NonNullable<typeof s> => s !== null
     )
 
     if (validStocks.length === 0) {
