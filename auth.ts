@@ -32,10 +32,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // ログインしているユーザーのみアクセス可能
       return !!auth
     },
-    async session({ session, user }) {
-      // セッションにユーザーIDを追加
-      if (session.user) {
-        session.user.id = user.id
+    async jwt({ token, user }) {
+      // 初回ログイン時にユーザーIDをトークンに保存
+      if (user) {
+        token.id = user.id
+      }
+      return token
+    },
+    async session({ session, token }) {
+      // トークンからユーザーIDをセッションに追加
+      if (session.user && token.id) {
+        session.user.id = token.id as string
       }
       return session
     },
