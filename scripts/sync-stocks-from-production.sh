@@ -54,13 +54,8 @@ echo "  本番DB: ${PRODUCTION_DATABASE_URL:0:50}..."
 echo "  ローカルDB: $LOCAL_DATABASE_URL"
 echo ""
 
-# 2. 確認プロンプト
-read -p "$(echo -e ${YELLOW}本番データをローカルにコピーします。続行しますか？ [y/N]: ${NC})" -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  echo -e "${RED}✗ キャンセルしました${NC}"
-  exit 0
-fi
+# 2. 自動実行（確認プロンプトなし）
+echo -e "${BLUE}💾 本番データをローカルにコピーします${NC}"
 
 # 3. 一時ファイル
 TMP_STOCKS="/tmp/stocks_dump.sql"
@@ -87,25 +82,16 @@ echo -e "${GREEN}    ✓ ${PRICE_COUNT}件の株価データを取得${NC}"
 echo ""
 echo -e "${BLUE}📥 ローカルDBにインポート中...${NC}"
 
-# 6. ローカルDBに既存データがあるか確認
+# 6. ローカルDBの既存データを削除（常に上書き）
 EXISTING_STOCKS=$(psql "$LOCAL_DATABASE_URL" -t -c "SELECT COUNT(*) FROM \"Stock\"" | xargs)
 EXISTING_PRICES=$(psql "$LOCAL_DATABASE_URL" -t -c "SELECT COUNT(*) FROM \"StockPrice\"" | xargs)
 
 if [ "$EXISTING_STOCKS" -gt 0 ] || [ "$EXISTING_PRICES" -gt 0 ]; then
-  echo -e "${YELLOW}⚠️  ローカルDBに既存データがあります:${NC}"
+  echo -e "${YELLOW}  既存データを削除中...${NC}"
   echo "    - Stock: ${EXISTING_STOCKS}件"
   echo "    - StockPrice: ${EXISTING_PRICES}件"
-  echo ""
-  read -p "$(echo -e ${YELLOW}既存データを削除して上書きしますか？ [y/N]: ${NC})" -n 1 -r
-  echo
-
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "  - 既存データを削除中..."
-    psql "$LOCAL_DATABASE_URL" -c "TRUNCATE \"StockPrice\", \"Stock\" CASCADE;" > /dev/null
-    echo -e "${GREEN}    ✓ 削除完了${NC}"
-  else
-    echo -e "${YELLOW}  → マージモードでインポートします（重複はスキップ）${NC}"
-  fi
+  psql "$LOCAL_DATABASE_URL" -c "TRUNCATE \"StockPrice\", \"Stock\" CASCADE;" > /dev/null
+  echo -e "${GREEN}    ✓ 削除完了${NC}"
 fi
 
 # 7. Stockテーブルをインポート
