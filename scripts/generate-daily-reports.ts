@@ -1,26 +1,31 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+#!/usr/bin/env tsx
+/**
+ * デイリーレポート生成バッチスクリプト
+ *
+ * 使い方:
+ * npm run generate-reports
+ *
+ * または直接実行:
+ * tsx scripts/generate-daily-reports.ts
+ */
+
 import { PrismaClient } from "@prisma/client"
 import {
   calculateRSI,
   calculateSMA,
   calculateMACD,
   getTechnicalSignal,
-} from "@/lib/technical-indicators"
+} from "../lib/technical-indicators"
 
 const prisma = new PrismaClient()
 
-export async function POST(request: NextRequest) {
+/**
+ * 1ユーザーのレポートを生成
+ */
+async function generateReportForUser(userId: string) {
   try {
-    // 認証チェック
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // ユーザーのポートフォリオを取得
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: userId },
       include: {
         settings: true,
         portfolio: {
@@ -35,8 +40,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (!user?.portfolio) {
-      return NextResponse.json({ error: "Portfolio not found" }, { status: 404 })
+    if (!user?.portfolio || user.portfolio.stocks.length === 0) {
+      console.log(`  ⊘ ${user?.email}: ポートフォリオが空のためスキップ`)
+      return { skipped: true }
     }
 
     const portfolio = user.portfolio
@@ -54,10 +60,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingReport) {
-      return NextResponse.json({
-        message: "Today's report already exists",
-        report: existingReport,
-      })
+      console.log(`  ✓ ${user.email}: 既にレポート作成済み`)
+      return { exists: true }
     }
 
     // DBから最新の市場ニュースを取得
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
           })
 
           if (priceData.length === 0) {
-            console.warn(`No price data for ${ps.stock.tickerCode}`)
+            console.warn(`    ⚠️  ${ps.stock.tickerCode}: 株価データなし`)
             return null
           }
 
@@ -143,7 +147,7 @@ export async function POST(request: NextRequest) {
             },
           }
         } catch (error) {
-          console.error(`Error processing ${ps.stock.tickerCode}:`, error)
+          console.error(`    ✗ ${ps.stock.tickerCode}:`, error)
           return null
         }
       })
@@ -155,35 +159,36 @@ export async function POST(request: NextRequest) {
     )
 
     if (validStocks.length === 0) {
-      return NextResponse.json(
-        { error: "株価データの取得に失敗しました" },
-        { status: 500 }
-      )
+      console.log(`  ✗ ${user.email}: 有効な株価データがありません`)
+      return { error: "no_valid_data" }
     }
 
     // 市場ニュースをフォーマット
-    const marketNews = recentNews.length > 0
-      ? recentNews
-          .map(
-            (n) =>
-              `- [${n.sector || "全般"}/${n.sentiment}] ${n.title}: ${n.content.substring(0, 150)}...`
-          )
-          .join("\n")
-      : ""
+    const marketNews =
+      recentNews.length > 0
+        ? recentNews
+            .map(
+              (n) =>
+                `- [${n.sector || "全般"}/${n.sentiment}] ${n.title}: ${n.content.substring(0, 150)}...`
+            )
+            .join("\n")
+        : ""
 
     // GPT-4o-miniでレポート生成
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `あなたは株式投資初心者向けのAIアドバイザーです。
+    const openaiResponse = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `あなたは株式投資初心者向けのAIアドバイザーです。
 ユーザーのポートフォリオを分析し、今日の投資判断を提案してください。
 
 【重要】
@@ -213,10 +218,10 @@ export async function POST(request: NextRequest) {
   ],
   "futurePlan": "今後どうなったらどうするか、次のアクションプラン"
 }`,
-          },
-          {
-            role: "user",
-            content: `以下のポートフォリオを分析し、今日の投資判断を提案してください。
+            },
+            {
+              role: "user",
+              content: `以下のポートフォリオを分析し、今日の投資判断を提案してください。
 
 【投資スタイル】
 - 予算: ${settings?.investmentAmount.toLocaleString()}円
@@ -249,16 +254,17 @@ ${validStocks
   .join("\n")}
 
 ${marketNews ? "市場動向も考慮して、" : ""}JSON形式で返してください。`,
-          },
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-      }),
-    })
+            },
+          ],
+          temperature: 0.7,
+          response_format: { type: "json_object" },
+        }),
+      }
+    )
 
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text()
-      console.error("OpenAI API error:", errorText)
+      console.error(`  ✗ ${user.email}: OpenAI API error:`, errorText)
       throw new Error("AI分析に失敗しました")
     }
 
@@ -267,7 +273,8 @@ ${marketNews ? "市場動向も考慮して、" : ""}JSON形式で返してく�
 
     // レポートをDBに保存
     const targetStock = analysis.targetStock
-      ? validStocks.find((s) => s.stock.tickerCode === analysis.targetStock)?.stock
+      ? validStocks.find((s) => s.stock.tickerCode === analysis.targetStock)
+          ?.stock
       : null
 
     const report = await prisma.dailyReport.create({
@@ -283,16 +290,72 @@ ${marketNews ? "市場動向も考慮して、" : ""}JSON形式で返してく�
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      report: report,
-      analysis: analysis,
-    })
+    console.log(`  ✅ ${user.email}: レポート生成完了`)
+    return { success: true, reportId: report.id }
   } catch (error) {
-    console.error("Error generating report:", error)
-    return NextResponse.json(
-      { error: "レポートの生成に失敗しました" },
-      { status: 500 }
-    )
+    console.error(`  ✗ ${user.email}:`, error)
+    return { error: String(error) }
   }
 }
+
+/**
+ * メイン処理
+ */
+async function main() {
+  console.log("🚀 デイリーレポート生成バッチを開始します\n")
+
+  // ポートフォリオを持つ全ユーザーを取得
+  const users = await prisma.user.findMany({
+    where: {
+      portfolio: {
+        isNot: null,
+      },
+    },
+    select: {
+      id: true,
+      email: true,
+    },
+  })
+
+  console.log(`📊 対象ユーザー: ${users.length}人\n`)
+
+  if (users.length === 0) {
+    console.log("⚠️  ポートフォリオを持つユーザーがいません")
+    return
+  }
+
+  // 各ユーザーのレポートを生成
+  let successCount = 0
+  let skipCount = 0
+  let errorCount = 0
+
+  for (const user of users) {
+    const result = await generateReportForUser(user.id)
+
+    if (result.success) {
+      successCount++
+    } else if (result.skipped || result.exists) {
+      skipCount++
+    } else {
+      errorCount++
+    }
+
+    // API Rate Limit対策: 少し待機
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+
+  console.log(`\n✨ バッチ処理が完了しました`)
+  console.log(`  ✅ 成功: ${successCount}件`)
+  console.log(`  ⊘ スキップ: ${skipCount}件`)
+  console.log(`  ✗ エラー: ${errorCount}件`)
+}
+
+// 実行
+main()
+  .catch((error) => {
+    console.error("❌ エラーが発生しました:", error)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
