@@ -26,7 +26,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
 RUN npm run build
 
-# ランナー（standaloneビルドを使用）
+# ランナー
 FROM base AS runner
 WORKDIR /app
 
@@ -36,18 +36,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Standaloneビルドの出力をコピー
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# publicディレクトリを作成
+RUN mkdir -p /app/public
 
-# Prisma関連ファイルをコピー
+# 必要なファイルをコピー
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
-
-# prisma CLIも必要（マイグレーション用）
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
@@ -57,4 +54,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # マイグレーション実行後にサーバー起動
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
