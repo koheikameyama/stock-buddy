@@ -3,24 +3,37 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
-type Recommendation = {
+type Stock = {
   tickerCode: string
   name: string
   recommendedPrice: number
   quantity: number
   reason: string
+  futureOutlook: string
+  risks: string
+}
+
+type Plan = {
+  type: string
+  name: string
+  description: string
+  expectedReturn: string
+  riskLevel: string
+  strategy: string
+  stocks: Stock[]
 }
 
 export default function OnboardingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState(1) // 1: 初期投資, 2: 月々積立, 3: 期間, 4: リスク, 4.5: 保有銘柄確認, 5: 提案表示, 6: 保有銘柄入力
+  const [step, setStep] = useState(1) // 1: 初期投資, 2: 月々積立, 3: 期間, 4: リスク, 4.5: 保有銘柄確認, 5: プラン選択, 6: 保有銘柄入力, 7: 銘柄詳細
   const [hasExistingHoldings, setHasExistingHoldings] = useState<boolean | null>(null)
   const [showCustomBudget, setShowCustomBudget] = useState(false)
   const [customBudgetValue, setCustomBudgetValue] = useState("")
   const [showCustomMonthly, setShowCustomMonthly] = useState(false)
   const [customMonthlyValue, setCustomMonthlyValue] = useState("")
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null)
   const [selectedStocks, setSelectedStocks] = useState<Set<number>>(new Set()) // 購入した銘柄のインデックス
   const [formData, setFormData] = useState({
     budget: "",
@@ -96,8 +109,8 @@ export default function OnboardingPage() {
       }
 
       const data = await response.json()
-      setRecommendations(data.recommendations)
-      setStep(5) // 提案表示へ
+      setPlans(data.plans)
+      setStep(5) // プラン選択へ
     } catch (error) {
       console.error("Error:", error)
       alert(`エラーが発生しました: ${error instanceof Error ? error.message : "もう一度お試しください"}`)
@@ -467,9 +480,82 @@ export default function OnboardingPage() {
     )
   }
 
-  // 提案表示画面
+  // プラン選択画面
   if (step === 5) {
-    const totalCost = recommendations.reduce(
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+        <div className="max-w-5xl mx-auto py-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">あなたにおすすめのプラン</h1>
+            <p className="text-gray-600 mb-4">
+              3つの異なる投資プランをご用意しました。あなたの投資スタイルに合ったプランを選んでください。
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {plans.map((plan) => {
+              const totalCost = plan.stocks.reduce(
+                (sum, stock) => sum + stock.recommendedPrice * stock.quantity,
+                0
+              )
+
+              return (
+                <div
+                  key={plan.type}
+                  className="bg-white rounded-2xl shadow-xl p-6 hover:shadow-2xl transition-all cursor-pointer border-2 border-transparent hover:border-blue-500"
+                  onClick={() => {
+                    setSelectedPlan(plan)
+                    setStep(7) // 銘柄詳細へ
+                  }}
+                >
+                  <div className="mb-4">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                      plan.riskLevel === "低" ? "bg-green-100 text-green-800" :
+                      plan.riskLevel === "中" ? "bg-yellow-100 text-yellow-800" :
+                      "bg-red-100 text-red-800"
+                    }`}>
+                      {plan.riskLevel}リスク
+                    </span>
+                  </div>
+
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h2>
+                  <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">期待リターン:</span>
+                      <span className="font-semibold text-blue-600">{plan.expectedReturn}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">銘柄数:</span>
+                      <span className="font-semibold">{plan.stocks.length}銘柄</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">投資総額:</span>
+                      <span className="font-semibold">{totalCost.toLocaleString()}円</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <p className="text-xs text-gray-600 mb-2 font-semibold">戦略:</p>
+                    <p className="text-xs text-gray-700">{plan.strategy}</p>
+                  </div>
+
+                  <button className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                    このプランを選択
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 銘柄詳細表示画面（旧step 5）
+  if (step === 7 && selectedPlan) {
+    const totalCost = selectedPlan.stocks.reduce(
       (sum, rec) => sum + rec.recommendedPrice * rec.quantity,
       0
     )
@@ -494,7 +580,7 @@ export default function OnboardingPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            recommendations,
+            recommendations: selectedPlan.stocks,
             purchasedIndices: Array.from(selectedStocks),
             investmentStyle: formData,
           }),
@@ -536,7 +622,7 @@ export default function OnboardingPage() {
             </div>
 
             <div className="space-y-4 mb-8">
-              {recommendations.map((rec, index) => (
+              {selectedPlan.stocks.map((rec, index) => (
                 <div
                   key={index}
                   className={`border-2 rounded-xl p-6 transition-all cursor-pointer ${
@@ -580,9 +666,21 @@ export default function OnboardingPage() {
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <p className="text-sm text-gray-700 font-semibold mb-1">推奨理由</p>
-                        <p className="text-sm text-gray-600">{rec.reason}</p>
+                      <div className="space-y-3">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-sm text-gray-700 font-semibold mb-1">推奨理由</p>
+                          <p className="text-sm text-gray-600">{rec.reason}</p>
+                        </div>
+
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <p className="text-sm text-blue-700 font-semibold mb-1">将来性・見通し</p>
+                          <p className="text-sm text-blue-600">{rec.futureOutlook}</p>
+                        </div>
+
+                        <div className="bg-amber-50 rounded-lg p-4">
+                          <p className="text-sm text-amber-700 font-semibold mb-1">リスク要因</p>
+                          <p className="text-sm text-amber-600">{rec.risks}</p>
+                        </div>
                       </div>
                     </div>
                   </div>

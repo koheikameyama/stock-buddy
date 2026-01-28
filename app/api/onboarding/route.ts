@@ -170,17 +170,22 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `あなたは日本株の投資アドバイザーです。ユーザーの投資スタイルに適した銘柄を3〜5個提案してください。
+            content: `あなたは日本株の投資アドバイザーです。ユーザーの投資スタイルに基づいて、**3つの異なるポートフォリオプラン**を提案してください。
+
+**3つのプラン**:
+1. **保守的プラン**: 安定性重視、リスク最小限
+2. **バランスプラン**: リスクとリターンのバランス（ユーザーのリスク許容度に最も近い）
+3. **積極的プラン**: 成長性重視、高リターン狙い
 
 **重要: 提供される銘柄リストについて**
 - すでに予算内で購入可能な銘柄のみがリストされています
 - 予算の計算は不要です。リストから投資スタイルに合った銘柄を選ぶだけです
 
-**銘柄選択のルール**:
-1. 提供された銘柄リストから、投資スタイル（期間・リスク）に最も適した銘柄を選択
-2. 3〜5銘柄を推奨（リストが少ない場合は1〜2銘柄でも可）
-3. 各銘柄は100株で提案（quantityは必ず100）
-4. 分散投資を意識して、異なるセクターから選ぶ
+**各プランの銘柄選択ルール**:
+1. 各プランで3〜5銘柄を推奨（リストが少ない場合は2〜3銘柄）
+2. 各銘柄は100株で提案（quantityは必ず100）
+3. セクター分散を意識
+4. プランごとに異なるリスク・リターン特性を持たせる
 
 **技術的制約**:
 - **quantityは必ず100（固定）**
@@ -199,37 +204,59 @@ export async function POST(request: NextRequest) {
 - tickerCode: 銘柄コード（提供リストから選択、例: "7203"）
 - name: 銘柄名
 - recommendedPrice: 推奨購入価格（currentPriceの値を使用）
-- quantity: 推奨購入株数（100株単位）
-- reason: 推奨理由（技術指標を含めて150文字程度。例: "RSI 45で適正水準。25日移動平均を上回り上昇トレンド。MACDもプラスで買いシグナル。"）
-
-リスク許容度の考慮：
-- low: technicalSignalが中立〜買いの安定した大型株を優先。RSIが30-70の範囲内
-- medium: 適度な成長性と安定性のバランス。technicalSignalがプラスの銘柄
-- high: technicalSignalが強い買いの成長株を優先。上昇トレンドが明確な銘柄
-
-投資期間の考慮：
-- short: 出来高が多く、technicalSignalが明確（買いまたは売り）な銘柄
-- medium: 移動平均線を基準にトレンドが安定している銘柄
-- long: RSIが適正水準（30-70）で、長期的な上昇トレンドにある銘柄
+- quantity: 推奨購入株数（必ず100）
+- reason: 推奨理由（技術指標を含めて100文字程度）
+- futureOutlook: 将来性・見通し（今後の成長期待を100文字程度で説明）
+- risks: リスク要因（懸念点を80文字程度で説明）
 
 必ず以下の形式でJSONを返してください：
 {
-  "stocks": [
+  "plans": [
     {
-      "tickerCode": "7203",
-      "name": "トヨタ自動車",
-      "recommendedPrice": 3347,
-      "quantity": 100,
-      "reason": "RSI 52で適正水準。25日移動平均3,500円を若干下回るも、出来高が高く流動性◎。MACDが上向きで買いシグナル。輸送用機器セクターの大型株で安定性も高い。"
+      "type": "conservative",
+      "name": "保守的プラン",
+      "description": "安定性を最優先。大型株中心で値動きが穏やか",
+      "expectedReturn": "年5-8%程度",
+      "riskLevel": "低",
+      "strategy": "このプラン全体の戦略を150文字程度で説明",
+      "stocks": [
+        {
+          "tickerCode": "7203",
+          "name": "トヨタ自動車",
+          "recommendedPrice": 3347,
+          "quantity": 100,
+          "reason": "RSI 52で適正水準。MACDプラスで買いシグナル。大型株で安定。",
+          "futureOutlook": "EV市場への投資加速。2025年以降の新型車投入で売上増期待。",
+          "risks": "円高による輸出採算悪化。半導体不足の長期化リスク。"
+        }
+      ]
+    },
+    {
+      "type": "balanced",
+      "name": "バランスプラン",
+      "description": "成長性と安定性のバランス",
+      "expectedReturn": "年10-15%程度",
+      "riskLevel": "中",
+      "strategy": "このプラン全体の戦略を150文字程度で説明",
+      "stocks": [...]
+    },
+    {
+      "type": "aggressive",
+      "name": "積極的プラン",
+      "description": "高成長を狙う攻めの姿勢",
+      "expectedReturn": "年15-25%程度",
+      "riskLevel": "高",
+      "strategy": "このプラン全体の戦略を150文字程度で説明",
+      "stocks": [...]
     }
   ]
 }`,
           },
           {
             role: "user",
-            content: `以下の条件で銘柄を提案してください：
+            content: `以下の条件で**3つのプラン**を提案してください：
 
-【投資条件】
+【ユーザーの投資スタイル】
 - 投資期間: ${investmentPeriod}
 - リスク許容度: ${riskTolerance}
 
@@ -239,8 +266,13 @@ export async function POST(request: NextRequest) {
 ${marketNews ? `【市場の最新動向】\n${marketNews}\n\n` : ""}【購入可能な銘柄データ】
 ${JSON.stringify(stocksWithPrice, null, 2)}
 
-上記のリストから、投資スタイルに合った銘柄を3〜5個選んでJSON形式で返してください。
-各銘柄のquantityは必ず100にしてください。${marketNews ? "\n市場動向も考慮してください。" : ""}`,
+上記のリストから、以下の3つのプランを作成してください：
+1. **保守的プラン**: リスク最小限、安定性重視
+2. **バランスプラン**: ユーザーのリスク許容度（${riskTolerance}）に最も近いバランス型
+3. **積極的プラン**: 高成長狙い、高リスク高リターン
+
+各プランには3〜5銘柄を含め、各銘柄には「推奨理由」「将来性」「リスク要因」を必ず記載してください。
+プラン全体の戦略説明も忘れずに。${marketNews ? "\n市場動向も考慮してください。" : ""}`,
           },
         ],
         temperature: 0.7,
@@ -254,32 +286,37 @@ ${JSON.stringify(stocksWithPrice, null, 2)}
     }
 
     const openaiData = await openaiResponse.json()
-    const recommendations = JSON.parse(openaiData.choices[0].message.content)
+    const response = JSON.parse(openaiData.choices[0].message.content)
 
-    // 予算チェック: すべて100株で提案されているはず
-    const totalInvestment = recommendations.stocks.reduce(
-      (sum: number, stock: any) => sum + stock.recommendedPrice * 100,
-      0
-    )
-
+    // 3つのプランを検証
     console.log(`Budget: ${budgetNum}`)
-    console.log(`Recommended ${recommendations.stocks.length} stocks:`)
-    recommendations.stocks.forEach((stock: any) => {
-      console.log(`- ${stock.tickerCode}: ${stock.recommendedPrice}円 × 100株 = ${stock.recommendedPrice * 100}円`)
-    })
-    console.log(`Total: ${totalInvestment}円 (${Math.round(totalInvestment / budgetNum * 100)}% of budget)`)
+    console.log(`Generated ${response.plans.length} plans`)
 
-    // quantityを100に統一（AIが守らない場合のフェイルセーフ）
-    recommendations.stocks = recommendations.stocks.map((stock: any) => ({
-      ...stock,
-      quantity: 100,
-    }))
+    response.plans.forEach((plan: any) => {
+      // quantityを100に統一（AIが守らない場合のフェイルセーフ）
+      plan.stocks = plan.stocks.map((stock: any) => ({
+        ...stock,
+        quantity: 100,
+      }))
+
+      const totalInvestment = plan.stocks.reduce(
+        (sum: number, stock: any) => sum + stock.recommendedPrice * 100,
+        0
+      )
+
+      console.log(`\n${plan.name}:`)
+      console.log(`- ${plan.stocks.length} stocks`)
+      console.log(`- Total: ${totalInvestment}円 (${Math.round(totalInvestment / budgetNum * 100)}% of budget)`)
+      plan.stocks.forEach((stock: any) => {
+        console.log(`  - ${stock.tickerCode}: ${stock.recommendedPrice}円 × 100株`)
+      })
+    })
 
     // 提案はすぐに保存せず、フロントエンドに返すだけ
     // 保存は /api/onboarding/complete で行う
     return NextResponse.json({
       success: true,
-      recommendations: recommendations.stocks,
+      plans: response.plans,
     })
   } catch (error) {
     console.error("Error in onboarding:", error)
