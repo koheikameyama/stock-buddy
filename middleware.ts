@@ -1,5 +1,6 @@
 export { auth as middleware } from "@/auth"
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login).*)"],
+  // ダッシュボード以下だけ認証が必要
+  matcher: ["/dashboard/:path*"],
 }
