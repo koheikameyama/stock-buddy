@@ -63,9 +63,9 @@ TMP_PRICES="/tmp/stock_prices_dump.sql"
 
 echo -e "${BLUE}📦 本番DBからデータをエクスポート中...${NC}"
 
-# 4. 本番DBからStockテーブルをエクスポート
+# 4. 本番DBからStockテーブルをエクスポート（カラム順序を明示的に指定）
 echo "  - Stockテーブル"
-psql "$PRODUCTION_DATABASE_URL" -c "\COPY (SELECT * FROM \"Stock\") TO STDOUT CSV HEADER" > "$TMP_STOCKS.csv"
+psql "$PRODUCTION_DATABASE_URL" -c "\COPY (SELECT id, \"tickerCode\", name, market, sector, \"createdAt\", \"beginnerScore\", \"dividendScore\", \"dividendYield\", \"growthScore\", \"liquidityScore\", \"marketCap\", \"stabilityScore\" FROM \"Stock\") TO STDOUT CSV HEADER" > "$TMP_STOCKS.csv"
 
 STOCK_COUNT=$(wc -l < "$TMP_STOCKS.csv")
 STOCK_COUNT=$((STOCK_COUNT - 1))  # ヘッダー行を除く
@@ -94,9 +94,9 @@ if [ "$EXISTING_STOCKS" -gt 0 ] || [ "$EXISTING_PRICES" -gt 0 ]; then
   echo -e "${GREEN}    ✓ 削除完了${NC}"
 fi
 
-# 7. Stockテーブルをインポート
+# 7. Stockテーブルをインポート（カラム順序を明示的に指定）
 echo "  - Stockテーブルをインポート中..."
-psql "$LOCAL_DATABASE_URL" -c "\COPY \"Stock\" FROM '$TMP_STOCKS.csv' CSV HEADER" 2>&1 | grep -v "ERROR.*duplicate key" || true
+psql "$LOCAL_DATABASE_URL" -c "\COPY \"Stock\" (id, \"tickerCode\", name, market, sector, \"createdAt\", \"beginnerScore\", \"dividendScore\", \"dividendYield\", \"growthScore\", \"liquidityScore\", \"marketCap\", \"stabilityScore\") FROM '$TMP_STOCKS.csv' CSV HEADER" 2>&1 | grep -v "ERROR.*duplicate key" || true
 echo -e "${GREEN}    ✓ インポート完了${NC}"
 
 # 8. StockPriceテーブルをインポート
