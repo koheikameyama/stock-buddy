@@ -10,6 +10,88 @@ import {
 
 const prisma = new PrismaClient()
 
+// 予算内の銘柄組み合わせを生成
+interface StockWithPrice {
+  tickerCode: string
+  name: string
+  sector: string | null
+  currentPrice: number
+  beginnerScore: number | null
+  growthScore: number | null
+  dividendScore: number | null
+  stabilityScore: number | null
+  liquidityScore: number | null
+}
+
+interface StockPortfolio {
+  stocks: StockWithPrice[]
+  totalCost: number
+  avgBeginnerScore: number
+  avgGrowthScore: number
+  avgStabilityScore: number
+}
+
+function generatePortfolioCombinations(
+  stocks: StockWithPrice[],
+  budget: number,
+  targetStockCount: number,
+  scoreWeights: { beginner: number; growth: number; stability: number }
+): StockPortfolio[] {
+  const portfolios: StockPortfolio[] = []
+  const maxBudget = budget * 0.9 // 予算の90%まで使用
+
+  // スコアで並び替え
+  const sortedStocks = [...stocks].sort((a, b) => {
+    const scoreA =
+      (a.beginnerScore || 0) * scoreWeights.beginner +
+      (a.growthScore || 0) * scoreWeights.growth +
+      (a.stabilityScore || 0) * scoreWeights.stability
+    const scoreB =
+      (b.beginnerScore || 0) * scoreWeights.beginner +
+      (b.growthScore || 0) * scoreWeights.growth +
+      (b.stabilityScore || 0) * scoreWeights.stability
+    return scoreB - scoreA
+  })
+
+  // 上位銘柄から組み合わせを生成（貪欲法）
+  const topStocks = sortedStocks.slice(0, targetStockCount * 3)
+
+  // 複数の組み合わせを試す
+  for (let startIdx = 0; startIdx < Math.min(5, topStocks.length - targetStockCount); startIdx++) {
+    const portfolio: StockWithPrice[] = []
+    let totalCost = 0
+
+    for (let i = startIdx; i < topStocks.length && portfolio.length < targetStockCount; i++) {
+      const stock = topStocks[i]
+      const cost = stock.currentPrice * 100
+
+      if (totalCost + cost <= maxBudget) {
+        portfolio.push(stock)
+        totalCost += cost
+      }
+    }
+
+    if (portfolio.length >= 2) {
+      const avgBeginnerScore =
+        portfolio.reduce((sum, s) => sum + (s.beginnerScore || 0), 0) / portfolio.length
+      const avgGrowthScore =
+        portfolio.reduce((sum, s) => sum + (s.growthScore || 0), 0) / portfolio.length
+      const avgStabilityScore =
+        portfolio.reduce((sum, s) => sum + (s.stabilityScore || 0), 0) / portfolio.length
+
+      portfolios.push({
+        stocks: portfolio,
+        totalCost,
+        avgBeginnerScore,
+        avgGrowthScore,
+        avgStabilityScore,
+      })
+    }
+  }
+
+  return portfolios
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 認証チェック
@@ -183,6 +265,60 @@ export async function POST(request: NextRequest) {
         }
       })
 
+    // 3つのプラン用の銘柄組み合わせを生成
+    const stocksForPortfolio: StockWithPrice[] = stocksWithPrice.map(s => ({
+      tickerCode: s.tickerCode,
+      name: s.name,
+      sector: s.sector,
+      currentPrice: s.currentPrice,
+      beginnerScore: s.beginnerScore,
+      growthScore: s.growthScore,
+      dividendScore: s.dividendScore,
+      stabilityScore: s.stabilityScore,
+      liquidityScore: s.liquidityScore,
+    }))
+
+    // 目標銘柄数を決定
+    const targetStockCount = budgetNum <= 100000 ? 3 : budgetNum <= 500000 ? 4 : 5
+
+    // 保守的プラン: 初心者スコアと安定性重視
+    const conservativePortfolios = generatePortfolioCombinations(
+      stocksForPortfolio,
+      budgetNum,
+      targetStockCount,
+      { beginner: 0.5, growth: 0.1, stability: 0.4 }
+    )
+
+    // バランスプラン: 全スコアバランス
+    const balancedPortfolios = generatePortfolioCombinations(
+      stocksForPortfolio,
+      budgetNum,
+      targetStockCount,
+      { beginner: 0.3, growth: 0.4, stability: 0.3 }
+    )
+
+    // 積極的プラン: 成長性重視
+    const aggressivePortfolios = generatePortfolioCombinations(
+      stocksForPortfolio,
+      budgetNum,
+      targetStockCount,
+      { beginner: 0.1, growth: 0.7, stability: 0.2 }
+    )
+
+    console.log(`Generated portfolios - Conservative: ${conservativePortfolios.length}, Balanced: ${balancedPortfolios.length}, Aggressive: ${aggressivePortfolios.length}`)
+
+    if (conservativePortfolios.length === 0 || balancedPortfolios.length === 0 || aggressivePortfolios.length === 0) {
+      return NextResponse.json(
+        { error: "予算内で適切なポートフォリオを作成できませんでした。予算を増やすか、条件を変更してください。" },
+        { status: 400 }
+      )
+    }
+
+    // 最良の組み合わせを選択
+    const conservativePortfolio = conservativePortfolios[0]
+    const balancedPortfolio = balancedPortfolios[0]
+    const aggressivePortfolio = aggressivePortfolios[0]
+
     // AIに実データを渡して提案
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -196,56 +332,24 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `あなたは日本株の投資アドバイザーです。ユーザーの投資スタイルに基づいて、**3つの異なるポートフォリオプラン**を提案してください。
+            content: `あなたは日本株の投資アドバイザーです。
 
-**3つのプラン**:
-1. **保守的プラン**: 安定性重視、リスク最小限
-2. **バランスプラン**: リスクとリターンのバランス（ユーザーのリスク許容度に最も近い）
-3. **積極的プラン**: 成長性重視、高リターン狙い
+**重要: 各プラン用に予算内で購入可能な銘柄セットが既に用意されています**
+- 保守的プラン用の銘柄セット
+- バランスプラン用の銘柄セット
+- 積極的プラン用の銘柄セット
 
-**重要: 提供される銘柄リストについて**
-- すでに予算内で購入可能な銘柄のみがリストされています
-- 予算の計算は不要です。リストから投資スタイルに合った銘柄を選ぶだけです
+**あなたの役割**:
+提供された各銘柄セットについて、以下を説明してください：
+1. 各銘柄の推奨理由（100文字程度）
+2. 各銘柄の将来性・見通し（100文字程度）
+3. 各銘柄のリスク要因（80文字程度）
+4. プラン全体の戦略説明（150文字程度）
 
-**各プランの銘柄選択ルール**:
-1. 各プランで3〜5銘柄を推奨（リストが少ない場合は2〜3銘柄）
-2. 各銘柄は100株で提案（quantityは必ず100）
-3. セクター分散を意識
-4. プランごとに異なるリスク・リターン特性を持たせる
-
-**技術的制約**:
+**重要な制約**:
+- **提供された銘柄セットをそのまま使用してください（変更・追加・削除禁止）**
 - **quantityは必ず100（固定）**
-- **tickerCodeは提供されたリストから正確に選択（数字のみ、.Tは付けない）**
-- **recommendedPriceは必ずcurrentPriceを使用**
-
-**技術指標の活用**:
-- rsi: RSI（相対力指数）。30以下は売られすぎ（買いチャンス）、70以上は買われすぎ（注意）
-- sma25: 25日移動平均。currentPrice > sma25 なら上昇トレンド
-- macd: MACD指標。プラスなら上昇モメンタム、マイナスなら下降モメンタム
-- technicalSignal: 総合シグナル。プラスなら買いシグナル、マイナスなら売りシグナル
-- technicalStrength: "強い買い"、"買い"、"中立"、"売り"、"強い売り"
-- technicalReasons: シグナルの理由（配列）
-
-**投資スコア（0-100）の活用**:
-- beginnerScore: 初心者おすすめ度（安定性・知名度・分かりやすさ）。保守的プランで重視
-- growthScore: 成長性スコア（値上がり期待）。積極的プランで重視
-- dividendScore: 高配当スコア（インカムゲイン重視）。長期保有・安定収入狙いで重視
-- stabilityScore: 安定性スコア（低リスク・低変動）。保守的プランで重視
-- liquidityScore: 流動性スコア（売買のしやすさ）。全プランで基準値以上を推奨
-
-**プラン別スコア活用ガイド**:
-1. 保守的プラン: beginnerScore 60+, stabilityScore 60+, liquidityScore 50+ を優先
-2. バランスプラン: 各スコアのバランス、特にbeginnerScore 50+とgrowthScore 40+
-3. 積極的プラン: growthScore 60+, liquidityScore 50+ を優先。リスクを取って高リターン狙い
-
-各銘柄について以下の情報をJSON形式で返してください：
-- tickerCode: 銘柄コード（提供リストから選択、例: "7203"）
-- name: 銘柄名
-- recommendedPrice: 推奨購入価格（currentPriceの値を使用）
-- quantity: 推奨購入株数（必ず100）
-- reason: 推奨理由（技術指標を含めて100文字程度）
-- futureOutlook: 将来性・見通し（今後の成長期待を100文字程度で説明）
-- risks: リスク要因（懸念点を80文字程度で説明）
+- **recommendedPriceは提供されたcurrentPriceをそのまま使用**
 
 必ず以下の形式でJSONを返してください：
 {
@@ -263,9 +367,9 @@ export async function POST(request: NextRequest) {
           "name": "トヨタ自動車",
           "recommendedPrice": 3347,
           "quantity": 100,
-          "reason": "RSI 52で適正水準。MACDプラスで買いシグナル。大型株で安定。",
-          "futureOutlook": "EV市場への投資加速。2025年以降の新型車投入で売上増期待。",
-          "risks": "円高による輸出採算悪化。半導体不足の長期化リスク。"
+          "reason": "推奨理由を100文字程度で",
+          "futureOutlook": "将来性を100文字程度で",
+          "risks": "リスクを80文字程度で"
         }
       ]
     },
@@ -275,7 +379,7 @@ export async function POST(request: NextRequest) {
       "description": "成長性と安定性のバランス",
       "expectedReturn": "年10-15%程度",
       "riskLevel": "中",
-      "strategy": "このプラン全体の戦略を150文字程度で説明",
+      "strategy": "戦略説明",
       "stocks": [...]
     },
     {
@@ -284,7 +388,7 @@ export async function POST(request: NextRequest) {
       "description": "高成長を狙う攻めの姿勢",
       "expectedReturn": "年15-25%程度",
       "riskLevel": "高",
-      "strategy": "このプラン全体の戦略を150文字程度で説明",
+      "strategy": "戦略説明",
       "stocks": [...]
     }
   ]
@@ -292,25 +396,48 @@ export async function POST(request: NextRequest) {
           },
           {
             role: "user",
-            content: `以下の条件で**3つのプラン**を提案してください：
+            content: `以下の3つの銘柄セットについて、推奨理由・将来性・リスクを説明してください。
 
 【ユーザーの投資スタイル】
+- 予算: ${budget}円
 - 投資期間: ${investmentPeriod}
 - リスク許容度: ${riskTolerance}
 
-【提供される銘柄リスト】
-以下の銘柄はすべて予算内（${budget}円）で購入可能です。各銘柄100株ずつ購入できます。
+${marketNews ? `【市場の最新動向】\n${marketNews}\n\n` : ""}【保守的プラン用の銘柄セット】
+合計金額: ${conservativePortfolio.totalCost.toLocaleString()}円
+${JSON.stringify(conservativePortfolio.stocks.map(s => ({
+  tickerCode: s.tickerCode,
+  name: s.name,
+  sector: s.sector,
+  currentPrice: s.currentPrice,
+  beginnerScore: s.beginnerScore,
+  stabilityScore: s.stabilityScore,
+})), null, 2)}
 
-${marketNews ? `【市場の最新動向】\n${marketNews}\n\n` : ""}【購入可能な銘柄データ】
-${JSON.stringify(stocksWithPrice, null, 2)}
+【バランスプラン用の銘柄セット】
+合計金額: ${balancedPortfolio.totalCost.toLocaleString()}円
+${JSON.stringify(balancedPortfolio.stocks.map(s => ({
+  tickerCode: s.tickerCode,
+  name: s.name,
+  sector: s.sector,
+  currentPrice: s.currentPrice,
+  beginnerScore: s.beginnerScore,
+  growthScore: s.growthScore,
+})), null, 2)}
 
-上記のリストから、以下の3つのプランを作成してください：
-1. **保守的プラン**: リスク最小限、安定性重視
-2. **バランスプラン**: ユーザーのリスク許容度（${riskTolerance}）に最も近いバランス型
-3. **積極的プラン**: 高成長狙い、高リスク高リターン
+【積極的プラン用の銘柄セット】
+合計金額: ${aggressivePortfolio.totalCost.toLocaleString()}円
+${JSON.stringify(aggressivePortfolio.stocks.map(s => ({
+  tickerCode: s.tickerCode,
+  name: s.name,
+  sector: s.sector,
+  currentPrice: s.currentPrice,
+  growthScore: s.growthScore,
+  liquidityScore: s.liquidityScore,
+})), null, 2)}
 
-各プランには3〜5銘柄を含め、各銘柄には「推奨理由」「将来性」「リスク要因」を必ず記載してください。
-プラン全体の戦略説明も忘れずに。${marketNews ? "\n市場動向も考慮してください。" : ""}`,
+**重要**: 上記の銘柄セットをそのまま使用し、各銘柄について「推奨理由」「将来性」「リスク要因」を説明してください。
+各銘柄は100株ずつ購入します。${marketNews ? "市場動向も考慮してください。" : ""}`,
           },
         ],
         temperature: 0.7,
