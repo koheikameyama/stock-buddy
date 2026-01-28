@@ -293,7 +293,7 @@ ${marketNews ? "市場動向も考慮して、" : ""}JSON形式で返してく�
     console.log(`  ✅ ${user.email}: レポート生成完了`)
     return { success: true, reportId: report.id }
   } catch (error) {
-    console.error(`  ✗ ${user.email}:`, error)
+    console.error(`  ✗ User ${userId}:`, error)
     return { error: String(error) }
   }
 }
