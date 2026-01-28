@@ -115,9 +115,9 @@ export default function OnboardingPage() {
       <div className="max-w-lg mx-auto">
         {/* プログレスバー */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center flex-1">
+          <div className="flex items-center mb-3">
+            {[1, 2, 3].map((s, index) => (
+              <div key={s} className="flex items-center" style={{ flex: index < 2 ? '1' : '0 0 auto' }}>
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
                     s < step
