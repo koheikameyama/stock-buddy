@@ -20,11 +20,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { recommendations, purchasedIndices } = await request.json()
+    const { recommendations, purchasedIndices, investmentStyle } = await request.json()
 
     if (!recommendations || !Array.isArray(recommendations)) {
       return NextResponse.json(
         { error: "Invalid recommendations data" },
+        { status: 400 }
+      )
+    }
+
+    if (!investmentStyle) {
+      return NextResponse.json(
+        { error: "Investment style is required" },
         { status: 400 }
       )
     }
@@ -52,6 +59,24 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // 投資スタイルを保存
+    await prisma.userSettings.upsert({
+      where: { userId: user.id },
+      update: {
+        investmentAmount: parseInt(investmentStyle.budget),
+        monthlyAmount: parseInt(investmentStyle.monthlyAmount || "0"),
+        investmentPeriod: investmentStyle.investmentPeriod,
+        riskTolerance: investmentStyle.riskTolerance,
+      },
+      create: {
+        userId: user.id,
+        investmentAmount: parseInt(investmentStyle.budget),
+        monthlyAmount: parseInt(investmentStyle.monthlyAmount || "0"),
+        investmentPeriod: investmentStyle.investmentPeriod,
+        riskTolerance: investmentStyle.riskTolerance,
+      },
+    })
+
     const purchasedSet = new Set(purchasedIndices || [])
     const results = {
       watchlistAdded: 0,
@@ -65,15 +90,52 @@ export async function POST(request: NextRequest) {
       const isPurchased = purchasedSet.has(i)
 
       try {
-        // 銘柄コードで株式を検索
-        const stock = await prisma.stock.findUnique({
-          where: { tickerCode: rec.tickerCode },
+        // 銘柄コードで株式を検索（.Tあり/なし両方対応）
+        const tickerCodeWithT = rec.tickerCode.includes(".T")
+          ? rec.tickerCode
+          : `${rec.tickerCode}.T`
+
+        let stock = await prisma.stock.findFirst({
+          where: {
+            OR: [{ tickerCode: rec.tickerCode }, { tickerCode: tickerCodeWithT }],
+          },
         })
 
+        // 銘柄が存在しない場合は作成
         if (!stock) {
-          results.errors.push(`銘柄 ${rec.tickerCode} が見つかりませんでした`)
-          continue
+          stock = await prisma.stock.create({
+            data: {
+              tickerCode: rec.tickerCode,
+              name: rec.name,
+              market: "TSE",
+            },
+          })
         }
+
+        // まずウォッチリストに追加（全ての提案を保存）
+        await prisma.watchlist.upsert({
+          where: {
+            userId_stockId: {
+              userId: user.id,
+              stockId: stock.id,
+            },
+          },
+          update: {
+            recommendedPrice: rec.recommendedPrice,
+            recommendedQty: rec.quantity,
+            reason: rec.reason,
+            source: "onboarding",
+          },
+          create: {
+            userId: user.id,
+            stockId: stock.id,
+            recommendedPrice: rec.recommendedPrice,
+            recommendedQty: rec.quantity,
+            reason: rec.reason,
+            source: "onboarding",
+          },
+        })
+        results.watchlistAdded++
 
         if (isPurchased) {
           // 購入済み: ポートフォリオに追加（購入詳細は後で入力）
@@ -111,29 +173,6 @@ export async function POST(request: NextRequest) {
             })
 
             results.portfolioAdded++
-          }
-        } else {
-          // 未購入: ウォッチリストに追加
-          const existingWatchlist = await prisma.watchlist.findFirst({
-            where: {
-              userId: user.id,
-              stockId: stock.id,
-            },
-          })
-
-          if (!existingWatchlist) {
-            await prisma.watchlist.create({
-              data: {
-                userId: user.id,
-                stockId: stock.id,
-                recommendedPrice: rec.recommendedPrice,
-                recommendedQty: rec.quantity,
-                reason: rec.reason,
-                source: "onboarding",
-              },
-            })
-
-            results.watchlistAdded++
           }
         }
       } catch (error) {

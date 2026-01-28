@@ -52,30 +52,11 @@ export async function POST(request: NextRequest) {
     }
 
     // ユーザー設定を保存または更新
-    if (user.settings) {
-      await prisma.userSettings.update({
-        where: { userId: user.id },
-        data: {
-          investmentAmount: budgetNum,
-          monthlyAmount: monthlyNum,
-          investmentPeriod,
-          riskTolerance,
-        },
-      })
-    } else {
-      await prisma.userSettings.create({
-        data: {
-          userId: user.id,
-          investmentAmount: budgetNum,
-          monthlyAmount: monthlyNum,
-          investmentPeriod,
-          riskTolerance,
-        },
-      })
-    }
+    // 投資スタイルは保存せず、銘柄提案のみ生成
+    // 保存は /api/onboarding/complete で行う
 
     // DBから実際の銘柄データを取得（最新株価付き）
-    const stocks = await prisma.stock.findMany({
+    const allStocks = await prisma.stock.findMany({
       where: {
         tickerCode: {
           endsWith: ".T",
@@ -90,6 +71,18 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // 予算内で購入可能な銘柄のみにフィルタリング（最低100株）
+    const maxPricePerShare = budgetNum * 0.5 / 100 // 予算の50%を1銘柄に使うと仮定
+    const stocks = allStocks.filter(stock => {
+      const latestPrice = stock.prices[0]?.close
+      if (!latestPrice) return false
+      const priceNum = parseFloat(latestPrice.toString())
+      // 100株買える価格であること
+      return priceNum * 100 <= budgetNum * 0.75
+    })
+
+    console.log(`Total stocks: ${allStocks.length}, Affordable stocks (max ${Math.floor(maxPricePerShare)}円/株): ${stocks.length}`)
 
     // DBから最新の市場ニュースを取得
     const recentNews = await prisma.marketNews.findMany({
@@ -177,15 +170,22 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `あなたは日本株の投資アドバイザーです。以下の実際の株価データと技術指標を基に、ユーザーの投資スタイルに適した銘柄を3〜5個提案してください。
+            content: `あなたは日本株の投資アドバイザーです。ユーザーの投資スタイルに適した銘柄を3〜5個提案してください。
 
-**重要な制約**:
-- 提案する全銘柄の合計投資金額は、必ずユーザーの予算の80%以内に収めてください
-- 予算が少ない場合は、銘柄数を減らしてください（1〜2銘柄でも可）
-- 単元株制度を考慮し、quantityは100株単位を基本としてください
-- 1銘柄あたりの投資額が予算の50%を超えないように分散してください
-- **tickerCodeは提供されたリストから正確に選択してください（数字のみ、.Tは付けない）**
-- **recommendedPriceは必ずcurrentPriceを使用してください**
+**重要: 提供される銘柄リストについて**
+- すでに予算内で購入可能な銘柄のみがリストされています
+- 予算の計算は不要です。リストから投資スタイルに合った銘柄を選ぶだけです
+
+**銘柄選択のルール**:
+1. 提供された銘柄リストから、投資スタイル（期間・リスク）に最も適した銘柄を選択
+2. 3〜5銘柄を推奨（リストが少ない場合は1〜2銘柄でも可）
+3. 各銘柄は100株で提案（quantityは必ず100）
+4. 分散投資を意識して、異なるセクターから選ぶ
+
+**技術的制約**:
+- **quantityは必ず100（固定）**
+- **tickerCodeは提供されたリストから正確に選択（数字のみ、.Tは付けない）**
+- **recommendedPriceは必ずcurrentPriceを使用**
 
 **技術指標の活用**:
 - rsi: RSI（相対力指数）。30以下は売られすぎ（買いチャンス）、70以上は買われすぎ（注意）
@@ -230,14 +230,17 @@ export async function POST(request: NextRequest) {
             content: `以下の条件で銘柄を提案してください：
 
 【投資条件】
-- 予算: ${budget}円
 - 投資期間: ${investmentPeriod}
 - リスク許容度: ${riskTolerance}
 
-${marketNews ? `【市場の最新動向】\n${marketNews}\n\n` : ""}【利用可能な銘柄データ（実際の株価）】
+【提供される銘柄リスト】
+以下の銘柄はすべて予算内（${budget}円）で購入可能です。各銘柄100株ずつ購入できます。
+
+${marketNews ? `【市場の最新動向】\n${marketNews}\n\n` : ""}【購入可能な銘柄データ】
 ${JSON.stringify(stocksWithPrice, null, 2)}
 
-上記のデータから適切な銘柄を選んで、JSON形式で返してください。${marketNews ? "市場動向も考慮してください。" : ""}`,
+上記のリストから、投資スタイルに合った銘柄を3〜5個選んでJSON形式で返してください。
+各銘柄のquantityは必ず100にしてください。${marketNews ? "\n市場動向も考慮してください。" : ""}`,
           },
         ],
         temperature: 0.7,
@@ -253,65 +256,54 @@ ${JSON.stringify(stocksWithPrice, null, 2)}
     const openaiData = await openaiResponse.json()
     const recommendations = JSON.parse(openaiData.choices[0].message.content)
 
-    // 提案をウォッチリストに保存
-    const watchlistPromises = recommendations.stocks.map(async (stock: any) => {
-      // 銘柄がDBに存在するか確認（.Tあり/なし両方に対応）
-      const tickerCodeWithT = stock.tickerCode.includes(".T")
-        ? stock.tickerCode
-        : `${stock.tickerCode}.T`
+    // 予算チェック: すべて100株で提案されているはず
+    const totalInvestment = recommendations.stocks.reduce(
+      (sum: number, stock: any) => sum + stock.recommendedPrice * 100,
+      0
+    )
 
-      let dbStock = await prisma.stock.findFirst({
-        where: {
-          OR: [{ tickerCode: stock.tickerCode }, { tickerCode: tickerCodeWithT }],
-        },
-      })
-
-      // 存在しない場合は作成
-      if (!dbStock) {
-        dbStock = await prisma.stock.create({
-          data: {
-            tickerCode: stock.tickerCode,
-            name: stock.name,
-            market: "TSE",
-          },
-        })
-      }
-
-      // ウォッチリストに追加（既存の場合は更新）
-      return prisma.watchlist.upsert({
-        where: {
-          userId_stockId: {
-            userId: user.id,
-            stockId: dbStock.id,
-          },
-        },
-        update: {
-          recommendedPrice: stock.recommendedPrice,
-          recommendedQty: stock.quantity,
-          reason: stock.reason,
-          source: "onboarding",
-        },
-        create: {
-          userId: user.id,
-          stockId: dbStock.id,
-          recommendedPrice: stock.recommendedPrice,
-          recommendedQty: stock.quantity,
-          reason: stock.reason,
-          source: "onboarding",
-        },
-      })
+    console.log(`Budget: ${budgetNum}`)
+    console.log(`Recommended ${recommendations.stocks.length} stocks:`)
+    recommendations.stocks.forEach((stock: any) => {
+      console.log(`- ${stock.tickerCode}: ${stock.recommendedPrice}円 × 100株 = ${stock.recommendedPrice * 100}円`)
     })
+    console.log(`Total: ${totalInvestment}円 (${Math.round(totalInvestment / budgetNum * 100)}% of budget)`)
 
-    await Promise.all(watchlistPromises)
+    // quantityを100に統一（AIが守らない場合のフェイルセーフ）
+    recommendations.stocks = recommendations.stocks.map((stock: any) => ({
+      ...stock,
+      quantity: 100,
+    }))
 
+    // 提案はすぐに保存せず、フロントエンドに返すだけ
+    // 保存は /api/onboarding/complete で行う
     return NextResponse.json({
       success: true,
       recommendations: recommendations.stocks,
     })
   } catch (error) {
     console.error("Error in onboarding:", error)
+
+    // エラーの詳細をログに出力
+    let errorMessage = "銘柄の提案に失敗しました"
+
+    if (error instanceof Error) {
+      // Prismaのデータベース接続エラー
+      if (error.message.includes("Can't reach database")) {
+        errorMessage = "データベースに接続できませんでした。しばらく待ってから再度お試しください。"
+      }
+      // OpenAI APIエラー
+      else if (error.message.includes("OpenAI")) {
+        errorMessage = "AI分析サービスでエラーが発生しました。もう一度お試しください。"
+      }
+      // その他のエラーはメッセージをそのまま使用
+      else if (error.message) {
+        errorMessage = error.message
+      }
+    }
+
     return NextResponse.json(
-      { error: "銘柄の提案に失敗しました" },
+      { error: errorMessage },
       { status: 500 }
     )
   }

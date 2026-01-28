@@ -171,6 +171,25 @@ export default function OnboardingPage() {
     { value: "high", label: "高リスク", desc: "成長株・新興市場も含む" },
   ]
 
+  // ローディング画面
+  if (loading && step !== 6) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl shadow-xl p-8 text-center">
+          <div className="flex justify-center mb-6">
+            <div className="animate-spin h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            銘柄を分析中...
+          </h2>
+          <p className="text-gray-600 text-sm">
+            あなたに最適な投資先を提案しています。少々お待ちください。
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // 保有銘柄確認画面（step 4.5）
   if (step === 4.5) {
     return (
@@ -354,7 +373,7 @@ export default function OnboardingPage() {
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  購入株数
+                  保有株数
                 </label>
                 <input
                   type="number"
@@ -367,7 +386,7 @@ export default function OnboardingPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  平均購入単価（円）
+                  平均取得単価（円）
                 </label>
                 <input
                   type="number"
@@ -383,7 +402,7 @@ export default function OnboardingPage() {
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                購入日
+                購入日（任意）
               </label>
               <input
                 type="date"
@@ -468,7 +487,7 @@ export default function OnboardingPage() {
     const handleCompleteOnboarding = async () => {
       setLoading(true)
       try {
-        // 推奨銘柄をウォッチリストに保存
+        // 推奨銘柄をウォッチリストに保存 + 投資スタイルを保存
         const response = await fetch("/api/onboarding/complete", {
           method: "POST",
           headers: {
@@ -477,6 +496,7 @@ export default function OnboardingPage() {
           body: JSON.stringify({
             recommendations,
             purchasedIndices: Array.from(selectedStocks),
+            investmentStyle: formData,
           }),
         })
 
