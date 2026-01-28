@@ -1,0 +1,36 @@
+name: Daily Stock Price Fetch
+
+on:
+  schedule:
+    # 毎日JST 18:00 (UTC 09:00) に実行（市場クローズ後）
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  fetch-stock-prices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance psycopg2-binary python-dotenv
+
+      - name: Fetch stock prices
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/fetch_stocks.py
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Stock price fetch failed"
