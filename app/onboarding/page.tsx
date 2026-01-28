@@ -82,7 +82,7 @@ export default function OnboardingPage() {
         handleGoToHoldingsInput()
       } else {
         // 新規投資家 → 銘柄提案へ
-        handleGenerateRecommendations()
+        handleGetRecommendations()
       }
     }
   }
