@@ -18,12 +18,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { budget, investmentPeriod, riskTolerance } = await request.json()
+    const { budget, monthlyAmount, investmentPeriod, riskTolerance } = await request.json()
 
     // バリデーション
-    if (!budget || budget < 10000) {
+    const budgetNum = parseInt(budget)
+    const monthlyNum = parseInt(monthlyAmount || "0")
+
+    if (isNaN(budgetNum) || budgetNum < 10000) {
       return NextResponse.json(
         { error: "予算は10,000円以上を指定してください" },
+        { status: 400 }
+      )
+    }
+
+    if (isNaN(monthlyNum) || monthlyNum < 0) {
+      return NextResponse.json(
+        { error: "月々の積立金額を正しく入力してください" },
         { status: 400 }
       )
     }
@@ -46,7 +56,8 @@ export async function POST(request: NextRequest) {
       await prisma.userSettings.update({
         where: { userId: user.id },
         data: {
-          investmentAmount: parseInt(budget),
+          investmentAmount: budgetNum,
+          monthlyAmount: monthlyNum,
           investmentPeriod,
           riskTolerance,
         },
@@ -55,7 +66,8 @@ export async function POST(request: NextRequest) {
       await prisma.userSettings.create({
         data: {
           userId: user.id,
-          investmentAmount: parseInt(budget),
+          investmentAmount: budgetNum,
+          monthlyAmount: monthlyNum,
           investmentPeriod,
           riskTolerance,
         },
