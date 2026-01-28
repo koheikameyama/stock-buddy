@@ -177,7 +177,7 @@ except Exception as e:
 
     // エラーのある銘柄を除外
     const validStocks = stocksData.filter(
-      (s) => s !== null && s.data && !s.data.error
+      (s): s is NonNullable<typeof s> => s !== null && s.data && !s.data.error
     )
 
     if (validStocks.length === 0) {
