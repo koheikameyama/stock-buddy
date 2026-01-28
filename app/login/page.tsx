@@ -9,7 +9,7 @@ export default function LoginPage() {
             Stock Buddy
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            AIに任せて、毎日ちょっと分かる投資
+            任せるから、増える
           </p>
         </div>
         <form
