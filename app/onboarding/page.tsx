@@ -188,16 +188,34 @@ export default function OnboardingPage() {
   if (loading && step !== 6) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl sm:rounded-2xl shadow-xl p-8 text-center">
+        <div className="max-w-lg w-full bg-white rounded-xl sm:rounded-2xl shadow-xl p-8">
           <div className="flex justify-center mb-6">
             <div className="animate-spin h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full"></div>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+          <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">
             銘柄を分析中...
           </h2>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 text-sm mb-6 text-center">
             あなたに最適な投資先を提案しています。少々お待ちください。
           </p>
+
+          <div className="bg-blue-50 rounded-lg p-4 text-left">
+            <h3 className="text-sm font-semibold text-blue-900 mb-2">📊 提案対象銘柄について</h3>
+            <ul className="text-xs text-blue-800 space-y-1.5">
+              <li>・日経225主要銘柄 + 厳選された154銘柄から選定</li>
+              <li>・東証プライム市場上場、時価総額1,000億円以上</li>
+              <li>・流動性が高く実際に購入しやすい銘柄</li>
+              <li>・あなたの予算で購入可能な銘柄のみ</li>
+            </ul>
+            <a
+              href="/about/stock-selection"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:text-blue-800 underline mt-2 inline-block"
+            >
+              詳しい選定基準を見る →
+            </a>
+          </div>
         </div>
       </div>
     )
