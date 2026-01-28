@@ -140,7 +140,7 @@ export default function OnboardingPage() {
 
   // 投資金額オプション
   const budgetOptions = [
-    { value: "0", label: "0円", desc: "保有銘柄のみ使う" },
+    { value: "0", label: "0円", desc: "新規の投資はしない" },
     { value: "30000", label: "3万円", desc: "まずは少額から" },
     { value: "50000", label: "5万円", desc: "少しずつ増やす" },
     { value: "100000", label: "10万円", desc: "バランスの取れた金額", badge: true },
@@ -664,7 +664,7 @@ export default function OnboardingPage() {
                         <p className="font-semibold text-gray-900">{option.label}</p>
                         <p className="text-sm text-gray-600">{option.desc}</p>
                       </div>
-                      {option.badge && !isExistingInvestor && (
+                      {option.badge && (
                         <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded">
                           おすすめ
                         </span>
@@ -794,75 +794,25 @@ export default function OnboardingPage() {
           )}
 
           <div className="mt-8">
-            {step < 4 ? (
-              <div className="flex gap-4">
-                {step > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setStep(step - 1)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
-                  >
-                    戻る
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!canProceed()}
-                  className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  次へ
-                </button>
-              </div>
-            ) : isExistingInvestor ? (
-              // 既存投資家：保有銘柄登録のみ
-              <>
+            <div className="flex gap-4">
+              {step > 1 && (
                 <button
                   type="button"
                   onClick={() => setStep(step - 1)}
-                  className="w-full mb-3 bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
                 >
                   戻る
                 </button>
-                <button
-                  type="button"
-                  onClick={handleGoToHoldingsInput}
-                  disabled={!canProceed() || loading}
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  {loading ? "保存中..." : "保有銘柄を登録"}
-                </button>
-              </>
-            ) : (
-              // 新規投資家：両方の選択肢
-              <>
-                <button
-                  type="button"
-                  onClick={() => setStep(step - 1)}
-                  className="w-full mb-3 bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
-                >
-                  戻る
-                </button>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleGoToHoldingsInput}
-                    disabled={!canProceed() || loading}
-                    className="flex-1 bg-white border-2 border-blue-600 text-blue-600 py-3 px-6 rounded-xl font-semibold hover:bg-blue-50 transition-colors disabled:bg-gray-300 disabled:border-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
-                  >
-                    {loading ? "保存中..." : "保有銘柄を登録"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleGetRecommendations}
-                    disabled={!canProceed() || loading}
-                    className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  >
-                    {loading ? "生成中..." : "銘柄を提案してもらう"}
-                  </button>
-                </div>
-              </>
-            )}
+              )}
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!canProceed()}
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                次へ
+              </button>
+            </div>
           </div>
         </div>
       </div>
