@@ -13,6 +13,19 @@ interface Stock {
   averagePrice: string
 }
 
+interface WatchlistItem {
+  id: string
+  stockId: string
+  tickerCode: string
+  name: string
+  market: string
+  sector: string | null
+  recommendedPrice: string
+  recommendedQty: number
+  reason: string | null
+  source: string
+}
+
 interface StockPrice {
   tickerCode: string
   currentPrice: number
@@ -33,10 +46,13 @@ interface Settings {
 export default function PortfolioClient({
   settings,
   stocks,
+  watchlist,
 }: {
   settings: Settings
   stocks: Stock[]
+  watchlist: WatchlistItem[]
 }) {
+  const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -81,6 +97,30 @@ export default function PortfolioClient({
           <p className="text-lg text-gray-600">AIが選んだおすすめ銘柄</p>
         </div>
 
+        {/* タブ切り替え */}
+        <div className="flex border-b border-gray-200 mb-6">
+          <button
+            onClick={() => setActiveTab("portfolio")}
+            className={`px-6 py-3 font-semibold transition-colors ${
+              activeTab === "portfolio"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            保有銘柄 ({stocks.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("watchlist")}
+            className={`px-6 py-3 font-semibold transition-colors ${
+              activeTab === "watchlist"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            ウォッチリスト ({watchlist.length})
+          </button>
+        </div>
+
         {/* ポートフォリオ概要 */}
         <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">投資スタイル</h2>
@@ -121,8 +161,11 @@ export default function PortfolioClient({
           </div>
         )}
 
-        {/* 推奨銘柄リスト */}
-        <div className="space-y-4">
+        {/* 保有銘柄タブ */}
+        {activeTab === "portfolio" && (
+          <>
+            {/* 推奨銘柄リスト */}
+            <div className="space-y-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-900">推奨銘柄</h2>
             {loading && (
@@ -267,63 +310,229 @@ export default function PortfolioClient({
           })}
         </div>
 
-        {/* 合計金額 */}
-        <div className="mt-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-md p-6 text-white">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-blue-100 mb-1">推奨投資総額</p>
-              <p className="text-4xl font-bold">
-                {stocks
-                  .reduce((sum, s) => sum + Number(s.averagePrice) * s.quantity, 0)
-                  .toLocaleString()}
-                円
-              </p>
+            {/* 合計金額 */}
+            <div className="mt-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-md p-6 text-white">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-blue-100 mb-1">推奨投資総額</p>
+                  <p className="text-4xl font-bold">
+                    {stocks
+                      .reduce((sum, s) => sum + Number(s.averagePrice) * s.quantity, 0)
+                      .toLocaleString()}
+                    円
+                  </p>
+                </div>
+                {!loading && Object.keys(prices).length > 0 && (
+                  <div className="text-right">
+                    <p className="text-blue-100 mb-1">現在評価額</p>
+                    <p className="text-3xl font-bold">
+                      {stocks
+                        .reduce((sum, s) => {
+                          const price = prices[s.tickerCode]
+                          return sum + (price ? price.currentPrice * s.quantity : 0)
+                        }, 0)
+                        .toLocaleString()}
+                      円
+                    </p>
+                  </div>
+                )}
+                <div className="text-right">
+                  <p className="text-blue-100 mb-1">予算</p>
+                  <p className="text-2xl font-bold">
+                    {settings.investmentAmount.toLocaleString()}円
+                  </p>
+                </div>
+              </div>
             </div>
-            {!loading && Object.keys(prices).length > 0 && (
-              <div className="text-right">
-                <p className="text-blue-100 mb-1">現在評価額</p>
-                <p className="text-3xl font-bold">
-                  {stocks
-                    .reduce((sum, s) => {
-                      const price = prices[s.tickerCode]
-                      return sum + (price ? price.currentPrice * s.quantity : 0)
-                    }, 0)
-                    .toLocaleString()}
-                  円
+
+            {/* 注意事項 */}
+            <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                ⚠️ 投資にあたっての注意事項
+              </h3>
+              <ul className="space-y-2 text-gray-700">
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>推奨価格は目安です。実際の株価は市場の状況により変動します。</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>
+                    投資は自己責任で行ってください。損失が発生する可能性があります。
+                  </span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>毎日のレポートで最新の分析と推奨をお届けします。</span>
+                </li>
+              </ul>
+            </div>
+          </>
+        )}
+
+        {/* ウォッチリストタブ */}
+        {activeTab === "watchlist" && (
+          <>
+            <div className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">ウォッチリスト</h2>
+                <p className="text-gray-600 mt-1">
+                  AIが提案した銘柄です。実際に購入したら「購入した」ボタンで保有銘柄に追加してください。
                 </p>
               </div>
-            )}
-            <div className="text-right">
-              <p className="text-blue-100 mb-1">予算</p>
-              <p className="text-2xl font-bold">
-                {settings.investmentAmount.toLocaleString()}円
-              </p>
-            </div>
-          </div>
-        </div>
 
-        {/* 注意事項 */}
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            ⚠️ 投資にあたっての注意事項
-          </h3>
-          <ul className="space-y-2 text-gray-700">
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>推奨価格は目安です。実際の株価は市場の状況により変動します。</span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>
-                投資は自己責任で行ってください。損失が発生する可能性があります。
-              </span>
-            </li>
-            <li className="flex items-start">
-              <span className="mr-2">•</span>
-              <span>毎日のレポートで最新の分析と推奨をお届けします。</span>
-            </li>
-          </ul>
-        </div>
+              {watchlist.length === 0 ? (
+                <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+                  <p className="text-gray-500 text-lg mb-4">
+                    ウォッチリストに銘柄がありません
+                  </p>
+                  <p className="text-gray-400 text-sm">
+                    オンボーディングで銘柄提案を受けるか、AIレポートから銘柄を追加してください。
+                  </p>
+                </div>
+              ) : (
+                watchlist.map((item) => {
+                  const recommendedPrice = Number(item.recommendedPrice)
+                  const totalCost = recommendedPrice * item.recommendedQty
+                  const price = prices[item.tickerCode]
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                            {item.name}
+                          </h3>
+                          <p className="text-gray-500">{item.tickerCode}</p>
+                        </div>
+                        <div className="text-right">
+                          {price ? (
+                            <>
+                              <p className="text-sm text-gray-500 mb-1">現在価格</p>
+                              <p className="text-3xl font-bold text-blue-600">
+                                {price.currentPrice.toLocaleString()}円
+                              </p>
+                              <div className="flex items-center justify-end mt-1">
+                                {price.change >= 0 ? (
+                                  <span className="text-green-600 font-semibold flex items-center">
+                                    <svg
+                                      className="w-4 h-4 mr-1"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                    +{price.change.toLocaleString()}円 (+
+                                    {price.changePercent.toFixed(2)}%)
+                                  </span>
+                                ) : (
+                                  <span className="text-red-600 font-semibold flex items-center">
+                                    <svg
+                                      className="w-4 h-4 mr-1"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                    {price.change.toLocaleString()}円 (
+                                    {price.changePercent.toFixed(2)}%)
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm text-gray-500 mb-1">推奨価格</p>
+                              <p className="text-3xl font-bold text-gray-600">
+                                {recommendedPrice.toLocaleString()}円
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">推奨株数</p>
+                          <p className="text-xl font-semibold text-gray-900">
+                            {item.recommendedQty}株
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">推奨投資額</p>
+                          <p className="text-xl font-semibold text-gray-900">
+                            {totalCost.toLocaleString()}円
+                          </p>
+                        </div>
+                      </div>
+
+                      {item.reason && (
+                        <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-2">
+                            📊 推奨理由
+                          </p>
+                          <p className="text-gray-700 leading-relaxed text-sm">
+                            {item.reason}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                        <div className="text-sm text-gray-500">
+                          {item.sector && `セクター: ${item.sector} | `}
+                          市場: {item.market}
+                          {item.source && ` | 提案元: ${item.source === 'onboarding' ? 'オンボーディング' : item.source}`}
+                        </div>
+                        <button
+                          className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                        >
+                          購入した
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* ウォッチリスト合計 */}
+            {watchlist.length > 0 && (
+              <div className="mt-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-md p-6 text-white">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-blue-100 mb-1">推奨投資総額</p>
+                    <p className="text-4xl font-bold">
+                      {watchlist
+                        .reduce(
+                          (sum, w) => sum + Number(w.recommendedPrice) * w.recommendedQty,
+                          0
+                        )
+                        .toLocaleString()}
+                      円
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-blue-100 mb-1">予算</p>
+                    <p className="text-2xl font-bold">
+                      {settings.investmentAmount.toLocaleString()}円
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

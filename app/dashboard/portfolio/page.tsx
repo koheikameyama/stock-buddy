@@ -12,7 +12,7 @@ export default async function PortfolioPage() {
     redirect("/login")
   }
 
-  // ユーザーのポートフォリオと設定を取得
+  // ユーザーのポートフォリオ、設定、ウォッチリストを取得
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: {
@@ -26,21 +26,47 @@ export default async function PortfolioPage() {
           },
         },
       },
+      watchlist: {
+        include: {
+          stock: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      },
     },
   })
 
-  if (!user || !user.portfolio || !user.settings) {
-    // ポートフォリオまたは設定がない場合はオンボーディングにリダイレクト
+  if (!user) {
+    redirect("/login")
+  }
+
+  // ポートフォリオがない場合は作成
+  let portfolio = user.portfolio
+  if (!portfolio) {
+    portfolio = await prisma.portfolio.create({
+      data: {
+        userId: user.id,
+        name: "マイポートフォリオ",
+      },
+      include: {
+        stocks: {
+          include: {
+            stock: true,
+          },
+        },
+      },
+    })
+  }
+
+  // 設定がない場合はオンボーディングへ
+  if (!user.settings) {
     redirect("/onboarding")
   }
 
-  const portfolio = user.portfolio
   const settings = user.settings
-  const stocks = portfolio.stocks
-
-  if (stocks.length === 0) {
-    redirect("/onboarding")
-  }
+  const stocks = portfolio.stocks || []
+  const watchlist = user.watchlist || []
 
   return (
     <PortfolioClient
@@ -54,6 +80,18 @@ export default async function PortfolioPage() {
         sector: s.stock.sector,
         quantity: s.quantity,
         averagePrice: s.averagePrice.toString(),
+      }))}
+      watchlist={watchlist.map((w) => ({
+        id: w.id,
+        stockId: w.stock.id,
+        tickerCode: w.stock.tickerCode,
+        name: w.stock.name,
+        market: w.stock.market,
+        sector: w.stock.sector,
+        recommendedPrice: w.recommendedPrice.toString(),
+        recommendedQty: w.recommendedQty,
+        reason: w.reason,
+        source: w.source,
       }))}
     />
   )

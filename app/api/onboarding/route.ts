@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
+import {
+  calculateRSI,
+  calculateSMA,
+  calculateMACD,
+  getTechnicalSignal,
+} from "@/lib/technical-indicators"
 
 const prisma = new PrismaClient()
 
@@ -73,6 +79,37 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Web検索で市場の最新ニュースを取得（オプション）
+    let marketNews = ""
+    try {
+      // 日本株市場の最新ニュースを取得
+      const newsResponse = await fetch(
+        `https://api.tavily.com/search`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            api_key: process.env.TAVILY_API_KEY,
+            query: "日本株 市場動向 最新ニュース",
+            search_depth: "basic",
+            max_results: 3,
+          }),
+        }
+      )
+
+      if (newsResponse.ok) {
+        const newsData = await newsResponse.json()
+        marketNews = newsData.results
+          ?.map((r: any) => `- ${r.title}: ${r.content?.substring(0, 200)}`)
+          .join("\n") || ""
+      }
+    } catch (error) {
+      console.log("市場ニュース取得をスキップ:", error)
+      // ニュース取得失敗は致命的ではないので続行
+    }
+
     // 株価データがある銘柄のみをフィルタ
     const stocksWithPrice = stocks
       .filter((s) => s.prices.length > 0)
@@ -94,13 +131,33 @@ export async function POST(request: NextRequest) {
           priceHistory.reduce((sum, p) => sum + Number(p.volume), 0) /
           priceHistory.length
 
+        // 技術指標を計算
+        const priceData = priceHistory.map((p) => ({
+          close: Number(p.close),
+          high: Number(p.high),
+          low: Number(p.low),
+        }))
+
+        const rsi = calculateRSI(priceData)
+        const sma25 = calculateSMA(priceData, 25)
+        const macd = calculateMACD(priceData)
+        const technicalSignal = getTechnicalSignal(priceData)
+
         return {
           tickerCode: s.tickerCode.replace(".T", ""),
           name: s.name,
           sector: s.sector,
           currentPrice: Number(latestPrice.close),
-          priceChange30d: priceChange,
-          avgVolume: avgVolume,
+          priceChange30d: Math.round(priceChange * 100) / 100,
+          avgVolume: Math.round(avgVolume),
+          // 技術指標を追加
+          rsi: rsi,
+          sma25: sma25,
+          macd: macd.macd,
+          macdSignal: macd.signal,
+          technicalSignal: technicalSignal.signal,
+          technicalStrength: technicalSignal.strength,
+          technicalReasons: technicalSignal.reasons,
         }
       })
 
@@ -116,7 +173,7 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `あなたは日本株の投資アドバイザーです。以下の実際の株価データを基に、ユーザーの投資スタイルに適した銘柄を3〜5個提案してください。
+            content: `あなたは日本株の投資アドバイザーです。以下の実際の株価データと技術指標を基に、ユーザーの投資スタイルに適した銘柄を3〜5個提案してください。
 
 **重要な制約**:
 - 提案する全銘柄の合計投資金額は、必ずユーザーの予算の80%以内に収めてください
@@ -126,22 +183,30 @@ export async function POST(request: NextRequest) {
 - **tickerCodeは提供されたリストから正確に選択してください（数字のみ、.Tは付けない）**
 - **recommendedPriceは必ずcurrentPriceを使用してください**
 
+**技術指標の活用**:
+- rsi: RSI（相対力指数）。30以下は売られすぎ（買いチャンス）、70以上は買われすぎ（注意）
+- sma25: 25日移動平均。currentPrice > sma25 なら上昇トレンド
+- macd: MACD指標。プラスなら上昇モメンタム、マイナスなら下降モメンタム
+- technicalSignal: 総合シグナル。プラスなら買いシグナル、マイナスなら売りシグナル
+- technicalStrength: "強い買い"、"買い"、"中立"、"売り"、"強い売り"
+- technicalReasons: シグナルの理由（配列）
+
 各銘柄について以下の情報をJSON形式で返してください：
 - tickerCode: 銘柄コード（提供リストから選択、例: "7203"）
 - name: 銘柄名
 - recommendedPrice: 推奨購入価格（currentPriceの値を使用）
 - quantity: 推奨購入株数（100株単位）
-- reason: 推奨理由（セクター、価格動向、出来高などを考慮して100文字程度）
+- reason: 推奨理由（技術指標を含めて150文字程度。例: "RSI 45で適正水準。25日移動平均を上回り上昇トレンド。MACDもプラスで買いシグナル。"）
 
 リスク許容度の考慮：
-- low: 価格変動が小さい安定した大型株を優先（priceChange30dが小さい銘柄）
-- medium: 適度な成長性と安定性のバランス
-- high: 成長性が高い銘柄を優先（priceChange30dがプラスの銘柄）
+- low: technicalSignalが中立〜買いの安定した大型株を優先。RSIが30-70の範囲内
+- medium: 適度な成長性と安定性のバランス。technicalSignalがプラスの銘柄
+- high: technicalSignalが強い買いの成長株を優先。上昇トレンドが明確な銘柄
 
 投資期間の考慮：
-- short: 出来高が多く流動性が高い銘柄
-- medium: 安定した業績が期待できるセクター
-- long: 配当や長期成長が期待できる銘柄
+- short: 出来高が多く、technicalSignalが明確（買いまたは売り）な銘柄
+- medium: 移動平均線を基準にトレンドが安定している銘柄
+- long: RSIが適正水準（30-70）で、長期的な上昇トレンドにある銘柄
 
 必ず以下の形式でJSONを返してください：
 {
@@ -151,7 +216,7 @@ export async function POST(request: NextRequest) {
       "name": "トヨタ自動車",
       "recommendedPrice": 3347,
       "quantity": 100,
-      "reason": "輸送用機器セクターの大型株。直近30日で安定した値動き。高い流動性で売買しやすい。"
+      "reason": "RSI 52で適正水準。25日移動平均3,500円を若干下回るも、出来高が高く流動性◎。MACDが上向きで買いシグナル。輸送用機器セクターの大型株で安定性も高い。"
     }
   ]
 }`,
@@ -165,10 +230,10 @@ export async function POST(request: NextRequest) {
 - 投資期間: ${investmentPeriod}
 - リスク許容度: ${riskTolerance}
 
-【利用可能な銘柄データ（実際の株価）】
+${marketNews ? `【市場の最新動向】\n${marketNews}\n\n` : ""}【利用可能な銘柄データ（実際の株価）】
 ${JSON.stringify(stocksWithPrice, null, 2)}
 
-上記のデータから適切な銘柄を選んで、JSON形式で返してください。`,
+上記のデータから適切な銘柄を選んで、JSON形式で返してください。${marketNews ? "市場動向も考慮してください。" : ""}`,
           },
         ],
         temperature: 0.7,
