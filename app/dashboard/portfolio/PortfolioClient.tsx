@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import PurchaseModal from "./PurchaseModal"
 
 interface Stock {
   id: string
@@ -52,10 +54,13 @@ export default function PortfolioClient({
   stocks: Stock[]
   watchlist: WatchlistItem[]
 }) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedWatchlistItem, setSelectedWatchlistItem] = useState<WatchlistItem | null>(null)
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false)
 
   useEffect(() => {
     async function fetchPrices() {
@@ -495,6 +500,10 @@ export default function PortfolioClient({
                           {item.source && ` | 提案元: ${item.source === 'onboarding' ? 'オンボーディング' : item.source}`}
                         </div>
                         <button
+                          onClick={() => {
+                            setSelectedWatchlistItem(item)
+                            setShowPurchaseModal(true)
+                          }}
                           className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                         >
                           購入した
@@ -534,6 +543,21 @@ export default function PortfolioClient({
           </>
         )}
       </div>
+
+      {/* Purchase Modal */}
+      {selectedWatchlistItem && (
+        <PurchaseModal
+          isOpen={showPurchaseModal}
+          onClose={() => {
+            setShowPurchaseModal(false)
+            setSelectedWatchlistItem(null)
+          }}
+          watchlistItem={selectedWatchlistItem}
+          onSuccess={() => {
+            router.refresh()
+          }}
+        />
+      )}
     </div>
   )
 }
