@@ -74,13 +74,33 @@ export async function POST(request: NextRequest) {
 
     // 予算内で購入可能な銘柄のみにフィルタリング（最低100株）
     const maxPricePerShare = budgetNum * 0.5 / 100 // 予算の50%を1銘柄に使うと仮定
-    const stocks = allStocks.filter(stock => {
+    let stocks = allStocks.filter(stock => {
       const latestPrice = stock.prices[0]?.close
       if (!latestPrice) return false
       const priceNum = parseFloat(latestPrice.toString())
       // 100株買える価格であること
       return priceNum * 100 <= budgetNum * 0.75
     })
+
+    // 予算に応じてスコアでフィルタリング（優先順位付け）
+    if (budgetNum <= 100000) {
+      // 10万円以下：初心者スコアが高い銘柄を優先
+      stocks = stocks
+        .filter(s => s.beginnerScore !== null && s.beginnerScore >= 50)
+        .sort((a, b) => (b.beginnerScore || 0) - (a.beginnerScore || 0))
+        .slice(0, 30) // 上位30銘柄
+    } else if (budgetNum <= 500000) {
+      // 50万円以下：初心者スコアと安定性スコアのバランス
+      stocks = stocks
+        .filter(s => s.beginnerScore !== null || s.stabilityScore !== null)
+        .sort((a, b) => {
+          const scoreA = ((a.beginnerScore || 0) + (a.stabilityScore || 0)) / 2
+          const scoreB = ((b.beginnerScore || 0) + (b.stabilityScore || 0)) / 2
+          return scoreB - scoreA
+        })
+        .slice(0, 50) // 上位50銘柄
+    }
+    // 50万円以上：全銘柄から選択可能（スコアフィルタなし）
 
     console.log(`Total stocks: ${allStocks.length}, Affordable stocks (max ${Math.floor(maxPricePerShare)}円/株): ${stocks.length}`)
 
@@ -154,6 +174,12 @@ export async function POST(request: NextRequest) {
           technicalSignal: technicalSignal.signal,
           technicalStrength: technicalSignal.strength,
           technicalReasons: technicalSignal.reasons,
+          // スコア情報を追加
+          beginnerScore: s.beginnerScore,
+          growthScore: s.growthScore,
+          dividendScore: s.dividendScore,
+          stabilityScore: s.stabilityScore,
+          liquidityScore: s.liquidityScore,
         }
       })
 
@@ -199,6 +225,18 @@ export async function POST(request: NextRequest) {
 - technicalSignal: 総合シグナル。プラスなら買いシグナル、マイナスなら売りシグナル
 - technicalStrength: "強い買い"、"買い"、"中立"、"売り"、"強い売り"
 - technicalReasons: シグナルの理由（配列）
+
+**投資スコア（0-100）の活用**:
+- beginnerScore: 初心者おすすめ度（安定性・知名度・分かりやすさ）。保守的プランで重視
+- growthScore: 成長性スコア（値上がり期待）。積極的プランで重視
+- dividendScore: 高配当スコア（インカムゲイン重視）。長期保有・安定収入狙いで重視
+- stabilityScore: 安定性スコア（低リスク・低変動）。保守的プランで重視
+- liquidityScore: 流動性スコア（売買のしやすさ）。全プランで基準値以上を推奨
+
+**プラン別スコア活用ガイド**:
+1. 保守的プラン: beginnerScore 60+, stabilityScore 60+, liquidityScore 50+ を優先
+2. バランスプラン: 各スコアのバランス、特にbeginnerScore 50+とgrowthScore 40+
+3. 積極的プラン: growthScore 60+, liquidityScore 50+ を優先。リスクを取って高リターン狙い
 
 各銘柄について以下の情報をJSON形式で返してください：
 - tickerCode: 銘柄コード（提供リストから選択、例: "7203"）
