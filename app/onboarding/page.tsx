@@ -638,14 +638,14 @@ export default function OnboardingPage() {
 
           {step === 1 && (
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
                 投資金額を選んでください
               </h2>
-              <p className="text-gray-600 mb-3 text-xs sm:text-sm">
-                新たに投資する予定の金額は？（0円=保有銘柄のみ）
+              <p className="text-gray-600 mb-4 text-sm">
+                新たに投資する予定の金額は？
               </p>
 
-              <div className="space-y-1.5 sm:space-y-2">
+              <div className="space-y-2">
                 {budgetOptions.map((option) => (
                   <button
                     key={option.value}
