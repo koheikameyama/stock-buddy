@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
     const budgetNum = parseInt(budget)
     const monthlyNum = parseInt(monthlyAmount || "0")
 
-    if (isNaN(budgetNum) || budgetNum < 10000) {
+    if (isNaN(budgetNum) || budgetNum < 0) {
       return NextResponse.json(
-        { error: "予算は10,000円以上を指定してください" },
+        { error: "投資金額を正しく指定してください" },
         { status: 400 }
       )
     }

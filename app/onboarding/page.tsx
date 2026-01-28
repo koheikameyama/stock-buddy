@@ -14,8 +14,8 @@ type Recommendation = {
 export default function OnboardingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState(0) // 0: 初期選択, 1: 追加投資, 2: 月々積立, 3: 期間, 4: リスク, 5: 提案表示, 6: 保有銘柄入力
-  const [isExistingInvestor, setIsExistingInvestor] = useState(false)
+  const [step, setStep] = useState(1) // 1: 初期投資, 2: 月々積立, 3: 期間, 4: リスク, 4.5: 保有銘柄確認, 5: 提案表示, 6: 保有銘柄入力
+  const [hasExistingHoldings, setHasExistingHoldings] = useState<boolean | null>(null)
   const [showCustomBudget, setShowCustomBudget] = useState(false)
   const [customBudgetValue, setCustomBudgetValue] = useState("")
   const [showCustomMonthly, setShowCustomMonthly] = useState(false)
@@ -47,10 +47,6 @@ export default function OnboardingPage() {
     purchaseDate: new Date().toISOString().split("T")[0],
   })
 
-  const handleStart = (existing: boolean) => {
-    setIsExistingInvestor(existing)
-    setStep(1)
-  }
 
   const handleBudgetSelect = (value: string) => {
     if (value === "custom") {
@@ -76,14 +72,8 @@ export default function OnboardingPage() {
     if (step < 4) {
       setStep(step + 1)
     } else if (step === 4) {
-      // step 4 (リスク許容度) の後の処理
-      if (isExistingInvestor) {
-        // 既存投資家 → 保有銘柄登録へ
-        handleGoToHoldingsInput()
-      } else {
-        // 新規投資家 → 銘柄提案へ
-        handleGetRecommendations()
-      }
+      // step 4 (リスク許容度) の後は保有銘柄確認へ
+      setStep(4.5)
     }
   }
 
@@ -148,21 +138,9 @@ export default function OnboardingPage() {
     return false
   }
 
-  // 新規投資家向け（最低1万円から）
+  // 投資金額オプション
   const budgetOptions = [
-    { value: "10000", label: "1万円", desc: "まずは少額から" },
-    { value: "30000", label: "3万円", desc: "無理なく始める" },
-    { value: "50000", label: "5万円", desc: "少しずつ増やす" },
-    { value: "100000", label: "10万円", desc: "バランスの取れた金額", badge: true },
-    { value: "300000", label: "30万円", desc: "本格的に始める" },
-    { value: "500000", label: "50万円", desc: "分散投資" },
-    { value: "1000000", label: "100万円", desc: "しっかり運用" },
-    { value: "custom", label: "その他の金額", desc: "自由に入力" },
-  ]
-
-  // 既存投資家向け（追加投資なし=0円もOK）
-  const existingInvestorBudgetOptions = [
-    { value: "0", label: "追加投資なし", desc: "保有銘柄のみ管理" },
+    { value: "0", label: "0円", desc: "保有銘柄のみ使う" },
     { value: "30000", label: "3万円", desc: "まずは少額から" },
     { value: "50000", label: "5万円", desc: "少しずつ増やす" },
     { value: "100000", label: "10万円", desc: "バランスの取れた金額", badge: true },
@@ -172,8 +150,8 @@ export default function OnboardingPage() {
     { value: "custom", label: "その他の金額", desc: "自由に入力" },
   ]
 
-  const getMonthlyOptions = () => [
-    { value: "0", label: "積立なし・決まっていない", desc: isExistingInvestor ? "積立の予定なし" : "今回のみの投資" },
+  const monthlyOptions = [
+    { value: "0", label: "積立なし・決まっていない", desc: "今回のみの投資" },
     { value: "10000", label: "1万円", desc: "無理なく続ける" },
     { value: "30000", label: "3万円", desc: "バランス型" },
     { value: "50000", label: "5万円", desc: "継続しやすい金額", badge: true },
@@ -193,44 +171,40 @@ export default function OnboardingPage() {
     { value: "high", label: "高リスク", desc: "成長株・新興市場も含む" },
   ]
 
-  // 初期選択画面
-  if (step === 0) {
+  // 保有銘柄確認画面（step 4.5）
+  if (step === 4.5) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Stock Buddyへようこそ</h1>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              現在、保有している銘柄はありますか？
+            </h2>
             <p className="text-gray-600">
-              あなたの投資スタイルに合わせたサポートを提供します
+              保有銘柄がある場合は登録すると、より適切な提案ができます
             </p>
           </div>
 
           <div className="space-y-4">
             <button
-              onClick={() => handleStart(false)}
+              onClick={async () => {
+                setHasExistingHoldings(true)
+                await handleGoToHoldingsInput()
+              }}
               className="w-full bg-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
             >
-              これから株式投資を始める
+              はい（保有銘柄を登録する）
             </button>
 
-            <div className="relative">
-              <button
-                disabled
-                className="w-full bg-gray-100 text-gray-400 py-4 px-6 rounded-xl font-semibold border-2 border-gray-200 cursor-not-allowed"
-              >
-                すでに投資をしている
-              </button>
-              <span className="absolute top-2 right-3 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-semibold">
-                近日公開
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <span className="font-semibold">初心者向け機能：</span><br />
-              投資スタイルの入力後、AIがあなたに最適な銘柄を提案します
-            </p>
+            <button
+              onClick={async () => {
+                setHasExistingHoldings(false)
+                await handleGetRecommendations()
+              }}
+              className="w-full bg-white text-gray-700 py-4 px-6 rounded-xl font-semibold border-2 border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              いいえ（銘柄提案に進む）
+            </button>
           </div>
         </div>
       </div>
@@ -655,16 +629,14 @@ export default function OnboardingPage() {
           {step === 1 && (
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                {isExistingInvestor ? "追加投資予定金額を選んでください" : "初期投資金額を選んでください"}
+                投資金額を選んでください
               </h2>
               <p className="text-gray-600 mb-6 text-sm">
-                {isExistingInvestor
-                  ? "追加で投資する予定の金額はどのくらいですか？"
-                  : "今回投資に使える金額はどのくらいですか？"}
+                新たに投資する予定の金額はどのくらいですか？（0円=保有銘柄のみ）
               </p>
 
               <div className="space-y-2">
-                {(isExistingInvestor ? existingInvestorBudgetOptions : budgetOptions).map((option) => (
+                {budgetOptions.map((option) => (
                   <button
                     key={option.value}
                     type="button"
@@ -713,7 +685,7 @@ export default function OnboardingPage() {
               <p className="text-gray-600 mb-6 text-sm">毎月積み立てる予定の金額はどのくらいですか？</p>
 
               <div className="space-y-2">
-                {getMonthlyOptions().map((option) => (
+                {monthlyOptions.map((option) => (
                   <button
                     key={option.value}
                     type="button"
