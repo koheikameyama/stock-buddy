@@ -25,12 +25,62 @@ jobs:
           pip install yfinance psycopg2-binary python-dotenv
 
       - name: Fetch stock prices
+        id: fetch
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python scripts/fetch_stocks.py
 
-      - name: Notify on failure
+      - name: Notify success to Slack
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "✅ Stock Buddy: 株価データ取得完了",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*✅ 株価データ取得成功*\n毎日の株価データ取得が正常に完了しました。"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "実行時刻: '"$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')"' | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|詳細を見る>"
+                    }
+                  ]
+                }
+              ]
+            }'
+
+      - name: Notify failure to Slack
         if: failure()
         run: |
-          echo "Stock price fetch failed"
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "❌ Stock Buddy: 株価データ取得失敗",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*❌ 株価データ取得失敗*\n株価データの取得中にエラーが発生しました。"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "実行時刻: '"$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')"' | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|ログを確認>"
+                    }
+                  ]
+                }
+              ]
+            }'
