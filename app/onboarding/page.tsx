@@ -75,6 +75,15 @@ export default function OnboardingPage() {
   const handleNext = () => {
     if (step < 4) {
       setStep(step + 1)
+    } else if (step === 4) {
+      // step 4 (リスク許容度) の後の処理
+      if (isExistingInvestor) {
+        // 既存投資家 → 保有銘柄登録へ
+        handleGoToHoldingsInput()
+      } else {
+        // 新規投資家 → 銘柄提案へ
+        handleGenerateRecommendations()
+      }
     }
   }
 
