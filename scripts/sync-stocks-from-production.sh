@@ -19,6 +19,14 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# .envファイルを読み込む
+if [ -f .env ]; then
+  echo -e "${BLUE}📄 .envファイルを読み込み中...${NC}"
+  export $(grep -v '^#' .env | xargs)
+  echo -e "${GREEN}✓ .envファイルを読み込みました${NC}"
+  echo ""
+fi
+
 echo -e "${BLUE}🔄 本番環境からローカルへ銘柄データを同期${NC}"
 echo ""
 
