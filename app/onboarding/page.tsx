@@ -158,13 +158,13 @@ export default function OnboardingPage() {
 
   const periodOptions = [
     { value: "short", label: "短期（〜1年）", desc: "短期的な値動きを狙う" },
-    { value: "medium", label: "中期（1〜3年）", desc: "バランスの取れた運用" },
+    { value: "medium", label: "中期（1〜3年）", desc: "バランスの取れた運用", badge: true },
     { value: "long", label: "長期（3年〜）", desc: "じっくり育てる" },
   ]
 
   const riskOptions = [
     { value: "low", label: "低リスク", desc: "安定した大型株中心" },
-    { value: "medium", label: "中リスク", desc: "成長性と安定性のバランス" },
+    { value: "medium", label: "中リスク", desc: "成長性と安定性のバランス", badge: true },
     { value: "high", label: "高リスク", desc: "成長株・新興市場も含む" },
   ]
 
