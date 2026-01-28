@@ -23,10 +23,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: "/login",
   },
+  session: {
+    strategy: "database",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   callbacks: {
     authorized: async ({ auth }) => {
       // ログインしているユーザーのみアクセス可能
       return !!auth
+    },
+    async session({ session, user }) {
+      // セッションにユーザーIDを追加
+      if (session.user) {
+        session.user.id = user.id
+      }
+      return session
     },
     async redirect({ url, baseUrl }) {
       // ログイン後の処理
@@ -39,5 +50,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   trustHost: true,
-  useSecureCookies: process.env.NODE_ENV === "production",
 })
