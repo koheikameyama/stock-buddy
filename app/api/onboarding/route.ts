@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -111,7 +111,6 @@ JSON形式で返してください。`,
           },
         ],
         temperature: 0.7,
-        response_format: { type: "json_object" },
       }),
     })
 
