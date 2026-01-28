@@ -607,20 +607,19 @@ export default function OnboardingPage() {
 
   // ステップ表示（予算・期間・リスク）
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-3 sm:p-4">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex items-center mb-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6">
+          <div className="flex items-center mb-4 sm:mb-5">
             {[1, 2, 3, 4].map((s, index) => (
               <div
                 key={s}
-                className="flex items-center"
-                style={{ flex: index < 2 ? "1" : "0 0 auto" }}
+                className="flex items-center flex-1"
               >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm transition-all ${
                     s === step
-                      ? "bg-blue-600 text-white scale-110"
+                      ? "bg-blue-600 text-white"
                       : s < step
                         ? "bg-blue-600 text-white"
                         : "bg-gray-200 text-gray-500"
@@ -630,7 +629,7 @@ export default function OnboardingPage() {
                 </div>
                 {s < 4 && (
                   <div
-                    className={`h-1 flex-1 mx-2 transition-colors ${s < step ? "bg-blue-600" : "bg-gray-200"}`}
+                    className={`h-0.5 sm:h-1 flex-1 mx-1 sm:mx-2 transition-colors ${s < step ? "bg-blue-600" : "bg-gray-200"}`}
                   />
                 )}
               </div>
@@ -639,33 +638,33 @@ export default function OnboardingPage() {
 
           {step === 1 && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">
                 投資金額を選んでください
               </h2>
-              <p className="text-gray-600 mb-6 text-sm">
-                新たに投資する予定の金額はどのくらいですか？（0円=保有銘柄のみ）
+              <p className="text-gray-600 mb-3 text-xs sm:text-sm">
+                新たに投資する予定の金額は？（0円=保有銘柄のみ）
               </p>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5 sm:space-y-2">
                 {budgetOptions.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => handleBudgetSelect(option.value)}
-                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                    className={`w-full p-2.5 sm:p-3 rounded-lg border-2 transition-all text-left ${
                       formData.budget === option.value ||
                       (option.value === "custom" && showCustomBudget)
                         ? "border-blue-600 bg-blue-50"
                         : "border-gray-200 hover:border-blue-300"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{option.label}</p>
-                        <p className="text-sm text-gray-600">{option.desc}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm sm:text-base">{option.label}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">{option.desc}</p>
                       </div>
                       {option.badge && (
-                        <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                        <span className="bg-blue-600 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded whitespace-nowrap">
                           おすすめ
                         </span>
                       )}
