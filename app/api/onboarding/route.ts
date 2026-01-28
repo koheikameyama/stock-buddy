@@ -79,36 +79,27 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Web検索で市場の最新ニュースを取得（オプション）
-    let marketNews = ""
-    try {
-      // 日本株市場の最新ニュースを取得
-      const newsResponse = await fetch(
-        `https://api.tavily.com/search`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            api_key: process.env.TAVILY_API_KEY,
-            query: "日本株 市場動向 最新ニュース",
-            search_depth: "basic",
-            max_results: 3,
-          }),
-        }
-      )
+    // DBから最新の市場ニュースを取得
+    const recentNews = await prisma.marketNews.findMany({
+      where: {
+        publishedAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 過去7日
+        },
+      },
+      orderBy: {
+        publishedAt: "desc",
+      },
+      take: 5, // 最新5件
+    })
 
-      if (newsResponse.ok) {
-        const newsData = await newsResponse.json()
-        marketNews = newsData.results
-          ?.map((r: any) => `- ${r.title}: ${r.content?.substring(0, 200)}`)
-          .join("\n") || ""
-      }
-    } catch (error) {
-      console.log("市場ニュース取得をスキップ:", error)
-      // ニュース取得失敗は致命的ではないので続行
-    }
+    const marketNews = recentNews.length > 0
+      ? recentNews
+          .map(
+            (n) =>
+              `- [${n.sector || "全般"}/${n.sentiment}] ${n.title}: ${n.content.substring(0, 150)}...`
+          )
+          .join("\n")
+      : ""
 
     // 株価データがある銘柄のみをフィルタ
     const stocksWithPrice = stocks
