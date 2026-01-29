@@ -82,6 +82,21 @@ export default function OnboardingPage() {
           <p className="text-sm text-gray-500 mt-4">
             所要時間: 約3分
           </p>
+
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-sm text-gray-600 mb-3 text-center">
+              既に投資をしている方は
+            </p>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+            >
+              スキップしてダッシュボードへ
+            </button>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              保有銘柄はダッシュボードで登録できます
+            </p>
+          </div>
         </div>
       </div>
     )
