@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import PurchaseModal from "./PurchaseModal"
+import AddStockModal from "./AddStockModal"
 
 interface Stock {
   id: string
@@ -61,6 +62,7 @@ export default function PortfolioClient({
   const [error, setError] = useState<string | null>(null)
   const [selectedWatchlistItem, setSelectedWatchlistItem] = useState<WatchlistItem | null>(null)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const [showAddStockModal, setShowAddStockModal] = useState(false)
 
   useEffect(() => {
     async function fetchPrices() {
@@ -194,9 +196,30 @@ export default function PortfolioClient({
             <div className="space-y-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-900">推奨銘柄</h2>
-            {loading && (
-              <p className="text-sm text-gray-500">株価を取得中...</p>
-            )}
+            <div className="flex items-center gap-4">
+              {loading && (
+                <p className="text-sm text-gray-500">株価を取得中...</p>
+              )}
+              <button
+                onClick={() => setShowAddStockModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                銘柄を追加
+              </button>
+            </div>
           </div>
 
           {stocks.map((portfolioStock) => {
@@ -579,6 +602,15 @@ export default function PortfolioClient({
           }}
         />
       )}
+
+      {/* Add Stock Modal */}
+      <AddStockModal
+        isOpen={showAddStockModal}
+        onClose={() => setShowAddStockModal(false)}
+        onSuccess={() => {
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

@@ -3,16 +3,22 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
+/**
+ * Stock Search API
+ *
+ * Search stocks by ticker code or company name
+ * GET /api/stocks/search?q=トヨタ
+ */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const query = searchParams.get("q")
 
-    if (!query || query.length < 2) {
+    if (!query || query.length < 1) {
       return NextResponse.json({ stocks: [] })
     }
 
-    // 銘柄コードまたは名前で検索
+    // Search by ticker code or company name
     const stocks = await prisma.stock.findMany({
       where: {
         OR: [
@@ -21,21 +27,42 @@ export async function GET(request: NextRequest) {
         ],
       },
       select: {
+        id: true,
         tickerCode: true,
         name: true,
+        market: true,
+        sector: true,
+        prices: {
+          orderBy: { date: "desc" },
+          take: 1,
+          select: {
+            close: true,
+            date: true,
+          },
+        },
       },
-      take: 10,
-      orderBy: {
-        tickerCode: "asc",
-      },
+      take: 20, // Limit results
     })
 
-    return NextResponse.json({ stocks })
+    // Format response with latest price
+    const formattedStocks = stocks.map((stock) => ({
+      id: stock.id,
+      tickerCode: stock.tickerCode,
+      name: stock.name,
+      market: stock.market,
+      sector: stock.sector,
+      latestPrice: stock.prices[0] ? Number(stock.prices[0].close) : null,
+      latestPriceDate: stock.prices[0]?.date.toISOString() || null,
+    }))
+
+    return NextResponse.json({ stocks: formattedStocks })
   } catch (error) {
-    console.error("Search error:", error)
+    console.error("Error searching stocks:", error)
     return NextResponse.json(
-      { error: "検索に失敗しました" },
+      { error: "Failed to search stocks" },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }
