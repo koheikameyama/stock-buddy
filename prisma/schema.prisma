@@ -236,19 +236,35 @@ model DailyReport {
 
 // ウォッチリスト（購入候補銘柄）
 model Watchlist {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   stockId           String
-  stock             Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  recommendedPrice  Decimal  @db.Decimal(12, 2)
+  stock             Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  recommendedPrice  Decimal   @db.Decimal(12, 2)
   recommendedQty    Int
-  reason            String?  @db.Text
-  source            String   @default("onboarding") // 'onboarding' | 'manual' | 'report'
-  createdAt         DateTime @default(now())
+  reason            String?   @db.Text
+  source            String    @default("onboarding") // 'onboarding' | 'manual' | 'report'
+
+  // 買い時アラート機能
+  targetPrice       Decimal?  @db.Decimal(12, 2) // 目標購入価格（この価格以下で通知）
+  priceAlert        Boolean   @default(true)      // 価格アラート有効/無効
+  lastAlertSent     DateTime?                     // 最後にアラートを送信した日時
+  buyTimingScore    Int?                          // 買い時スコア（0-100）投資スタイル考慮
+  lastAnalyzedAt    DateTime?                     // 最後に分析した日時
+
+  // 仮想購入シミュレーション機能
+  virtualBuyPrice   Decimal?  @db.Decimal(12, 2) // 仮想購入価格
+  virtualBuyDate    DateTime?                     // 仮想購入日
+  virtualQuantity   Int?                          // 仮想購入数量
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([userId, stockId])
   @@index([userId])
+  @@index([userId, priceAlert])
+  @@index([lastAnalyzedAt])
 }
 
 // 指標解説マスタ
