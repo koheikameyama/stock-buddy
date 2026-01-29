@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import PurchaseModal from "./PurchaseModal"
 import AddStockModal from "./AddStockModal"
+import UpdateStockModal from "./UpdateStockModal"
 
 interface Stock {
   id: string
@@ -65,6 +66,8 @@ export default function PortfolioClient({
   const [selectedWatchlistItem, setSelectedWatchlistItem] = useState<WatchlistItem | null>(null)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
   const [showAddStockModal, setShowAddStockModal] = useState(false)
+  const [showUpdateStockModal, setShowUpdateStockModal] = useState(false)
+  const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
   const [deletingStockId, setDeletingStockId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -128,33 +131,42 @@ export default function PortfolioClient({
     }
   }
 
-  const handleToggleSimulation = async (portfolioStockId: string, currentIsSimulation: boolean) => {
-    const action = currentIsSimulation ? "実投資に変更" : "シミュレーションに変更"
-    if (!confirm(`この銘柄を${action}しますか？`)) {
-      return
-    }
+  const handleUpdateStock = async (data: {
+    purchaseDate: string
+    purchasePrice: number
+    quantity: number
+  }) => {
+    if (!selectedStock) return
 
     try {
       setError(null)
 
-      const response = await fetch("/api/portfolio/toggle-simulation", {
+      const response = await fetch("/api/portfolio/update-stock", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ portfolioStockId }),
+        body: JSON.stringify({
+          portfolioStockId: selectedStock.id,
+          purchaseDate: data.purchaseDate,
+          purchasePrice: data.purchasePrice,
+          quantity: data.quantity,
+          isSimulation: selectedStock.isSimulation,
+        }),
       })
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || "変更に失敗しました")
+        throw new Error(data.error || "更新に失敗しました")
       }
 
       // 成功: ページをリフレッシュ
+      setShowUpdateStockModal(false)
+      setSelectedStock(null)
       router.refresh()
     } catch (err: any) {
       console.error(err)
-      setError(err.message || "変更に失敗しました")
+      throw err
     }
   }
 
@@ -235,13 +247,15 @@ export default function PortfolioClient({
             <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">推奨銘柄</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">推奨銘柄</h2>
+                {loading && (
+                  <p className="text-sm text-gray-500">株価を取得中...</p>
+                )}
+              </div>
               <p className="text-sm text-gray-500 mt-1">※登録できるのは5銘柄まで（現在: {stocks.length}/5）</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-              {loading && (
-                <p className="text-sm text-gray-500">株価を取得中...</p>
-              )}
               <button
                 onClick={() => router.push('/onboarding')}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
@@ -457,16 +471,15 @@ export default function PortfolioClient({
                   )}
                 </div>
 
-                {/* 実投資/シミュレーション切り替え */}
+                {/* 更新ボタン */}
                 <button
-                  onClick={() => handleToggleSimulation(portfolioStock.id, portfolioStock.isSimulation)}
-                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
-                    portfolioStock.isSimulation
-                      ? "bg-green-50 text-green-700 border-2 border-green-200 hover:bg-green-100"
-                      : "bg-gray-100 text-gray-600 border-2 border-gray-200 hover:bg-gray-200"
-                  }`}
+                  onClick={() => {
+                    setSelectedStock(portfolioStock)
+                    setShowUpdateStockModal(true)
+                  }}
+                  className="w-full py-2 px-4 rounded-lg font-semibold transition-colors bg-blue-50 text-blue-700 border-2 border-blue-200 hover:bg-blue-100"
                 >
-                  {portfolioStock.isSimulation ? "実投資に変更する" : "シミュレーションに戻す"}
+                  📝 購入情報を更新
                 </button>
               </div>
             )
@@ -804,6 +817,26 @@ export default function PortfolioClient({
           router.refresh()
         }}
       />
+
+      {/* Update Stock Modal */}
+      {selectedStock && (
+        <UpdateStockModal
+          isOpen={showUpdateStockModal}
+          onClose={() => {
+            setShowUpdateStockModal(false)
+            setSelectedStock(null)
+          }}
+          onSubmit={handleUpdateStock}
+          stock={{
+            id: selectedStock.id,
+            name: selectedStock.name,
+            tickerCode: selectedStock.tickerCode,
+            quantity: selectedStock.quantity,
+            averagePrice: Number(selectedStock.averagePrice),
+            isSimulation: selectedStock.isSimulation,
+          }}
+        />
+      )}
     </div>
   )
 }

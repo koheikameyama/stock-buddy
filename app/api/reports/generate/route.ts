@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const portfolio = user.portfolio
     const settings = user.settings
 
-    // 今日のレポートが既に存在するか確認
+    // 今日のレポートが既に存在する場合は削除してから再生成
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingReport) {
-      return NextResponse.json({
-        message: "Today's report already exists",
-        report: existingReport,
+      await prisma.dailyReport.delete({
+        where: { id: existingReport.id },
       })
+      console.log(`既存の今日のレポートを削除して再生成します`)
     }
 
     // DBから最新の市場ニュースを取得
@@ -77,6 +77,29 @@ export async function POST(request: NextRequest) {
     const stocksData = await Promise.all(
       portfolio.stocks.map(async (ps) => {
         try {
+          // 購入日を取得
+          // シミュレーション: createdAt = 購入日
+          // 実投資: 最初のbuyトランザクションの日付
+          let firstPurchaseDate: Date | null = null
+
+          if (ps.isSimulation) {
+            firstPurchaseDate = ps.createdAt
+            console.log(`[SIMULATION] ${ps.stock.tickerCode}: createdAt = ${ps.createdAt}`)
+          } else {
+            const firstPurchase = await prisma.transaction.findFirst({
+              where: {
+                portfolioId: portfolio.id,
+                stockId: ps.stock.id,
+                type: "buy",
+              },
+              orderBy: {
+                executedAt: "asc",
+              },
+            })
+            firstPurchaseDate = firstPurchase?.executedAt || null
+            console.log(`[REAL] ${ps.stock.tickerCode}: firstPurchase = ${firstPurchase?.executedAt || 'null'}`)
+          }
+
           // DBから株価データを取得
           const priceData = await prisma.stockPrice.findMany({
             where: { stockId: ps.stock.id },
@@ -119,6 +142,7 @@ export async function POST(request: NextRequest) {
           return {
             stock: ps.stock,
             portfolioStock: ps,
+            firstPurchaseDate: firstPurchaseDate,
             data: {
               tickerCode: ps.stock.tickerCode,
               currentPrice: currentPrice,
@@ -183,35 +207,46 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `あなたは株式投資初心者向けのAIアドバイザーです。
-ユーザーのポートフォリオを分析し、今日の投資判断を提案してください。
+            content: `あなたは株式投資初心者に寄り添うAIコーチです。
+ユーザーのポートフォリオを一緒に見守り、気づいたことを優しく共有してください。
 
-【重要】
+【重要な心構え】
 - 初心者にも分かりやすく、やさしい言葉で説明
 - 専門用語は必ず簡単に解説
-- 「買う」「売る」「何もしない」のいずれかを明確に提案
-- なぜその判断をしたのか、理由を具体的に説明
+- 命令ではなく「〜かもしれません」「〜を検討しても良いかもしれません」といった提案口調
+- 短期的な変動に一喜一憂させない（特に長期投資の場合）
+- なぜそう考えたのか、理由を具体的に説明
 - どの指標を見たのかを明示（技術指標を活用）
-- 今後どうなったらどうするか、次のアクションも提示
+- 今後どうなったら注意が必要か、見守るポイントを提示
+
+【投資助言ではないことの明示】
+- 「売ってください」「買うべき」などの断定表現は使わない
+- 「私が見た限りでは〜」「〜という可能性があります」など、あくまで情報提供
+- 最終判断はユーザー自身が行うことを尊重
 
 【技術指標の活用】
-- RSI（相対力指数）: 30以下は売られすぎ（買いチャンス）、70以上は買われすぎ（注意）
-- 5日/25日移動平均（SMA5/SMA25）: 現在価格 > SMA なら上昇トレンド
-- MACD: プラスなら上昇モメンタム、マイナスなら下降モメンタム
-- technicalSignal: 総合シグナル。プラスなら買いシグナル、マイナスなら売りシグナル
+- RSI（相対力指数）: 30以下は売られすぎ、70以上は買われすぎの可能性
+- 5日/25日移動平均（SMA5/SMA25）: 現在価格 > SMA なら上昇トレンドの可能性
+- MACD: プラスなら上昇の勢い、マイナスなら下降の勢いがある可能性
+- technicalSignal: 総合シグナル（参考値）
 - technicalStrength: "強い買い"、"買い"、"中立"、"売り"、"強い売り"
 - technicalReasons: シグナルの具体的理由（配列）
+
+【注意事項】
+- 技術指標はあくまで参考。絶対的なものではない
+- 長期投資（1年以上）の場合、短期的な変動は気にしすぎない
+- 購入から間もない銘柄は、まだ様子を見る段階
 
 必ず以下のJSON形式で返してください：
 {
   "action": "buy" | "sell" | "hold",
-  "targetStock": "銘柄コード（買う/売る場合のみ）",
-  "summary": "今日の結論を1-2文で",
-  "reasoning": "技術指標を含めた判断理由を初心者向けに200-300字で説明",
+  "targetStock": "銘柄コード（該当する場合のみ）",
+  "summary": "今日の気づきを優しく1-2文で",
+  "reasoning": "技術指標を含めた分析内容を初心者向けに200-300字で。提案口調で。",
   "keyIndicators": [
     {"name": "指標名", "value": "値", "explanation": "この指標の意味を簡単に"}
   ],
-  "futurePlan": "今後どうなったらどうするか、次のアクションプラン"
+  "futurePlan": "今後注意して見守るポイント。〜になったら〜を検討しても良いかもしれません、という提案口調で。"
 }`,
           },
           {
@@ -227,11 +262,19 @@ ${validStocks
   .map((s) => {
     const d = s.data
     const ps = s.portfolioStock
+    const daysSincePurchase = s.firstPurchaseDate
+      ? Math.floor((Date.now() - new Date(s.firstPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
+      : null
+    const gainLoss = d.currentPrice - Number(ps.averagePrice)
+    const gainLossPct = (gainLoss / Number(ps.averagePrice)) * 100
+
     return `
 銘柄: ${s.stock.name} (${s.stock.tickerCode})
-- 推奨購入価格: ${Number(ps.averagePrice).toLocaleString()}円
-- 保有株数: ${ps.quantity}株
+- 購入価格: ${Number(ps.averagePrice).toLocaleString()}円
+- 保有株数: ${ps.quantity}株${daysSincePurchase !== null ? `
+- 購入からの日数: ${daysSincePurchase}日${daysSincePurchase < 7 ? " ⚠️まだ様子見の段階です" : ""}` : ""}
 - 現在価格: ${d.currentPrice.toLocaleString()}円
+- 損益: ${gainLoss >= 0 ? "+" : ""}${gainLoss.toFixed(2)}円 (${gainLossPct >= 0 ? "+" : ""}${gainLossPct.toFixed(2)}%)
 - 前日比: ${d.change >= 0 ? "+" : ""}${d.change}円 (${d.changePercent >= 0 ? "+" : ""}${d.changePercent.toFixed(2)}%)
 - 5日移動平均: ${d.sma5 ? d.sma5.toFixed(2) + "円" : "データ不足"}
 - 25日移動平均: ${d.sma25 ? d.sma25.toFixed(2) + "円" : "データ不足"}
@@ -242,7 +285,8 @@ ${validStocks
 - シグナル理由: ${d.technicalReasons ? d.technicalReasons.join("、") : "データ不足"}
 - 出来高: ${d.volume.toLocaleString()} (平均: ${d.avgVolume.toLocaleString()})
 - 52週高値: ${d.high52w.toFixed(2)}円
-- 52週安値: ${d.low52w.toFixed(2)}円
+- 52週安値: ${d.low52w.toFixed(2)}円${ps.reason ? `
+- 推奨理由: ${ps.reason}` : ""}
 `
   })
   .join("\n")}

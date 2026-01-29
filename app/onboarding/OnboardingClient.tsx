@@ -472,32 +472,15 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
             </h3>
             <div className="space-y-3 mb-4">
               <button
-                onClick={() => handleComplete(true, false)}
+                onClick={() => handleComplete(true, true)}
                 disabled={loading}
                 className="w-full px-4 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg disabled:from-gray-400 disabled:to-gray-400"
               >
                 <div className="flex items-center justify-between">
                   <div className="text-left">
-                    <div className="text-lg font-bold">💰 実際に購入した</div>
+                    <div className="text-lg font-bold">🎮 シミュレーションで登録</div>
                     <div className="text-sm text-blue-100 mt-1">
-                      ポートフォリオで資産を管理します
-                    </div>
-                  </div>
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </button>
-              <button
-                onClick={() => handleComplete(true, true)}
-                disabled={loading}
-                className="w-full px-4 py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all disabled:border-gray-400 disabled:text-gray-400"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-left">
-                    <div className="text-lg font-bold">🎮 シミュレーションする</div>
-                    <div className="text-sm text-blue-600 mt-1">
-                      練習として試してみたい
+                      実際に購入したら、ポートフォリオから更新してください
                     </div>
                   </div>
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

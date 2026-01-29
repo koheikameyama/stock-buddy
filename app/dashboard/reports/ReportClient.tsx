@@ -63,11 +63,11 @@ export default function ReportClient({
   const getActionText = (action: string) => {
     switch (action) {
       case "buy":
-        return "買う"
+        return "買い推奨"
       case "sell":
-        return "売る"
+        return "売り推奨"
       case "hold":
-        return "何もしない"
+        return "様子見推奨"
       default:
         return action
     }
@@ -76,13 +76,13 @@ export default function ReportClient({
   const getActionColor = (action: string) => {
     switch (action) {
       case "buy":
-        return "bg-green-600"
+        return "bg-blue-500 text-white"
       case "sell":
-        return "bg-red-600"
+        return "bg-orange-500 text-white"
       case "hold":
-        return "bg-gray-600"
+        return "bg-gray-500 text-white"
       default:
-        return "bg-blue-600"
+        return "bg-blue-500 text-white"
     }
   }
 
@@ -155,23 +155,15 @@ export default function ReportClient({
           <div className="space-y-6">
             {/* 今日の判断 */}
             <div className="bg-white rounded-2xl shadow-md p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">
-                    {new Date(currentReport.reportDate).toLocaleDateString("ja-JP", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                  <h2 className="text-3xl font-bold text-gray-900">今日の判断</h2>
-                </div>
-                <button
-                  onClick={handleGenerate}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                >
-                  再生成
-                </button>
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 mb-1">
+                  {new Date(currentReport.reportDate).toLocaleDateString("ja-JP", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+                <h2 className="text-3xl font-bold text-gray-900">今日の判断</h2>
               </div>
 
               <div
