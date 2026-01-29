@@ -126,10 +126,24 @@ export default function SettingsPage() {
           investmentPeriod: data.settings.investmentPeriod,
           riskTolerance: data.settings.riskTolerance,
         })
+      } else {
+        // 設定が存在しない場合はデフォルト値を設定
+        setFormData({
+          investmentAmount: "0",
+          monthlyAmount: "0",
+          investmentPeriod: "medium",
+          riskTolerance: "medium",
+        })
       }
     } catch (error) {
       console.error("Error fetching settings:", error)
-      alert("設定の取得に失敗しました")
+      // エラーが発生してもページは表示する（デフォルト値を使用）
+      setFormData({
+        investmentAmount: "0",
+        monthlyAmount: "0",
+        investmentPeriod: "medium",
+        riskTolerance: "medium",
+      })
     } finally {
       setLoading(false)
     }
