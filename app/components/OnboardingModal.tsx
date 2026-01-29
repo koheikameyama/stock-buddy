@@ -23,11 +23,11 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
   }
 
   const handleAIRecommendation = () => {
-    router.push("/onboarding")
+    router.push("/onboarding?isExisting=false")
   }
 
   const handleManualRegistration = () => {
-    router.push("/dashboard/portfolio")
+    router.push("/onboarding?isExisting=true")
   }
 
   return (

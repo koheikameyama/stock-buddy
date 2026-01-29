@@ -20,77 +20,73 @@ type Plan = {
   stocks: Stock[]
 }
 
-export default function OnboardingClient({ isExistingUser }: { isExistingUser: boolean }) {
+export default function OnboardingClient({ isExistingInvestor }: { isExistingInvestor: boolean }) {
   const router = useRouter()
-  const [step, setStep] = useState(isExistingUser ? 2 : 1) // 既存ユーザーは質問から開始
+  const [step, setStep] = useState(1) // 常にステップ1から開始（既存投資家も質問から）
   const [loading, setLoading] = useState(false)
   const [budget, setBudget] = useState("")
   const [period, setPeriod] = useState("")
   const [plan, setPlan] = useState<Plan | null>(null)
 
-  // Step 1: ようこそ画面（新規ユーザーのみ）
+  // Step 1: ようこそ画面
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
         <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-6 sm:p-8 md:p-12">
           <div className="mb-6 sm:mb-8 text-center">
-            <div className="text-5xl sm:text-6xl mb-4">👋</div>
+            <div className="text-5xl sm:text-6xl mb-4">{isExistingInvestor ? '📊' : '👋'}</div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              ようこそ、Stock Buddyへ
+              {isExistingInvestor ? 'まずは投資スタイルを教えてください' : 'ようこそ、Stock Buddyへ'}
             </h1>
-            <p className="text-lg sm:text-xl text-gray-600 mb-2">
-              投資、始めたいけど怖い？
-            </p>
-            <p className="text-base sm:text-lg text-gray-500">
-              大丈夫です。一緒に学びながら成長しましょう
-            </p>
+            {!isExistingInvestor && (
+              <>
+                <p className="text-lg sm:text-xl text-gray-600 mb-2">
+                  投資、始めたいけど怖い？
+                </p>
+                <p className="text-base sm:text-lg text-gray-500">
+                  大丈夫です。一緒に学びながら成長しましょう
+                </p>
+              </>
+            )}
+            {isExistingInvestor && (
+              <p className="text-base sm:text-lg text-gray-600">
+                あなたの投資スタイルを知ることで、より良いアドバイスができます
+              </p>
+            )}
           </div>
 
-          <div className="bg-blue-50 rounded-xl p-5 sm:p-6 mb-6 sm:mb-8">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
-              Stock Buddyでできること
-            </h2>
-            <div className="text-left space-y-2 text-gray-700">
-              <p className="flex items-start gap-2">
-                <span className="text-blue-600 font-bold">✓</span>
-                <span>あなたにぴったりの銘柄を一緒に探します</span>
-              </p>
-              <p className="flex items-start gap-2">
-                <span className="text-blue-600 font-bold">✓</span>
-                <span>毎日の声かけで投資を見守ります</span>
-              </p>
-              <p className="flex items-start gap-2">
-                <span className="text-blue-600 font-bold">✓</span>
-                <span>難しい言葉は使いません。初心者でも安心です</span>
-              </p>
+          {!isExistingInvestor && (
+            <div className="bg-blue-50 rounded-xl p-5 sm:p-6 mb-6 sm:mb-8">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
+                Stock Buddyでできること
+              </h2>
+              <div className="text-left space-y-2 text-gray-700">
+                <p className="flex items-start gap-2">
+                  <span className="text-blue-600 font-bold">✓</span>
+                  <span>あなたにぴったりの銘柄を一緒に探します</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-blue-600 font-bold">✓</span>
+                  <span>毎日の声かけで投資を見守ります</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-blue-600 font-bold">✓</span>
+                  <span>難しい言葉は使いません。初心者でも安心です</span>
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <button
             onClick={() => setStep(2)}
             className="w-full bg-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg"
           >
-            始める
+            {isExistingInvestor ? '次へ' : '始める'}
           </button>
 
-          <p className="text-sm text-gray-500 mt-4">
-            所要時間: 約3分
+          <p className="text-sm text-gray-500 mt-4 text-center">
+            所要時間: 約{isExistingInvestor ? '1' : '3'}分
           </p>
-
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600 mb-3 text-center">
-              既に投資をしている方は
-            </p>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-            >
-              スキップしてダッシュボードへ
-            </button>
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              保有銘柄はダッシュボードで登録できます
-            </p>
-          </div>
         </div>
       </div>
     )
@@ -99,9 +95,17 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
   // Step 2: 簡単な質問
   if (step === 2) {
     const handleGetRecommendation = async () => {
-      if (!budget || !period) {
-        alert("予算と期間を選択してください")
-        return
+      // 既存投資家の場合は期間のみ必須
+      if (isExistingInvestor) {
+        if (!period) {
+          alert("投資期間を選択してください")
+          return
+        }
+      } else {
+        if (!budget || !period) {
+          alert("予算と期間を選択してください")
+          return
+        }
       }
 
       setLoading(true)
@@ -111,6 +115,30 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
         if (period === "short") riskTolerance = "low"
         if (period === "long") riskTolerance = "high"
 
+        // 既存投資家の場合は投資スタイルだけ保存してポートフォリオへ
+        if (isExistingInvestor) {
+          const response = await fetch("/api/onboarding/settings", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              investmentPeriod: period,
+              riskTolerance,
+              isExistingInvestor: true,
+            }),
+          })
+
+          if (!response.ok) {
+            throw new Error("設定の保存に失敗しました")
+          }
+
+          // ポートフォリオページへ遷移
+          router.push("/dashboard/portfolio")
+          return
+        }
+
+        // 新規ユーザーの場合はAI推奨を取得
         const response = await fetch("/api/onboarding/simple", {
           method: "POST",
           headers: {
@@ -143,33 +171,24 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
         <div className="max-w-xl w-full bg-white rounded-2xl shadow-xl p-8">
           <div className="mb-8">
-            {!isExistingUser && (
-              <button
-                onClick={() => setStep(1)}
-                className="text-gray-600 hover:text-gray-900 mb-4"
-              >
-                ← 戻る
-              </button>
-            )}
-            {isExistingUser && (
-              <button
-                onClick={() => router.push('/dashboard/portfolio')}
-                className="text-gray-600 hover:text-gray-900 mb-4"
-              >
-                ← ポートフォリオに戻る
-              </button>
-            )}
+            <button
+              onClick={() => setStep(1)}
+              className="text-gray-600 hover:text-gray-900 mb-4"
+            >
+              ← 戻る
+            </button>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {isExistingUser ? "新しい提案を受ける" : "簡単な質問です"}
+              {isExistingInvestor ? "投資スタイルを教えてください" : "簡単な質問です"}
             </h1>
             <p className="text-gray-600">
-              {isExistingUser
-                ? "現在の予算と期間を教えてください"
+              {isExistingInvestor
+                ? "投資期間を教えてください"
                 : "あなたにぴったりのプランを考えますね"}
             </p>
           </div>
 
-          {/* 予算選択 */}
+          {/* 予算選択（新規ユーザーのみ） */}
+          {!isExistingInvestor && (
           <div className="mb-8">
             <label className="block text-lg font-semibold text-gray-900 mb-4">
               いくらから始めますか？
@@ -195,6 +214,7 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
               ))}
             </div>
           </div>
+          )}
 
           {/* 期間選択 */}
           <div className="mb-8">
@@ -247,15 +267,15 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-700">あなたにぴったりのプランを考えています...</p>
+              <p className="text-gray-700">{isExistingInvestor ? '設定を保存しています...' : 'あなたにぴったりのプランを考えています...'}</p>
             </div>
           ) : (
             <button
               onClick={handleGetRecommendation}
-              disabled={!budget || !period}
+              disabled={isExistingInvestor ? !period : (!budget || !period)}
               className="w-full bg-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              おすすめを見る
+              {isExistingInvestor ? '設定を保存してポートフォリオへ' : 'おすすめを見る'}
             </button>
           )}
         </div>
@@ -273,7 +293,7 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
     const handleComplete = async (addToPortfolio: boolean, isSimulation?: boolean) => {
       setLoading(true)
       try {
-        if (isExistingUser) {
+        if (isExistingInvestor) {
           if (addToPortfolio) {
             // 既存ユーザー: ポートフォリオに追加
             const response = await fetch("/api/onboarding/complete", {

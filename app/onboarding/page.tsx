@@ -5,28 +5,20 @@ import OnboardingClient from "./OnboardingClient"
 
 const prisma = new PrismaClient()
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ isExisting?: string }>
+}) {
   const session = await auth()
 
   if (!session?.user?.email) {
     redirect("/login")
   }
 
-  // ユーザーのポートフォリオと設定を確認
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: {
-      settings: true,
-      portfolio: {
-        include: {
-          stocks: true,
-        },
-      },
-    },
-  })
+  // URLパラメータから既存投資家かどうかを判定
+  const params = await searchParams
+  const isExistingInvestor = params.isExisting === "true"
 
-  // 既存ユーザーかどうかを判定
-  const isExistingUser = !!user?.settings
-
-  return <OnboardingClient isExistingUser={isExistingUser} />
+  return <OnboardingClient isExistingInvestor={isExistingInvestor} />
 }
