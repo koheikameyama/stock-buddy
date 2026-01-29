@@ -170,14 +170,14 @@ export default function UpdateStockModal({
 
           {/* 状態切り替え */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
               状態
             </label>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setIsSimulation(true)}
-                className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
                   isSimulation
                     ? "bg-gray-600 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -188,7 +188,7 @@ export default function UpdateStockModal({
               <button
                 type="button"
                 onClick={() => setIsSimulation(false)}
-                className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
                   !isSimulation
                     ? "bg-green-600 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
