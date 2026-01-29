@@ -57,11 +57,35 @@ CREATE INDEX IF NOT EXISTS "PortfolioStockAnalysis_portfolioStockId_date_idx" ON
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "PortfolioStockAnalysis_date_idx" ON "PortfolioStockAnalysis"("date" DESC);
 
--- AddForeignKey
-ALTER TABLE "StockAnalysis" ADD CONSTRAINT IF NOT EXISTS "StockAnalysis_stockId_fkey" FOREIGN KEY ("stockId") REFERENCES "Stock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (drop if exists first)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'StockAnalysis_stockId_fkey'
+    ) THEN
+        ALTER TABLE "StockAnalysis" ADD CONSTRAINT "StockAnalysis_stockId_fkey"
+        FOREIGN KEY ("stockId") REFERENCES "Stock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "PortfolioStockAnalysis" ADD CONSTRAINT IF NOT EXISTS "PortfolioStockAnalysis_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'PortfolioStockAnalysis_userId_fkey'
+    ) THEN
+        ALTER TABLE "PortfolioStockAnalysis" ADD CONSTRAINT "PortfolioStockAnalysis_userId_fkey"
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "PortfolioStockAnalysis" ADD CONSTRAINT IF NOT EXISTS "PortfolioStockAnalysis_portfolioStockId_fkey" FOREIGN KEY ("portfolioStockId") REFERENCES "PortfolioStock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'PortfolioStockAnalysis_portfolioStockId_fkey'
+    ) THEN
+        ALTER TABLE "PortfolioStockAnalysis" ADD CONSTRAINT "PortfolioStockAnalysis_portfolioStockId_fkey"
+        FOREIGN KEY ("portfolioStockId") REFERENCES "PortfolioStock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
