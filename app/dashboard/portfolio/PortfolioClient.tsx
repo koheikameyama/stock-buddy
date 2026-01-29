@@ -135,7 +135,6 @@ export default function PortfolioClient({
     purchaseDate: string
     purchasePrice: number
     quantity: number
-    convertToReal: boolean
   }) => {
     if (!selectedStock) return
 
@@ -153,7 +152,6 @@ export default function PortfolioClient({
           purchasePrice: data.purchasePrice,
           quantity: data.quantity,
           isSimulation: selectedStock.isSimulation,
-          convertToReal: data.convertToReal,
         }),
       })
 
@@ -347,7 +345,7 @@ export default function PortfolioClient({
                         </span>
                       ) : (
                         <span className="px-3 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                          実投資
+                          投資中
                         </span>
                       )}
                     </div>
@@ -531,7 +529,7 @@ export default function PortfolioClient({
               {/* 実投資合計 */}
               {stocks.filter(s => !s.isSimulation).length > 0 && (
                 <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl shadow-md p-6 text-white">
-                  <h3 className="text-lg font-semibold mb-4 text-green-100">実投資</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-green-100">投資中</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div>
                       <p className="text-green-100 mb-1 text-sm">投資総額</p>
