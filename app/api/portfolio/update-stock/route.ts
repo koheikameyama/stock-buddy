@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { portfolioStockId, purchaseDate, purchasePrice, quantity, isSimulation } =
+    const { portfolioStockId, purchaseDate, purchasePrice, quantity, isSimulation, convertToReal } =
       await request.json()
 
     if (!portfolioStockId || !purchaseDate || !purchasePrice || !quantity) {
@@ -54,7 +54,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // シミュレーション→実投資の変換の場合
-    if (isSimulation) {
+    if (isSimulation && convertToReal) {
       // トランザクションでまとめて実行
       await prisma.$transaction(async (tx) => {
         // 1. ポートフォリオ銘柄を更新（isSimulation: false, 購入情報を更新）
@@ -85,6 +85,20 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: "実投資に変更しました",
+      })
+    } else if (isSimulation && !convertToReal) {
+      // シミュレーションのまま更新
+      await prisma.portfolioStock.update({
+        where: { id: portfolioStockId },
+        data: {
+          averagePrice: purchasePrice,
+          quantity: quantity,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: "シミュレーション情報を更新しました",
       })
     } else {
       // 実投資の購入情報を更新する場合

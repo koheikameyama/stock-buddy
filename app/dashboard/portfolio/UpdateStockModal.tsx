@@ -9,6 +9,7 @@ interface UpdateStockModalProps {
     purchaseDate: string
     purchasePrice: number
     quantity: number
+    convertToReal: boolean
   }) => Promise<void>
   stock: {
     id: string
@@ -29,12 +30,13 @@ export default function UpdateStockModal({
   const [purchaseDate, setPurchaseDate] = useState("")
   const [purchasePrice, setPurchasePrice] = useState(stock.averagePrice.toString())
   const [quantity, setQuantity] = useState(stock.quantity.toString())
+  const [convertToReal, setConvertToReal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (!isOpen) return null
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, shouldConvert: boolean) => {
     e.preventDefault()
     setError(null)
 
@@ -61,6 +63,7 @@ export default function UpdateStockModal({
         purchaseDate,
         purchasePrice: price,
         quantity: qty,
+        convertToReal: shouldConvert,
       })
       onClose()
     } catch (err: any) {
@@ -77,7 +80,7 @@ export default function UpdateStockModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">
-            {stock.isSimulation ? "実投資として登録" : "購入情報を更新"}
+            購入情報を更新
           </h2>
           <button
             onClick={onClose}
@@ -103,14 +106,12 @@ export default function UpdateStockModal({
           <h3 className="font-semibold text-gray-900 mb-2">
             {stock.name} ({stock.tickerCode})
           </h3>
-          {stock.isSimulation && (
-            <span className="inline-block px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded">
-              シミュレーション → 実投資
-            </span>
-          )}
+          <span className="inline-block px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded">
+            {stock.isSimulation ? "シミュレーション" : "実投資"}
+          </span>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => e.preventDefault()}>
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               購入日 <span className="text-red-500">*</span>
@@ -182,21 +183,43 @@ export default function UpdateStockModal({
             </div>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3">
+            {stock.isSimulation ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => handleSubmit(e, false)}
+                  disabled={loading}
+                  className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? "更新中..." : "シミュレーションのまま更新"}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
+                  disabled={loading}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? "更新中..." : "実投資として登録"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => handleSubmit(e, false)}
+                disabled={loading}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? "更新中..." : "更新"}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
             >
               キャンセル
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {loading ? "更新中..." : stock.isSimulation ? "実投資として登録" : "更新"}
             </button>
           </div>
         </form>
@@ -204,7 +227,7 @@ export default function UpdateStockModal({
         {stock.isSimulation && (
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-xs text-gray-700">
-              ※シミュレーションから実投資に変更され、購入履歴が記録されます
+              ※「実投資として登録」を選ぶと、シミュレーションから実投資に変更され、購入履歴が記録されます
             </p>
           </div>
         )}

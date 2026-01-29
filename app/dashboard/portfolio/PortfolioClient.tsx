@@ -135,6 +135,7 @@ export default function PortfolioClient({
     purchaseDate: string
     purchasePrice: number
     quantity: number
+    convertToReal: boolean
   }) => {
     if (!selectedStock) return
 
@@ -152,6 +153,7 @@ export default function PortfolioClient({
           purchasePrice: data.purchasePrice,
           quantity: data.quantity,
           isSimulation: selectedStock.isSimulation,
+          convertToReal: data.convertToReal,
         }),
       })
 
