@@ -45,3 +45,31 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY || 'dummy-vapid-public-key' }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY || 'dummy-vapid-private-key' }}
           VAPID_SUBJECT: mailto:test@example.com
+
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.CI_SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ CI Build Succeeded"
+          SLACK_MESSAGE: |
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Lint: ✅
+            Type Check: ✅
+            Build: ✅
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy CI"
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.CI_SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ CI Build Failed"
+          SLACK_MESSAGE: |
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            詳細: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy CI"
