@@ -29,7 +29,7 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          python scripts/generate_daily_report.py
+          python scripts/github-actions/generate_daily_report.py
 
       - name: Notify Slack on success
         if: success()

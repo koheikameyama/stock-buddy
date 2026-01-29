@@ -103,6 +103,92 @@ git push origin main
 - ビルド時に `prisma migrate deploy` が自動実行される
 - 環境変数 `DATABASE_URL` は Railway が自動設定
 
+## GitHub Actions
+
+### スクリプト言語の選択
+
+**GitHub Actionsでスクリプトを作成する場合は必ずPythonを使用してください。**
+
+#### 理由
+
+1. **エラーハンドリング**: try-exceptで詳細なエラー処理が可能
+2. **ログ出力**: 進捗状況を詳細に表示できる
+3. **保守性**: コードが読みやすく、修正しやすい
+4. **YAML干渉回避**: heredoc構文によるYAMLパーサーエラーを防げる
+
+#### ✅ 良い例（Python）
+
+```yaml
+- name: Generate daily reports
+  env:
+    APP_URL: ${{ secrets.APP_URL }}
+    CRON_SECRET: ${{ secrets.CRON_SECRET }}
+  run: python scripts/generate_daily_report.py
+```
+
+```python
+# scripts/generate_daily_report.py
+import requests
+import sys
+import os
+
+def generate_reports(app_url: str, cron_secret: str):
+    try:
+        response = requests.post(
+            f"{app_url}/api/reports/generate-all",
+            headers={"Authorization": f"Bearer {cron_secret}"},
+            timeout=180
+        )
+
+        if response.status_code not in [200, 201]:
+            print(f"Error: {response.text}")
+            sys.exit(1)
+
+        print("✅ Reports generated successfully")
+        return response.json()
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    app_url = os.getenv("APP_URL")
+    cron_secret = os.getenv("CRON_SECRET")
+    generate_reports(app_url, cron_secret)
+```
+
+#### ❌ 悪い例（curl + heredoc）
+
+```yaml
+- name: Generate daily reports
+  run: |
+    curl -X POST "$APP_URL/api/reports/generate-all" \
+      -H "Authorization: Bearer $CRON_SECRET" \
+      -d "$(cat <<'EOF'
+    {
+      "key": "value"
+    }
+    EOF
+    )"
+```
+
+**問題点:**
+- YAMLパーサーがheredocのクォートを誤解釈
+- エラーハンドリングが困難
+- ログ出力が不十分
+- 保守性が低い
+
+### 既存のPythonスクリプト
+
+プロジェクトには以下のPythonスクリプトがあります：
+
+- `scripts/generate_daily_analysis.py` - 日次分析実行
+- `scripts/generate_daily_report.py` - 週次レポート生成
+- `scripts/generate_featured_stocks.py` - 今日の注目銘柄生成
+- `scripts/fetch_stocks.py` - 株価データ取得
+- `scripts/init_data.py` - 初期データ投入
+
+新しいGitHub Actionsワークフローを作成する場合は、これらを参考にPythonスクリプトを作成してください。
+
 ## データベース
 
 ### ローカル環境

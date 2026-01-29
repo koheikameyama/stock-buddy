@@ -27,7 +27,7 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
         run: |
-          python scripts/generate_featured_stocks.py
+          python scripts/github-actions/generate_featured_stocks.py
 
       - name: Notify Slack on success
         if: success()

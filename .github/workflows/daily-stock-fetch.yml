@@ -29,7 +29,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          python scripts/fetch_stocks.py
+          python scripts/data/fetch_stocks.py
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
