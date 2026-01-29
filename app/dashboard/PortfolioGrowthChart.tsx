@@ -72,8 +72,8 @@ export default function PortfolioGrowthChart({ snapshots }: PortfolioGrowthChart
               padding: "8px",
             }}
             labelStyle={{ color: "#374151", fontWeight: "bold" }}
-            formatter={(value: number | undefined, name: string) => {
-              if (value === undefined) return ["", name]
+            formatter={(value: number | undefined, name: string | undefined) => {
+              if (value === undefined || name === undefined) return ["", ""]
               if (name === "評価額") {
                 return [`${value.toLocaleString()}円`, "評価額"]
               }
