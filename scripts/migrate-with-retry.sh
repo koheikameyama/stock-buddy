@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# マイグレーションエラーの場合、失敗したマイグレーションをロールバック済みとしてマークして再試行
-npx prisma migrate deploy || {
-  echo "Migration failed, attempting to resolve..."
-  npx prisma migrate resolve --rolled-back 20260129213908_add_stock_analyses
-  echo "Retrying migration..."
-  npx prisma migrate deploy
-}
+# 失敗したマイグレーションレコードをクリーンアップ
+echo "Checking for failed migrations..."
+npx prisma db execute --file scripts/fix-failed-migration.sql --schema prisma/schema.prisma || echo "No failed migrations to clean up"
+
+# マイグレーションを実行
+echo "Running migrations..."
+npx prisma migrate deploy
