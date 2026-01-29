@@ -12,9 +12,9 @@ export default async function DashboardPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
       <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Stock Buddy Dashboard</h1>
+        <h1 className="text-4xl font-bold mb-4">ようこそ！あなたの投資パートナーです</h1>
         <p className="text-xl text-gray-600">
-          AIに任せて、毎日ちょっと分かる投資
+          一緒に、投資を楽しく学んでいきましょう
         </p>
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
@@ -22,24 +22,24 @@ export default async function DashboardPage() {
             href="/dashboard/portfolio"
             className="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
           >
-            <h2 className="text-lg font-bold mb-2">ポートフォリオ</h2>
-            <p className="text-sm text-gray-600">保有銘柄の確認</p>
+            <h2 className="text-lg font-bold mb-2">あなたの投資</h2>
+            <p className="text-sm text-gray-600">一緒に見守りましょう</p>
           </Link>
 
           <Link
             href="/dashboard/reports"
             className="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
           >
-            <h2 className="text-lg font-bold mb-2">レポート</h2>
-            <p className="text-sm text-gray-600">日次分析レポート</p>
+            <h2 className="text-lg font-bold mb-2">振り返り</h2>
+            <p className="text-sm text-gray-600">今日の分析をチェック</p>
           </Link>
 
           <Link
             href="/dashboard/settings"
             className="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
           >
-            <h2 className="text-lg font-bold mb-2">投資スタイル設定</h2>
-            <p className="text-sm text-gray-600">投資方針の変更</p>
+            <h2 className="text-lg font-bold mb-2">あなたの投資スタイル</h2>
+            <p className="text-sm text-gray-600">設定を変更できます</p>
           </Link>
         </div>
 

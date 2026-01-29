@@ -118,9 +118,9 @@ export default function PortfolioClient({
         {/* ヘッダー */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            あなたのポートフォリオ
+            あなたの投資を見守りましょう
           </h1>
-          <p className="text-lg text-gray-600">AIが選んだおすすめ銘柄</p>
+          <p className="text-lg text-gray-600">一緒に成長を確認していきますね</p>
         </div>
 
         {/* タブ切り替え */}
@@ -133,7 +133,7 @@ export default function PortfolioClient({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            保有銘柄 ({stocks.length})
+            今持っている銘柄 ({stocks.length})
           </button>
           <button
             onClick={() => setActiveTab("watchlist")}
@@ -143,7 +143,7 @@ export default function PortfolioClient({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            ウォッチリスト ({watchlist.length})
+            気になる銘柄リスト ({watchlist.length})
           </button>
         </div>
 
@@ -401,19 +401,19 @@ export default function PortfolioClient({
           <>
             <div className="space-y-4">
               <div className="mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">ウォッチリスト</h2>
+                <h2 className="text-2xl font-bold text-gray-900">気になる銘柄たち</h2>
                 <p className="text-gray-600 mt-1">
-                  AIが提案した銘柄です。実際に購入したら「購入した」ボタンで保有銘柄に追加してください。
+                  おすすめの銘柄です。実際に買ったら「購入した」ボタンで教えてくださいね。
                 </p>
               </div>
 
               {watchlist.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-md p-12 text-center">
                   <p className="text-gray-500 text-lg mb-4">
-                    ウォッチリストに銘柄がありません
+                    まだ気になる銘柄がありません
                   </p>
                   <p className="text-gray-400 text-sm">
-                    オンボーディングで銘柄提案を受けるか、AIレポートから銘柄を追加してください。
+                    一緒におすすめの銘柄を探しましょう
                   </p>
                 </div>
               ) : (

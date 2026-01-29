@@ -193,10 +193,10 @@ export default function OnboardingPage() {
             <div className="animate-spin h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full"></div>
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">
-            銘柄を分析中...
+            あなたにぴったりの投資先を探しています...
           </h2>
           <p className="text-gray-600 text-sm mb-6 text-center">
-            あなたに最適な投資先を提案しています。少々お待ちください。
+            AIコーチがあなたの投資スタイルに合った銘柄を厳選中です。少々お待ちくださいね。
           </p>
 
           <div className="bg-blue-50 rounded-lg p-4 text-left">
@@ -228,10 +228,10 @@ export default function OnboardingPage() {
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              現在、保有している銘柄はありますか？
+              すでに持っている銘柄はありますか？
             </h2>
             <p className="text-gray-600">
-              保有銘柄がある場合は登録すると、より適切な提案ができます
+              もし保有銘柄があれば教えてください。あなたにもっとぴったりの提案ができます
             </p>
           </div>
 
@@ -355,9 +355,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
         <div className="max-w-2xl mx-auto py-8">
           <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">保有銘柄を入力</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">今持っている銘柄を教えてください</h1>
             <p className="text-gray-600 mb-8">
-              現在保有している銘柄を入力してください。正確な分析のために、購入価格と株数を記録しましょう。
+              一緒にあなたの投資を管理しましょう。購入価格と株数を入力してくださいね。
             </p>
 
             {/* 銘柄検索 */}
@@ -504,9 +504,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
         <div className="max-w-5xl mx-auto py-8">
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">あなたにおすすめのプラン</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">あなたにおすすめのプランを用意しました</h1>
             <p className="text-gray-600 mb-4">
-              3つの異なる投資プランをご用意しました。あなたの投資スタイルに合ったプランを選んでください。
+              3つのプランを考えてみました。あなたに合いそうなものを選んでくださいね。
             </p>
           </div>
 
@@ -621,9 +621,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
         <div className="max-w-4xl mx-auto py-8">
           <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">おすすめ銘柄</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">おすすめの銘柄たちです</h1>
             <p className="text-gray-600 mb-8">
-              実際に購入した銘柄にチェックを入れてください。購入詳細は後ほどダッシュボードで入力できます。
+              実際に買った銘柄があればチェックを入れてくださいね。詳しい情報は後でダッシュボードで教えてください。
             </p>
 
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
@@ -775,10 +775,10 @@ export default function OnboardingPage() {
           {step === 1 && (
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">
-                投資金額を選んでください
+                まず、投資金額を教えてください
               </h2>
               <p className="text-gray-600 mb-4 text-sm">
-                新たに投資する予定の金額は？
+                新しく投資する予定の金額はどれくらいですか？
               </p>
 
               <div className="space-y-2">
@@ -827,8 +827,8 @@ export default function OnboardingPage() {
 
           {step === 2 && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">月々の積立金額を選んでください</h2>
-              <p className="text-gray-600 mb-6 text-sm">毎月積み立てる予定の金額はどのくらいですか？</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">毎月の積立金額を教えてください</h2>
+              <p className="text-gray-600 mb-6 text-sm">毎月コツコツ積み立てる予定はありますか？</p>
 
               <div className="space-y-2">
                 {monthlyOptions.map((option) => (
@@ -876,8 +876,8 @@ export default function OnboardingPage() {
 
           {step === 3 && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">投資期間を選んでください</h2>
-              <p className="text-gray-600 mb-6 text-sm">どのくらいの期間で運用しますか？</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">どれくらいの期間で考えていますか？</h2>
+              <p className="text-gray-600 mb-6 text-sm">投資期間のイメージを教えてください</p>
 
               <div className="space-y-2">
                 {periodOptions.map((option) => (
@@ -902,10 +902,10 @@ export default function OnboardingPage() {
           {step === 4 && (
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                リスク許容度を選んでください
+                リスクについて教えてください
               </h2>
               <p className="text-gray-600 mb-6 text-sm">
-                どのくらいのリスクを取れますか？
+                どれくらいリスクを取れそうですか？
               </p>
 
               <div className="space-y-2">
