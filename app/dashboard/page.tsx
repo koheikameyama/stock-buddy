@@ -59,14 +59,14 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* ヘッダー */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               おはようございます、{session.user.name?.split(" ")[0]}さん！
             </h1>
-            <p className="text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
           </div>
           <form
             action={async () => {
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
           >
             <button
               type="submit"
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap"
             >
               ログアウト
             </button>
@@ -84,26 +84,26 @@ export default async function DashboardPage() {
         </div>
 
         {/* 今日のメッセージセクション */}
-        <div className="mb-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-8 text-white shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="text-5xl">👋</div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-2">今日のメッセージ</h2>
-              <p className="text-lg mb-4 text-blue-50">
+        <div className="mb-6 sm:mb-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 sm:p-8 text-white shadow-lg">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="text-4xl sm:text-5xl">👋</div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold mb-2">今日のメッセージ</h2>
+              <p className="text-sm sm:text-lg mb-4 text-blue-50 leading-relaxed">
                 {coachMessage}
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 {hasPortfolio ? (
                   <>
                     <Link
                       href="/dashboard/portfolio"
-                      className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+                      className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
                     >
                       ポートフォリオを見る
                     </Link>
                     <Link
                       href="/dashboard/reports"
-                      className="px-4 py-2 bg-blue-400 text-white rounded-lg font-semibold hover:bg-blue-500 transition-colors"
+                      className="px-4 py-2 bg-blue-400 text-white rounded-lg font-semibold hover:bg-blue-500 transition-colors text-center text-sm sm:text-base"
                     >
                       今日の振り返り
                     </Link>
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
                 ) : (
                   <Link
                     href="/onboarding"
-                    className="inline-block px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+                    className="inline-block w-full sm:w-auto px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center"
                   >
                     銘柄を探す
                   </Link>
@@ -188,18 +188,18 @@ export default async function DashboardPage() {
         </div>
 
         {/* サポートセクション */}
-        <div className="bg-white rounded-xl p-6 shadow-md">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="text-2xl">🤝</span>
+        <div className="bg-white rounded-xl p-5 sm:p-6 shadow-md">
+          <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+            <span className="text-xl sm:text-2xl">🤝</span>
             困ったことはありませんか？
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-sm sm:text-base text-gray-600 mb-4">
             投資について分からないことがあれば、いつでもサポートします。
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Link
               href="/about/stock-selection"
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold"
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold text-center"
             >
               取扱銘柄について
             </Link>

@@ -128,15 +128,15 @@ export default function PortfolioClient({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-6 sm:py-12 px-4">
       <div className="max-w-6xl mx-auto">
         {/* 戻るボタン */}
         <button
           onClick={() => router.back()}
-          className="mb-6 flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+          className="mb-4 sm:mb-6 flex items-center text-gray-600 hover:text-gray-900 transition-colors text-sm sm:text-base"
         >
           <svg
-            className="w-5 h-5 mr-2"
+            className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -152,18 +152,18 @@ export default function PortfolioClient({
         </button>
 
         {/* ヘッダー */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
             あなたの投資を見守りましょう
           </h1>
-          <p className="text-lg text-gray-600">一緒に成長を確認していきますね</p>
+          <p className="text-base sm:text-lg text-gray-600">一緒に成長を確認していきますね</p>
         </div>
 
         {/* タブ切り替え */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab("portfolio")}
-            className={`px-6 py-3 font-semibold transition-colors ${
+            className={`px-4 sm:px-6 py-3 font-semibold transition-colors whitespace-nowrap text-sm sm:text-base ${
               activeTab === "portfolio"
                 ? "border-b-2 border-blue-600 text-blue-600"
                 : "text-gray-600 hover:text-gray-900"
@@ -173,7 +173,7 @@ export default function PortfolioClient({
           </button>
           <button
             onClick={() => setActiveTab("watchlist")}
-            className={`px-6 py-3 font-semibold transition-colors ${
+            className={`px-4 sm:px-6 py-3 font-semibold transition-colors whitespace-nowrap text-sm sm:text-base ${
               activeTab === "watchlist"
                 ? "border-b-2 border-blue-600 text-blue-600"
                 : "text-gray-600 hover:text-gray-900"
@@ -184,9 +184,9 @@ export default function PortfolioClient({
         </div>
 
         {/* ポートフォリオ概要 */}
-        <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">投資スタイル</h2>
-          <div className="grid grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl shadow-md p-5 sm:p-6 mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">投資スタイル</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             <div>
               <p className="text-sm text-gray-500 mb-1">予算</p>
               <p className="text-2xl font-bold text-blue-600">
