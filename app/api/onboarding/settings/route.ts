@@ -12,31 +12,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { budget, monthlyAmount, investmentPeriod, riskTolerance } = await request.json()
+    const { budget, monthlyAmount, investmentPeriod, riskTolerance, isExistingInvestor } = await request.json()
 
-    // バリデーション
-    const budgetNum = parseInt(budget)
-    const monthlyNum = parseInt(monthlyAmount)
-
-    if (isNaN(budgetNum) || budgetNum < 0) {
-      return NextResponse.json(
-        { error: "追加投資金額を指定してください" },
-        { status: 400 }
-      )
-    }
-
-    if (isNaN(monthlyNum) || monthlyNum < 0) {
-      return NextResponse.json(
-        { error: "月々の積立金額を指定してください" },
-        { status: 400 }
-      )
-    }
-
+    // 必須項目のチェック
     if (!investmentPeriod || !riskTolerance) {
       return NextResponse.json(
         { error: "投資期間とリスク許容度を指定してください" },
         { status: 400 }
       )
+    }
+
+    // 既存投資家以外は予算が必須
+    let budgetNum: number | null = null
+    let monthlyNum: number | null = null
+
+    if (!isExistingInvestor) {
+      budgetNum = parseInt(budget)
+      monthlyNum = parseInt(monthlyAmount)
+
+      if (isNaN(budgetNum) || budgetNum < 0) {
+        return NextResponse.json(
+          { error: "追加投資金額を指定してください" },
+          { status: 400 }
+        )
+      }
+
+      if (isNaN(monthlyNum) || monthlyNum < 0) {
+        return NextResponse.json(
+          { error: "月々の積立金額を指定してください" },
+          { status: 400 }
+        )
+      }
     }
 
     // ユーザー情報を取得
@@ -52,24 +58,24 @@ export async function POST(request: NextRequest) {
     }
 
     // ユーザー設定を保存または更新
+    const settingsData = {
+      investmentPeriod,
+      riskTolerance,
+      isExistingInvestor: isExistingInvestor ?? false,
+      ...(budgetNum !== null && { investmentAmount: budgetNum }),
+      ...(monthlyNum !== null && { monthlyAmount: monthlyNum }),
+    }
+
     if (user.settings) {
       await prisma.userSettings.update({
         where: { userId: user.id },
-        data: {
-          investmentAmount: budgetNum,
-          monthlyAmount: monthlyNum,
-          investmentPeriod,
-          riskTolerance,
-        },
+        data: settingsData,
       })
     } else {
       await prisma.userSettings.create({
         data: {
           userId: user.id,
-          investmentAmount: budgetNum,
-          monthlyAmount: monthlyNum,
-          investmentPeriod,
-          riskTolerance,
+          ...settingsData,
         },
       })
     }
