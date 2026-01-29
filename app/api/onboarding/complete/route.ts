@@ -6,14 +6,6 @@ import { addStockToPortfolio } from "@/lib/portfolio"
 
 const prisma = new PrismaClient()
 
-type Recommendation = {
-  tickerCode: string
-  name: string
-  recommendedPrice: number
-  quantity: number
-  reason: string
-}
-
 export async function POST(request: NextRequest) {
   try {
     // 認証チェック

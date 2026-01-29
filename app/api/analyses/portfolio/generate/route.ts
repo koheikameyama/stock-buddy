@@ -155,7 +155,7 @@ async function generatePortfolioStockAnalysis(data: {
   } = data
 
   // Simple rule-based analysis (will be replaced with Claude API later)
-  let action: 'hold' | 'buy_more' | 'sell_partial' | 'sell_all' = 'hold'
+  let action: 'hold' | 'buy_more' | 'sell_partial' = 'hold'
 
   // Determine action based on gain/loss and price movement
   if (gainLossPct > 20) {
@@ -183,9 +183,6 @@ async function generatePortfolioStockAnalysis(data: {
       break
     case 'buy_more':
       reasoning = `含み損がありますが、最近回復の兆しが見えます。長期投資であれば買い増しのチャンスかもしれません。`
-      break
-    case 'sell_all':
-      reasoning = `損失が拡大しています。損切りを検討する時期かもしれません。`
       break
     default:
       reasoning = gainLossPct > 0

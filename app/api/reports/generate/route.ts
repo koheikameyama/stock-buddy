@@ -219,7 +219,6 @@ export async function POST(request: NextRequest) {
             content: `以下のポートフォリオを分析し、今日の投資判断を提案してください。
 
 【投資スタイル】
-- 予算: ${settings?.investmentAmount.toLocaleString()}円
 - 投資期間: ${settings?.investmentPeriod}
 - リスク許容度: ${settings?.riskTolerance}
 

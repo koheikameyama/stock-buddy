@@ -260,7 +260,7 @@ function selectStocksWithinBudget(
     const price = stock.currentPrice
 
     // 均等配分で購入
-    let quantity = Math.floor(budgetPerStock / price / 100) * 100
+    const quantity = Math.floor(budgetPerStock / price / 100) * 100
     const totalCost = quantity * price
 
     console.log(`  ${i+1}. ${stock.name}: ${quantity}株 × ¥${price} = ¥${totalCost.toLocaleString()}`)
