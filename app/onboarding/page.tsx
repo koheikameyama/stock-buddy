@@ -717,20 +717,28 @@ export default function OnboardingPage() {
               </p>
             </div>
 
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  setSelectedStocks(new Set())
-                  router.push("/dashboard/portfolio")
-                }}
-                className="flex-1 bg-gray-200 text-gray-700 py-4 px-6 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
-              >
-                スキップ（ウォッチリストのみ）
-              </button>
+            <div className="space-y-3">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setStep(5)}
+                  className="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  ← プラン選択に戻る
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedStocks(new Set())
+                    router.push("/dashboard/portfolio")
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-700 py-4 px-6 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
+                >
+                  スキップ（ウォッチリストのみ）
+                </button>
+              </div>
               <button
                 onClick={handleCompleteOnboarding}
                 disabled={loading}
-                className="flex-1 bg-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300"
+                className="w-full bg-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300"
               >
                 {loading ? "保存中..." : `完了 (${selectedStocks.size}銘柄購入済み)`}
               </button>
