@@ -8,10 +8,6 @@ import os
 import sys
 import requests
 from typing import Dict, Any
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 
 def generate_daily_reports(app_url: str, cron_secret: str) -> Dict[str, Any]:
