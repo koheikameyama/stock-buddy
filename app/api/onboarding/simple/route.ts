@@ -84,8 +84,8 @@ async function getRecommendedStocks(
 
       const currentPrice = Number(stock.prices[0].close)
 
-      // Must be affordable (at least 1 share)
-      if (currentPrice > budget) return false
+      // Must be affordable (at least 100 shares - 単元株)
+      if (currentPrice * 100 > budget) return false
 
       return true
     })
@@ -132,7 +132,12 @@ async function getRecommendedStocks(
 function calculateQuantity(price: number, budget: number, numStocks: number): number {
   const perStockBudget = budget / numStocks
   const quantity = Math.floor(perStockBudget / price)
-  return Math.max(1, quantity) // At least 1 share
+
+  // 日本株は100株単位（単元株）で購入
+  const roundedQuantity = Math.floor(quantity / 100) * 100
+
+  // 最低100株
+  return Math.max(100, roundedQuantity)
 }
 
 function getPlanName(risk: string, period: string): string {
