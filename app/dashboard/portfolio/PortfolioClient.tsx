@@ -14,6 +14,7 @@ interface Stock {
   sector: string | null
   quantity: number
   averagePrice: string
+  reason: string | null
 }
 
 interface WatchlistItem {
@@ -349,10 +350,20 @@ export default function PortfolioClient({
                   <p className="text-sm font-semibold text-gray-700 mb-2">
                     📊 この銘柄について
                   </p>
-                  <p className="text-gray-700 leading-relaxed">
+                  <p className="text-gray-700 leading-relaxed mb-2">
                     {portfolioStock.sector && `セクター: ${portfolioStock.sector} | `}
                     市場: {portfolioStock.market}
                   </p>
+                  {portfolioStock.reason && (
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <p className="text-sm font-semibold text-gray-700 mb-1">
+                        💡 推奨理由
+                      </p>
+                      <p className="text-gray-700 leading-relaxed text-sm">
+                        {portfolioStock.reason}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )

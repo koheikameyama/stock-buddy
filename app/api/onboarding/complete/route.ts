@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
               stockId: stock.id,
               quantity: rec.quantity,
               averagePrice: rec.recommendedPrice,
+              reason: rec.reason,
             },
           })
 

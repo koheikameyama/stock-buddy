@@ -80,6 +80,7 @@ export default async function PortfolioPage() {
         sector: s.stock.sector,
         quantity: s.quantity,
         averagePrice: s.averagePrice.toString(),
+        reason: s.reason,
       }))}
       watchlist={watchlist.map((w) => ({
         id: w.id,

@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
             stockId: watchlistItem.stockId,
             quantity: quantity,
             averagePrice: averagePrice,
+            reason: watchlistItem.reason,
           },
         })
       }

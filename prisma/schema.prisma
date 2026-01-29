@@ -177,6 +177,7 @@ model PortfolioStock {
   stock        Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
   quantity     Int
   averagePrice Decimal   @db.Decimal(12, 2)
+  reason       String?   // 保有理由・推奨理由
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
