@@ -212,8 +212,9 @@ export async function POST(request: NextRequest) {
     // 目標銘柄数を動的に決定（予算に応じて柔軟に）
     const targetStockCount = budgetNum <= 50000 ? 1 : budgetNum <= 100000 ? 2 : budgetNum <= 300000 ? 3 : budgetNum <= 500000 ? 4 : 5
 
-    // 予算に余裕を持たせる（10-30%超過を許容）
-    const maxBudgetMultiplier = budgetNum <= 100000 ? 1.3 : budgetNum <= 300000 ? 1.2 : 1.1
+    // 予算の許容範囲（少額は柔軟に、高額は厳格に）
+    const maxBudgetMultiplier = budgetNum <= 100000 ? 1.1 : budgetNum <= 500000 ? 1.05 : 1.03
+    const minBudgetMultiplier = 0.95 // 予算の95%以上を目指す
 
     // 各プラン用に候補銘柄を絞る（購入可能性がある銘柄）
     const conservativeCandidates = stocksForPortfolio
@@ -274,7 +275,7 @@ export async function POST(request: NextRequest) {
 **重要な選択基準**:
 1. **銘柄数**: ${targetStockCount}銘柄を選択（予算が少ない場合は1銘柄でもOK）
 2. **株数**: 各銘柄100株単位で購入（100株、200株、300株など）
-3. **予算活用**: 合計金額が予算の${Math.round(maxBudgetMultiplier * 100)}%以内で、できるだけ予算を使い切るように株数を調整
+3. **予算厳守**: 合計金額は${Math.round(budgetNum * minBudgetMultiplier).toLocaleString()}円〜${Math.round(budgetNum * maxBudgetMultiplier).toLocaleString()}円の範囲内（予算の${Math.round(minBudgetMultiplier * 100)}%〜${Math.round(maxBudgetMultiplier * 100)}%）
 4. **セクター分散**: できるだけ異なるセクターから選択（2銘柄以上の場合）
 
 **保守的プラン**:
@@ -377,7 +378,7 @@ ${JSON.stringify(aggressiveCandidates.map(s => ({
 **重要な制約**:
 1. 各プランで${targetStockCount}銘柄を選択（予算が少ない場合は${targetStockCount}銘柄未満でもOK）
 2. 株数は100株単位で購入（100株、200株、300株など）
-3. 合計金額が${Math.round(budgetNum * maxBudgetMultiplier).toLocaleString()}円以内で、できるだけ予算を使い切る
+3. **予算厳守**: 合計金額は${Math.round(budgetNum * minBudgetMultiplier).toLocaleString()}円〜${Math.round(budgetNum * maxBudgetMultiplier).toLocaleString()}円の範囲内（この範囲を絶対に超えないこと）
 4. できるだけ異なるセクターから選択（2銘柄以上の場合）
 5. recommendedPriceはcurrentPriceをそのまま使用
 
