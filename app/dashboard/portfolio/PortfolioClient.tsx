@@ -492,12 +492,12 @@ export default function PortfolioClient({
             <div className="mt-8 space-y-4 px-4 sm:px-0">
               {/* シミュレーション合計 */}
               {stocks.filter(s => s.isSimulation).length > 0 && (
-                <div className="bg-gradient-to-r from-gray-600 to-gray-700 rounded-2xl shadow-md p-6 text-white">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-100">シミュレーション</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="bg-gradient-to-r from-gray-600 to-gray-700 rounded-xl shadow-sm p-4 text-white">
+                  <h3 className="text-sm font-semibold mb-3 text-gray-100">シミュレーション</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <p className="text-gray-200 mb-1 text-sm">投資総額</p>
-                      <p className="text-2xl font-bold">
+                      <p className="text-gray-200 mb-1 text-xs">投資総額</p>
+                      <p className="text-lg font-bold">
                         {stocks
                           .filter(s => s.isSimulation)
                           .reduce((sum, s) => sum + Number(s.averagePrice) * s.quantity, 0)
@@ -506,8 +506,8 @@ export default function PortfolioClient({
                     </div>
                     {!loading && Object.keys(prices).length > 0 && (
                       <div>
-                        <p className="text-gray-200 mb-1 text-sm">現在評価額</p>
-                        <p className="text-2xl font-bold">
+                        <p className="text-gray-200 mb-1 text-xs">現在評価額</p>
+                        <p className="text-lg font-bold">
                           {stocks
                             .filter(s => s.isSimulation)
                             .reduce((sum, s) => {
@@ -519,8 +519,8 @@ export default function PortfolioClient({
                       </div>
                     )}
                     <div>
-                      <p className="text-gray-200 mb-1 text-sm">銘柄数</p>
-                      <p className="text-2xl font-bold">
+                      <p className="text-gray-200 mb-1 text-xs">銘柄数</p>
+                      <p className="text-lg font-bold">
                         {stocks.filter(s => s.isSimulation).length}銘柄
                       </p>
                     </div>
