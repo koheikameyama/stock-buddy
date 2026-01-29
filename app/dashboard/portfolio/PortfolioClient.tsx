@@ -487,12 +487,12 @@ export default function PortfolioClient({
         </div>
 
             {/* 合計金額（シミュレーション・実投資別） */}
-            <div className="mt-8 space-y-4">
+            <div className="mt-8 space-y-4 px-4 sm:px-0">
               {/* シミュレーション合計 */}
               {stocks.filter(s => s.isSimulation).length > 0 && (
                 <div className="bg-gradient-to-r from-gray-600 to-gray-700 rounded-2xl shadow-md p-6 text-white">
                   <h3 className="text-lg font-semibold mb-4 text-gray-100">シミュレーション</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div>
                       <p className="text-gray-200 mb-1 text-sm">投資総額</p>
                       <p className="text-2xl font-bold">
@@ -530,7 +530,7 @@ export default function PortfolioClient({
               {stocks.filter(s => !s.isSimulation).length > 0 && (
                 <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl shadow-md p-6 text-white">
                   <h3 className="text-lg font-semibold mb-4 text-green-100">実投資</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div>
                       <p className="text-green-100 mb-1 text-sm">投資総額</p>
                       <p className="text-2xl font-bold">
@@ -567,7 +567,7 @@ export default function PortfolioClient({
               {/* 総合計 */}
               <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-md p-6 text-white">
                 <h3 className="text-lg font-semibold mb-4 text-blue-100">総合計</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div>
                     <p className="text-blue-100 mb-1 text-sm">投資総額</p>
                     <p className="text-3xl font-bold">

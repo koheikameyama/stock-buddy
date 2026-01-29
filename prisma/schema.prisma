@@ -50,6 +50,7 @@ model User {
   coachMessages           CoachMessage[]
   portfolioStockAnalyses  PortfolioStockAnalysis[]
   recommendationLogs      RecommendationLog[]
+  pushSubscriptions       PushSubscription[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -355,4 +356,18 @@ model RecommendationLog {
   @@index([createdAt(sort: Desc)])
   @@index([budget])
   @@index([period])
+}
+
+// プッシュ通知購読
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

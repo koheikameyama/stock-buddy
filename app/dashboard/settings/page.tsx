@@ -10,6 +10,12 @@ type Settings = {
   riskTolerance: string
 }
 
+type PushSubscriptionState = {
+  supported: boolean
+  subscribed: boolean
+  loading: boolean
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -25,10 +31,86 @@ export default function SettingsPage() {
   const [customInvestmentValue, setCustomInvestmentValue] = useState("")
   const [showCustomMonthly, setShowCustomMonthly] = useState(false)
   const [customMonthlyValue, setCustomMonthlyValue] = useState("")
+  const [pushState, setPushState] = useState<PushSubscriptionState>({
+    supported: false,
+    subscribed: false,
+    loading: true,
+  })
 
   useEffect(() => {
     fetchSettings()
+    checkPushNotificationStatus()
   }, [])
+
+  const checkPushNotificationStatus = async () => {
+    try {
+      // Check if push notifications are supported
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setPushState({ supported: false, subscribed: false, loading: false })
+        return
+      }
+
+      // Register service worker
+      const registration = await navigator.serviceWorker.register("/sw.js")
+
+      // Check if already subscribed
+      const subscription = await registration.pushManager.getSubscription()
+
+      setPushState({
+        supported: true,
+        subscribed: !!subscription,
+        loading: false,
+      })
+    } catch (error) {
+      console.error("Error checking push notification status:", error)
+      setPushState({ supported: false, subscribed: false, loading: false })
+    }
+  }
+
+  const togglePushNotifications = async () => {
+    try {
+      setPushState({ ...pushState, loading: true })
+
+      const registration = await navigator.serviceWorker.ready
+
+      if (pushState.subscribed) {
+        // Unsubscribe
+        const subscription = await registration.pushManager.getSubscription()
+        if (subscription) {
+          await subscription.unsubscribe()
+          await fetch("/api/push/subscribe", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+          })
+        }
+        setPushState({ ...pushState, subscribed: false, loading: false })
+        alert("プッシュ通知をオフにしました")
+      } else {
+        // Subscribe
+        const response = await fetch("/api/push/subscribe")
+        const { publicKey } = await response.json()
+
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: publicKey,
+        })
+
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(subscription.toJSON()),
+        })
+
+        setPushState({ ...pushState, subscribed: true, loading: false })
+        alert("プッシュ通知をオンにしました")
+      }
+    } catch (error) {
+      console.error("Error toggling push notifications:", error)
+      alert("プッシュ通知の設定に失敗しました")
+      setPushState({ ...pushState, loading: false })
+    }
+  }
 
   const fetchSettings = async () => {
     try {
@@ -298,6 +380,51 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* プッシュ通知設定 */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              プッシュ通知
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              新しいレポートや分析が準備できたときに通知します
+            </p>
+            {!pushState.supported ? (
+              <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50">
+                <p className="text-gray-600">
+                  このブラウザではプッシュ通知がサポートされていません
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200">
+                <div>
+                  <div className="font-semibold text-gray-900">
+                    {pushState.subscribed ? "オン" : "オフ"}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {pushState.subscribed
+                      ? "レポート準備完了時に通知します"
+                      : "通知を受け取りません"}
+                  </div>
+                </div>
+                <button
+                  onClick={togglePushNotifications}
+                  disabled={pushState.loading}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                    pushState.subscribed
+                      ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {pushState.loading
+                    ? "処理中..."
+                    : pushState.subscribed
+                    ? "オフにする"
+                    : "オンにする"}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 保存ボタン */}

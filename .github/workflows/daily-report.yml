@@ -31,6 +31,15 @@ jobs:
             exit 1
           fi
 
+      - name: Send push notifications
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.APP_URL }}/api/push/send" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -d '{"title":"今日の振り返りレポートが準備できました","body":"ポートフォリオの状況を確認しましょう","url":"/dashboard/reports"}' \
+            -s
+
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
