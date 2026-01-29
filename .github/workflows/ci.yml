@@ -42,9 +42,6 @@ jobs:
           DATABASE_URL: postgresql://user:password@localhost:5432/testdb
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'dummy-key' }}
           RAKUTEN_APPLICATION_ID: ${{ secrets.RAKUTEN_APPLICATION_ID || 'dummy-id' }}
-          VAPID_PUBLIC_KEY: ${{ secrets.CI_VAPID_PUBLIC_KEY }}
-          VAPID_PRIVATE_KEY: ${{ secrets.CI_VAPID_PRIVATE_KEY }}
-          VAPID_SUBJECT: mailto:test@example.com
 
       - name: Notify Slack on success
         if: success()
