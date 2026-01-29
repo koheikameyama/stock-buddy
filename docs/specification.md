@@ -337,55 +337,93 @@ CTA: [無料で始める（3分）]
 
 ### 5.1 コア機能
 
-#### 1. オンボーディング（初回診断）
-- 3つの質問で投資スタイル診断
-- 会話形式のUI
+#### 1. オンボーディング（初回診断）✅ 実装済
+- 2つの質問で投資スタイル診断（予算・期間）
+- シンプルなフォームUI
 - 3分で完了
+- **月次制限**: AI提案は月3回まで（RecommendationLogテーブルで管理）
+- 制限超過時: 429エラーでリセット日を通知
 
-#### 2. ポートフォリオ自動生成
-- 予算・性格・期間に基づく
-- 3パターン提示（保守的・バランス・積極的）
-- AIが「おすすめ」を明示
+#### 2. ポートフォリオ自動生成 ✅ 実装済
+- 予算・期間に基づくAI提案
+- 投資期間に応じた銘柄数の自動決定
+  - 長期（3年以上）: 4-5銘柄
+  - 中期（1-3年）: 3-4銘柄
+  - 短期（1年未満）: 2-3銘柄
+- 初心者向けスコア（beginnerScore）で銘柄選定
+- セクター分散を考慮
 
-#### 3. 仮想ポートフォリオ
-- 実際のお金を使わない
-- 毎日評価額を更新
-- 実績を記録
+#### 3. 今持ってる銘柄（ポートフォリオ）✅ 実装済
+- **最大5銘柄まで**登録可能（MAX_PORTFOLIO_STOCKS = 5）
+- 実際の投資とシミュレーションの両対応
+- 平均取得単価の自動計算
+- トランザクション記録（Transaction テーブル）
+- 専用モジュール（lib/portfolio.ts）で制限管理
 
-#### 4. ダッシュボード（毎日の画面）
-- 今日の状況
-- コーチのコメント
-- 成長の可視化
-- 関連ニュース
-- 投資ヒント
+#### 4. 気になる銘柄（ウォッチリスト）✅ 実装済
+- **最大5銘柄まで**登録可能（MAX_WATCHLIST_STOCKS = 5）
+- 推奨価格・推奨数量の保存
+- 「今日の注目銘柄」から追加可能
+- 専用モジュール（lib/watchlist.ts）で制限管理
 
-#### 5. 評価額の日次記録
-- 毎日の評価額をDB保存
+#### 5. 今日の注目銘柄 ✅ 実装済
+- **全ユーザー共通**で毎日3銘柄を提案
+- GitHub Actions（daily-featured-stocks.yml）で自動生成
+  - 実行時刻: 毎日JST 5:00 (UTC 20:00)
+- 選定ロジック:
+  - 初心者向けスコア70以上
+  - セクター分散を考慮
+  - 最新の株価データがある銘柄のみ
+- DailyFeaturedStock テーブルで管理
+- ダッシュボードに表示、直接ウォッチリストに追加可能
+
+#### 6. ダッシュボード（毎日の画面）✅ 実装済
+- 今日の注目銘柄（3銘柄）
+- ポートフォリオの状況
+- ウォッチリストの状況
+- コーチメッセージ（CoachMessage テーブル）
+- 株価推移グラフ
+
+#### 7. 評価額の日次記録 ✅ 実装済
+- 毎日の評価額をDB保存（PortfolioSnapshot テーブル）
+- GitHub Actions（daily-stock-fetch.yml）で自動実行
+  - 実行時刻: 平日JST 18:00 (UTC 09:00)
 - グラフで推移を表示
-- 日経平均との比較
+- 損益計算（金額・率）
 
-#### 6. 週次レポート
-- 毎週日曜夜に配信
-- 今週の振り返り
-- みんなとの比較
-- 来週の見通し
+#### 8. 日次分析 ✅ 実装済
+- GitHub Actions（daily-analysis.yml）で自動実行
+  - 実行時刻: 毎日JST 6:00 (UTC 21:00)
+- ウォッチリスト銘柄の分析
+- ポートフォリオ銘柄の分析
+- コーチメッセージの生成
+- プッシュ通知の送信
 
-#### 7. 投資レベル・バッジシステム
-- レベル制（1から開始）
-- 継続日数でレベルアップ
-- バッジ獲得（1ヶ月継続、プラス達成など）
+#### 9. 週次レポート ✅ 実装済
+- GitHub Actions（daily-report.yml）で自動生成
+  - 実行時刻: 毎日JST 9:00 (UTC 0:00)
+- ポートフォリオの週次サマリー
+- 損益の推移
+- 今週のハイライト
 
-#### 8. コーチへの相談（将来実装）
-- AIチャット機能
-- 「なぜこの銘柄？」「今売るべき？」
-- 投資の悩みに回答
+#### 10. プッシュ通知 ✅ 実装済
+- Web Push API を使用
+- VAPID認証（遅延初期化）
+- 購読管理（PushSubscription テーブル）
+- ポートフォリオ保有ユーザーにのみ通知
+- 410 Gone エラー時に自動購読削除
 
-#### 9. 投資の基礎学習（将来実装）
-- レベル別コンテンツ
-- クイズ形式
-- 理解度チェック
+#### 11. マーケットニュース ✅ 実装済
+- GitHub Actions（fetch-market-news.yml）で自動取得
+  - 実行時刻: 毎日JST 9:00 (UTC 0:00)
+- Tavily API + OpenAI API で要約
+- MarketNews テーブルで管理
 
-#### 10. 証券口座開設誘導
+#### 12. 投資レベル・バッジシステム 🚧 部分実装
+- UserProgress テーブル準備済み
+- UIは未実装
+
+#### 13. 証券口座開設誘導 📋 未実装
 - 実績が出た後
 - アフィリエイトリンク
 - 開設ガイド
@@ -721,5 +759,183 @@ Stock Buddy:
 
 ---
 
-_最終更新: 2026-01-29_
-_Version: 2.0_
+## 13. 技術仕様
+
+### 13.1 アーキテクチャ
+
+**フロントエンド**
+- Next.js 15.5.10 (App Router)
+- React Server Components
+- TypeScript
+- Tailwind CSS
+
+**バックエンド**
+- Next.js API Routes
+- NextAuth.js (Google OAuth認証)
+- Prisma ORM
+- PostgreSQL (Railway)
+
+**外部API**
+- OpenAI API (GPT-4による分析・提案)
+- Rakuten Rapid API (株価データ取得)
+- Tavily API (ニュース検索)
+- Web Push API (プッシュ通知)
+
+**自動化**
+- GitHub Actions (5つのワークフロー)
+- Python スクリプト (データ処理)
+- TypeScript スクリプト (分析・レポート生成)
+
+### 13.2 GitHub Actions ワークフロー
+
+#### 1. CI (ci.yml)
+- **トリガー**: main/develop ブランチへのpush・PR
+- **除外パス**: `**.md`, `scripts/**`, `.github/workflows/**` (ci.yml自体は除く), `docs/**`
+- **実行内容**:
+  - Lint (ESLint)
+  - Type Check (TypeScript)
+  - Build (Next.js)
+- **通知**: Slack (成功/失敗)
+
+#### 2. 株価データ取得 (daily-stock-fetch.yml)
+- **実行時刻**: 平日 JST 18:00 (UTC 09:00)
+- **実行内容**:
+  1. Python: 株価データ取得 (fetch_stocks.py)
+  2. TypeScript: 銘柄スコア計算 (calculate-stock-scores.ts)
+  3. TypeScript: ポートフォリオスナップショット記録 (record-portfolio-snapshots.ts)
+  4. TypeScript: コーチメッセージ生成 (generate-coach-messages-direct.ts)
+- **通知**: Slack
+
+#### 3. マーケットニュース取得 (fetch-market-news.yml)
+- **実行時刻**: 毎日 JST 9:00 (UTC 0:00)
+- **実行内容**: TypeScript: ニュース取得・要約 (fetch-market-news.ts)
+- **通知**: Slack
+
+#### 4. 今日の注目銘柄生成 (daily-featured-stocks.yml)
+- **実行時刻**: 毎日 JST 5:00 (UTC 20:00)
+- **実行内容**: Python: 注目銘柄選定 (generate_featured_stocks.py)
+- **通知**: Slack
+
+#### 5. 日次分析 (daily-analysis.yml)
+- **実行時刻**: 毎日 JST 6:00 (UTC 21:00)
+- **実行内容**: Python: 分析API呼び出し (generate_daily_analysis.py)
+  - ウォッチリスト銘柄分析
+  - ポートフォリオ銘柄分析
+  - コーチメッセージ生成
+  - プッシュ通知送信
+- **通知**: Slack
+
+#### 6. 週次レポート生成 (daily-report.yml)
+- **実行時刻**: 毎日 JST 9:00 (UTC 0:00)
+- **実行内容**: Python: レポート生成API呼び出し (generate_daily_report.py)
+- **通知**: Slack
+
+### 13.3 データベーススキーマ（主要テーブル）
+
+**Stock** - 銘柄マスタ
+- tickerCode, name, sector, beginnerScore など
+
+**StockPrice** - 株価データ
+- 日次の株価（open, close, high, low, volume）
+
+**Portfolio** - ポートフォリオ
+- userId, budget, isSimulation
+
+**PortfolioStock** - ポートフォリオ銘柄
+- portfolioId, stockId, quantity, averagePrice
+- **最大5銘柄制限**
+
+**Watchlist** - ウォッチリスト
+- userId, stockId, recommendedPrice, recommendedQty
+- **最大5銘柄制限**
+
+**DailyFeaturedStock** - 今日の注目銘柄
+- date, stockId, position (1-3), reason, score
+
+**Transaction** - 取引履歴
+- portfolioId, stockId, type, quantity, price
+
+**PortfolioSnapshot** - ポートフォリオスナップショット
+- 日次の評価額記録
+
+**CoachMessage** - コーチメッセージ
+- userId, type, title, message, sentiment
+
+**RecommendationLog** - AI提案ログ
+- userId, createdAt
+- **月次制限管理用**（月3回まで）
+
+**MarketNews** - マーケットニュース
+- title, summary, publishedAt
+
+**PushSubscription** - プッシュ通知購読
+- userId, endpoint, p256dh, auth
+
+**UserProgress** - ユーザー進捗
+- level, experience, badges など（部分実装）
+
+### 13.4 主要ライブラリ・モジュール
+
+**lib/portfolio.ts**
+- `addStockToPortfolio()` - 銘柄追加（5銘柄制限チェック）
+- `MAX_PORTFOLIO_STOCKS = 5`
+
+**lib/watchlist.ts**
+- `addStockToWatchlist()` - ウォッチリスト追加（5銘柄制限チェック）
+- `addMultipleStocksToWatchlist()` - 複数銘柄一括追加
+- `MAX_WATCHLIST_STOCKS = 5`
+
+**lib/recommendation-limit.ts**
+- `canRequestRecommendation()` - 月次制限チェック
+- `getMonthlyRecommendationCount()` - 今月の使用回数取得
+- `MAX_RECOMMENDATIONS_PER_MONTH = 3`
+
+**lib/technical-indicators.ts**
+- テクニカル指標計算（SMA, RSI, Bollinger Bandsなど）
+
+### 13.5 デプロイメント
+
+**ホスティング**: Railway
+- 自動デプロイ（main ブランチへのpush）
+- ビルド時に `prisma migrate deploy` 自動実行
+- 環境変数は Railway で管理
+
+**データベース**: Railway PostgreSQL
+- 本番環境のみ
+- ローカルは `postgresql://kouheikameyama@localhost:5432/stock_buddy`
+
+**CI/CD**:
+- GitHub Actions でビルド・テスト
+- Railway で自動デプロイ
+
+**マイグレーション**:
+- ローカル: `npx prisma migrate dev`
+- 本番: 自動実行（Railway ビルド時）
+- シャドウDBエラー時: 手動マイグレーション作成 + `migrate resolve`
+
+### 13.6 環境変数
+
+**必須**:
+- `DATABASE_URL` - PostgreSQL接続文字列
+- `AUTH_SECRET` - NextAuth.js シークレット
+- `AUTH_GOOGLE_ID` - Google OAuth クライアントID
+- `AUTH_GOOGLE_SECRET` - Google OAuth クライアントシークレット
+- `OPENAI_API_KEY` - OpenAI API キー
+- `RAKUTEN_APPLICATION_ID` - 楽天 Rapid API ID
+
+**オプション**:
+- `TAVILY_API_KEY` - ニュース検索API
+- `VAPID_PUBLIC_KEY` - プッシュ通知公開鍵
+- `VAPID_PRIVATE_KEY` - プッシュ通知秘密鍵
+- `VAPID_SUBJECT` - プッシュ通知送信者
+- `CRON_SECRET` - cron API認証用
+
+**GitHub Secrets**:
+- `APP_URL` - アプリケーションURL
+- `SLACK_WEBHOOK_URL` - 通知用Webhook
+- `CI_SLACK_WEBHOOK_URL` - CI通知用Webhook
+
+---
+
+_最終更新: 2026-01-30_
+_Version: 2.1_
