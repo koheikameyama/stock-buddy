@@ -32,8 +32,14 @@ export default function OnboardingPage() {
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center">
-          <div className="mb-8">
+        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8 md:p-12">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="text-gray-600 hover:text-gray-900 mb-4"
+          >
+            ← ダッシュボードに戻る
+          </button>
+          <div className="mb-8 text-center">
             <div className="text-6xl mb-4">👋</div>
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
               ようこそ、Stock Buddyへ
