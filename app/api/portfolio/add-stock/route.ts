@@ -76,6 +76,20 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // 新規追加の場合は銘柄数制限をチェック（最大5銘柄）
+    if (!existingPortfolioStock) {
+      const portfolioStockCount = await prisma.portfolioStock.count({
+        where: { portfolioId: portfolio.id },
+      })
+
+      if (portfolioStockCount >= 5) {
+        return NextResponse.json(
+          { error: "ポートフォリオには最大5銘柄まで登録できます" },
+          { status: 400 }
+        )
+      }
+    }
+
     const totalAmount = price * quantity
     const purchaseDateTime = purchaseDate
       ? new Date(purchaseDate)

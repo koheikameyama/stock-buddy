@@ -161,26 +161,6 @@ export default function PortfolioClient({
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-6 sm:py-12 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* 戻るボタン */}
-        <button
-          onClick={() => router.back()}
-          className="mb-4 sm:mb-6 flex items-center text-gray-600 hover:text-gray-900 transition-colors text-sm sm:text-base"
-        >
-          <svg
-            className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          戻る
-        </button>
 
         {/* ヘッダー */}
         <div className="mb-6 sm:mb-8">
@@ -259,18 +239,37 @@ export default function PortfolioClient({
           <>
             {/* 推奨銘柄リスト */}
             <div className="space-y-4">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <h2 className="text-2xl font-bold text-gray-900">推奨銘柄</h2>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               {loading && (
                 <p className="text-sm text-gray-500">株価を取得中...</p>
               )}
               <button
-                onClick={() => setShowAddStockModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                onClick={() => router.push('/onboarding')}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
               >
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4 sm:w-5 sm:h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                もう一度提案を受ける
+              </button>
+              <button
+                onClick={() => setShowAddStockModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
+              >
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

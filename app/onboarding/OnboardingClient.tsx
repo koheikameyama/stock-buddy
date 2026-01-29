@@ -20,15 +20,15 @@ type Plan = {
   stocks: Stock[]
 }
 
-export default function OnboardingClient() {
+export default function OnboardingClient({ isExistingUser }: { isExistingUser: boolean }) {
   const router = useRouter()
-  const [step, setStep] = useState(1) // 1: ようこそ, 2: 質問, 3: プラン表示
+  const [step, setStep] = useState(isExistingUser ? 2 : 1) // 既存ユーザーは質問から開始
   const [loading, setLoading] = useState(false)
   const [budget, setBudget] = useState("")
   const [period, setPeriod] = useState("")
   const [plan, setPlan] = useState<Plan | null>(null)
 
-  // Step 1: ようこそ画面
+  // Step 1: ようこそ画面（新規ユーザーのみ）
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
@@ -143,17 +143,29 @@ export default function OnboardingClient() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
         <div className="max-w-xl w-full bg-white rounded-2xl shadow-xl p-8">
           <div className="mb-8">
-            <button
-              onClick={() => setStep(1)}
-              className="text-gray-600 hover:text-gray-900 mb-4"
-            >
-              ← 戻る
-            </button>
+            {!isExistingUser && (
+              <button
+                onClick={() => setStep(1)}
+                className="text-gray-600 hover:text-gray-900 mb-4"
+              >
+                ← 戻る
+              </button>
+            )}
+            {isExistingUser && (
+              <button
+                onClick={() => router.push('/dashboard/portfolio')}
+                className="text-gray-600 hover:text-gray-900 mb-4"
+              >
+                ← ポートフォリオに戻る
+              </button>
+            )}
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              簡単な質問です
+              {isExistingUser ? "新しい提案を受ける" : "簡単な質問です"}
             </h1>
             <p className="text-gray-600">
-              あなたにぴったりのプランを考えますね
+              {isExistingUser
+                ? "現在の予算と期間を教えてください"
+                : "あなたにぴったりのプランを考えますね"}
             </p>
           </div>
 
@@ -261,32 +273,57 @@ export default function OnboardingClient() {
     const handleComplete = async () => {
       setLoading(true)
       try {
-        // 投資スタイル保存 + ウォッチリスト保存
-        const response = await fetch("/api/onboarding/complete", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            budget: parseInt(budget),
-            monthlyAmount: 0,
-            investmentPeriod: period,
-            riskTolerance: period === "short" ? "low" : period === "long" ? "high" : "medium",
-            recommendations: plan.stocks.map((stock) => ({
-              tickerCode: stock.tickerCode,
-              name: stock.name,
-              recommendedPrice: stock.recommendedPrice,
-              quantity: stock.quantity,
-              reason: stock.reason,
-            })),
-          }),
-        })
+        if (isExistingUser) {
+          // 既存ユーザー: ウォッチリストに追加のみ
+          const response = await fetch("/api/onboarding/add-to-watchlist", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              recommendations: plan.stocks.map((stock) => ({
+                tickerCode: stock.tickerCode,
+                name: stock.name,
+                recommendedPrice: stock.recommendedPrice,
+                quantity: stock.quantity,
+                reason: stock.reason,
+              })),
+            }),
+          })
 
-        if (!response.ok) {
-          throw new Error("保存に失敗しました")
+          if (!response.ok) {
+            throw new Error("保存に失敗しました")
+          }
+
+          router.push("/dashboard/portfolio")
+        } else {
+          // 新規ユーザー: 投資スタイル保存 + ポートフォリオ作成
+          const response = await fetch("/api/onboarding/complete", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              budget: parseInt(budget),
+              monthlyAmount: 0,
+              investmentPeriod: period,
+              riskTolerance: period === "short" ? "low" : period === "long" ? "high" : "medium",
+              recommendations: plan.stocks.map((stock) => ({
+                tickerCode: stock.tickerCode,
+                name: stock.name,
+                recommendedPrice: stock.recommendedPrice,
+                quantity: stock.quantity,
+                reason: stock.reason,
+              })),
+            }),
+          })
+
+          if (!response.ok) {
+            throw new Error("保存に失敗しました")
+          }
+
+          router.push("/dashboard")
         }
-
-        router.push("/dashboard")
       } catch (error) {
         console.error("Error:", error)
         alert("エラーが発生しました。もう一度お試しください。")
@@ -378,14 +415,16 @@ export default function OnboardingClient() {
           {/* 完了ボタン */}
           <div className="bg-white rounded-2xl shadow-xl p-6">
             <p className="text-gray-700 mb-4">
-              これらの銘柄をウォッチリストに追加します。ダッシュボードで詳しく見ていきましょう。
+              {isExistingUser
+                ? "これらの銘柄をウォッチリストに追加します。気になる銘柄リストタブで確認できます。"
+                : "これらの銘柄をポートフォリオに追加します。ダッシュボードで詳しく見ていきましょう。"}
             </p>
             <button
               onClick={handleComplete}
               disabled={loading}
               className="w-full bg-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg disabled:bg-gray-300"
             >
-              {loading ? "保存中..." : "始める"}
+              {loading ? "保存中..." : isExistingUser ? "ウォッチリストに追加" : "始める"}
             </button>
           </div>
         </div>

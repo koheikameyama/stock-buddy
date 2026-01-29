@@ -1,8 +1,9 @@
-import { auth, signOut } from "@/auth"
+import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { PrismaClient } from "@prisma/client"
 import PortfolioGrowthChart from "./PortfolioGrowthChart"
+import Header from "@/app/components/Header"
 
 const prisma = new PrismaClient()
 
@@ -58,30 +59,17 @@ export default async function DashboardPage() {
   const coachMessage = todayMessage?.message || defaultMessage
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* ヘッダー */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
-          <div>
+    <>
+      <Header />
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {/* ページタイトル */}
+          <div className="mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               おはようございます、{session.user.name?.split(" ")[0]}さん！
             </h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
           </div>
-          <form
-            action={async () => {
-              "use server"
-              await signOut({ redirectTo: "/" })
-            }}
-          >
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap"
-            >
-              ログアウト
-            </button>
-          </form>
-        </div>
 
         {/* 今日のメッセージセクション */}
         <div className="mb-6 sm:mb-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 sm:p-8 text-white shadow-lg">
@@ -207,5 +195,6 @@ export default async function DashboardPage() {
         </div>
       </div>
     </main>
+    </>
   )
 }

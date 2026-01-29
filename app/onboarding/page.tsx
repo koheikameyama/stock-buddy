@@ -25,10 +25,8 @@ export default async function OnboardingPage() {
     },
   })
 
-  // オンボーディング完了済み（設定が存在する）場合はダッシュボードへ
-  if (user?.settings) {
-    redirect("/dashboard")
-  }
+  // 既存ユーザーかどうかを判定
+  const isExistingUser = !!user?.settings
 
-  return <OnboardingClient />
+  return <OnboardingClient isExistingUser={isExistingUser} />
 }

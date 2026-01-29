@@ -2,6 +2,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { PrismaClient } from "@prisma/client"
 import PortfolioClient from "./PortfolioClient"
+import Header from "@/app/components/Header"
 
 const prisma = new PrismaClient()
 
@@ -69,32 +70,35 @@ export default async function PortfolioPage() {
   const watchlist = user.watchlist || []
 
   return (
-    <PortfolioClient
-      settings={settings}
-      stocks={stocks.map((s) => ({
-        id: s.id,
-        stockId: s.stock.id,
-        tickerCode: s.stock.tickerCode,
-        name: s.stock.name,
-        market: s.stock.market,
-        sector: s.stock.sector,
-        quantity: s.quantity,
-        averagePrice: s.averagePrice.toString(),
-        reason: s.reason,
-        isSimulation: s.isSimulation,
-      }))}
-      watchlist={watchlist.map((w) => ({
-        id: w.id,
-        stockId: w.stock.id,
-        tickerCode: w.stock.tickerCode,
-        name: w.stock.name,
-        market: w.stock.market,
-        sector: w.stock.sector,
-        recommendedPrice: w.recommendedPrice.toString(),
-        recommendedQty: w.recommendedQty,
-        reason: w.reason,
-        source: w.source,
-      }))}
-    />
+    <>
+      <Header />
+      <PortfolioClient
+        settings={settings}
+        stocks={stocks.map((s) => ({
+          id: s.id,
+          stockId: s.stock.id,
+          tickerCode: s.stock.tickerCode,
+          name: s.stock.name,
+          market: s.stock.market,
+          sector: s.stock.sector,
+          quantity: s.quantity,
+          averagePrice: s.averagePrice.toString(),
+          reason: s.reason,
+          isSimulation: s.isSimulation,
+        }))}
+        watchlist={watchlist.map((w) => ({
+          id: w.id,
+          stockId: w.stock.id,
+          tickerCode: w.stock.tickerCode,
+          name: w.stock.name,
+          market: w.stock.market,
+          sector: w.stock.sector,
+          recommendedPrice: w.recommendedPrice.toString(),
+          recommendedQty: w.recommendedQty,
+          reason: w.reason,
+          source: w.source,
+        }))}
+      />
+    </>
   )
 }

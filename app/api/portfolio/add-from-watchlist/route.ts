@@ -100,6 +100,15 @@ export async function POST(request: NextRequest) {
           },
         })
       } else {
+        // 新規追加の場合は銘柄数制限をチェック（最大5銘柄）
+        const portfolioStockCount = await tx.portfolioStock.count({
+          where: { portfolioId: portfolio.id },
+        })
+
+        if (portfolioStockCount >= 5) {
+          throw new Error("ポートフォリオには最大5銘柄まで登録できます")
+        }
+
         // 新規追加
         portfolioStock = await tx.portfolioStock.create({
           data: {
