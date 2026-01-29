@@ -273,9 +273,9 @@ export async function POST(request: NextRequest) {
 
 **重要な選択基準**:
 1. **銘柄数**: ${targetStockCount}銘柄を選択（予算が少ない場合は1銘柄でもOK）
-2. **セクター分散**: できるだけ異なるセクターから選択（2銘柄以上の場合）
-3. **予算**: 合計金額が予算の${Math.round(maxBudgetMultiplier * 100)}%以内（若干の超過は許容）
-4. **各銘柄100株ずつ購入**: quantityは必ず100
+2. **株数**: 各銘柄100株単位で購入（100株、200株、300株など）
+3. **予算活用**: 合計金額が予算の${Math.round(maxBudgetMultiplier * 100)}%以内で、できるだけ予算を使い切るように株数を調整
+4. **セクター分散**: できるだけ異なるセクターから選択（2銘柄以上の場合）
 
 **保守的プラン**:
 - 初心者スコアと安定性スコアが高い銘柄を優先
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
           "tickerCode": "7203",
           "name": "トヨタ自動車",
           "recommendedPrice": 3347,
-          "quantity": 100,
+          "quantity": 200,
           "reason": "推奨理由を100文字程度で",
           "futureOutlook": "将来性を100文字程度で",
           "risks": "リスクを80文字程度で"
@@ -376,9 +376,9 @@ ${JSON.stringify(aggressiveCandidates.map(s => ({
 
 **重要な制約**:
 1. 各プランで${targetStockCount}銘柄を選択（予算が少ない場合は${targetStockCount}銘柄未満でもOK）
-2. できるだけ異なるセクターから選択（2銘柄以上の場合）
-3. 合計金額が${Math.round(budgetNum * maxBudgetMultiplier).toLocaleString()}円以内
-4. 各銘柄100株ずつ購入
+2. 株数は100株単位で購入（100株、200株、300株など）
+3. 合計金額が${Math.round(budgetNum * maxBudgetMultiplier).toLocaleString()}円以内で、できるだけ予算を使い切る
+4. できるだけ異なるセクターから選択（2銘柄以上の場合）
 5. recommendedPriceはcurrentPriceをそのまま使用
 
 各銘柄について「推奨理由」「将来性」「リスク要因」を説明してください。${marketNews ? "市場動向も考慮してください。" : ""}`,
@@ -402,14 +402,14 @@ ${JSON.stringify(aggressiveCandidates.map(s => ({
     console.log(`Generated ${response.plans.length} plans`)
 
     response.plans.forEach((plan: any) => {
-      // quantityを100に統一（AIが守らない場合のフェイルセーフ）
+      // quantityが100の倍数でない場合は100に丸める（フェイルセーフ）
       plan.stocks = plan.stocks.map((stock: any) => ({
         ...stock,
-        quantity: 100,
+        quantity: Math.max(100, Math.round(stock.quantity / 100) * 100), // 100株単位に丸める
       }))
 
       const totalInvestment = plan.stocks.reduce(
-        (sum: number, stock: any) => sum + stock.recommendedPrice * 100,
+        (sum: number, stock: any) => sum + stock.recommendedPrice * stock.quantity,
         0
       )
 
@@ -417,7 +417,7 @@ ${JSON.stringify(aggressiveCandidates.map(s => ({
       console.log(`- ${plan.stocks.length} stocks`)
       console.log(`- Total: ${totalInvestment}円 (${Math.round(totalInvestment / budgetNum * 100)}% of budget)`)
       plan.stocks.forEach((stock: any) => {
-        console.log(`  - ${stock.tickerCode}: ${stock.recommendedPrice}円 × 100株`)
+        console.log(`  - ${stock.tickerCode}: ${stock.recommendedPrice}円 × ${stock.quantity}株`)
       })
     })
 
