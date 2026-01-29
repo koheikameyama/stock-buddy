@@ -259,8 +259,9 @@ export default function OnboardingPage() {
             riskTolerance: period === "short" ? "low" : period === "long" ? "high" : "medium",
             recommendations: plan.stocks.map((stock) => ({
               tickerCode: stock.tickerCode,
+              name: stock.name,
               recommendedPrice: stock.recommendedPrice,
-              recommendedQty: stock.quantity,
+              quantity: stock.quantity,
               reason: stock.reason,
             })),
           }),

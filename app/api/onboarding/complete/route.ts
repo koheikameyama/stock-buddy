@@ -20,7 +20,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { recommendations, purchasedIndices, investmentStyle } = await request.json()
+    const body = await request.json()
+    const {
+      recommendations,
+      purchasedIndices,
+      investmentStyle,
+      budget,
+      monthlyAmount,
+      investmentPeriod,
+      riskTolerance,
+    } = body
 
     if (!recommendations || !Array.isArray(recommendations)) {
       return NextResponse.json(
@@ -29,9 +38,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!investmentStyle) {
+    // 新しいフォーマット（直接値）または古いフォーマット（investmentStyle）に対応
+    const finalBudget = budget || investmentStyle?.budget
+    const finalMonthlyAmount = monthlyAmount ?? investmentStyle?.monthlyAmount ?? 0
+    const finalPeriod = investmentPeriod || investmentStyle?.investmentPeriod
+    const finalRiskTolerance = riskTolerance || investmentStyle?.riskTolerance
+
+    if (!finalBudget || !finalPeriod || !finalRiskTolerance) {
       return NextResponse.json(
-        { error: "Investment style is required" },
+        { error: "Investment details are required" },
         { status: 400 }
       )
     }
@@ -63,17 +78,17 @@ export async function POST(request: NextRequest) {
     await prisma.userSettings.upsert({
       where: { userId: user.id },
       update: {
-        investmentAmount: parseInt(investmentStyle.budget),
-        monthlyAmount: parseInt(investmentStyle.monthlyAmount || "0"),
-        investmentPeriod: investmentStyle.investmentPeriod,
-        riskTolerance: investmentStyle.riskTolerance,
+        investmentAmount: parseInt(String(finalBudget)),
+        monthlyAmount: parseInt(String(finalMonthlyAmount)),
+        investmentPeriod: finalPeriod,
+        riskTolerance: finalRiskTolerance,
       },
       create: {
         userId: user.id,
-        investmentAmount: parseInt(investmentStyle.budget),
-        monthlyAmount: parseInt(investmentStyle.monthlyAmount || "0"),
-        investmentPeriod: investmentStyle.investmentPeriod,
-        riskTolerance: investmentStyle.riskTolerance,
+        investmentAmount: parseInt(String(finalBudget)),
+        monthlyAmount: parseInt(String(finalMonthlyAmount)),
+        investmentPeriod: finalPeriod,
+        riskTolerance: finalRiskTolerance,
       },
     })
 
