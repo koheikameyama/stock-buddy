@@ -27,7 +27,7 @@ export default function PortfolioGrowthChart({ snapshots }: PortfolioGrowthChart
 
   // データを整形（日付を見やすく）
   const chartData = snapshots.map((snapshot) => ({
-    date: new Date(snapshot.date).toLocaleDateString("ja-JP", { month: "M", day: "d" }),
+    date: new Date(snapshot.date).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }),
     評価額: Math.round(snapshot.totalValue),
     損益率: Number(snapshot.gainLossPct.toFixed(2)),
   }))
