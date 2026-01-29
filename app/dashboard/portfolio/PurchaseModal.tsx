@@ -35,8 +35,7 @@ export default function PurchaseModal({
 
   const totalAmount = quantity * averagePrice
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (isSimulation: boolean) => {
     setLoading(true)
     setError("")
 
@@ -51,6 +50,7 @@ export default function PurchaseModal({
           quantity,
           averagePrice,
           purchaseDate,
+          isSimulation,
         }),
       })
 
@@ -81,7 +81,7 @@ export default function PurchaseModal({
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <div>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               購入日
@@ -144,24 +144,30 @@ export default function PurchaseModal({
             </div>
           )}
 
-          <div className="flex gap-3">
+          <div className="space-y-3">
             <button
-              type="button"
+              onClick={() => handleSubmit(false)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg disabled:from-gray-400 disabled:to-gray-400"
+              disabled={loading}
+            >
+              {loading ? "追加中..." : "💰 実際に購入した"}
+            </button>
+            <button
+              onClick={() => handleSubmit(true)}
+              className="w-full px-4 py-3 bg-white border-2 border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-all disabled:border-gray-400 disabled:text-gray-400"
+              disabled={loading}
+            >
+              {loading ? "追加中..." : "🎮 シミュレーションする"}
+            </button>
+            <button
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-full px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               disabled={loading}
             >
               キャンセル
             </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-              disabled={loading}
-            >
-              {loading ? "追加中..." : "ポートフォリオに追加"}
-            </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

@@ -55,7 +55,7 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
         </div>
 
         {/* Options */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3">
           {/* AI提案を受ける */}
           <button
             onClick={handleAIRecommendation}
@@ -112,14 +112,6 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
             </div>
           </button>
         </div>
-
-        {/* Skip button */}
-        <button
-          onClick={handleClose}
-          className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          後で決める
-        </button>
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
 import { addStockToWatchlist } from "@/lib/watchlist"
+import { addStockToPortfolio } from "@/lib/portfolio"
 
 const prisma = new PrismaClient()
 
@@ -29,6 +30,8 @@ export async function POST(request: NextRequest) {
       monthlyAmount,
       investmentPeriod,
       riskTolerance,
+      addToPortfolio = false,
+      isSimulation = false,
     } = body
 
     if (!recommendations || !Array.isArray(recommendations)) {
@@ -94,10 +97,11 @@ export async function POST(request: NextRequest) {
 
     const results = {
       watchlistAdded: 0,
+      portfolioAdded: 0,
       errors: [] as string[],
     }
 
-    // 各推奨銘柄をウォッチリストに追加
+    // 各推奨銘柄を追加
     for (const rec of recommendations) {
       try {
         // 銘柄コードで株式を検索（.Tあり/なし両方対応）
@@ -122,23 +126,47 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // ウォッチリストに追加（モジュールを使用）
-        const result = await addStockToWatchlist({
-          userId: user.id,
-          stockId: stock.id,
-          recommendedPrice: rec.recommendedPrice,
-          recommendedQty: rec.quantity,
-          reason: rec.reason,
-          source: "onboarding",
-        })
+        if (addToPortfolio) {
+          // ポートフォリオに追加
+          const result = await addStockToPortfolio({
+            userId: user.id,
+            stockId: stock.id,
+            quantity: rec.quantity,
+            price: rec.recommendedPrice,
+            purchaseDate: new Date(),
+            reason: rec.reason,
+            isSimulation,
+            note: "オンボーディングから追加",
+          })
 
-        if (result.success) {
-          results.watchlistAdded++
+          if (result.success) {
+            results.portfolioAdded++
+          } else {
+            results.errors.push(result.error)
+            // 制限エラーの場合はここで中断
+            if (result.error.includes("最大")) {
+              break
+            }
+          }
         } else {
-          results.errors.push(result.error)
-          // 制限エラーの場合はここで中断
-          if (result.error.includes("最大")) {
-            break
+          // ウォッチリストに追加
+          const result = await addStockToWatchlist({
+            userId: user.id,
+            stockId: stock.id,
+            recommendedPrice: rec.recommendedPrice,
+            recommendedQty: rec.quantity,
+            reason: rec.reason,
+            source: "onboarding",
+          })
+
+          if (result.success) {
+            results.watchlistAdded++
+          } else {
+            results.errors.push(result.error)
+            // 制限エラーの場合はここで中断
+            if (result.error.includes("最大")) {
+              break
+            }
           }
         }
       } catch (error) {

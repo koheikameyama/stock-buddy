@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { watchlistId, quantity, averagePrice, purchaseDate } = await request.json()
+    const { watchlistId, quantity, averagePrice, purchaseDate, isSimulation } = await request.json()
 
     // バリデーション
     if (!watchlistId || !quantity || !averagePrice) {
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       price: averagePrice,
       purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
       reason: watchlistItem.reason,
+      isSimulation: isSimulation ?? false,
       note: `ウォッチリストから追加: ${watchlistItem.stock.name}`,
     })
 

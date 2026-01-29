@@ -270,34 +270,65 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
       0
     )
 
-    const handleComplete = async () => {
+    const handleComplete = async (addToPortfolio: boolean, isSimulation?: boolean) => {
       setLoading(true)
       try {
         if (isExistingUser) {
-          // 既存ユーザー: ウォッチリストに追加のみ
-          const response = await fetch("/api/onboarding/add-to-watchlist", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              recommendations: plan.stocks.map((stock) => ({
-                tickerCode: stock.tickerCode,
-                name: stock.name,
-                recommendedPrice: stock.recommendedPrice,
-                quantity: stock.quantity,
-                reason: stock.reason,
-              })),
-            }),
-          })
+          if (addToPortfolio) {
+            // 既存ユーザー: ポートフォリオに追加
+            const response = await fetch("/api/onboarding/complete", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                budget: parseInt(budget),
+                monthlyAmount: 0,
+                investmentPeriod: period,
+                riskTolerance: period === "short" ? "low" : period === "long" ? "high" : "medium",
+                addToPortfolio: true,
+                isSimulation: isSimulation ?? false,
+                recommendations: plan.stocks.map((stock) => ({
+                  tickerCode: stock.tickerCode,
+                  name: stock.name,
+                  recommendedPrice: stock.recommendedPrice,
+                  quantity: stock.quantity,
+                  reason: stock.reason,
+                })),
+              }),
+            })
 
-          if (!response.ok) {
-            throw new Error("保存に失敗しました")
+            if (!response.ok) {
+              throw new Error("保存に失敗しました")
+            }
+
+            router.push("/dashboard/portfolio")
+          } else {
+            // 既存ユーザー: ウォッチリストに追加のみ
+            const response = await fetch("/api/onboarding/add-to-watchlist", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                recommendations: plan.stocks.map((stock) => ({
+                  tickerCode: stock.tickerCode,
+                  name: stock.name,
+                  recommendedPrice: stock.recommendedPrice,
+                  quantity: stock.quantity,
+                  reason: stock.reason,
+                })),
+              }),
+            })
+
+            if (!response.ok) {
+              throw new Error("保存に失敗しました")
+            }
+
+            router.push("/dashboard/portfolio")
           }
-
-          router.push("/dashboard/portfolio")
         } else {
-          // 新規ユーザー: 投資スタイル保存 + ポートフォリオ作成
+          // 新規ユーザー: 投資スタイル保存 + 追加
           const response = await fetch("/api/onboarding/complete", {
             method: "POST",
             headers: {
@@ -308,6 +339,8 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
               monthlyAmount: 0,
               investmentPeriod: period,
               riskTolerance: period === "short" ? "low" : period === "long" ? "high" : "medium",
+              addToPortfolio,
+              isSimulation: isSimulation ?? false,
               recommendations: plan.stocks.map((stock) => ({
                 tickerCode: stock.tickerCode,
                 name: stock.name,
@@ -414,18 +447,68 @@ export default function OnboardingClient({ isExistingUser }: { isExistingUser: b
 
           {/* 完了ボタン */}
           <div className="bg-white rounded-2xl shadow-xl p-6">
-            <p className="text-gray-700 mb-4">
-              {isExistingUser
-                ? "これらの銘柄をウォッチリストに追加します。気になる銘柄リストタブで確認できます。"
-                : "これらの銘柄をポートフォリオに追加します。ダッシュボードで詳しく見ていきましょう。"}
-            </p>
-            <button
-              onClick={handleComplete}
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg disabled:bg-gray-300"
-            >
-              {loading ? "保存中..." : isExistingUser ? "ウォッチリストに追加" : "始める"}
-            </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-3">
+              どのように登録しますか？
+            </h3>
+            <div className="space-y-3 mb-4">
+              <button
+                onClick={() => handleComplete(true, false)}
+                disabled={loading}
+                className="w-full px-4 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg disabled:from-gray-400 disabled:to-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-left">
+                    <div className="text-lg font-bold">💰 実際に購入した</div>
+                    <div className="text-sm text-blue-100 mt-1">
+                      ポートフォリオで資産を管理します
+                    </div>
+                  </div>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </button>
+              <button
+                onClick={() => handleComplete(true, true)}
+                disabled={loading}
+                className="w-full px-4 py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all disabled:border-gray-400 disabled:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-left">
+                    <div className="text-lg font-bold">🎮 シミュレーションする</div>
+                    <div className="text-sm text-blue-600 mt-1">
+                      練習として試してみたい
+                    </div>
+                  </div>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </button>
+              <button
+                onClick={() => handleComplete(false)}
+                disabled={loading}
+                className="w-full px-4 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all disabled:border-gray-200 disabled:text-gray-400"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-left">
+                    <div className="text-lg font-bold">👀 気になるリストに追加</div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      まずはウォッチリストで様子を見る
+                    </div>
+                  </div>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </button>
+            </div>
+            {loading && (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <p className="text-sm text-gray-600">保存中...</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

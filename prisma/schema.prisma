@@ -49,6 +49,7 @@ model User {
   watchlist               Watchlist[]
   coachMessages           CoachMessage[]
   portfolioStockAnalyses  PortfolioStockAnalysis[]
+  recommendationLogs      RecommendationLog[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -330,4 +331,28 @@ model PortfolioStockAnalysis {
   @@index([userId, date(sort: Desc)])
   @@index([portfolioStockId, date(sort: Desc)])
   @@index([date(sort: Desc)])
+}
+
+// オンボーディング推奨ログ（分析用）
+model RecommendationLog {
+  id                String   @id @default(cuid())
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  budget            Int
+  period            String   // 'short' | 'medium' | 'long'
+  riskTolerance     String   // 'low' | 'medium' | 'high'
+  targetStockCount  Int      // 目標銘柄数
+  candidateStocks   Int      // 候補銘柄数（スコアリング後）
+  affordableStocks  Int      // 購入可能銘柄数
+  selectedStocks    Int      // 実際に選択された銘柄数
+  totalAmount       Decimal  @db.Decimal(15, 2) // 合計購入金額
+  budgetUsageRate   Decimal  @db.Decimal(5, 2)  // 予算使用率（%）
+  stocks            Json     // 選択された銘柄の詳細 [{name, ticker, price, quantity, total, score}]
+  prompt            String?  @db.Text           // AIに送信したプロンプト（分析・改善用）
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@index([budget])
+  @@index([period])
 }
