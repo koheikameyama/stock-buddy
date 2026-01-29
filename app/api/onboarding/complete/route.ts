@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       recommendations,
-      purchasedIndices,
       investmentStyle,
       budget,
       monthlyAmount,
@@ -92,18 +91,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const purchasedSet = new Set(purchasedIndices || [])
     const results = {
-      watchlistAdded: 0,
       portfolioAdded: 0,
       errors: [] as string[],
     }
 
-    // 各推奨銘柄を処理
-    for (let i = 0; i < recommendations.length; i++) {
-      const rec: Recommendation = recommendations[i]
-      const isPurchased = purchasedSet.has(i)
-
+    // 各推奨銘柄をポートフォリオに追加
+    for (const rec of recommendations) {
       try {
         // 銘柄コードで株式を検索（.Tあり/なし両方対応）
         const tickerCodeWithT = rec.tickerCode.includes(".T")
@@ -127,68 +121,41 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // まずウォッチリストに追加（全ての提案を保存）
-        await prisma.watchlist.upsert({
+        // ポートフォリオに追加（既存の場合はスキップ）
+        const existingPortfolioStock = await prisma.portfolioStock.findUnique({
           where: {
-            userId_stockId: {
-              userId: user.id,
+            portfolioId_stockId: {
+              portfolioId: portfolio.id,
               stockId: stock.id,
             },
           },
-          update: {
-            recommendedPrice: rec.recommendedPrice,
-            recommendedQty: rec.quantity,
-            reason: rec.reason,
-            source: "onboarding",
-          },
-          create: {
-            userId: user.id,
-            stockId: stock.id,
-            recommendedPrice: rec.recommendedPrice,
-            recommendedQty: rec.quantity,
-            reason: rec.reason,
-            source: "onboarding",
-          },
         })
-        results.watchlistAdded++
 
-        if (isPurchased) {
-          // 購入済み: ポートフォリオに追加（購入詳細は後で入力）
-          const existingPortfolioStock = await prisma.portfolioStock.findUnique({
-            where: {
-              portfolioId_stockId: {
-                portfolioId: portfolio.id,
-                stockId: stock.id,
-              },
+        if (!existingPortfolioStock) {
+          await prisma.portfolioStock.create({
+            data: {
+              portfolioId: portfolio.id,
+              stockId: stock.id,
+              quantity: rec.quantity,
+              averagePrice: rec.recommendedPrice,
             },
           })
 
-          if (!existingPortfolioStock) {
-            await prisma.portfolioStock.create({
-              data: {
-                portfolioId: portfolio.id,
-                stockId: stock.id,
-                quantity: rec.quantity,
-                averagePrice: rec.recommendedPrice,
-              },
-            })
+          // トランザクション記録も作成
+          await prisma.transaction.create({
+            data: {
+              portfolioId: portfolio.id,
+              stockId: stock.id,
+              type: "buy",
+              quantity: rec.quantity,
+              price: rec.recommendedPrice,
+              totalAmount: rec.recommendedPrice * rec.quantity,
+              executedAt: new Date(),
+              note: `オンボーディング初期ポートフォリオ: ${rec.reason}`,
+            },
+          })
 
-            // トランザクション記録も作成
-            await prisma.transaction.create({
-              data: {
-                portfolioId: portfolio.id,
-                stockId: stock.id,
-                type: "buy",
-                quantity: rec.quantity,
-                price: rec.recommendedPrice,
-                totalAmount: rec.recommendedPrice * rec.quantity,
-                executedAt: new Date(),
-                note: `オンボーディング推奨銘柄: ${rec.reason}`,
-              },
-            })
-
-            results.portfolioAdded++
-          }
+          results.portfolioAdded++
         }
       } catch (error) {
         console.error(`Error processing ${rec.tickerCode}:`, error)
