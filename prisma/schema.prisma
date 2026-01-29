@@ -47,6 +47,7 @@ model User {
   portfolio     Portfolio?
   settings      UserSettings?
   watchlist     Watchlist[]
+  coachMessages CoachMessage[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 }
@@ -267,4 +268,18 @@ model MarketNews {
   @@index([publishedAt(sort: Desc)])
   @@index([sector])
   @@index([source])
+}
+
+// コーチからの毎日のメッセージ
+model CoachMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  message   String   @db.Text
+  type      String   // 'encouragement' | 'advice' | 'milestone' | 'market_update'
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, date(sort: Desc)])
 }

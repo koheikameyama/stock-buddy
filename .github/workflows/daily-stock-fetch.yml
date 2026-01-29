@@ -52,6 +52,12 @@ jobs:
         run: |
           npm run record-snapshots
 
+      - name: Generate coach messages
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run generate-coach-messages
+
       - name: Notify success to Slack
         if: success()
         run: |

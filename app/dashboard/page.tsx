@@ -30,6 +30,10 @@ export default async function DashboardPage() {
           },
         },
       },
+      coachMessages: {
+        orderBy: { date: "desc" },
+        take: 1, // 最新のメッセージのみ
+      },
     },
   })
 
@@ -42,6 +46,16 @@ export default async function DashboardPage() {
     totalValue: Number(s.totalValue),
     gainLossPct: Number(s.gainLossPct),
   })) || []
+
+  // 今日のコーチメッセージを取得
+  const todayMessage = user?.coachMessages[0]
+
+  // デフォルトメッセージ（メッセージが生成されていない場合）
+  const defaultMessage = hasPortfolio
+    ? `${stockCount}銘柄を一緒に見守っていますね。今日も市場の動きをチェックしましょう！`
+    : "まだ投資を始めていませんね。一緒にあなたにぴったりの銘柄を探しましょう！"
+
+  const coachMessage = todayMessage?.message || defaultMessage
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
@@ -75,12 +89,12 @@ export default async function DashboardPage() {
             <div className="text-5xl">👋</div>
             <div className="flex-1">
               <h2 className="text-2xl font-bold mb-2">今日のメッセージ</h2>
-              {hasPortfolio ? (
-                <>
-                  <p className="text-lg mb-4 text-blue-50">
-                    {stockCount}銘柄を一緒に見守っていますね。今日も市場の動きをチェックしましょう！
-                  </p>
-                  <div className="flex gap-3">
+              <p className="text-lg mb-4 text-blue-50">
+                {coachMessage}
+              </p>
+              <div className="flex gap-3">
+                {hasPortfolio ? (
+                  <>
                     <Link
                       href="/dashboard/portfolio"
                       className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
@@ -93,21 +107,16 @@ export default async function DashboardPage() {
                     >
                       今日の振り返り
                     </Link>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-lg mb-4 text-blue-50">
-                    まだ投資を始めていませんね。一緒にあなたにぴったりの銘柄を探しましょう！
-                  </p>
+                  </>
+                ) : (
                   <Link
                     href="/onboarding"
                     className="inline-block px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
                   >
                     銘柄を探す
                   </Link>
-                </>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

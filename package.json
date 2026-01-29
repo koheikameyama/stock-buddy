@@ -23,7 +23,8 @@
     "calculate-scores": "tsx scripts/calculate-stock-scores.ts",
     "fetch-news": "tsx scripts/fetch-market-news.ts",
     "generate-reports": "tsx scripts/generate-daily-reports.ts",
-    "record-snapshots": "tsx scripts/record-portfolio-snapshots.ts"
+    "record-snapshots": "tsx scripts/record-portfolio-snapshots.ts",
+    "generate-coach-messages": "tsx scripts/generate-coach-messages-direct.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
