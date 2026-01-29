@@ -12,10 +12,11 @@ export default async function OnboardingPage() {
     redirect("/login")
   }
 
-  // ユーザーのポートフォリオを確認
+  // ユーザーのポートフォリオと設定を確認
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: {
+      settings: true,
       portfolio: {
         include: {
           stocks: true,
@@ -24,8 +25,8 @@ export default async function OnboardingPage() {
     },
   })
 
-  // ポートフォリオに銘柄が既にある場合はダッシュボードへ
-  if (user?.portfolio && user.portfolio.stocks.length > 0) {
+  // オンボーディング完了済み（設定が存在する）場合はダッシュボードへ
+  if (user?.settings) {
     redirect("/dashboard")
   }
 
