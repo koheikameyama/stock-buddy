@@ -117,7 +117,7 @@ export default async function DashboardPage() {
         {hasPortfolio && <PortfolioGrowthChart snapshots={snapshots} />}
 
         {/* クイックアクションカード */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 mt-8">
           <Link
             href="/dashboard/portfolio"
             className="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all border-2 border-transparent hover:border-blue-500"
@@ -155,26 +155,6 @@ export default async function DashboardPage() {
             </div>
             <p className="text-sm text-gray-600">
               今日の分析をチェック
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/settings"
-            className="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all border-2 border-transparent hover:border-blue-500"
-          >
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-2xl">
-                ⚙️
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  投資スタイル
-                </h3>
-                <p className="text-sm text-gray-500">設定</p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600">
-              設定を変更できます
             </p>
           </Link>
         </div>
