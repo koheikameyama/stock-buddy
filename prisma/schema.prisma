@@ -101,6 +101,7 @@ model Stock {
   dailyReports      DailyReport[]
   watchlists        Watchlist[]
   analyses          StockAnalysis[]
+  featuredStocks    DailyFeaturedStock[]
   createdAt         DateTime           @default(now())
 
   @@index([tickerCode])
@@ -370,4 +371,20 @@ model PushSubscription {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// 今日の注目銘柄（全ユーザー共通）
+model DailyFeaturedStock {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  stockId     String
+  stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  position    Int      // 表示順序（1, 2, 3）
+  reason      String   @db.Text // 注目理由
+  score       Int      // 選定時のスコア
+  createdAt   DateTime @default(now())
+
+  @@unique([date, position])
+  @@index([date(sort: Desc)])
+  @@index([stockId])
 }

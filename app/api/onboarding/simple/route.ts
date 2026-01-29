@@ -215,19 +215,22 @@ function selectStocksWithinBudget(
   totalAmount: number;
   budgetUsageRate: number;
 } {
-  // 投資期間と予算に応じて目標銘柄数を決定
+  // 投資期間と予算に応じて目標銘柄数を決定（最大5銘柄）
   let targetStockCount: number
 
   if (period === "long") {
-    // 長期: リスク分散を重視
+    // 長期: リスク分散を重視（最大5銘柄）
     targetStockCount = budget >= 500000 ? 5 : budget >= 300000 ? 4 : 3
   } else if (period === "medium") {
-    // 中期: バランス重視
+    // 中期: バランス重視（最大4銘柄）
     targetStockCount = budget >= 500000 ? 4 : budget >= 300000 ? 3 : 2
   } else {
-    // 短期: 機動性重視で少数精鋭
+    // 短期: 機動性重視で少数精鋭（最大3銘柄）
     targetStockCount = budget >= 500000 ? 3 : 2
   }
+
+  // 最大5銘柄に制限
+  targetStockCount = Math.min(targetStockCount, 5)
 
   console.log('=== selectStocksWithinBudget ===')
   console.log('Budget:', budget)

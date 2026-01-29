@@ -1,16 +1,21 @@
 import Link from "next/link"
+import { auth } from "@/auth"
 
-export default function StockSelectionPage() {
+export default async function StockSelectionPage() {
+  const session = await auth()
+  const backLink = session?.user ? "/dashboard" : "/"
+  const backText = session?.user ? "ダッシュボードに戻る" : "ホームに戻る"
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-12 px-4">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 md:p-12">
         {/* ヘッダー */}
         <div className="mb-8">
           <Link
-            href="/"
+            href={backLink}
             className="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block"
           >
-            ← ホームに戻る
+            ← {backText}
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
             取扱銘柄について
@@ -222,10 +227,10 @@ export default function StockSelectionPage() {
             最終更新: 2026年1月29日
           </p>
           <Link
-            href="/"
+            href={backLink}
             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
           >
-            ホームに戻る
+            {backText}
           </Link>
         </div>
       </div>

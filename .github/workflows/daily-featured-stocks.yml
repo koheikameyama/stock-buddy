@@ -1,13 +1,13 @@
-name: Daily Stock Analysis
+name: Daily Featured Stocks
 
 on:
   schedule:
-    # Run daily at 6 AM JST (9 PM UTC previous day)
-    - cron: '0 21 * * *'
+    # Run daily at 5 AM JST (8 PM UTC previous day)
+    - cron: '0 20 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  generate-analyses:
+  generate-featured-stocks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -22,25 +22,22 @@ jobs:
         run: |
           pip install requests
 
-      - name: Generate daily analysis
-        id: analysis
+      - name: Generate daily featured stocks
+        id: featured
         env:
           APP_URL: ${{ secrets.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          python scripts/generate_daily_analysis.py
+          python scripts/generate_featured_stocks.py
 
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ Daily Analysis Succeeded"
+          SLACK_TITLE: "⭐ Daily Featured Stocks Generated"
           SLACK_MESSAGE: |
-            Stock Analysis: ✅
-            Portfolio Analysis: ✅
-            Coach Messages: ✅
-            Push Notifications: ✅
+            今日の注目銘柄を生成しました
+            Status: Success
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -49,8 +46,9 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ Daily Analysis Failed"
+          SLACK_TITLE: "❌ Daily Featured Stocks Failed"
           SLACK_MESSAGE: |
+            注目銘柄の生成に失敗しました
             詳細はGitHub Actionsログを確認してください
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"

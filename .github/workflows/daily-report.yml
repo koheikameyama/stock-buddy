@@ -11,34 +11,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
       - name: Generate daily reports
         id: generate
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          RESPONSE=$(curl -X POST https://stock-buddy.net/api/reports/generate-all \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -w "\nHTTP_CODE:%{http_code}" \
-            -s)
-
-          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE" | cut -d: -f2)
-          BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE")
-
-          echo "response=$BODY" >> $GITHUB_OUTPUT
-          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-
-          if [ "$HTTP_CODE" -ne 200 ]; then
-            echo "Error: HTTP $HTTP_CODE"
-            exit 1
-          fi
-
-      - name: Send push notifications
-        if: success()
-        run: |
-          curl -X POST "${{ secrets.APP_URL }}/api/push/send" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -d '{"title":"今日の振り返りレポートが準備できました","body":"ポートフォリオの状況を確認しましょう","url":"/dashboard/reports"}' \
-            -s
+          python scripts/generate_daily_report.py
 
       - name: Notify Slack on success
         if: success()
@@ -46,7 +37,9 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "✅ Daily Report Generation Succeeded"
-          SLACK_MESSAGE: ${{ steps.generate.outputs.response }}
+          SLACK_MESSAGE: |
+            Daily reports generated successfully
+            Push notifications sent
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -57,7 +50,6 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "❌ Daily Report Generation Failed"
           SLACK_MESSAGE: |
-            HTTP Code: ${{ steps.generate.outputs.http_code }}
-            Response: ${{ steps.generate.outputs.response }}
+            詳細はGitHub Actionsログを確認してください
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"
