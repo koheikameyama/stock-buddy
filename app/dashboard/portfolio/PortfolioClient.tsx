@@ -683,7 +683,7 @@ export default function PortfolioClient({
                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                           />
                         </svg>
-                        AI提案
+                        もう一度提案を受ける
                       </button>
                       <button
                         onClick={() => {
@@ -705,7 +705,7 @@ export default function PortfolioClient({
                             d="M12 4v16m8-8H4"
                           />
                         </svg>
-                        手動追加
+                        銘柄を追加
                       </button>
                     </div>
                   </div>
