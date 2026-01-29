@@ -76,7 +76,7 @@ export default function StockSelectionPage() {
               <h3 className="font-semibold text-gray-900 mb-1">4. セクター分散</h3>
               <p className="text-sm text-gray-600">
                 金融、通信、製造、小売、医薬品、エネルギーなど、主要セクターをバランスよくカバー。
-                ポートフォリオ提案時のリスク分散を可能にしています。
+                銘柄提案時のリスク分散を可能にしています。
               </p>
             </div>
 

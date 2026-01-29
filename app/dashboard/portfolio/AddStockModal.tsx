@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 
 interface SearchedStock {
   id: string
@@ -16,19 +16,20 @@ interface AddStockModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  mode?: "portfolio" | "watchlist" // 追加先
+  mode: "portfolio" | "watchlist"
 }
 
 export default function AddStockModal({
   isOpen,
   onClose,
   onSuccess,
-  mode = "portfolio",
+  mode,
 }: AddStockModalProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchedStock[]>([])
   const [searching, setSearching] = useState(false)
   const [selectedStock, setSelectedStock] = useState<SearchedStock | null>(null)
+  const [isSimulation, setIsSimulation] = useState(false)
 
   // Purchase details
   const [purchaseDate, setPurchaseDate] = useState(
@@ -38,33 +39,71 @@ export default function AddStockModal({
   const [price, setPrice] = useState<number | "">("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const handleSearch = async () => {
+  // リアルタイム検索（デバウンス付き）
+  useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([])
+      setSearching(false)
       return
     }
 
-    try {
-      setSearching(true)
-      setError(null)
-      const response = await fetch(
-        `/api/stocks/search?q=${encodeURIComponent(searchQuery)}`
-      )
-
-      if (!response.ok) {
-        throw new Error("検索に失敗しました")
-      }
-
-      const data = await response.json()
-      setSearchResults(data.stocks || [])
-    } catch (err) {
-      console.error(err)
-      setError("検索に失敗しました")
-    } finally {
-      setSearching(false)
+    // 前回のタイマーをクリア
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
     }
-  }
+
+    // 前回のリクエストをキャンセル
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // 入力中の表示
+    setSearching(true)
+
+    // 300ms後に検索実行
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        setError(null)
+
+        // 新しいAbortControllerを作成
+        abortControllerRef.current = new AbortController()
+
+        const response = await fetch(
+          `/api/stocks/search?q=${encodeURIComponent(searchQuery)}`,
+          { signal: abortControllerRef.current.signal }
+        )
+
+        if (!response.ok) {
+          throw new Error("検索に失敗しました")
+        }
+
+        const data = await response.json()
+        setSearchResults(data.stocks || [])
+      } catch (err: any) {
+        // AbortErrorは無視
+        if (err.name === 'AbortError') {
+          return
+        }
+        console.error(err)
+        setError("検索に失敗しました")
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+
+    // クリーンアップ
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [searchQuery])
 
   const handleSelectStock = (stock: SearchedStock) => {
     setSelectedStock(stock)
@@ -96,6 +135,7 @@ export default function AddStockModal({
             quantity,
             price: Number(price),
             purchaseDate,
+            isSimulation,
           }),
         })
 
@@ -144,6 +184,7 @@ export default function AddStockModal({
     setPrice("")
     setPurchaseDate(new Date().toISOString().split("T")[0])
     setError(null)
+    setIsSimulation(false)
     onClose()
   }
 
@@ -192,22 +233,18 @@ export default function AddStockModal({
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 銘柄を検索
               </label>
-              <div className="flex gap-2 mb-4">
+              <div className="mb-4">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   placeholder="銘柄名またはコード (例: トヨタ, 7203)"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoFocus
                 />
-                <button
-                  onClick={handleSearch}
-                  disabled={searching}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300"
-                >
-                  {searching ? "検索中..." : "検索"}
-                </button>
+                {searching && (
+                  <p className="text-sm text-gray-500 mt-2">検索中...</p>
+                )}
               </div>
 
               {/* 検索結果 */}
@@ -277,6 +314,39 @@ export default function AddStockModal({
                   </button>
                 </div>
               </div>
+
+              {/* 状態選択（ポートフォリオのみ） */}
+              {mode === "portfolio" && (
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    状態
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsSimulation(false)}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                        !isSimulation
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      投資中
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsSimulation(true)}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                        isSimulation
+                          ? "bg-gray-600 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      シミュレーション
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 購入日 */}
               {mode === "portfolio" && (
@@ -362,8 +432,8 @@ export default function AddStockModal({
                   {submitting
                     ? "追加中..."
                     : mode === "portfolio"
-                      ? "ポートフォリオに追加"
-                      : "ウォッチリストに追加"}
+                      ? "今持ってる銘柄に追加"
+                      : "気になる銘柄に追加"}
                 </button>
               </div>
             </form>

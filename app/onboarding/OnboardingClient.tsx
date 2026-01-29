@@ -275,7 +275,7 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
               disabled={isExistingInvestor ? !period : (!budget || !period)}
               className="w-full bg-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              {isExistingInvestor ? '設定を保存してポートフォリオへ' : 'おすすめを見る'}
+              {isExistingInvestor ? '設定を保存して銘柄を見る' : 'おすすめを見る'}
             </button>
           )}
         </div>
@@ -480,7 +480,7 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
                   <div className="text-left">
                     <div className="text-lg font-bold">🎮 シミュレーションで登録</div>
                     <div className="text-sm text-blue-100 mt-1">
-                      実際に購入したら、ポートフォリオから更新してください
+                      実際に購入したら、今持ってる銘柄から更新してください
                     </div>
                   </div>
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -497,7 +497,7 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
                   <div className="text-left">
                     <div className="text-lg font-bold">👀 気になるリストに追加</div>
                     <div className="text-sm text-gray-500 mt-1">
-                      まずはウォッチリストで様子を見る
+                      まずは様子を見る
                     </div>
                   </div>
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

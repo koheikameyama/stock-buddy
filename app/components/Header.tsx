@@ -28,7 +28,13 @@ export default async function Header() {
                   href="/dashboard/portfolio"
                   className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors hidden sm:block"
                 >
-                  ポートフォリオ
+                  今持ってる銘柄
+                </Link>
+                <Link
+                  href="/dashboard/portfolio?tab=watchlist"
+                  className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors hidden sm:block"
+                >
+                  気になる銘柄
                 </Link>
                 <Link
                   href="/dashboard/reports"

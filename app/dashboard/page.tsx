@@ -91,7 +91,13 @@ export default async function DashboardPage() {
                       href="/dashboard/portfolio"
                       className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
                     >
-                      ポートフォリオを見る
+                      今持ってる銘柄を見る
+                    </Link>
+                    <Link
+                      href="/dashboard/portfolio?tab=watchlist"
+                      className="px-4 py-2 bg-white text-green-600 rounded-lg font-semibold hover:bg-green-50 transition-colors text-center text-sm sm:text-base"
+                    >
+                      気になる銘柄を見る
                     </Link>
                     <Link
                       href="/dashboard/reports"

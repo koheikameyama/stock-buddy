@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import PurchaseModal from "./PurchaseModal"
 import AddStockModal from "./AddStockModal"
 import UpdateStockModal from "./UpdateStockModal"
@@ -60,6 +60,7 @@ export default function PortfolioClient({
   watchlist: WatchlistItem[]
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [loading, setLoading] = useState(true)
@@ -72,6 +73,14 @@ export default function PortfolioClient({
   const [deletingStockId, setDeletingStockId] = useState<string | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [addStockMode, setAddStockMode] = useState<"portfolio" | "watchlist">("portfolio")
+
+  // URLパラメータからタブを設定
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'watchlist') {
+      setActiveTab('watchlist')
+    }
+  }, [searchParams])
 
   useEffect(() => {
     async function fetchPrices() {
@@ -103,7 +112,7 @@ export default function PortfolioClient({
   }, [])
 
   const handleDeleteStock = async (portfolioStockId: string, stockName: string) => {
-    if (!confirm(`${stockName}をポートフォリオから削除しますか？`)) {
+    if (!confirm(`${stockName}を今持ってる銘柄から削除しますか？`)) {
       return
     }
 
