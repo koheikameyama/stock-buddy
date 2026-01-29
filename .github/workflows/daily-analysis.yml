@@ -11,16 +11,69 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Generate stock analyses
+        id: analyses
         run: |
           # Stock analysis (for watchlist)
-          curl -X POST "${{ secrets.APP_URL }}/api/analyses/stock/generate" \
-            -H "Content-Type: application/json"
+          STOCK_RESPONSE=$(curl -X POST "${{ secrets.APP_URL }}/api/analyses/stock/generate" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP_CODE:%{http_code}" \
+            -s)
+
+          STOCK_CODE=$(echo "$STOCK_RESPONSE" | grep "HTTP_CODE" | cut -d: -f2)
+          echo "stock_code=$STOCK_CODE" >> $GITHUB_OUTPUT
 
           # Portfolio stock analysis
-          curl -X POST "${{ secrets.APP_URL }}/api/analyses/portfolio/generate" \
-            -H "Content-Type: application/json"
+          PORTFOLIO_RESPONSE=$(curl -X POST "${{ secrets.APP_URL }}/api/analyses/portfolio/generate" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP_CODE:%{http_code}" \
+            -s)
+
+          PORTFOLIO_CODE=$(echo "$PORTFOLIO_RESPONSE" | grep "HTTP_CODE" | cut -d: -f2)
+          echo "portfolio_code=$PORTFOLIO_CODE" >> $GITHUB_OUTPUT
+
+          if [ "$STOCK_CODE" -ne 200 ] || [ "$PORTFOLIO_CODE" -ne 200 ]; then
+            echo "Error in analysis generation"
+            exit 1
+          fi
 
       - name: Generate coach messages
+        id: coach
         run: |
-          curl -X POST "${{ secrets.APP_URL }}/api/coach-messages/generate" \
-            -H "Content-Type: application/json"
+          COACH_RESPONSE=$(curl -X POST "${{ secrets.APP_URL }}/api/coach-messages/generate" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP_CODE:%{http_code}" \
+            -s)
+
+          COACH_CODE=$(echo "$COACH_RESPONSE" | grep "HTTP_CODE" | cut -d: -f2)
+          echo "coach_code=$COACH_CODE" >> $GITHUB_OUTPUT
+
+          if [ "$COACH_CODE" -ne 200 ]; then
+            echo "Error in coach message generation"
+            exit 1
+          fi
+
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ Daily Analysis Succeeded"
+          SLACK_MESSAGE: |
+            Stock Analysis: ✅
+            Portfolio Analysis: ✅
+            Coach Messages: ✅
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ Daily Analysis Failed"
+          SLACK_MESSAGE: |
+            Stock Analysis Code: ${{ steps.analyses.outputs.stock_code }}
+            Portfolio Analysis Code: ${{ steps.analyses.outputs.portfolio_code }}
+            Coach Messages Code: ${{ steps.coach.outputs.coach_code }}
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"

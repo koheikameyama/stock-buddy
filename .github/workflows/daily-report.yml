@@ -12,12 +12,43 @@ jobs:
 
     steps:
       - name: Generate daily reports
+        id: generate
         run: |
-          curl -X POST https://stock-buddy.net/api/reports/generate-all \
+          RESPONSE=$(curl -X POST https://stock-buddy.net/api/reports/generate-all \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -w "\nHTTP Status: %{http_code}\n"
+            -w "\nHTTP_CODE:%{http_code}" \
+            -s)
 
-      - name: Check result
+          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE")
+
+          echo "response=$BODY" >> $GITHUB_OUTPUT
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Error: HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ Daily Report Generation Succeeded"
+          SLACK_MESSAGE: ${{ steps.generate.outputs.response }}
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
         if: failure()
-        run: echo "Daily report generation failed"
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ Daily Report Generation Failed"
+          SLACK_MESSAGE: |
+            HTTP Code: ${{ steps.generate.outputs.http_code }}
+            Response: ${{ steps.generate.outputs.response }}
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"
