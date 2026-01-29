@@ -81,6 +81,7 @@ export default async function PortfolioPage() {
         quantity: s.quantity,
         averagePrice: s.averagePrice.toString(),
         reason: s.reason,
+        isSimulation: s.isSimulation,
       }))}
       watchlist={watchlist.map((w) => ({
         id: w.id,

@@ -15,6 +15,7 @@ interface Stock {
   quantity: number
   averagePrice: string
   reason: string | null
+  isSimulation: boolean
 }
 
 interface WatchlistItem {
@@ -124,6 +125,36 @@ export default function PortfolioClient({
       setError(err.message || "削除に失敗しました")
     } finally {
       setDeletingStockId(null)
+    }
+  }
+
+  const handleToggleSimulation = async (portfolioStockId: string, currentIsSimulation: boolean) => {
+    const action = currentIsSimulation ? "実投資に変更" : "シミュレーションに変更"
+    if (!confirm(`この銘柄を${action}しますか？`)) {
+      return
+    }
+
+    try {
+      setError(null)
+
+      const response = await fetch("/api/portfolio/toggle-simulation", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ portfolioStockId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "変更に失敗しました")
+      }
+
+      // 成功: ページをリフレッシュ
+      router.refresh()
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "変更に失敗しました")
     }
   }
 
@@ -294,9 +325,20 @@ export default function PortfolioClient({
                 </button>
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-1">
-                      {portfolioStock.name}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-2xl font-bold text-gray-900">
+                        {portfolioStock.name}
+                      </h3>
+                      {portfolioStock.isSimulation ? (
+                        <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-md">
+                          シミュレーション
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-md">
+                          実投資
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-500">{portfolioStock.tickerCode}</p>
                   </div>
                   <div className="text-right mr-8">
@@ -399,7 +441,7 @@ export default function PortfolioClient({
                   </div>
                 )}
 
-                <div className="bg-blue-50 rounded-lg p-4">
+                <div className="bg-blue-50 rounded-lg p-4 mb-4">
                   <p className="text-sm font-semibold text-gray-700 mb-2">
                     📊 この銘柄について
                   </p>
@@ -418,42 +460,132 @@ export default function PortfolioClient({
                     </div>
                   )}
                 </div>
+
+                {/* 実投資/シミュレーション切り替え */}
+                <button
+                  onClick={() => handleToggleSimulation(portfolioStock.id, portfolioStock.isSimulation)}
+                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
+                    portfolioStock.isSimulation
+                      ? "bg-green-50 text-green-700 border-2 border-green-200 hover:bg-green-100"
+                      : "bg-gray-100 text-gray-600 border-2 border-gray-200 hover:bg-gray-200"
+                  }`}
+                >
+                  {portfolioStock.isSimulation ? "実投資に変更する" : "シミュレーションに戻す"}
+                </button>
               </div>
             )
           })}
         </div>
 
-            {/* 合計金額 */}
-            <div className="mt-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-md p-6 text-white">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-blue-100 mb-1">推奨投資総額</p>
-                  <p className="text-4xl font-bold">
-                    {stocks
-                      .reduce((sum, s) => sum + Number(s.averagePrice) * s.quantity, 0)
-                      .toLocaleString()}
-                    円
-                  </p>
+            {/* 合計金額（シミュレーション・実投資別） */}
+            <div className="mt-8 space-y-4">
+              {/* シミュレーション合計 */}
+              {stocks.filter(s => s.isSimulation).length > 0 && (
+                <div className="bg-gradient-to-r from-gray-600 to-gray-700 rounded-2xl shadow-md p-6 text-white">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-100">シミュレーション</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-gray-200 mb-1 text-sm">投資総額</p>
+                      <p className="text-2xl font-bold">
+                        {stocks
+                          .filter(s => s.isSimulation)
+                          .reduce((sum, s) => sum + Number(s.averagePrice) * s.quantity, 0)
+                          .toLocaleString()}円
+                      </p>
+                    </div>
+                    {!loading && Object.keys(prices).length > 0 && (
+                      <div>
+                        <p className="text-gray-200 mb-1 text-sm">現在評価額</p>
+                        <p className="text-2xl font-bold">
+                          {stocks
+                            .filter(s => s.isSimulation)
+                            .reduce((sum, s) => {
+                              const price = prices[s.tickerCode]
+                              return sum + (price ? price.currentPrice * s.quantity : 0)
+                            }, 0)
+                            .toLocaleString()}円
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-gray-200 mb-1 text-sm">銘柄数</p>
+                      <p className="text-2xl font-bold">
+                        {stocks.filter(s => s.isSimulation).length}銘柄
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                {!loading && Object.keys(prices).length > 0 && (
-                  <div className="text-right">
-                    <p className="text-blue-100 mb-1">現在評価額</p>
+              )}
+
+              {/* 実投資合計 */}
+              {stocks.filter(s => !s.isSimulation).length > 0 && (
+                <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl shadow-md p-6 text-white">
+                  <h3 className="text-lg font-semibold mb-4 text-green-100">実投資</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-green-100 mb-1 text-sm">投資総額</p>
+                      <p className="text-2xl font-bold">
+                        {stocks
+                          .filter(s => !s.isSimulation)
+                          .reduce((sum, s) => sum + Number(s.averagePrice) * s.quantity, 0)
+                          .toLocaleString()}円
+                      </p>
+                    </div>
+                    {!loading && Object.keys(prices).length > 0 && (
+                      <div>
+                        <p className="text-green-100 mb-1 text-sm">現在評価額</p>
+                        <p className="text-2xl font-bold">
+                          {stocks
+                            .filter(s => !s.isSimulation)
+                            .reduce((sum, s) => {
+                              const price = prices[s.tickerCode]
+                              return sum + (price ? price.currentPrice * s.quantity : 0)
+                            }, 0)
+                            .toLocaleString()}円
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-green-100 mb-1 text-sm">銘柄数</p>
+                      <p className="text-2xl font-bold">
+                        {stocks.filter(s => !s.isSimulation).length}銘柄
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 総合計 */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-md p-6 text-white">
+                <h3 className="text-lg font-semibold mb-4 text-blue-100">総合計</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-blue-100 mb-1 text-sm">投資総額</p>
                     <p className="text-3xl font-bold">
                       {stocks
-                        .reduce((sum, s) => {
-                          const price = prices[s.tickerCode]
-                          return sum + (price ? price.currentPrice * s.quantity : 0)
-                        }, 0)
-                        .toLocaleString()}
-                      円
+                        .reduce((sum, s) => sum + Number(s.averagePrice) * s.quantity, 0)
+                        .toLocaleString()}円
                     </p>
                   </div>
-                )}
-                <div className="text-right">
-                  <p className="text-blue-100 mb-1">予算</p>
-                  <p className="text-2xl font-bold">
-                    {settings.investmentAmount.toLocaleString()}円
-                  </p>
+                  {!loading && Object.keys(prices).length > 0 && (
+                    <div>
+                      <p className="text-blue-100 mb-1 text-sm">現在評価額</p>
+                      <p className="text-3xl font-bold">
+                        {stocks
+                          .reduce((sum, s) => {
+                            const price = prices[s.tickerCode]
+                            return sum + (price ? price.currentPrice * s.quantity : 0)
+                          }, 0)
+                          .toLocaleString()}円
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-blue-100 mb-1 text-sm">予算</p>
+                    <p className="text-2xl font-bold">
+                      {settings.investmentAmount.toLocaleString()}円
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

@@ -178,6 +178,7 @@ model PortfolioStock {
   quantity     Int
   averagePrice Decimal   @db.Decimal(12, 2)
   reason       String?   // 保有理由・推奨理由
+  isSimulation Boolean   @default(true) // シミュレーション or 実投資
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
