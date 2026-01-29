@@ -84,7 +84,7 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     return NextResponse.json({
       publicKey: process.env.VAPID_PUBLIC_KEY,

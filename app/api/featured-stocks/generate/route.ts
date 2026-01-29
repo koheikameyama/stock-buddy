@@ -12,7 +12,7 @@ const prisma = new PrismaClient()
  * 2. セクター分散（3銘柄が異なるセクター）
  * 3. 価格帯の分散（低価格・中価格・高価格から1銘柄ずつ）
  */
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)

@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
  * GET /api/featured-stocks
  * 今日の注目銘柄を取得
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)

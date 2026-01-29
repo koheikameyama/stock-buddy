@@ -140,6 +140,7 @@ async function generatePortfolioStockAnalysis(data: {
   quantity: number
   gainLossPct: number
   priceChangePct: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   userSettings: any
   isSimulation: boolean
 }) {
@@ -150,7 +151,6 @@ async function generatePortfolioStockAnalysis(data: {
     quantity,
     gainLossPct,
     priceChangePct,
-    userSettings,
     isSimulation,
   } = data
 

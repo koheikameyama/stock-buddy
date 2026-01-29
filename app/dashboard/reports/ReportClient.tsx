@@ -24,14 +24,13 @@ interface Report {
 
 export default function ReportClient({
   report,
-  portfolioId,
 }: {
   report: Report | null
   portfolioId: string
 }) {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentReport, setCurrentReport] = useState(report)
+  const [currentReport] = useState(report)
 
   const handleGenerate = async () => {
     try {

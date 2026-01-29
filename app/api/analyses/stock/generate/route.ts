@@ -131,6 +131,7 @@ async function generateStockAnalysis(data: {
   currentPrice: number
   priceChange: number
   priceChangePct: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   indicator: any
 }) {
   const { stock, currentPrice, priceChange, priceChangePct, indicator } = data

@@ -82,9 +82,9 @@ export default function AddStockModal({
 
         const data = await response.json()
         setSearchResults(data.stocks || [])
-      } catch (err: any) {
+      } catch (err: unknown) {
         // AbortErrorは無視
-        if (err.name === 'AbortError') {
+        if (err instanceof Error && err.name === 'AbortError') {
           return
         }
         console.error(err)

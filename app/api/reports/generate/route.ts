@@ -10,7 +10,7 @@ import {
 
 const prisma = new PrismaClient()
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // 認証チェック
     const session = await auth()

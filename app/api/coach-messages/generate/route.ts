@@ -148,10 +148,11 @@ function generateNewUserMessage(userName: string | null): string {
 }
 
 // ウォッチリストのみのユーザー向けメッセージ
+ 
 async function generateWatchlistOnlyMessage(
   userName: string | null,
   watchlist: any[],
-  today: Date
+  _today: Date
 ): Promise<string> {
   const firstName = userName?.split(" ")[0] || "さん"
 
@@ -169,6 +170,7 @@ async function generateWatchlistOnlyMessage(
 }
 
 // ポートフォリオとウォッチリストの総合メッセージ
+ 
 async function generateComprehensiveMessage(data: {
   user: any
   stockCount: number
@@ -177,7 +179,7 @@ async function generateComprehensiveMessage(data: {
   previousSnapshot: any
   today: Date
 }): Promise<string> {
-  const { user, stockCount, watchlistCount, latestSnapshot, previousSnapshot, today } = data
+  const { user, stockCount, latestSnapshot, previousSnapshot } = data
   const firstName = user.name?.split(" ")[0] || "さん"
 
   // Portfolio analysis
