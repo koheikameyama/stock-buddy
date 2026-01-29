@@ -32,22 +32,22 @@ export default function OnboardingClient() {
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8 md:p-12">
-          <div className="mb-8 text-center">
-            <div className="text-6xl mb-4">👋</div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-6 sm:p-8 md:p-12">
+          <div className="mb-6 sm:mb-8 text-center">
+            <div className="text-5xl sm:text-6xl mb-4">👋</div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               ようこそ、Stock Buddyへ
             </h1>
-            <p className="text-xl text-gray-600 mb-2">
+            <p className="text-lg sm:text-xl text-gray-600 mb-2">
               投資、始めたいけど怖い？
             </p>
-            <p className="text-lg text-gray-500">
+            <p className="text-base sm:text-lg text-gray-500">
               大丈夫です。一緒に学びながら成長しましょう
             </p>
           </div>
 
-          <div className="bg-blue-50 rounded-xl p-6 mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          <div className="bg-blue-50 rounded-xl p-5 sm:p-6 mb-6 sm:mb-8">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
               Stock Buddyでできること
             </h2>
             <div className="text-left space-y-2 text-gray-700">
