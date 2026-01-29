@@ -64,6 +64,7 @@ export default function PortfolioClient({
   const [selectedWatchlistItem, setSelectedWatchlistItem] = useState<WatchlistItem | null>(null)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
   const [showAddStockModal, setShowAddStockModal] = useState(false)
+  const [deletingStockId, setDeletingStockId] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchPrices() {
@@ -93,6 +94,38 @@ export default function PortfolioClient({
     const interval = setInterval(fetchPrices, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
+
+  const handleDeleteStock = async (portfolioStockId: string, stockName: string) => {
+    if (!confirm(`${stockName}をポートフォリオから削除しますか？`)) {
+      return
+    }
+
+    try {
+      setDeletingStockId(portfolioStockId)
+      setError(null)
+
+      const response = await fetch("/api/portfolio/remove-stock", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ portfolioStockId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "削除に失敗しました")
+      }
+
+      // 成功: ページをリフレッシュ
+      router.refresh()
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "削除に失敗しました")
+    } finally {
+      setDeletingStockId(null)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4">
@@ -237,8 +270,28 @@ export default function PortfolioClient({
             return (
               <div
                 key={portfolioStock.id}
-                className="bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow"
+                className="bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow relative"
               >
+                <button
+                  onClick={() => handleDeleteStock(portfolioStock.id, portfolioStock.name)}
+                  disabled={deletingStockId === portfolioStock.id}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                  title="削除"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-2xl font-bold text-gray-900 mb-1">
@@ -246,7 +299,7 @@ export default function PortfolioClient({
                     </h3>
                     <p className="text-gray-500">{portfolioStock.tickerCode}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right mr-8">
                     {price ? (
                       <>
                         <p className="text-sm text-gray-500 mb-1">現在価格</p>
