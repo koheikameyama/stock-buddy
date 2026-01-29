@@ -92,9 +92,9 @@ export default function ReportClient({
         {/* ヘッダー */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            今日のBuddyレポート
+            今日の振り返り
           </h1>
-          <p className="text-lg text-gray-600">AIがあなたの投資をサポート</p>
+          <p className="text-lg text-gray-600">一緒に今日の投資を見てみましょう</p>
         </div>
 
         {/* エラー表示 */}
@@ -123,16 +123,16 @@ export default function ReportClient({
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              まだレポートがありません
+              まだ今日の振り返りがありません
             </h2>
             <p className="text-gray-600 mb-6">
-              AIがあなたのポートフォリオを分析して、今日の投資判断を提案します
+              一緒にあなたの投資を見てみましょう。今日のアドバイスを用意しますね
             </p>
             <button
               onClick={handleGenerate}
               className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
             >
-              レポートを生成する
+              振り返りを見る
             </button>
           </div>
         )}
@@ -142,10 +142,10 @@ export default function ReportClient({
           <div className="bg-white rounded-2xl shadow-md p-8 text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-lg text-gray-700">
-              AIがポートフォリオを分析中...
+              あなたの投資を分析中...
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              株価データの取得と分析には1-2分かかる場合があります
+              少しお待ちくださいね（1-2分ほどかかります）
             </p>
           </div>
         )}

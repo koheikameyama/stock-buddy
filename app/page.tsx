@@ -10,10 +10,10 @@ export default function Home() {
             Stock Buddy
           </h1>
           <p className="text-2xl md:text-3xl text-gray-700 mb-4">
-            任せて学んで、一緒に増やす
+            あなた専属のAI投資コーチ
           </p>
           <p className="text-xl text-gray-600 mb-12">
-            AIに判断を任せながら、理由を理解できる投資
+            投資、始めたいけど怖い？一緒に学びながら成長しましょう
           </p>
 
           <Link
@@ -28,25 +28,25 @@ export default function Home() {
         <div className="mt-24 grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           <div className="bg-white p-8 rounded-lg shadow-md">
             <div className="text-4xl mb-4">📊</div>
-            <h3 className="text-xl font-bold mb-3">毎日のレポート</h3>
+            <h3 className="text-xl font-bold mb-3">毎日の声かけ</h3>
             <p className="text-gray-600">
-              AIが市場を分析し、あなたのポートフォリオに合わせた投資判断を毎日お届けします。
+              コーチがあなたの投資を見守り、その日のアドバイスを毎日お届けします。
             </p>
           </div>
 
           <div className="bg-white p-8 rounded-lg shadow-md">
             <div className="text-4xl mb-4">🤖</div>
-            <h3 className="text-xl font-bold mb-3">AI分析</h3>
+            <h3 className="text-xl font-bold mb-3">初心者に優しい</h3>
             <p className="text-gray-600">
-              テクニカル指標と市場動向をAIが総合的に分析。初心者でも理解できる説明付き。
+              難しい専門用語は使いません。初心者でも分かる言葉で、丁寧に説明します。
             </p>
           </div>
 
           <div className="bg-white p-8 rounded-lg shadow-md">
             <div className="text-4xl mb-4">💡</div>
-            <h3 className="text-xl font-bold mb-3">学びながら投資</h3>
+            <h3 className="text-xl font-bold mb-3">一緒に成長</h3>
             <p className="text-gray-600">
-              なぜその判断なのか、AIが理由を丁寧に説明。投資の知識が自然と身につきます。
+              なぜそう考えたのか、理由を丁寧に説明します。一緒に投資の知識を身につけましょう。
             </p>
           </div>
         </div>
@@ -72,9 +72,9 @@ export default function Home() {
                 2
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2">投資スタイルを設定</h3>
+                <h3 className="text-xl font-bold mb-2">あなたのことを教えてください</h3>
                 <p className="text-gray-600">
-                  予算や投資期間、リスク許容度を入力。AIがあなたに合った銘柄を提案します。
+                  予算や投資期間、リスクの考え方を教えてください。あなたにぴったりの銘柄を一緒に探します。
                 </p>
               </div>
             </div>
@@ -84,9 +84,9 @@ export default function Home() {
                 3
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2">毎日レポートを受け取る</h3>
+                <h3 className="text-xl font-bold mb-2">毎日コーチからメッセージ</h3>
                 <p className="text-gray-600">
-                  市場クローズ後、AIが分析した投資判断レポートが届きます。
+                  市場が終わったら、今日のアドバイスをお届けします。一緒に振り返りましょう。
                 </p>
               </div>
             </div>
@@ -95,8 +95,8 @@ export default function Home() {
 
         {/* CTA Section */}
         <div className="mt-24 text-center bg-blue-600 text-white py-16 rounded-2xl">
-          <h2 className="text-3xl font-bold mb-4">今日から始める、賢い投資</h2>
-          <p className="text-xl mb-8">無料でStock Buddyを試してみませんか？</p>
+          <h2 className="text-3xl font-bold mb-4">さあ、一緒に始めましょう</h2>
+          <p className="text-xl mb-8">あなた専属のコーチが待っています</p>
           <Link
             href="/login"
             className="inline-block bg-white text-blue-600 hover:bg-gray-100 font-bold py-4 px-8 rounded-lg text-lg transition-colors"
