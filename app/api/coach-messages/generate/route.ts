@@ -14,6 +14,9 @@ const prisma = new PrismaClient()
  */
 export async function POST() {
   try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
     const users = await prisma.user.findMany({
       include: {
         portfolio: {
@@ -21,6 +24,10 @@ export async function POST() {
             stocks: {
               include: {
                 stock: true,
+                analyses: {
+                  where: { date: today },
+                  take: 1,
+                },
               },
             },
             snapshots: {
@@ -29,12 +36,21 @@ export async function POST() {
             },
           },
         },
+        watchlist: {
+          include: {
+            stock: {
+              include: {
+                analyses: {
+                  where: { date: today },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
         settings: true,
       },
     })
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
 
     let generatedCount = 0
 
@@ -55,6 +71,7 @@ export async function POST() {
 
       const hasPortfolio = !!user.portfolio
       const stockCount = user.portfolio?.stocks.length || 0
+      const watchlistCount = user.watchlist?.length || 0
       const latestSnapshot = user.portfolio?.snapshots[0]
       const previousSnapshot = user.portfolio?.snapshots[1]
 
@@ -62,24 +79,33 @@ export async function POST() {
       let type: string
 
       // Generate message based on user status
-      if (!hasPortfolio) {
+      if (!hasPortfolio && watchlistCount === 0) {
         // New user - encouragement to start
         message = generateNewUserMessage(user.name)
         type = "encouragement"
-      } else if (stockCount === 0) {
+      } else if (stockCount === 0 && watchlistCount > 0) {
+        // Has watchlist but no portfolio yet - encourage to start investing
+        message = await generateWatchlistOnlyMessage(user.name, user.watchlist || [], today)
+        type = "encouragement"
+      } else if (stockCount === 0 && watchlistCount === 0) {
         // Portfolio exists but no stocks yet
         message = "ポートフォリオは作成済みですね。そろそろ最初の一歩を踏み出してみませんか？焦らず、自分のペースで大丈夫ですよ。"
         type = "encouragement"
       } else {
-        // Has portfolio with stocks
-        if (latestSnapshot && previousSnapshot) {
-          const gainChange = Number(latestSnapshot.gainLossPct) - Number(previousSnapshot.gainLossPct)
-          message = generateExistingInvestorMessage(user.name, stockCount, latestSnapshot, gainChange)
-          type = gainChange > 0 ? "encouragement" : "advice"
-        } else {
-          message = `${user.name?.split(" ")[0]}さん、${stockCount}銘柄を一緒に見守っていますね。今日も市場の動きをチェックしましょう。`
-          type = "advice"
-        }
+        // Has portfolio with stocks - generate comprehensive message
+        message = await generateComprehensiveMessage({
+          user,
+          stockCount,
+          watchlistCount,
+          latestSnapshot,
+          previousSnapshot,
+          today,
+        })
+
+        const gainChange = latestSnapshot && previousSnapshot
+          ? Number(latestSnapshot.gainLossPct) - Number(previousSnapshot.gainLossPct)
+          : 0
+        type = gainChange > 0 ? "encouragement" : "advice"
       }
 
       // Create coach message
@@ -121,24 +147,87 @@ function generateNewUserMessage(userName: string | null): string {
   return messages[Math.floor(Math.random() * messages.length)]
 }
 
-function generateExistingInvestorMessage(
+// ウォッチリストのみのユーザー向けメッセージ
+async function generateWatchlistOnlyMessage(
   userName: string | null,
-  stockCount: number,
-  latestSnapshot: any,
-  gainChange: number
-): string {
+  watchlist: any[],
+  today: Date
+): Promise<string> {
   const firstName = userName?.split(" ")[0] || "さん"
-  const gainLossPct = Number(latestSnapshot.gainLossPct)
 
-  if (gainChange > 1) {
-    return `${firstName}さん、おはようございます！今日はポートフォリオが好調ですね。利益率が${gainChange.toFixed(2)}%改善しました。でも、一喜一憂せず長期目線で見守りましょう。`
-  } else if (gainChange < -1) {
-    return `${firstName}さん、今日は少し下がっていますが、投資は長期戦です。${stockCount}銘柄を分散して持っているので、焦らず見守りましょう。`
-  } else if (gainLossPct > 5) {
-    return `${firstName}さん、順調に利益が出ていますね。このまま長期保有を続けるのも一つの戦略です。一緒に見守っていきましょう。`
-  } else if (gainLossPct < -5) {
-    return `${firstName}さん、今は含み損が出ていますが、投資は長期で考えることが大切です。市場は上下を繰り返しながら成長していきます。`
-  } else {
-    return `${firstName}さん、${stockCount}銘柄を一緒に見守っていますね。毎日コツコツと継続することが、投資成功の秘訣です。`
+  // Check if any watchlist stock has good buy timing
+  const goodTimingStocks = watchlist.filter(
+    (item) => item.stock.analyses[0]?.buyTiming === 'good'
+  )
+
+  if (goodTimingStocks.length > 0) {
+    const stock = goodTimingStocks[0].stock
+    return `${firstName}さん、気になる銘柄の${stock.name}が買い時のサインを出しています。検討してみませんか？`
   }
+
+  return `${firstName}さん、${watchlist.length}銘柄を気になるリストに入れていますね。じっくり観察して、買い時を見極めましょう。`
+}
+
+// ポートフォリオとウォッチリストの総合メッセージ
+async function generateComprehensiveMessage(data: {
+  user: any
+  stockCount: number
+  watchlistCount: number
+  latestSnapshot: any
+  previousSnapshot: any
+  today: Date
+}): Promise<string> {
+  const { user, stockCount, watchlistCount, latestSnapshot, previousSnapshot, today } = data
+  const firstName = user.name?.split(" ")[0] || "さん"
+
+  // Portfolio analysis
+  const gainChange = latestSnapshot && previousSnapshot
+    ? Number(latestSnapshot.gainLossPct) - Number(previousSnapshot.gainLossPct)
+    : 0
+  const gainLossPct = latestSnapshot ? Number(latestSnapshot.gainLossPct) : 0
+
+  // Check portfolio stock analyses for important actions
+  const portfolioStocks = user.portfolio?.stocks || []
+  const sellRecommendations = portfolioStocks.filter(
+    (ps: any) => ps.analyses[0]?.action === 'sell_partial' || ps.analyses[0]?.action === 'sell_all'
+  )
+  const buyMoreRecommendations = portfolioStocks.filter(
+    (ps: any) => ps.analyses[0]?.action === 'buy_more'
+  )
+
+  // Check watchlist for good buy timing
+  const watchlist = user.watchlist || []
+  const goodTimingStocks = watchlist.filter(
+    (item: any) => item.stock.analyses[0]?.buyTiming === 'good'
+  )
+
+  // Build message
+  let message = `${firstName}さん、おはようございます！`
+
+  // Portfolio status
+  if (gainChange > 1) {
+    message += `今日はポートフォリオが好調ですね（利益率${gainChange >= 0 ? '+' : ''}${gainChange.toFixed(2)}%）。`
+  } else if (gainChange < -1) {
+    message += `今日は少し下がっていますが、投資は長期戦です。`
+  } else if (gainLossPct > 5) {
+    message += `順調に利益が出ていますね（+${gainLossPct.toFixed(2)}%）。`
+  } else if (gainLossPct < -5) {
+    message += `今は含み損が出ていますが、長期で見守りましょう。`
+  }
+
+  // Action recommendations
+  if (sellRecommendations.length > 0) {
+    const stock = sellRecommendations[0]
+    message += `${stock.stock.name}は利益確定を検討しても良いタイミングです。`
+  } else if (buyMoreRecommendations.length > 0) {
+    const stock = buyMoreRecommendations[0]
+    message += `${stock.stock.name}は買い増しのチャンスかもしれません。`
+  } else if (goodTimingStocks.length > 0) {
+    const stock = goodTimingStocks[0].stock
+    message += `気になる銘柄の${stock.name}が買い時のサインを出しています。`
+  } else {
+    message += `${stockCount}銘柄を一緒に見守っていきましょう。`
+  }
+
+  return message
 }

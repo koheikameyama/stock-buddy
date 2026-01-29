@@ -1,0 +1,26 @@
+name: Daily Stock Analysis
+
+on:
+  schedule:
+    # Run daily at 6 AM JST (9 PM UTC previous day)
+    - cron: '0 21 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  generate-analyses:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate stock analyses
+        run: |
+          # Stock analysis (for watchlist)
+          curl -X POST "${{ secrets.APP_URL }}/api/analyses/stock/generate" \
+            -H "Content-Type: application/json"
+
+          # Portfolio stock analysis
+          curl -X POST "${{ secrets.APP_URL }}/api/analyses/portfolio/generate" \
+            -H "Content-Type: application/json"
+
+      - name: Generate coach messages
+        run: |
+          curl -X POST "${{ secrets.APP_URL }}/api/coach-messages/generate" \
+            -H "Content-Type: application/json"

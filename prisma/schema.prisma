@@ -37,19 +37,20 @@ model Session {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  name          String?
-  email         String?         @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  portfolio     Portfolio?
-  settings      UserSettings?
-  watchlist     Watchlist[]
-  coachMessages CoachMessage[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                      String                   @id @default(cuid())
+  name                    String?
+  email                   String?                  @unique
+  emailVerified           DateTime?
+  image                   String?
+  accounts                Account[]
+  sessions                Session[]
+  portfolio               Portfolio?
+  settings                UserSettings?
+  watchlist               Watchlist[]
+  coachMessages           CoachMessage[]
+  portfolioStockAnalyses  PortfolioStockAnalysis[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 }
 
 model VerificationToken {
@@ -97,6 +98,7 @@ model Stock {
   transactions      Transaction[]
   dailyReports      DailyReport[]
   watchlists        Watchlist[]
+  analyses          StockAnalysis[]
   createdAt         DateTime           @default(now())
 
   @@index([tickerCode])
@@ -170,17 +172,18 @@ model PortfolioSnapshot {
 
 // 保有銘柄
 model PortfolioStock {
-  id           String    @id @default(cuid())
+  id           String                   @id @default(cuid())
   portfolioId  String
-  portfolio    Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  portfolio    Portfolio                @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
   stockId      String
-  stock        Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  stock        Stock                    @relation(fields: [stockId], references: [id], onDelete: Cascade)
   quantity     Int
-  averagePrice Decimal   @db.Decimal(12, 2)
-  reason       String?   // 保有理由・推奨理由
-  isSimulation Boolean   @default(true) // シミュレーション or 実投資
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  averagePrice Decimal                  @db.Decimal(12, 2)
+  reason       String?                  // 保有理由・推奨理由
+  isSimulation Boolean                  @default(true) // シミュレーション or 実投資
+  analyses     PortfolioStockAnalysis[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 
   @@unique([portfolioId, stockId])
   @@index([portfolioId])
@@ -284,4 +287,47 @@ model CoachMessage {
 
   @@unique([userId, date])
   @@index([userId, date(sort: Desc)])
+}
+
+// 銘柄分析（ウォッチリスト用 - 銘柄の動向のみ）
+model StockAnalysis {
+  id             String   @id @default(cuid())
+  stockId        String
+  stock          Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  date           DateTime @db.Date
+  currentPrice   Decimal  @db.Decimal(12, 2)
+  priceChange    Decimal  @db.Decimal(12, 2)  // 前日比
+  priceChangePct Decimal  @db.Decimal(5, 2)   // 前日比（%）
+  trend          String   // 'bullish' | 'bearish' | 'neutral'
+  buyTiming      String   // 'good' | 'wait' | 'avoid'
+  analysis       String   @db.Text             // AI生成の分析テキスト
+  keyPoints      Json?                          // 重要ポイント（箇条書き用）
+  createdAt      DateTime @default(now())
+
+  @@unique([stockId, date])
+  @@index([stockId, date(sort: Desc)])
+  @@index([date(sort: Desc)])
+}
+
+// 保有銘柄分析（ポートフォリオ用 - ユーザー固有の分析）
+model PortfolioStockAnalysis {
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolioStockId  String
+  portfolioStock    PortfolioStock @relation(fields: [portfolioStockId], references: [id], onDelete: Cascade)
+  date              DateTime       @db.Date
+  currentPrice      Decimal        @db.Decimal(12, 2)
+  currentValue      Decimal        @db.Decimal(15, 2)  // 現在評価額
+  gainLoss          Decimal        @db.Decimal(15, 2)  // 損益額
+  gainLossPct       Decimal        @db.Decimal(5, 2)   // 損益率（%）
+  action            String         // 'hold' | 'buy_more' | 'sell_partial' | 'sell_all'
+  analysis          String         @db.Text             // AI生成の分析テキスト
+  reasoning         String?        @db.Text             // アクション推奨の理由
+  createdAt         DateTime       @default(now())
+
+  @@unique([portfolioStockId, date])
+  @@index([userId, date(sort: Desc)])
+  @@index([portfolioStockId, date(sort: Desc)])
+  @@index([date(sort: Desc)])
 }
