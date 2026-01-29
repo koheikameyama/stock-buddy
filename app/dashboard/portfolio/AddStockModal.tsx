@@ -16,12 +16,14 @@ interface AddStockModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  mode?: "portfolio" | "watchlist" // 追加先
 }
 
 export default function AddStockModal({
   isOpen,
   onClose,
   onSuccess,
+  mode = "portfolio",
 }: AddStockModalProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchedStock[]>([])
@@ -83,22 +85,44 @@ export default function AddStockModal({
       setSubmitting(true)
       setError(null)
 
-      const response = await fetch("/api/portfolio/add-stock", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          stockId: selectedStock.id,
-          quantity,
-          price: Number(price),
-          purchaseDate,
-        }),
-      })
+      if (mode === "portfolio") {
+        const response = await fetch("/api/portfolio/add-stock", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            stockId: selectedStock.id,
+            quantity,
+            price: Number(price),
+            purchaseDate,
+          }),
+        })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "追加に失敗しました")
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "追加に失敗しました")
+        }
+      } else {
+        // ウォッチリストに追加
+        const response = await fetch("/api/onboarding/add-to-watchlist", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            stockId: selectedStock.id,
+            recommendedPrice: Number(price),
+            recommendedQty: quantity,
+            reason: "手動追加",
+            source: "manual",
+          }),
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "追加に失敗しました")
+        }
       }
 
       // Success
@@ -130,7 +154,9 @@ export default function AddStockModal({
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-900">銘柄を追加</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {mode === "portfolio" ? "銘柄を追加" : "気になる銘柄を追加"}
+            </h2>
             <button
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -253,23 +279,25 @@ export default function AddStockModal({
               </div>
 
               {/* 購入日 */}
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  購入日
-                </label>
-                <input
-                  type="date"
-                  value={purchaseDate}
-                  onChange={(e) => setPurchaseDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+              {mode === "portfolio" && (
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    購入日
+                  </label>
+                  <input
+                    type="date"
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              )}
 
               {/* 株数 */}
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  株数
+                  {mode === "portfolio" ? "株数" : "気になる株数"}
                 </label>
                 <input
                   type="number"
@@ -284,7 +312,7 @@ export default function AddStockModal({
               {/* 購入価格 */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  購入価格（1株あたり）
+                  {mode === "portfolio" ? "購入価格（1株あたり）" : "気になる価格（1株あたり）"}
                 </label>
                 <div className="relative">
                   <input
@@ -308,7 +336,9 @@ export default function AddStockModal({
               {/* 合計金額 */}
               {price && quantity > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-gray-600 mb-1">購入総額</p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    {mode === "portfolio" ? "購入総額" : "参考総額"}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900">
                     {(Number(price) * quantity).toLocaleString()}円
                   </p>
@@ -329,7 +359,11 @@ export default function AddStockModal({
                   disabled={submitting}
                   className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300"
                 >
-                  {submitting ? "追加中..." : "ポートフォリオに追加"}
+                  {submitting
+                    ? "追加中..."
+                    : mode === "portfolio"
+                      ? "ポートフォリオに追加"
+                      : "ウォッチリストに追加"}
                 </button>
               </div>
             </form>

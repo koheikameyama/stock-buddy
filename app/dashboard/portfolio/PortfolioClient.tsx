@@ -71,6 +71,7 @@ export default function PortfolioClient({
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
   const [deletingStockId, setDeletingStockId] = useState<string | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [addStockMode, setAddStockMode] = useState<"portfolio" | "watchlist">("portfolio")
 
   useEffect(() => {
     async function fetchPrices() {
@@ -299,7 +300,10 @@ export default function PortfolioClient({
                 もう一度提案を受ける
               </button>
               <button
-                onClick={() => setShowAddStockModal(true)}
+                onClick={() => {
+                  setAddStockMode("portfolio")
+                  setShowAddStockModal(true)
+                }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
               >
                 <svg
@@ -652,11 +656,60 @@ export default function PortfolioClient({
           <>
             <div className="space-y-4">
               <div className="mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">気になる銘柄たち</h2>
-                <p className="text-gray-600 mt-1">
-                  おすすめの銘柄です。実際に買ったら「購入した」ボタンで教えてくださいね。
-                </p>
-                <p className="text-sm text-gray-500 mt-1">※登録できるのは5銘柄まで（現在: {watchlist.length}/5）</p>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">気になる銘柄たち</h2>
+                      <p className="text-gray-600 mt-1">
+                        AIのおすすめや、あなたが気になる銘柄を保存できます。
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">※登録できるのは5銘柄まで（現在: {watchlist.length}/5）</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => router.push('/onboarding')}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 text-sm sm:text-base whitespace-nowrap"
+                      >
+                        <svg
+                          className="w-4 h-4 sm:w-5 sm:h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                        AI提案
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAddStockMode("watchlist")
+                          setShowAddStockModal(true)
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm sm:text-base whitespace-nowrap"
+                      >
+                        <svg
+                          className="w-4 h-4 sm:w-5 sm:h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                        手動追加
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {watchlist.length === 0 ? (
@@ -839,6 +892,7 @@ export default function PortfolioClient({
         onSuccess={() => {
           router.refresh()
         }}
+        mode={addStockMode}
       />
 
       {/* Update Stock Modal */}
