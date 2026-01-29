@@ -43,7 +43,7 @@ interface StockPrice {
 }
 
 interface Settings {
-  investmentAmount: number
+  investmentAmount: number | null
   investmentPeriod: string
   riskTolerance: string
 }
@@ -197,13 +197,7 @@ export default function PortfolioClient({
         {/* ポートフォリオ概要 */}
         <div className="bg-white rounded-2xl shadow-md p-5 sm:p-6 mb-6 sm:mb-8">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">投資スタイル</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">予算</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {settings.investmentAmount.toLocaleString()}円
-              </p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <p className="text-sm text-gray-500 mb-1">投資期間</p>
               <p className="text-xl font-semibold text-gray-900">
@@ -323,17 +317,17 @@ export default function PortfolioClient({
                   </svg>
                 </button>
                 <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h3 className="text-2xl font-bold text-gray-900">
                         {portfolioStock.name}
                       </h3>
                       {portfolioStock.isSimulation ? (
-                        <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-md">
+                        <span className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">
                           シミュレーション
                         </span>
                       ) : (
-                        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-md">
+                        <span className="px-3 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
                           実投資
                         </span>
                       )}
@@ -580,9 +574,9 @@ export default function PortfolioClient({
                     </div>
                   )}
                   <div>
-                    <p className="text-blue-100 mb-1 text-sm">予算</p>
-                    <p className="text-2xl font-bold">
-                      {settings.investmentAmount.toLocaleString()}円
+                    <p className="text-blue-100 mb-1 text-sm">総銘柄数</p>
+                    <p className="text-3xl font-bold">
+                      {stocks.length}銘柄
                     </p>
                   </div>
                 </div>
@@ -771,9 +765,9 @@ export default function PortfolioClient({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-blue-100 mb-1">予算</p>
+                    <p className="text-blue-100 mb-1">銘柄数</p>
                     <p className="text-2xl font-bold">
-                      {settings.investmentAmount.toLocaleString()}円
+                      {watchlist.length}銘柄
                     </p>
                   </div>
                 </div>

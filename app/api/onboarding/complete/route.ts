@@ -43,13 +43,13 @@ export async function POST(request: NextRequest) {
 
     // 新しいフォーマット（直接値）または古いフォーマット（investmentStyle）に対応
     const finalBudget = budget || investmentStyle?.budget
-    const finalMonthlyAmount = monthlyAmount ?? investmentStyle?.monthlyAmount ?? 0
+    const finalMonthlyAmount = monthlyAmount ?? investmentStyle?.monthlyAmount
     const finalPeriod = investmentPeriod || investmentStyle?.investmentPeriod
     const finalRiskTolerance = riskTolerance || investmentStyle?.riskTolerance
 
-    if (!finalBudget || !finalPeriod || !finalRiskTolerance) {
+    if (!finalPeriod || !finalRiskTolerance) {
       return NextResponse.json(
-        { error: "Investment details are required" },
+        { error: "Investment period and risk tolerance are required" },
         { status: 400 }
       )
     }
