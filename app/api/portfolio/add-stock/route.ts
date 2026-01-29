@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
+import { addStockToPortfolio } from "@/lib/portfolio"
 
 const prisma = new PrismaClient()
 
@@ -29,32 +30,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (quantity <= 0 || price <= 0) {
-      return NextResponse.json(
-        { error: "quantity and price must be positive" },
-        { status: 400 }
-      )
-    }
-
-    // ユーザーとポートフォリオを取得
+    // ユーザーを取得
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { portfolio: true },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // ポートフォリオが存在しない場合は作成
-    let portfolio = user.portfolio
-    if (!portfolio) {
-      portfolio = await prisma.portfolio.create({
-        data: {
-          userId: user.id,
-          name: "マイポートフォリオ",
-        },
-      })
     }
 
     // 株式が存在するか確認
@@ -66,99 +48,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Stock not found" }, { status: 404 })
     }
 
-    // 既存のポートフォリオ銘柄を確認
-    const existingPortfolioStock = await prisma.portfolioStock.findUnique({
-      where: {
-        portfolioId_stockId: {
-          portfolioId: portfolio.id,
-          stockId: stockId,
-        },
-      },
+    // ポートフォリオに追加（モジュールを使用）
+    const result = await addStockToPortfolio({
+      userId: user.id,
+      stockId,
+      quantity,
+      price,
+      purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
     })
 
-    // 新規追加の場合は銘柄数制限をチェック（最大5銘柄）
-    if (!existingPortfolioStock) {
-      const portfolioStockCount = await prisma.portfolioStock.count({
-        where: { portfolioId: portfolio.id },
-      })
-
-      if (portfolioStockCount >= 5) {
-        return NextResponse.json(
-          { error: "ポートフォリオには最大5銘柄まで登録できます" },
-          { status: 400 }
-        )
-      }
-    }
-
-    const totalAmount = price * quantity
-    const purchaseDateTime = purchaseDate
-      ? new Date(purchaseDate)
-      : new Date()
-
-    if (existingPortfolioStock) {
-      // 既に保有している場合は平均取得単価を更新
-      const existingCost =
-        Number(existingPortfolioStock.averagePrice) *
-        existingPortfolioStock.quantity
-      const newTotalCost = existingCost + totalAmount
-      const newTotalQuantity = existingPortfolioStock.quantity + quantity
-      const newAveragePrice = newTotalCost / newTotalQuantity
-
-      await prisma.portfolioStock.update({
-        where: {
-          portfolioId_stockId: {
-            portfolioId: portfolio.id,
-            stockId: stockId,
-          },
-        },
-        data: {
-          quantity: newTotalQuantity,
-          averagePrice: newAveragePrice,
-        },
-      })
-
-      // トランザクション記録を追加
-      await prisma.transaction.create({
-        data: {
-          portfolioId: portfolio.id,
-          stockId: stockId,
-          type: "buy",
-          quantity: quantity,
-          price: price,
-          totalAmount: totalAmount,
-          executedAt: purchaseDateTime,
-          note: "手動追加",
-        },
-      })
-    } else {
-      // 新規追加
-      await prisma.portfolioStock.create({
-        data: {
-          portfolioId: portfolio.id,
-          stockId: stockId,
-          quantity: quantity,
-          averagePrice: price,
-        },
-      })
-
-      // トランザクション記録を作成
-      await prisma.transaction.create({
-        data: {
-          portfolioId: portfolio.id,
-          stockId: stockId,
-          type: "buy",
-          quantity: quantity,
-          price: price,
-          totalAmount: totalAmount,
-          executedAt: purchaseDateTime,
-          note: "手動追加",
-        },
-      })
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 })
     }
 
     return NextResponse.json({
       success: true,
-      message: "ポートフォリオに追加しました",
+      message: result.message,
     })
   } catch (error) {
     console.error("Error adding stock to portfolio:", error)

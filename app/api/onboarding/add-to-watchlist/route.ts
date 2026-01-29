@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
+import { addStockToWatchlist } from "@/lib/watchlist"
 
 const prisma = new PrismaClient()
 
@@ -35,89 +36,61 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // ウォッチリスト数制限をチェック（最大5銘柄）
-    const watchlistCount = await prisma.watchlist.count({
-      where: { userId: user.id },
+    const results = {
+      added: 0,
+      updated: 0,
+      errors: [] as string[],
+    }
+
+    // 各推奨銘柄をウォッチリストに追加
+    for (const rec of recommendations) {
+      try {
+        // 銘柄を検索
+        const stock = await prisma.stock.findUnique({
+          where: { tickerCode: rec.tickerCode },
+        })
+
+        if (!stock) {
+          console.warn(`Stock not found: ${rec.tickerCode}`)
+          results.errors.push(`銘柄 ${rec.tickerCode} が見つかりません`)
+          continue
+        }
+
+        // ウォッチリストに追加（モジュールを使用）
+        const result = await addStockToWatchlist({
+          userId: user.id,
+          stockId: stock.id,
+          recommendedPrice: rec.recommendedPrice,
+          recommendedQty: rec.quantity,
+          reason: rec.reason,
+          source: "onboarding",
+        })
+
+        if (result.success) {
+          if (result.isNew) {
+            results.added++
+          } else {
+            results.updated++
+          }
+        } else {
+          results.errors.push(result.error)
+          // 制限エラーの場合はここで中断
+          if (result.error.includes("最大")) {
+            break
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing ${rec.tickerCode}:`, error)
+        results.errors.push(`銘柄 ${rec.tickerCode} の処理に失敗しました`)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      added: results.added,
+      updated: results.updated,
+      errors: results.errors,
     })
-
-    // 新規追加される銘柄数をカウント
-    let newEntriesCount = 0
-    for (const rec of recommendations) {
-      const stock = await prisma.stock.findUnique({
-        where: { tickerCode: rec.tickerCode },
-      })
-      if (!stock) continue
-
-      const existingEntry = await prisma.watchlist.findUnique({
-        where: {
-          userId_stockId: {
-            userId: user.id,
-            stockId: stock.id,
-          },
-        },
-      })
-
-      if (!existingEntry) {
-        newEntriesCount++
-      }
-    }
-
-    if (watchlistCount + newEntriesCount > 5) {
-      return NextResponse.json(
-        { error: `ウォッチリストには最大5銘柄まで登録できます（現在${watchlistCount}銘柄）` },
-        { status: 400 }
-      )
-    }
-
-    // ウォッチリストに追加
-    for (const rec of recommendations) {
-      // 銘柄を検索
-      const stock = await prisma.stock.findUnique({
-        where: { tickerCode: rec.tickerCode },
-      })
-
-      if (!stock) {
-        console.warn(`Stock not found: ${rec.tickerCode}`)
-        continue
-      }
-
-      // 既存のウォッチリストエントリを確認
-      const existingEntry = await prisma.watchlist.findUnique({
-        where: {
-          userId_stockId: {
-            userId: user.id,
-            stockId: stock.id,
-          },
-        },
-      })
-
-      if (existingEntry) {
-        // 既に存在する場合は更新
-        await prisma.watchlist.update({
-          where: { id: existingEntry.id },
-          data: {
-            recommendedPrice: rec.recommendedPrice,
-            recommendedQty: rec.quantity,
-            reason: rec.reason,
-            source: "onboarding",
-          },
-        })
-      } else {
-        // 新規追加
-        await prisma.watchlist.create({
-          data: {
-            userId: user.id,
-            stockId: stock.id,
-            recommendedPrice: rec.recommendedPrice,
-            recommendedQty: rec.quantity,
-            reason: rec.reason,
-            source: "onboarding",
-          },
-        })
-      }
-    }
-
-    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error adding to watchlist:", error)
     return NextResponse.json(
