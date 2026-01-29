@@ -46,6 +46,12 @@ jobs:
         run: |
           npm run calculate-scores
 
+      - name: Record portfolio snapshots
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run record-snapshots
+
       - name: Notify success to Slack
         if: success()
         run: |

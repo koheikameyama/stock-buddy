@@ -2,6 +2,7 @@ import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { PrismaClient } from "@prisma/client"
+import PortfolioGrowthChart from "./PortfolioGrowthChart"
 
 const prisma = new PrismaClient()
 
@@ -23,6 +24,10 @@ export default async function DashboardPage() {
               stock: true,
             },
           },
+          snapshots: {
+            orderBy: { date: "asc" },
+            take: 30, // 過去30日分
+          },
         },
       },
     },
@@ -30,6 +35,13 @@ export default async function DashboardPage() {
 
   const hasPortfolio = !!user?.portfolio
   const stockCount = user?.portfolio?.stocks.length || 0
+
+  // スナップショットデータを整形
+  const snapshots = user?.portfolio?.snapshots.map((s) => ({
+    date: s.date.toISOString(),
+    totalValue: Number(s.totalValue),
+    gainLossPct: Number(s.gainLossPct),
+  })) || []
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
@@ -100,8 +112,11 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {/* 成長グラフ */}
+        {hasPortfolio && <PortfolioGrowthChart snapshots={snapshots} />}
+
         {/* クイックアクションカード */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-8">
           <Link
             href="/dashboard/portfolio"
             className="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all border-2 border-transparent hover:border-blue-500"

@@ -22,7 +22,8 @@
     "db:sync": "bash scripts/sync-stocks-from-production.sh",
     "calculate-scores": "tsx scripts/calculate-stock-scores.ts",
     "fetch-news": "tsx scripts/fetch-market-news.ts",
-    "generate-reports": "tsx scripts/generate-daily-reports.ts"
+    "generate-reports": "tsx scripts/generate-daily-reports.ts",
+    "record-snapshots": "tsx scripts/record-portfolio-snapshots.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -35,6 +36,7 @@
     "next-pwa": "^5.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "recharts": "^3.7.0",
     "typescript": "^5"
   },
   "devDependencies": {

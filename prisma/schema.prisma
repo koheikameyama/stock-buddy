@@ -138,16 +138,33 @@ model StockIndicator {
 
 // ポートフォリオ
 model Portfolio {
-  id             String           @id @default(cuid())
-  userId         String           @unique
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name           String           @default("マイポートフォリオ")
-  isActive       Boolean          @default(true)
+  id             String              @id @default(cuid())
+  userId         String              @unique
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String              @default("マイポートフォリオ")
+  isActive       Boolean             @default(true)
   stocks         PortfolioStock[]
   transactions   Transaction[]
   dailyReports   DailyReport[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  snapshots      PortfolioSnapshot[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+// ポートフォリオの日次スナップショット（評価額記録）
+model PortfolioSnapshot {
+  id          String    @id @default(cuid())
+  portfolioId String
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  date        DateTime  @db.Date
+  totalValue  Decimal   @db.Decimal(15, 2) // 総評価額
+  totalCost   Decimal   @db.Decimal(15, 2) // 総取得価額
+  gainLoss    Decimal   @db.Decimal(15, 2) // 損益額
+  gainLossPct Decimal   @db.Decimal(5, 2)  // 損益率（%）
+  createdAt   DateTime  @default(now())
+
+  @@unique([portfolioId, date])
+  @@index([portfolioId, date(sort: Desc)])
 }
 
 // 保有銘柄
