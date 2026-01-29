@@ -4,6 +4,7 @@ import Link from "next/link"
 import { PrismaClient } from "@prisma/client"
 import PortfolioGrowthChart from "./PortfolioGrowthChart"
 import Header from "@/app/components/Header"
+import DashboardClient from "./DashboardClient"
 
 const prisma = new PrismaClient()
 
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
           },
         },
       },
+      watchlist: true,
       coachMessages: {
         orderBy: { date: "desc" },
         take: 1, // 最新のメッセージのみ
@@ -38,7 +40,8 @@ export default async function DashboardPage() {
     },
   })
 
-  const hasPortfolio = !!user?.portfolio
+  const hasPortfolio = (user?.portfolio?.stocks.length || 0) > 0
+  const hasWatchlist = (user?.watchlist?.length || 0) > 0
   const stockCount = user?.portfolio?.stocks.length || 0
 
   // スナップショットデータを整形
@@ -61,6 +64,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Header />
+      <DashboardClient hasPortfolio={hasPortfolio} hasWatchlist={hasWatchlist} />
       <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* ページタイトル */}

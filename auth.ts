@@ -52,8 +52,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // 既にbaseURLで始まる場合はそのまま返す
         return url
       }
-      // それ以外の場合はオンボーディングページにリダイレクト
-      return `${baseUrl}/onboarding`
+      // それ以外の場合はダッシュボードにリダイレクト
+      return `${baseUrl}/dashboard`
     },
   },
   trustHost: true,
