@@ -4,14 +4,22 @@ import webpush from "web-push"
 
 const prisma = new PrismaClient()
 
-// VAPID設定
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || "mailto:noreply@stock-buddy.net",
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+// VAPID設定を初期化（初回リクエスト時のみ実行）
+let vapidInitialized = false
+function initVapid() {
+  if (!vapidInitialized && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT || "mailto:noreply@stock-buddy.net",
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    )
+    vapidInitialized = true
+  }
+}
 
 export async function POST(request: NextRequest) {
+  initVapid()
+
   try {
     // CRON_SECRETで認証
     const authHeader = request.headers.get("authorization")
