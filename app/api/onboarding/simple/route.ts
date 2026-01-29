@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
+import { canRequestRecommendation } from "@/lib/recommendation-limit"
 
 const prisma = new PrismaClient()
 
@@ -67,6 +68,31 @@ export async function POST(request: Request) {
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // ユーザーIDを取得
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // 月次回数制限をチェック
+    const limitCheck = await canRequestRecommendation(user.id)
+
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: "月次の提案回数制限に達しました",
+          currentCount: limitCheck.currentCount,
+          maxCount: limitCheck.maxCount,
+          resetDate: limitCheck.resetDate.toISOString(),
+        },
+        { status: 429 }
+      )
     }
 
     const body = await request.json()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
 type Stock = {
@@ -27,6 +27,29 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
   const [budget, setBudget] = useState("")
   const [period, setPeriod] = useState("")
   const [plan, setPlan] = useState<Plan | null>(null)
+  const [limitInfo, setLimitInfo] = useState<{
+    allowed: boolean
+    currentCount: number
+    maxCount: number
+    remainingCount: number
+    resetDate: string
+  } | null>(null)
+
+  // 月次制限情報を取得
+  useEffect(() => {
+    const fetchLimitInfo = async () => {
+      try {
+        const response = await fetch("/api/onboarding/limit")
+        if (response.ok) {
+          const data = await response.json()
+          setLimitInfo(data)
+        }
+      } catch (error) {
+        console.error("Error fetching limit info:", error)
+      }
+    }
+    fetchLimitInfo()
+  }, [])
 
   // Step 1: ようこそ画面
   if (step === 1) {
@@ -152,11 +175,30 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
           }),
         })
 
-        if (!response.ok) {
-          throw new Error("おすすめプランの取得に失敗しました")
+        const data = await response.json()
+
+        if (response.status === 429) {
+          // 月次制限に達している場合
+          alert(
+            `${data.error}\n\n` +
+            `今月の利用回数: ${data.currentCount}/${data.maxCount}回\n` +
+            `次回リセット日: ${new Date(data.resetDate).toLocaleDateString("ja-JP")}`
+          )
+          // 制限情報を更新
+          setLimitInfo({
+            allowed: false,
+            currentCount: data.currentCount,
+            maxCount: data.maxCount,
+            remainingCount: 0,
+            resetDate: data.resetDate,
+          })
+          return
         }
 
-        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || "おすすめプランの取得に失敗しました")
+        }
+
         setPlan(data.plan)
         setStep(3)
       } catch (error) {
@@ -186,6 +228,32 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
                 : "あなたにぴったりのプランを考えますね"}
             </p>
           </div>
+
+          {/* AI提案回数制限の表示 */}
+          {!isExistingInvestor && limitInfo && (
+            <div className={`mb-6 p-4 rounded-lg ${
+              limitInfo.allowed
+                ? "bg-blue-50 border border-blue-200"
+                : "bg-red-50 border border-red-200"
+            }`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">{limitInfo.allowed ? "ℹ️" : "⚠️"}</span>
+                <p className="font-semibold text-gray-900">
+                  AI提案の利用状況
+                </p>
+              </div>
+              <p className="text-sm text-gray-700">
+                今月の利用回数: <span className="font-bold">{limitInfo.currentCount}</span> / {limitInfo.maxCount}回
+                {limitInfo.allowed ? (
+                  <span className="text-gray-600"> （残り{limitInfo.remainingCount}回）</span>
+                ) : (
+                  <span className="text-red-600 block mt-1">
+                    月次制限に達しました。次回は{new Date(limitInfo.resetDate).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}にリセットされます。
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
 
           {/* 予算選択（新規ユーザーのみ） */}
           {!isExistingInvestor && (
