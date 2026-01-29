@@ -9,6 +9,7 @@ interface UpdateStockModalProps {
     purchaseDate: string
     purchasePrice: number
     quantity: number
+    isSimulation: boolean
   }) => Promise<void>
   stock: {
     id: string
@@ -29,6 +30,7 @@ export default function UpdateStockModal({
   const [purchaseDate, setPurchaseDate] = useState("")
   const [purchasePrice, setPurchasePrice] = useState(stock.averagePrice.toString())
   const [quantity, setQuantity] = useState(stock.quantity.toString())
+  const [isSimulation, setIsSimulation] = useState(stock.isSimulation)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,6 +63,7 @@ export default function UpdateStockModal({
         purchaseDate,
         purchasePrice: price,
         quantity: qty,
+        isSimulation,
       })
       onClose()
     } catch (err: any) {
@@ -144,7 +147,7 @@ export default function UpdateStockModal({
             </div>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               株数 <span className="text-red-500">*</span>
             </label>
@@ -162,6 +165,37 @@ export default function UpdateStockModal({
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
                 株
               </span>
+            </div>
+          </div>
+
+          {/* 状態切り替え */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
+              状態
+            </label>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setIsSimulation(true)}
+                className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+                  isSimulation
+                    ? "bg-gray-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                シミュレーション
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSimulation(false)}
+                className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+                  !isSimulation
+                    ? "bg-green-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                投資中
+              </button>
             </div>
           </div>
 

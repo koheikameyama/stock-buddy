@@ -135,6 +135,7 @@ export default function PortfolioClient({
     purchaseDate: string
     purchasePrice: number
     quantity: number
+    isSimulation: boolean
   }) => {
     if (!selectedStock) return
 
@@ -151,7 +152,8 @@ export default function PortfolioClient({
           purchaseDate: data.purchaseDate,
           purchasePrice: data.purchasePrice,
           quantity: data.quantity,
-          isSimulation: selectedStock.isSimulation,
+          currentIsSimulation: selectedStock.isSimulation,
+          newIsSimulation: data.isSimulation,
         }),
       })
 

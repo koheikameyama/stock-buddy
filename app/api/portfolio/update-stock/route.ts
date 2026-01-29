@@ -11,10 +11,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { portfolioStockId, purchaseDate, purchasePrice, quantity, isSimulation } =
+    const { portfolioStockId, purchaseDate, purchasePrice, quantity, currentIsSimulation, newIsSimulation } =
       await request.json()
 
-    if (!portfolioStockId || !purchaseDate || !purchasePrice || !quantity) {
+    if (!portfolioStockId || !purchaseDate || !purchasePrice || !quantity || currentIsSimulation === undefined || newIsSimulation === undefined) {
       return NextResponse.json(
         { error: "必須項目が不足しています" },
         { status: 400 }
@@ -53,37 +53,11 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // シミュレーションの場合はシミュレーションのまま更新
-    if (isSimulation) {
-      await prisma.portfolioStock.update({
-        where: { id: portfolioStockId },
-        data: {
-          averagePrice: purchasePrice,
-          quantity: quantity,
-        },
-      })
-
-      return NextResponse.json({
-        success: true,
-        message: "シミュレーション情報を更新しました",
-      })
-    } else {
-      // 実投資の購入情報を更新する場合
-      // 既存のトランザクションを更新するか、新しく作成する
-      const existingTransaction = await prisma.transaction.findFirst({
-        where: {
-          portfolioId: user.portfolio.id,
-          stockId: portfolioStock.stock.id,
-          type: "buy",
-        },
-        orderBy: {
-          executedAt: "asc",
-        },
-      })
-
-      await prisma.$transaction(async (tx) => {
-        // ポートフォリオ銘柄を更新
-        await tx.portfolioStock.update({
+    // 状態が変わらない場合（シミュレーション→シミュレーション、実投資→実投資）
+    if (currentIsSimulation === newIsSimulation) {
+      if (newIsSimulation) {
+        // シミュレーションのまま更新
+        await prisma.portfolioStock.update({
           where: { id: portfolioStockId },
           data: {
             averagePrice: purchasePrice,
@@ -91,46 +65,137 @@ export async function PATCH(request: NextRequest) {
           },
         })
 
-        if (existingTransaction) {
-          // 既存のトランザクションを更新
-          await tx.transaction.update({
-            where: { id: existingTransaction.id },
+        return NextResponse.json({
+          success: true,
+          message: "シミュレーション情報を更新しました",
+        })
+      } else {
+        // 実投資のまま更新
+        const existingTransaction = await prisma.transaction.findFirst({
+          where: {
+            portfolioId: user.portfolio!.id,
+            stockId: portfolioStock.stock.id,
+            type: "buy",
+          },
+          orderBy: {
+            executedAt: "asc",
+          },
+        })
+
+        await prisma.$transaction(async (tx) => {
+          await tx.portfolioStock.update({
+            where: { id: portfolioStockId },
             data: {
+              averagePrice: purchasePrice,
               quantity: quantity,
-              price: purchasePrice,
-              executedAt: new Date(purchaseDate),
-              note: "購入情報を更新",
             },
           })
-        } else {
-          // トランザクションが存在しない場合は新規作成
-          await tx.transaction.create({
-            data: {
-              portfolioId: user.portfolio!.id,
-              stockId: portfolioStock.stock.id,
-              type: "buy",
-              quantity: quantity,
-              price: purchasePrice,
-              totalAmount: purchasePrice * quantity,
-              executedAt: new Date(purchaseDate),
-              note: "購入情報を登録",
-            },
-          })
-        }
+
+          if (existingTransaction) {
+            await tx.transaction.update({
+              where: { id: existingTransaction.id },
+              data: {
+                quantity: quantity,
+                price: purchasePrice,
+                totalAmount: purchasePrice * quantity,
+                executedAt: new Date(purchaseDate),
+              },
+            })
+          } else {
+            await tx.transaction.create({
+              data: {
+                portfolioId: user.portfolio!.id,
+                stockId: portfolioStock.stock.id,
+                type: "buy",
+                quantity: quantity,
+                price: purchasePrice,
+                totalAmount: purchasePrice * quantity,
+                executedAt: new Date(purchaseDate),
+                note: "購入情報を更新",
+              },
+            })
+          }
+        })
+
+        return NextResponse.json({
+          success: true,
+          message: "購入情報を更新しました",
+        })
+      }
+    }
+
+    // シミュレーション→実投資の変換
+    if (currentIsSimulation && !newIsSimulation) {
+      await prisma.$transaction(async (tx) => {
+        await tx.portfolioStock.update({
+          where: { id: portfolioStockId },
+          data: {
+            isSimulation: false,
+            averagePrice: purchasePrice,
+            quantity: quantity,
+          },
+        })
+
+        await tx.transaction.create({
+          data: {
+            portfolioId: user.portfolio!.id,
+            stockId: portfolioStock.stock.id,
+            type: "buy",
+            quantity: quantity,
+            price: purchasePrice,
+            totalAmount: purchasePrice * quantity,
+            executedAt: new Date(purchaseDate),
+            note: "シミュレーションから実投資に変換",
+          },
+        })
       })
 
       return NextResponse.json({
         success: true,
-        message: "購入情報を更新しました",
+        message: "投資中に変更しました",
       })
     }
+
+    // 実投資→シミュレーションの変換
+    if (!currentIsSimulation && newIsSimulation) {
+      await prisma.$transaction(async (tx) => {
+        await tx.portfolioStock.update({
+          where: { id: portfolioStockId },
+          data: {
+            isSimulation: true,
+            averagePrice: purchasePrice,
+            quantity: quantity,
+          },
+        })
+
+        // 実投資のトランザクション記録を削除
+        await tx.transaction.deleteMany({
+          where: {
+            portfolioId: user.portfolio!.id,
+            stockId: portfolioStock.stock.id,
+          },
+        })
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: "シミュレーションに変更しました",
+      })
+    }
+
+    // ここには到達しないはず
+    return NextResponse.json({
+      success: false,
+      message: "不明なエラーが発生しました",
+    })
   } catch (error) {
     console.error("Error updating stock:", error)
     return NextResponse.json(
-      { error: "銘柄の更新に失敗しました" },
+      { error: "更新に失敗しました" },
       { status: 500 }
     )
   } finally {
     await prisma.$disconnect()
   }
 }
+
