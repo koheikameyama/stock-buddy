@@ -234,7 +234,10 @@ export default function PortfolioClient({
             {/* 推奨銘柄リスト */}
             <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">推奨銘柄</h2>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">推奨銘柄</h2>
+              <p className="text-sm text-gray-500 mt-1">※登録できるのは5銘柄まで（現在: {stocks.length}/5）</p>
+            </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               {loading && (
                 <p className="text-sm text-gray-500">株価を取得中...</p>
@@ -617,6 +620,7 @@ export default function PortfolioClient({
                 <p className="text-gray-600 mt-1">
                   おすすめの銘柄です。実際に買ったら「購入した」ボタンで教えてくださいね。
                 </p>
+                <p className="text-sm text-gray-500 mt-1">※登録できるのは5銘柄まで（現在: {watchlist.length}/5）</p>
               </div>
 
               {watchlist.length === 0 ? (
