@@ -31,7 +31,10 @@ export async function POST(request: Request) {
     }
 
     // Fetch top stocks based on user preferences
-    const stocks = await getRecommendedStocks(budget, investmentPeriod, riskTolerance)
+    const candidateStocks = await getRecommendedStocks(budget, investmentPeriod, riskTolerance)
+
+    // 予算内に収まるように銘柄を選択
+    const selectedStocks = selectStocksWithinBudget(candidateStocks, budget)
 
     // Generate a single best plan
     const plan = {
@@ -40,11 +43,11 @@ export async function POST(request: Request) {
       expectedReturn: getExpectedReturn(riskTolerance),
       riskLevel: getRiskLevelText(riskTolerance),
       strategy: getStrategy(riskTolerance, investmentPeriod),
-      stocks: stocks.map((stock) => ({
+      stocks: selectedStocks.map((stock) => ({
         tickerCode: stock.tickerCode,
         name: stock.name,
         recommendedPrice: stock.currentPrice,
-        quantity: calculateQuantity(stock.currentPrice, budget, stocks.length),
+        quantity: stock.quantity,
         reason: generateReason(stock, riskTolerance),
       })),
     }
@@ -124,20 +127,45 @@ async function getRecommendedStocks(
       }
     })
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5) // Top 5 stocks
+    .slice(0, 20) // Top 20 candidates (予算内に収まる銘柄を選ぶため多めに取得)
 
   return scoredStocks
 }
 
-function calculateQuantity(price: number, budget: number, numStocks: number): number {
-  const perStockBudget = budget / numStocks
-  const quantity = Math.floor(perStockBudget / price)
+function selectStocksWithinBudget(
+  stocks: Array<{ currentPrice: number; [key: string]: any }>,
+  budget: number
+): Array<{ currentPrice: number; quantity: number; [key: string]: any }> {
+  const result = []
+  let remainingBudget = budget
 
-  // 日本株は100株単位（単元株）で購入
-  const roundedQuantity = Math.floor(quantity / 100) * 100
+  for (const stock of stocks) {
+    const price = stock.currentPrice
 
-  // 最低100株
-  return Math.max(100, roundedQuantity)
+    // 100株単位で購入可能な最大株数
+    const maxQuantity = Math.floor(remainingBudget / price / 100) * 100
+
+    if (maxQuantity >= 100) {
+      // 最低100株購入可能
+      result.push({
+        ...stock,
+        quantity: maxQuantity,
+      })
+      remainingBudget -= maxQuantity * price
+
+      // 予算の10%以下になったら終了
+      if (remainingBudget < budget * 0.1) {
+        break
+      }
+    }
+
+    // 最大5銘柄まで
+    if (result.length >= 5) {
+      break
+    }
+  }
+
+  return result
 }
 
 function getPlanName(risk: string, period: string): string {
