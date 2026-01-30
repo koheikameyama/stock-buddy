@@ -33,10 +33,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Python3とyfinanceをインストール
-RUN apk add --no-cache python3 py3-pip && \
-    python3 -m pip install --break-system-packages yfinance pandas
-
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
