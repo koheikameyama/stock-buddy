@@ -3,7 +3,7 @@ FROM node:20-alpine AS base
 
 # 依存関係のインストール
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl python3 py3-pip
 WORKDIR /app
 
 # 依存関係ファイルとPrisma schemaをコピー
@@ -32,6 +32,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Python3とyfinanceをインストール
+RUN apk add --no-cache python3 py3-pip && \
+    python3 -m pip install --break-system-packages yfinance pandas
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
