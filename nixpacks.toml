@@ -1,0 +1,7 @@
+[phases.setup]
+aptPkgs = ["python3", "python3-pip"]
+
+[phases.install]
+cmds = [
+  "pip3 install yfinance pandas"
+]
