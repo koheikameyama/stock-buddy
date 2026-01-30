@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
-import yahooFinance from "yahoo-finance2"
+import YahooFinance from "yahoo-finance2"
 
 const prisma = new PrismaClient()
+const yahooFinance = new YahooFinance()
 
 export async function GET() {
   try {
@@ -54,16 +55,17 @@ export async function GET() {
           const now = new Date()
           const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000)
 
-          const historicalData = await yahooFinance.historical(tickerCode, {
+          const chartData = await yahooFinance.chart(tickerCode, {
             period1: fiveDaysAgo,
             period2: now,
             interval: '1d',
-          }) as any[]
+          }) as any
 
           // 最新データと前日データを取得
-          const latest = historicalData[historicalData.length - 1]
-          const previous = historicalData.length > 1
-            ? historicalData[historicalData.length - 2]
+          const quotes = chartData.quotes
+          const latest = quotes[quotes.length - 1]
+          const previous = quotes.length > 1
+            ? quotes[quotes.length - 2]
             : latest
 
           const currentPrice = quote.regularMarketPrice || latest.close
