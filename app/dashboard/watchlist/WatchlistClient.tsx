@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import PriceAlertModal from "./PriceAlertModal"
+import VirtualPurchaseModal from "./VirtualPurchaseModal"
 
 interface Stock {
   id: string
@@ -115,8 +117,9 @@ interface WatchlistCardProps {
 }
 
 function WatchlistCard({ item, onUpdate }: WatchlistCardProps) {
-  const [showVirtualPurchase, setShowVirtualPurchase] = useState(false)
-  const [showPriceAlert, setShowPriceAlert] = useState(false)
+  const [showVirtualPurchaseModal, setShowVirtualPurchaseModal] =
+    useState(false)
+  const [showPriceAlertModal, setShowPriceAlertModal] = useState(false)
 
   const hasVirtualPurchase = item.virtualBuyPrice && item.virtualQuantity
 
@@ -185,7 +188,7 @@ function WatchlistCard({ item, onUpdate }: WatchlistCardProps) {
               仮想購入シミュレーション
             </h4>
             <button
-              onClick={() => setShowVirtualPurchase(true)}
+              onClick={() => setShowVirtualPurchaseModal(true)}
               className="text-sm text-blue-600 hover:text-blue-700"
             >
               編集
@@ -241,7 +244,7 @@ function WatchlistCard({ item, onUpdate }: WatchlistCardProps) {
       <div className="flex gap-2">
         {!hasVirtualPurchase && (
           <button
-            onClick={() => setShowVirtualPurchase(true)}
+            onClick={() => setShowVirtualPurchaseModal(true)}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             仮想購入してみる
@@ -249,47 +252,37 @@ function WatchlistCard({ item, onUpdate }: WatchlistCardProps) {
         )}
 
         <button
-          onClick={() => setShowPriceAlert(true)}
+          onClick={() => setShowPriceAlertModal(true)}
           className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
         >
           {item.priceAlert ? "アラート設定中" : "価格アラート設定"}
         </button>
       </div>
 
-      {/* モーダル（簡易版：後で実装） */}
-      {showVirtualPurchase && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold mb-4">仮想購入設定</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              この機能は次のステップで実装します
-            </p>
-            <button
-              onClick={() => setShowVirtualPurchase(false)}
-              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-            >
-              閉じる
-            </button>
-          </div>
-        </div>
-      )}
+      {/* モーダル */}
+      <PriceAlertModal
+        isOpen={showPriceAlertModal}
+        onClose={() => setShowPriceAlertModal(false)}
+        watchlistId={item.id}
+        stockName={item.stock.name}
+        tickerCode={item.stock.tickerCode}
+        currentPrice={item.currentPrice}
+        targetPrice={item.targetPrice}
+        priceAlert={item.priceAlert}
+        onUpdate={onUpdate}
+      />
 
-      {showPriceAlert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold mb-4">価格アラート設定</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              この機能は次のステップで実装します
-            </p>
-            <button
-              onClick={() => setShowPriceAlert(false)}
-              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-            >
-              閉じる
-            </button>
-          </div>
-        </div>
-      )}
+      <VirtualPurchaseModal
+        isOpen={showVirtualPurchaseModal}
+        onClose={() => setShowVirtualPurchaseModal(false)}
+        watchlistId={item.id}
+        stockName={item.stock.name}
+        tickerCode={item.stock.tickerCode}
+        currentPrice={item.currentPrice}
+        virtualBuyPrice={item.virtualBuyPrice}
+        virtualQuantity={item.virtualQuantity}
+        onUpdate={onUpdate}
+      />
     </div>
   )
 }
