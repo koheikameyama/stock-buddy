@@ -37,6 +37,13 @@ jobs:
         run: |
           python scripts/github-actions/update_watchlist_scores.py
 
+      - name: Check price alerts
+        id: price-alerts
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          python scripts/github-actions/check_price_alerts.py
+
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
@@ -47,6 +54,7 @@ jobs:
             Stock Analysis: ✅
             Portfolio Analysis: ✅
             Watchlist Buy-Timing Scores: ✅
+            Price Alerts: ✅
             Coach Messages: ✅
             Push Notifications: ✅
           SLACK_COLOR: good
