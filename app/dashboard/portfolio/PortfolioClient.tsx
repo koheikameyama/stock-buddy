@@ -400,43 +400,54 @@ export default function PortfolioClient({
                   <p className="text-gray-500">{portfolioStock.tickerCode}</p>
                 </div>
 
-                {/* 損益 or 購入シミュレーション（最重要・最上部に大きく表示） */}
-                {portfolioStock.isSimulation ? (
-                  // シミュレーション：推奨価格と現在価格の比較
-                  <div className="rounded-xl p-6 mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-gray-600 mb-2">今買ったら</p>
-                      {price ? (
-                        <>
-                          <p className="text-4xl font-bold text-blue-600 mb-1">
-                            {(price.currentPrice * portfolioStock.quantity).toLocaleString()}円
-                          </p>
-                          <p className="text-sm text-gray-600 mb-3">
-                            現在価格 {price.currentPrice.toLocaleString()}円 × {portfolioStock.quantity}株
-                          </p>
-                          <div className="mt-3 pt-3 border-t border-blue-200">
-                            <p className="text-xs text-gray-500 mb-1">推奨購入価格との差</p>
-                            {price.currentPrice <= averagePrice ? (
-                              <p className="text-lg font-bold text-green-600">
-                                買い時！ {(averagePrice - price.currentPrice).toLocaleString()}円お得
-                              </p>
-                            ) : (
-                              <p className="text-lg font-bold text-orange-600">
-                                {(price.currentPrice - averagePrice).toLocaleString()}円高い
-                              </p>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-2xl font-bold text-gray-400">
-                          {totalCost.toLocaleString()}円（推奨）
+                {/* 損益表示（実投資・シミュレーション共通） */}
+                {price && profit !== null && profitPercent !== null ? (
+                  portfolioStock.isSimulation ? (
+                    // シミュレーション：「もし買っていたら」の損益
+                    <div className={`rounded-xl p-6 mb-4 ${
+                      profit >= 0
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200'
+                        : 'bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-200'
+                    }`}>
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-gray-600 mb-2">
+                          もし買っていたら（シミュレーション）
                         </p>
-                      )}
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          {profit >= 0 ? (
+                            <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                            </svg>
+                          ) : (
+                            <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          <p className={`text-4xl font-bold ${
+                            profit >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {profit >= 0 ? '+' : ''}{profit.toLocaleString()}円
+                          </p>
+                        </div>
+                        <p className={`text-2xl font-bold ${
+                          profit >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          ({profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%)
+                        </p>
+                        <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-500 mb-1">推奨時の価格</p>
+                            <p className="font-semibold text-gray-900">{totalCost.toLocaleString()}円</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 mb-1">今の価値</p>
+                            <p className="font-semibold text-gray-900">{currentValue?.toLocaleString()}円</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  // 実投資：損益表示
-                  price && profit !== null && profitPercent !== null && (
+                  ) : (
+                    // 実投資：損益表示
                     <div className={`rounded-xl p-6 mb-4 ${
                       profit >= 0
                         ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200'
@@ -478,7 +489,7 @@ export default function PortfolioClient({
                       </div>
                     </div>
                   )
-                )}
+                ) : null}
 
                 {/* 最近の調子（シンプル表示） */}
                 {price && (
