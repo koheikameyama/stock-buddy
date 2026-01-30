@@ -33,6 +33,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Python3とyfinanceをインストール（タイムゾーンデータも含める）
+RUN apk add --no-cache python3 py3-pip tzdata && \
+    python3 -m pip install --break-system-packages yfinance pandas
+
+# タイムゾーン設定
+ENV TZ=Asia/Tokyo
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 

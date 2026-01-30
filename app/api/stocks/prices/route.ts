@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { PrismaClient } from "@prisma/client"
-import YahooFinance from "yahoo-finance2"
 
 const prisma = new PrismaClient()
-// タイムアウトとリトライで対応
-const yahooFinance = new YahooFinance()
 
 export async function GET() {
   try {
@@ -45,73 +42,106 @@ export async function GET() {
       return NextResponse.json({ prices: [] })
     }
 
-    // リトライ関数
-    const fetchWithRetry = async (fn: () => Promise<any>, retries = 3, delay = 1000): Promise<any> => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          return await fn()
-        } catch (error: any) {
-          const isTimeout = error?.cause?.code === 'ETIMEDOUT' || error?.code === 'ETIMEDOUT'
-          if (i === retries - 1 || !isTimeout) {
-            throw error
-          }
-          console.log(`Retry ${i + 1}/${retries} after ${delay}ms...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
-        }
-      }
-    }
+    // Pythonスクリプトを呼び出して株価を取得
+    // タイムゾーンエラー対策: TZ環境変数を設定してからyfinanceを実行
+    const pythonScript = `
+import os
+# タイムゾーン設定（yfinanceのタイムゾーンエラー対策）
+os.environ['TZ'] = 'Asia/Tokyo'
 
-    // yahoo-finance2を使って株価を取得
-    const prices = await Promise.all(
-      tickerCodes.map(async (tickerCode) => {
-        try {
-          // 現在の株価を取得（リトライ付き）
-          const quote = await fetchWithRetry(() => yahooFinance.quote(tickerCode)) as any
+import yfinance as yf
+import json
+import sys
 
-          // 過去5日間のデータを取得（前日比計算用、リトライ付き）
-          const now = new Date()
-          const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000)
+ticker_codes = ${JSON.stringify(tickerCodes)}
 
-          const chartData = await fetchWithRetry(() =>
-            yahooFinance.chart(tickerCode, {
-              period1: fiveDaysAgo,
-              period2: now,
-              interval: '1d',
+result = []
+for code in ticker_codes:
+    try:
+        # ティッカーコードがすでに.Tを含んでいる場合はそのまま、含んでいない場合は追加
+        ticker = code if code.endswith('.T') else f"{code}.T"
+        stock = yf.Ticker(ticker)
+
+        # 最新の株価情報を取得
+        hist = stock.history(period="5d")
+
+        if not hist.empty:
+            latest = hist.iloc[-1]
+            prev = hist.iloc[-2] if len(hist) > 1 else latest
+
+            current_price = float(latest['Close'])
+            prev_close = float(prev['Close'])
+            change = current_price - prev_close
+            change_percent = (change / prev_close * 100) if prev_close != 0 else 0
+
+            # .Tを除去したティッカーコードを返す
+            clean_code = code.replace('.T', '')
+
+            result.append({
+                "tickerCode": clean_code,
+                "currentPrice": round(current_price, 2),
+                "previousClose": round(prev_close, 2),
+                "change": round(change, 2),
+                "changePercent": round(change_percent, 2),
+                "volume": int(latest['Volume']),
+                "high": round(float(latest['High']), 2),
+                "low": round(float(latest['Low']), 2),
             })
-          ) as any
+    except Exception as e:
+        print(f"Error fetching {code}: {str(e)}", file=sys.stderr)
+        continue
 
-          // 最新データと前日データを取得
-          const quotes = chartData.quotes
-          const latest = quotes[quotes.length - 1]
-          const previous = quotes.length > 1
-            ? quotes[quotes.length - 2]
-            : latest
+print(json.dumps(result))
+`
 
-          const currentPrice = quote.regularMarketPrice || latest.close
-          const previousClose = previous.close
-          const change = currentPrice - previousClose
-          const changePercent = (change / previousClose) * 100
+    // Pythonスクリプトを実行
+    const { spawn } = await import("child_process")
 
-          // 52週高値・安値を取得
-          const high = quote.fiftyTwoWeekHigh || 0
-          const low = quote.fiftyTwoWeekLow || 0
+    const pythonProcess = spawn("python3", ["-c", pythonScript], {
+      env: {
+        ...process.env,
+        TZ: 'Asia/Tokyo',
+        PYTHONIOENCODING: 'utf-8',
+      }
+    })
 
-          return {
-            tickerCode: tickerCode.replace('.T', ''), // .Tを除去
-            currentPrice: Math.round(currentPrice * 100) / 100,
-            previousClose: Math.round(previousClose * 100) / 100,
-            change: Math.round(change * 100) / 100,
-            changePercent: Math.round(changePercent * 100) / 100,
-            volume: quote.regularMarketVolume || latest.volume || 0,
-            high: Math.round(high * 100) / 100,
-            low: Math.round(low * 100) / 100,
-          }
+    let stdout = ""
+    let stderr = ""
+
+    pythonProcess.stdout.on("data", (data) => {
+      stdout += data.toString()
+    })
+
+    pythonProcess.stderr.on("data", (data) => {
+      stderr += data.toString()
+    })
+
+    const prices = await new Promise<any[]>((resolve, reject) => {
+      pythonProcess.on("close", (code) => {
+        if (stderr) {
+          console.error("Python stderr:", stderr)
+        }
+
+        if (code !== 0) {
+          console.error(`Python process exited with code ${code}`)
+          resolve([])
+          return
+        }
+
+        try {
+          const result = JSON.parse(stdout)
+          resolve(result)
         } catch (error) {
-          console.error(`Error fetching ${tickerCode}:`, error)
-          return null
+          console.error("Failed to parse Python output:", stdout)
+          resolve([])
         }
       })
-    )
+
+      pythonProcess.on("error", (error) => {
+        console.error("Failed to start Python process:", error)
+        resolve([])
+      })
+    })
 
     // nullを除外
     const validPrices = prices.filter((p) => p !== null)
