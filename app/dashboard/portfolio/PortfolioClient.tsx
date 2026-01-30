@@ -7,6 +7,15 @@ import AddStockModal from "./AddStockModal"
 import UpdateStockModal from "./UpdateStockModal"
 import SettingsModal from "./SettingsModal"
 
+interface StockAnalysis {
+  action: string
+  analysis: string
+  reasoning: string | null
+  currentPrice: string
+  gainLoss: string
+  gainLossPct: string
+}
+
 interface Stock {
   id: string
   stockId: string
@@ -18,6 +27,7 @@ interface Stock {
   averagePrice: string
   reason: string | null
   isSimulation: boolean
+  analysis: StockAnalysis | null
 }
 
 interface WatchlistItem {
@@ -484,6 +494,49 @@ export default function PortfolioClient({
                         </p>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* 今日の分析 */}
+                {portfolioStock.analysis && (
+                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-bold text-purple-900 flex items-center gap-2">
+                        🤖 今日の分析
+                      </h4>
+                      <span
+                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                          portfolioStock.analysis.action === "hold"
+                            ? "bg-blue-100 text-blue-700"
+                            : portfolioStock.analysis.action === "buy_more"
+                              ? "bg-green-100 text-green-700"
+                              : portfolioStock.analysis.action === "sell_partial"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {portfolioStock.analysis.action === "hold"
+                          ? "保有継続"
+                          : portfolioStock.analysis.action === "buy_more"
+                            ? "買い増し"
+                            : portfolioStock.analysis.action === "sell_partial"
+                              ? "一部売却"
+                              : "売却検討"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed mb-3">
+                      {portfolioStock.analysis.analysis}
+                    </p>
+                    {portfolioStock.analysis.reasoning && (
+                      <div className="mt-3 pt-3 border-t border-purple-200">
+                        <p className="text-xs font-semibold text-purple-900 mb-1">
+                          💡 判断理由
+                        </p>
+                        <p className="text-xs text-gray-600 leading-relaxed">
+                          {portfolioStock.analysis.reasoning}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
