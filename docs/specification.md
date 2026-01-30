@@ -387,7 +387,7 @@ CTA: [無料で始める（3分）]
 #### 5. 今日の注目銘柄 ✅ 実装済
 - **全ユーザー共通**で毎日3銘柄を提案
 - GitHub Actions（daily-featured-stocks.yml）で自動生成
-  - 実行時刻: 毎日JST 5:00 (UTC 20:00)
+  - 実行時刻: 毎日JST 17:00 (UTC 08:00)
 - 選定ロジック:
   - 初心者向けスコア70以上
   - セクター分散を考慮
@@ -405,13 +405,13 @@ CTA: [無料で始める（3分）]
 #### 7. 評価額の日次記録 ✅ 実装済
 - 毎日の評価額をDB保存（PortfolioSnapshot テーブル）
 - GitHub Actions（daily-stock-fetch.yml）で自動実行
-  - 実行時刻: 平日JST 18:00 (UTC 09:00)
+  - 実行時刻: 平日JST 16:00 (UTC 07:00)、市場クローズ（15:00）後
 - グラフで推移を表示
 - 損益計算（金額・率）
 
 #### 8. 日次分析 ✅ 実装済
 - GitHub Actions（daily-analysis.yml）で自動実行
-  - 実行時刻: 毎日JST 6:00 (UTC 21:00)
+  - 実行時刻: 毎日JST 18:00 (UTC 09:00)
 - ウォッチリスト銘柄の分析
 - ポートフォリオ銘柄の分析
 - コーチメッセージの生成
@@ -419,7 +419,7 @@ CTA: [無料で始める（3分）]
 
 #### 9. 週次レポート ✅ 実装済
 - GitHub Actions（daily-report.yml）で自動生成
-  - 実行時刻: 毎日JST 9:00 (UTC 0:00)
+  - 実行時刻: 毎日JST 19:00 (UTC 10:00)
 - ポートフォリオの週次サマリー
 - 損益の推移
 - 今週のハイライト
@@ -430,10 +430,11 @@ CTA: [無料で始める（3分）]
 - 購読管理（PushSubscription テーブル）
 - ポートフォリオ保有ユーザーにのみ通知
 - 410 Gone エラー時に自動購読削除
+- 日次分析（18:00 JST）とレポート生成（19:00 JST）時に送信
 
 #### 11. マーケットニュース ✅ 実装済
 - GitHub Actions（fetch-market-news.yml）で自動取得
-  - 実行時刻: 毎日JST 9:00 (UTC 0:00)
+  - 実行時刻: 毎日JST 7:00 (UTC 22:00 前日)、市場開始前
 - Tavily API + OpenAI API で要約
 - MarketNews テーブルで管理
 
@@ -816,7 +817,7 @@ Stock Buddy:
 - **通知**: Slack (成功/失敗)
 
 #### 2. 株価データ取得 (daily-stock-fetch.yml)
-- **実行時刻**: 平日 JST 18:00 (UTC 09:00)
+- **実行時刻**: 平日 JST 16:00 (UTC 07:00)、市場クローズ（15:00）後
 - **実行内容**:
   1. Python: 株価データ取得 (fetch_stocks.py)
   2. TypeScript: 銘柄スコア計算 (calculate-stock-scores.ts)
@@ -825,17 +826,17 @@ Stock Buddy:
 - **通知**: Slack
 
 #### 3. マーケットニュース取得 (fetch-market-news.yml)
-- **実行時刻**: 毎日 JST 9:00 (UTC 0:00)
+- **実行時刻**: 毎日 JST 7:00 (UTC 22:00 前日)、市場開始前
 - **実行内容**: TypeScript: ニュース取得・要約 (fetch-market-news.ts)
 - **通知**: Slack
 
 #### 4. 今日の注目銘柄生成 (daily-featured-stocks.yml)
-- **実行時刻**: 毎日 JST 5:00 (UTC 20:00)
+- **実行時刻**: 毎日 JST 17:00 (UTC 08:00)、株価データ取得後
 - **実行内容**: Python: 注目銘柄選定 (generate_featured_stocks.py)
 - **通知**: Slack
 
 #### 5. 日次分析 (daily-analysis.yml)
-- **実行時刻**: 毎日 JST 6:00 (UTC 21:00)
+- **実行時刻**: 毎日 JST 18:00 (UTC 09:00)、注目銘柄生成後
 - **実行内容**: Python: 分析API呼び出し (generate_daily_analysis.py)
   - ウォッチリスト銘柄分析
   - ポートフォリオ銘柄分析
@@ -844,8 +845,10 @@ Stock Buddy:
 - **通知**: Slack
 
 #### 6. 週次レポート生成 (daily-report.yml)
-- **実行時刻**: 毎日 JST 9:00 (UTC 0:00)
+- **実行時刻**: 毎日 JST 19:00 (UTC 10:00)、日次分析後
 - **実行内容**: Python: レポート生成API呼び出し (generate_daily_report.py)
+  - ポートフォリオレポート生成
+  - プッシュ通知送信
 - **通知**: Slack
 
 ### 13.3 データベーススキーマ（主要テーブル）

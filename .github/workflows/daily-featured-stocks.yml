@@ -2,8 +2,8 @@ name: Daily Featured Stocks
 
 on:
   schedule:
-    # Run daily at 5 AM JST (8 PM UTC previous day)
-    - cron: '0 20 * * *'
+    # Run daily at 5 PM JST (8 AM UTC) - after stock data fetch
+    - cron: '0 8 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
