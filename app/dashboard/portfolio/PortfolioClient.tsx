@@ -480,6 +480,59 @@ export default function PortfolioClient({
                   )
                 )}
 
+                {/* 最近の調子（シンプル表示） */}
+                {price && (
+                  <div className="mb-4 p-4 bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">最近の調子</p>
+                        {price.changePercent >= 3 ? (
+                          <p className="text-lg font-bold text-green-600 flex items-center gap-2">
+                            📈 調子いいです
+                            <span className="text-sm font-normal">（前日比+{price.changePercent.toFixed(1)}%）</span>
+                          </p>
+                        ) : price.changePercent <= -3 ? (
+                          <p className="text-lg font-bold text-red-600 flex items-center gap-2">
+                            📉 少し下がり気味
+                            <span className="text-sm font-normal">（前日比{price.changePercent.toFixed(1)}%）</span>
+                          </p>
+                        ) : (
+                          <p className="text-lg font-bold text-gray-600 flex items-center gap-2">
+                            ➡️ 安定しています
+                            <span className="text-sm font-normal">（前日比{price.changePercent >= 0 ? '+' : ''}{price.changePercent.toFixed(1)}%）</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 価格帯の位置（視覚的バー） */}
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-500 mb-2">今の価格</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-12">安い</span>
+                        <div className="flex-1 relative h-2 bg-gradient-to-r from-blue-200 via-gray-300 to-red-200 rounded-full">
+                          {/* 現在価格の位置を示すマーカー */}
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg"
+                            style={{
+                              left: `${price.low && price.high && price.currentPrice
+                                ? Math.max(0, Math.min(100, ((price.currentPrice - price.low) / (price.high - price.low)) * 100))
+                                : 50}%`,
+                              transform: 'translate(-50%, -50%)'
+                            }}
+                            title={`現在: ${price.currentPrice.toLocaleString()}円`}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-400 w-12 text-right">高い</span>
+                      </div>
+                      <div className="flex justify-between mt-1 text-xs text-gray-500">
+                        <span>52週安値</span>
+                        <span>52週高値</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* 今日の分析 */}
                 {portfolioStock.analysis && (
                   <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
@@ -555,22 +608,51 @@ export default function PortfolioClient({
                   {expandedStocks.has(portfolioStock.id) && (
                     <div className="mt-3 bg-blue-50 rounded-lg p-4 space-y-3">
                       {price && (
-                        <div className="grid grid-cols-2 gap-3 pb-3 border-b border-blue-200">
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">現在価格</p>
-                            <p className="text-lg font-semibold text-gray-900">
-                              {price.currentPrice.toLocaleString()}円
-                            </p>
+                        <>
+                          <div className="grid grid-cols-2 gap-3 pb-3 border-b border-blue-200">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">現在価格</p>
+                              <p className="text-lg font-semibold text-gray-900">
+                                {price.currentPrice.toLocaleString()}円
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">前日比</p>
+                              <p className={`text-lg font-semibold ${
+                                price.change >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {price.change >= 0 ? '+' : ''}{price.change.toLocaleString()}円
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">前日比</p>
-                            <p className={`text-lg font-semibold ${
-                              price.change >= 0 ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {price.change >= 0 ? '+' : ''}{price.change.toLocaleString()}円
-                            </p>
-                          </div>
-                        </div>
+                          {/* 52週高値・安値 */}
+                          {price.high && price.low && (
+                            <div className="grid grid-cols-2 gap-3 pb-3 border-b border-blue-200">
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">52週高値</p>
+                                <p className="text-sm font-semibold text-gray-900">
+                                  {price.high.toLocaleString()}円
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {price.currentPrice < price.high
+                                    ? `今より${((price.high - price.currentPrice) / price.currentPrice * 100).toFixed(1)}%高い`
+                                    : '到達中'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">52週安値</p>
+                                <p className="text-sm font-semibold text-gray-900">
+                                  {price.low.toLocaleString()}円
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {price.currentPrice > price.low
+                                    ? `今より${((price.currentPrice - price.low) / price.low * 100).toFixed(1)}%低い`
+                                    : '到達中'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
