@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client"
 import YahooFinance from "yahoo-finance2"
 
 const prisma = new PrismaClient()
+// タイムアウトとリトライで対応
 const yahooFinance = new YahooFinance()
 
 export async function GET() {
@@ -44,22 +45,40 @@ export async function GET() {
       return NextResponse.json({ prices: [] })
     }
 
+    // リトライ関数
+    const fetchWithRetry = async (fn: () => Promise<any>, retries = 3, delay = 1000): Promise<any> => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await fn()
+        } catch (error: any) {
+          const isTimeout = error?.cause?.code === 'ETIMEDOUT' || error?.code === 'ETIMEDOUT'
+          if (i === retries - 1 || !isTimeout) {
+            throw error
+          }
+          console.log(`Retry ${i + 1}/${retries} after ${delay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      }
+    }
+
     // yahoo-finance2を使って株価を取得
     const prices = await Promise.all(
       tickerCodes.map(async (tickerCode) => {
         try {
-          // 現在の株価を取得
-          const quote = await yahooFinance.quote(tickerCode) as any
+          // 現在の株価を取得（リトライ付き）
+          const quote = await fetchWithRetry(() => yahooFinance.quote(tickerCode)) as any
 
-          // 過去5日間のデータを取得（前日比計算用）
+          // 過去5日間のデータを取得（前日比計算用、リトライ付き）
           const now = new Date()
           const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000)
 
-          const chartData = await yahooFinance.chart(tickerCode, {
-            period1: fiveDaysAgo,
-            period2: now,
-            interval: '1d',
-          }) as any
+          const chartData = await fetchWithRetry(() =>
+            yahooFinance.chart(tickerCode, {
+              period1: fiveDaysAgo,
+              period2: now,
+              interval: '1d',
+            })
+          ) as any
 
           // 最新データと前日データを取得
           const quotes = chartData.quotes
