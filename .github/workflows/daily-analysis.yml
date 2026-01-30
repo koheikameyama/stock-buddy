@@ -30,6 +30,13 @@ jobs:
         run: |
           python scripts/github-actions/generate_daily_analysis.py
 
+      - name: Update watchlist buy-timing scores
+        id: watchlist-scores
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          python scripts/github-actions/update_watchlist_scores.py
+
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
@@ -39,6 +46,7 @@ jobs:
           SLACK_MESSAGE: |
             Stock Analysis: ✅
             Portfolio Analysis: ✅
+            Watchlist Buy-Timing Scores: ✅
             Coach Messages: ✅
             Push Notifications: ✅
           SLACK_COLOR: good
