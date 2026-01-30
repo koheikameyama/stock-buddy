@@ -104,7 +104,7 @@ export default async function DashboardPage() {
                       href="/dashboard/reports"
                       className="px-4 py-2 bg-blue-400 text-white rounded-lg font-semibold hover:bg-blue-500 transition-colors text-center text-sm sm:text-base"
                     >
-                      今日の振り返り
+                      今日の提案
                     </Link>
                   </>
                 ) : (
@@ -182,13 +182,13 @@ export default async function DashboardPage() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  振り返り
+                  今日の提案
                 </h3>
-                <p className="text-sm text-gray-500">アドバイス</p>
+                <p className="text-sm text-gray-500">全体の最適化</p>
               </div>
             </div>
             <p className="text-sm text-gray-600">
-              今日の分析をチェック
+              やるべきアクション
             </p>
           </Link>
         </div>

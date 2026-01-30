@@ -91,9 +91,11 @@ export default function ReportClient({
         {/* ヘッダー */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            今日の振り返り
+            今日のおすすめアクション
           </h1>
-          <p className="text-lg text-gray-600">一緒に今日の投資を見てみましょう</p>
+          <p className="text-lg text-gray-600">
+            ポートフォリオ全体を見て、今日やるべきことを提案します
+          </p>
         </div>
 
         {/* エラー表示 */}
@@ -122,16 +124,16 @@ export default function ReportClient({
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              まだ今日の振り返りがありません
+              まだ今日の提案がありません
             </h2>
             <p className="text-gray-600 mb-6">
-              一緒にあなたの投資を見てみましょう。今日のアドバイスを用意しますね
+              ポートフォリオ全体を分析して、今日やるべきアクションを提案します
             </p>
             <button
               onClick={handleGenerate}
               className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
             >
-              振り返りを見る
+              今日の提案を見る
             </button>
           </div>
         )}
@@ -188,7 +190,7 @@ export default function ReportClient({
 
               <div className="bg-blue-50 rounded-lg p-6 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  📝 結論
+                  📝 今日の提案
                 </h3>
                 <p className="text-gray-800 text-lg leading-relaxed">
                   {currentReport.summary}
@@ -197,7 +199,7 @@ export default function ReportClient({
 
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  💡 なぜこの判断？
+                  💡 ポートフォリオ全体から見た判断理由
                 </h3>
                 <p className="text-gray-700 leading-relaxed whitespace-pre-line">
                   {currentReport.reasoning}
