@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import OnboardingModal from "@/app/components/OnboardingModal"
+import InstallPrompt from "@/app/components/InstallPrompt"
 
 type DashboardClientProps = {
   hasPortfolio: boolean
@@ -28,6 +29,9 @@ export default function DashboardClient({ hasPortfolio, hasWatchlist }: Dashboar
   }
 
   return (
-    <OnboardingModal isOpen={showModal} onClose={handleCloseModal} />
+    <>
+      <OnboardingModal isOpen={showModal} onClose={handleCloseModal} />
+      <InstallPrompt />
+    </>
   )
 }

@@ -63,8 +63,20 @@
     {
       "name": "ポートフォリオ",
       "short_name": "Portfolio",
-      "description": "ポートフォリオを表示",
+      "description": "今持ってる銘柄を表示",
       "url": "/dashboard/portfolio",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "気になる銘柄",
+      "short_name": "Watchlist",
+      "description": "ウォッチリストを表示",
+      "url": "/dashboard/watchlist",
       "icons": [
         {
           "src": "/icons/icon-192x192.png",
@@ -75,7 +87,7 @@
     {
       "name": "今日のレポート",
       "short_name": "Report",
-      "description": "今日のBuddyレポートを表示",
+      "description": "今日の分析を表示",
       "url": "/dashboard/reports",
       "icons": [
         {
