@@ -82,6 +82,7 @@ export default function PortfolioClient({
   const [showUpdateStockModal, setShowUpdateStockModal] = useState(false)
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
   const [deletingStockId, setDeletingStockId] = useState<string | null>(null)
+  const [deletingWatchlistId, setDeletingWatchlistId] = useState<string | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [addStockMode, setAddStockMode] = useState<"portfolio" | "watchlist">("portfolio")
   const [expandedStocks, setExpandedStocks] = useState<Set<string>>(new Set())
@@ -222,6 +223,38 @@ export default function PortfolioClient({
     } catch (err: any) {
       console.error(err)
       throw err
+    }
+  }
+
+  const handleDeleteWatchlist = async (watchlistId: string, stockName: string) => {
+    if (!confirm(`${stockName}をウォッチリストから削除しますか？`)) {
+      return
+    }
+
+    try {
+      setDeletingWatchlistId(watchlistId)
+      setError(null)
+
+      const response = await fetch("/api/watchlist", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ watchlistId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "削除に失敗しました")
+      }
+
+      // 成功: ページをリフレッシュ
+      router.refresh()
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "削除に失敗しました")
+    } finally {
+      setDeletingWatchlistId(null)
     }
   }
 
@@ -393,51 +426,27 @@ export default function PortfolioClient({
                 key={portfolioStock.id}
                 className="bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow relative"
               >
-                {/* 右上のボタン群 */}
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedStock(portfolioStock)
-                      setShowUpdateStockModal(true)
-                    }}
-                    className="text-gray-400 hover:text-blue-600 transition-colors"
-                    title="購入情報を更新"
+                {/* 右上の削除ボタン */}
+                <button
+                  onClick={() => handleDeleteStock(portfolioStock.id, portfolioStock.name)}
+                  disabled={deletingStockId === portfolioStock.id}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                  title="削除"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteStock(portfolioStock.id, portfolioStock.name)}
-                    disabled={deletingStockId === portfolioStock.id}
-                    className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                    title="削除"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
-                </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
 
                 {/* 銘柄名・ティッカー */}
                 <div className="mb-4">
@@ -1031,8 +1040,30 @@ export default function PortfolioClient({
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow"
+                      className="bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow relative"
                     >
+                      {/* 右上の削除ボタン */}
+                      <button
+                        onClick={() => handleDeleteWatchlist(item.id, item.name)}
+                        disabled={deletingWatchlistId === item.id}
+                        className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                        title="削除"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-1">

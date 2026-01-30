@@ -130,3 +130,62 @@ export async function GET() {
     await prisma.$disconnect()
   }
 }
+
+/**
+ * DELETE /api/watchlist
+ *
+ * ウォッチリストから銘柄を削除
+ */
+export async function DELETE(request: Request) {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
+    }
+
+    const { watchlistId } = await request.json()
+
+    if (!watchlistId) {
+      return NextResponse.json(
+        { error: "watchlistId is required" },
+        { status: 400 }
+      )
+    }
+
+    // ウォッチリストアイテムを取得して所有者を確認
+    const watchlistItem = await prisma.watchlist.findUnique({
+      where: { id: watchlistId },
+      include: { user: true },
+    })
+
+    if (!watchlistItem) {
+      return NextResponse.json(
+        { error: "ウォッチリストアイテムが見つかりません" },
+        { status: 404 }
+      )
+    }
+
+    if (watchlistItem.user.email !== session.user.email) {
+      return NextResponse.json({ error: "権限がありません" }, { status: 403 })
+    }
+
+    // 削除
+    await prisma.watchlist.delete({
+      where: { id: watchlistId },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: "ウォッチリストから削除しました",
+    })
+  } catch (error) {
+    console.error("Error deleting watchlist item:", error)
+    return NextResponse.json(
+      { error: "削除に失敗しました" },
+      { status: 500 }
+    )
+  } finally {
+    await prisma.$disconnect()
+  }
+}
