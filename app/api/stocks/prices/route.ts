@@ -34,7 +34,11 @@ export async function GET() {
 
     const tickerCodes = user.portfolio.stocks.map((ps) => ps.stock.tickerCode)
 
+    console.log('ポートフォリオの銘柄数:', user.portfolio.stocks.length)
+    console.log('ティッカーコード:', tickerCodes)
+
     if (tickerCodes.length === 0) {
+      console.log('銘柄が登録されていません')
       return NextResponse.json({ prices: [] })
     }
 
@@ -49,8 +53,8 @@ ticker_codes = ${JSON.stringify(tickerCodes)}
 result = []
 for code in ticker_codes:
     try:
-        # 日本株の場合は.Tを付ける
-        ticker = f"{code}.T"
+        # ティッカーコードをそのまま使用（既に.Tが含まれている）
+        ticker = code
         stock = yf.Ticker(ticker)
 
         # 最新の株価情報を取得
@@ -101,6 +105,10 @@ print(json.dumps(result))
 
     const result = await new Promise<any>((resolve, reject) => {
       pythonProcess.on("close", (code) => {
+        console.log('Python stdout:', stdout)
+        console.log('Python stderr:', stderr)
+        console.log('Python exit code:', code)
+
         if (code !== 0) {
           console.error("Python stderr:", stderr)
           reject(new Error(`Python process exited with code ${code}`))
@@ -108,6 +116,7 @@ print(json.dumps(result))
         }
         try {
           const prices = JSON.parse(stdout)
+          console.log('パース後の株価データ:', prices)
           resolve(prices)
         } catch (e) {
           console.error("Failed to parse Python output:", stdout)

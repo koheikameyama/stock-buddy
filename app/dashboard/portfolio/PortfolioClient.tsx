@@ -73,6 +73,7 @@ export default function PortfolioClient({
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
+  const [buyTimingScores, setBuyTimingScores] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedWatchlistItem, setSelectedWatchlistItem] = useState<WatchlistItem | null>(null)
@@ -97,19 +98,22 @@ export default function PortfolioClient({
     async function fetchPrices() {
       try {
         setLoading(true)
+        console.log('株価取得開始...')
         const response = await fetch("/api/stocks/prices")
         if (!response.ok) {
           throw new Error("株価の取得に失敗しました")
         }
         const data = await response.json()
+        console.log('株価データ取得成功:', data)
         const priceMap: Record<string, StockPrice> = {}
         data.prices.forEach((price: StockPrice) => {
           priceMap[price.tickerCode] = price
         })
+        console.log('株価マップ:', priceMap)
         setPrices(priceMap)
         setError(null)
       } catch (err) {
-        console.error(err)
+        console.error('株価取得エラー:', err)
         setError("株価の取得に失敗しました")
       } finally {
         setLoading(false)
@@ -121,6 +125,32 @@ export default function PortfolioClient({
     const interval = setInterval(fetchPrices, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
+
+  // シミュレーション銘柄の買い時スコアを取得
+  useEffect(() => {
+    async function fetchBuyTimingScores() {
+      const simulationStocks = stocks.filter(s => s.isSimulation)
+      if (simulationStocks.length === 0) return
+
+      try {
+        const scores: Record<string, number> = {}
+        await Promise.all(
+          simulationStocks.map(async (stock) => {
+            const response = await fetch(`/api/portfolio/buy-timing-score?stockId=${stock.stockId}`)
+            if (response.ok) {
+              const data = await response.json()
+              scores[stock.stockId] = data.buyTimingScore
+            }
+          })
+        )
+        setBuyTimingScores(scores)
+      } catch (err) {
+        console.error('買い時スコアの取得に失敗:', err)
+      }
+    }
+
+    fetchBuyTimingScores()
+  }, [stocks])
 
   const handleDeleteStock = async (portfolioStockId: string, stockName: string) => {
     if (!confirm(`${stockName}を今持ってる銘柄から削除しますか？`)) {
@@ -355,31 +385,59 @@ export default function PortfolioClient({
             const profit = currentValue ? currentValue - totalCost : null
             const profitPercent = profit && totalCost > 0 ? (profit / totalCost) * 100 : null
 
+            // 買い時スコアを取得
+            const buyTimingScore = buyTimingScores[portfolioStock.stockId]
+
             return (
               <div
                 key={portfolioStock.id}
                 className="bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow relative"
               >
-                <button
-                  onClick={() => handleDeleteStock(portfolioStock.id, portfolioStock.name)}
-                  disabled={deletingStockId === portfolioStock.id}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                  title="削除"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {/* 右上のボタン群 */}
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedStock(portfolioStock)
+                      setShowUpdateStockModal(true)
+                    }}
+                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                    title="購入情報を更新"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStock(portfolioStock.id, portfolioStock.name)}
+                    disabled={deletingStockId === portfolioStock.id}
+                    className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                    title="削除"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
 
                 {/* 銘柄名・ティッカー */}
                 <div className="mb-4">
@@ -455,9 +513,41 @@ export default function PortfolioClient({
                           <p className="text-4xl font-bold text-blue-600 mb-1">
                             {(price.currentPrice * portfolioStock.quantity).toLocaleString()}円
                           </p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-gray-600 mb-3">
                             （{portfolioStock.quantity}株 × {price.currentPrice.toLocaleString()}円）
                           </p>
+
+                          {/* 買い時スコア */}
+                          {buyTimingScore !== null && buyTimingScore !== undefined && (
+                            <div className="pt-3 border-t border-blue-200">
+                              <p className="text-xs text-gray-500 mb-2">今の買い時度</p>
+                              {buyTimingScore >= 70 ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <span className="text-2xl">🎯</span>
+                                  <div className="text-left">
+                                    <p className="text-lg font-bold text-green-600">今が買い時です</p>
+                                    <p className="text-xs text-gray-600">スコア: {buyTimingScore}/100</p>
+                                  </div>
+                                </div>
+                              ) : buyTimingScore >= 40 ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <span className="text-2xl">⏳</span>
+                                  <div className="text-left">
+                                    <p className="text-lg font-bold text-yellow-600">様子見でもOK</p>
+                                    <p className="text-xs text-gray-600">スコア: {buyTimingScore}/100</p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center gap-2">
+                                  <span className="text-2xl">🕐</span>
+                                  <div className="text-left">
+                                    <p className="text-lg font-bold text-gray-600">今は様子見</p>
+                                    <p className="text-xs text-gray-600">スコア: {buyTimingScore}/100</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>
@@ -602,6 +692,36 @@ export default function PortfolioClient({
                   </div>
                 )}
 
+                {/* 基本情報（常に表示） */}
+                <div className="mb-4 grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-lg p-3 border border-gray-200">
+                    <p className="text-xs text-gray-500 mb-1">保有株数</p>
+                    <p className="text-lg font-bold text-gray-900">{portfolioStock.quantity}株</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-gray-200">
+                    <p className="text-xs text-gray-500 mb-1">{portfolioStock.isSimulation ? '推奨' : '購入時'}価格</p>
+                    <p className="text-lg font-bold text-gray-900">{averagePrice.toLocaleString()}円</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-gray-200">
+                    <p className="text-xs text-gray-500 mb-1">現在価格</p>
+                    {price ? (
+                      <p className="text-lg font-bold text-gray-900">{price.currentPrice.toLocaleString()}円</p>
+                    ) : (
+                      <p className="text-sm text-gray-400">読み込み中...</p>
+                    )}
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-gray-200">
+                    <p className="text-xs text-gray-500 mb-1">前日比</p>
+                    {price ? (
+                      <p className={`text-lg font-bold ${price.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {price.change >= 0 ? '+' : ''}{price.change.toLocaleString()}円
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-400">読み込み中...</p>
+                    )}
+                  </div>
+                </div>
+
                 {/* 詳細情報（折りたたみ可能） */}
                 <div className="mb-4">
                   <button
@@ -633,67 +753,33 @@ export default function PortfolioClient({
 
                   {expandedStocks.has(portfolioStock.id) && (
                     <div className="mt-3 bg-blue-50 rounded-lg p-4 space-y-3">
-                      {price && (
-                        <>
-                          <div className="grid grid-cols-2 gap-3 pb-3 border-b border-blue-200">
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">現在価格</p>
-                              <p className="text-lg font-semibold text-gray-900">
-                                {price.currentPrice.toLocaleString()}円
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">前日比</p>
-                              <p className={`text-lg font-semibold ${
-                                price.change >= 0 ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {price.change >= 0 ? '+' : ''}{price.change.toLocaleString()}円
-                              </p>
-                            </div>
+                      {/* 52週高値・安値 */}
+                      {price && price.high && price.low && (
+                        <div className="grid grid-cols-2 gap-3 pb-3 border-b border-blue-200">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">52週高値</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {price.high.toLocaleString()}円
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {price.currentPrice < price.high
+                                ? `今より${((price.high - price.currentPrice) / price.currentPrice * 100).toFixed(1)}%高い`
+                                : '到達中'}
+                            </p>
                           </div>
-                          {/* 52週高値・安値 */}
-                          {price.high && price.low && (
-                            <div className="grid grid-cols-2 gap-3 pb-3 border-b border-blue-200">
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">52週高値</p>
-                                <p className="text-sm font-semibold text-gray-900">
-                                  {price.high.toLocaleString()}円
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {price.currentPrice < price.high
-                                    ? `今より${((price.high - price.currentPrice) / price.currentPrice * 100).toFixed(1)}%高い`
-                                    : '到達中'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">52週安値</p>
-                                <p className="text-sm font-semibold text-gray-900">
-                                  {price.low.toLocaleString()}円
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {price.currentPrice > price.low
-                                    ? `今より${((price.currentPrice - price.low) / price.low * 100).toFixed(1)}%低い`
-                                    : '到達中'}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">52週安値</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {price.low.toLocaleString()}円
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {price.currentPrice > price.low
+                                ? `今より${((price.currentPrice - price.low) / price.low * 100).toFixed(1)}%低い`
+                                : '到達中'}
+                            </p>
+                          </div>
+                        </div>
                       )}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">保有株数</p>
-                          <p className="text-lg font-semibold text-gray-900">
-                            {portfolioStock.quantity}株
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">{portfolioStock.isSimulation ? '推奨' : '購入時'}価格</p>
-                          <p className="text-lg font-semibold text-gray-900">
-                            {averagePrice.toLocaleString()}円
-                          </p>
-                        </div>
-                      </div>
                       <div className="pt-3 border-t border-blue-200">
                         <p className="text-xs text-gray-500 mb-1">銘柄情報</p>
                         <p className="text-sm text-gray-700">
@@ -709,18 +795,20 @@ export default function PortfolioClient({
                           </p>
                         </div>
                       )}
-                      <button
-                        onClick={() => {
-                          setSelectedStock(portfolioStock)
-                          setShowUpdateStockModal(true)
-                        }}
-                        className="w-full mt-3 py-2 px-4 rounded-lg font-semibold transition-colors bg-blue-600 text-white hover:bg-blue-700"
-                      >
-                        📝 購入情報を更新
-                      </button>
                     </div>
                   )}
                 </div>
+
+                {/* 購入情報を更新ボタン */}
+                <button
+                  onClick={() => {
+                    setSelectedStock(portfolioStock)
+                    setShowUpdateStockModal(true)
+                  }}
+                  className="w-full mt-4 py-3 px-4 rounded-lg font-semibold transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  📝 購入情報を更新
+                </button>
               </div>
             )
           })}
