@@ -971,7 +971,7 @@ export default function PortfolioClient({
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900">気になる銘柄たち</h2>
                       <p className="text-gray-600 mt-1">
-                        AIのおすすめや、あなたが気になる銘柄を保存できます。
+                        あなたが気になる銘柄を保存できます。
                       </p>
                       <p className="text-sm text-gray-500 mt-1">※登録できるのは5銘柄まで（現在: {watchlist.length}/5）</p>
                     </div>
