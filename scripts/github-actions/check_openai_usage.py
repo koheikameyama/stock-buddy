@@ -189,9 +189,8 @@ def main():
         send_slack_notification(slack_message, is_alert=False)
     else:
         print("✅ Usage is within normal range")
-        # 通常範囲の場合は週次レポートのみ送信（月曜日のみ）
-        if today.weekday() == 0:  # Monday
-            send_slack_notification(slack_message, is_alert=False)
+        # 通常範囲の場合も毎日レポートを送信
+        send_slack_notification(slack_message, is_alert=False)
 
     # 詳細データをMarkdown形式で出力（GitHub Actions Summaryで使用）
     print()
