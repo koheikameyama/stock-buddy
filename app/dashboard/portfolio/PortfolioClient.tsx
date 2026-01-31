@@ -154,7 +154,7 @@ export default function PortfolioClient({
   }, [stocks])
 
   const handleDeleteStock = async (portfolioStockId: string, stockName: string) => {
-    if (!confirm(`${stockName}を今持ってる銘柄から削除しますか？`)) {
+    if (!confirm(`${stockName}を保有銘柄から削除しますか？`)) {
       return
     }
 
@@ -280,7 +280,7 @@ export default function PortfolioClient({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            今持っている銘柄 ({stocks.length})
+            保有銘柄 ({stocks.length})
           </button>
           <button
             onClick={() => setActiveTab("watchlist")}
@@ -290,7 +290,7 @@ export default function PortfolioClient({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            気になる銘柄リスト ({watchlist.length})
+            気になる銘柄 ({watchlist.length})
           </button>
         </div>
 
@@ -969,7 +969,7 @@ export default function PortfolioClient({
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">気になる銘柄たち</h2>
+                      <h2 className="text-2xl font-bold text-gray-900">気になる銘柄</h2>
                       <p className="text-gray-600 mt-1">
                         あなたが気になる銘柄を保存できます。
                       </p>
