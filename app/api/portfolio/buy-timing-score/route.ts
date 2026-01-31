@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { calculateBuyTimingScore } from "@/lib/buy-timing-score"
-
-const prisma = new PrismaClient()
 
 /**
  * GET /api/portfolio/buy-timing-score?stockId=xxx
@@ -101,7 +99,5 @@ export async function GET(request: Request) {
       { error: "買い時スコアの計算に失敗しました" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
