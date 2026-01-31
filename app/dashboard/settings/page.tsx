@@ -181,23 +181,6 @@ export default function SettingsPage() {
               </ul>
             </div>
 
-            {/* 投資スタイル変更の案内 */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 sm:p-5">
-              <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <span className="text-lg sm:text-xl">💡</span>
-                <span className="text-sm sm:text-base">投資スタイルを変更したい場合</span>
-              </h3>
-              <p className="text-sm text-gray-700 mb-3">
-                投資期間やリスク許容度を変更したい場合は、もう一度提案を受けてください。
-              </p>
-              <button
-                onClick={() => router.push('/onboarding')}
-                className="w-full sm:w-auto px-5 py-2.5 bg-white border-2 border-yellow-300 text-gray-900 rounded-lg font-semibold hover:bg-yellow-100 transition-colors text-sm sm:text-base"
-              >
-                もう一度提案を受ける
-              </button>
-            </div>
-
             {/* 戻るボタン */}
             <div className="pt-4">
               <button
