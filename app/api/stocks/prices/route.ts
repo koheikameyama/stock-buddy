@@ -72,11 +72,8 @@ for code in ticker_codes:
             change = current_price - prev_close
             change_percent = (change / prev_close * 100) if prev_close != 0 else 0
 
-            # .Tを除去したティッカーコードを返す
-            clean_code = code.replace('.T', '')
-
             result.append({
-                "tickerCode": clean_code,
+                "tickerCode": code,
                 "currentPrice": round(current_price, 2),
                 "previousClose": round(prev_close, 2),
                 "change": round(change, 2),
