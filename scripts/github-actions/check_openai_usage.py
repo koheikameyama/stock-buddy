@@ -13,11 +13,12 @@ from datetime import datetime, timedelta
 
 # 環境変数
 OPENAI_ADMIN_KEY = os.getenv("OPENAI_ADMIN_KEY")
+OPENAI_PROJECT_ID = "proj_Pnbj8J65ZaUns8dBvvki1qTG"  # Stock Buddyプロジェクト
 MONTHLY_BUDGET_USD = 50  # 月次予算（ドル）
 
 def get_usage_data(start_date: str, end_date: str) -> dict:
     """
-    OpenAI Usage APIから使用量データを取得
+    OpenAI Usage APIから使用量データを取得（Stock Buddyプロジェクト専用）
 
     Args:
         start_date: 開始日（YYYY-MM-DD）
@@ -31,6 +32,7 @@ def get_usage_data(start_date: str, end_date: str) -> dict:
     headers = {
         "Authorization": f"Bearer {OPENAI_ADMIN_KEY}",
         "Content-Type": "application/json",
+        "OpenAI-Project": OPENAI_PROJECT_ID,
     }
 
     params = {
@@ -79,6 +81,7 @@ def main():
     today_str = today.strftime("%Y-%m-%d")
 
     print(f"📊 Checking OpenAI API usage from {start_of_month} to {today_str}")
+    print(f"🎯 Project: Stock Buddy ({OPENAI_PROJECT_ID})")
     print(f"💰 Monthly budget: ${MONTHLY_BUDGET_USD}")
     print()
 

@@ -4,6 +4,8 @@
 
 OpenAI APIのコストを管理し、予算超過を防ぐための運用フロー。
 
+**監視対象**: Stock Buddyプロジェクト専用（`proj_Pnbj8J65ZaUns8dBvvki1qTG`）
+
 ## 予算設定
 
 - **月次予算**: $50（約¥7,400）
