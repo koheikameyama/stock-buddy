@@ -27,6 +27,9 @@ jobs:
       - name: Check OpenAI API usage
         env:
           OPENAI_ADMIN_KEY: ${{ secrets.OPENAI_ADMIN_KEY }}
+          OPENAI_PROJECT_ID: ${{ secrets.OPENAI_PROJECT_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          MONTHLY_BUDGET_USD: ${{ secrets.MONTHLY_BUDGET_USD }}
         run: |
           python scripts/github-actions/check_openai_usage.py
 

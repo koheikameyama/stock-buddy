@@ -13,21 +13,22 @@ from datetime import datetime, timedelta
 
 # 環境変数
 OPENAI_ADMIN_KEY = os.getenv("OPENAI_ADMIN_KEY")
-OPENAI_PROJECT_ID = "proj_Pnbj8J65ZaUns8dBvvki1qTG"  # Stock Buddyプロジェクト
-MONTHLY_BUDGET_USD = 50  # 月次予算（ドル）
+OPENAI_PROJECT_ID = os.getenv("OPENAI_PROJECT_ID")
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
+MONTHLY_BUDGET_USD = float(os.getenv("MONTHLY_BUDGET_USD", "50"))
 
-def get_usage_data(start_date: str, end_date: str) -> dict:
+def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
     """
-    OpenAI Usage APIから使用量データを取得（Stock Buddyプロジェクト専用）
+    OpenAI Costs APIからコストデータを取得（Stock Buddyプロジェクト専用）
 
     Args:
-        start_date: 開始日（YYYY-MM-DD）
-        end_date: 終了日（YYYY-MM-DD）
+        start_timestamp: 開始日（UNIXタイムスタンプ）
+        end_timestamp: 終了日（UNIXタイムスタンプ）
 
     Returns:
-        使用量データ
+        コストデータ
     """
-    url = "https://api.openai.com/v1/usage"
+    url = "https://api.openai.com/v1/organization/costs"
 
     headers = {
         "Authorization": f"Bearer {OPENAI_ADMIN_KEY}",
@@ -36,8 +37,8 @@ def get_usage_data(start_date: str, end_date: str) -> dict:
     }
 
     params = {
-        "start_date": start_date,
-        "end_date": end_date,
+        "start_time": start_timestamp,
+        "end_time": end_timestamp,
     }
 
     try:
@@ -45,28 +46,63 @@ def get_usage_data(start_date: str, end_date: str) -> dict:
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error fetching usage data: {e}")
+        print(f"❌ Error fetching costs data: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"Response: {e.response.text}")
         sys.exit(1)
 
-def calculate_cost(usage_data: dict) -> float:
+def calculate_total_cost(costs_data: dict) -> float:
     """
-    使用量データからコストを計算
+    コストデータから総コストを計算
 
     Args:
-        usage_data: OpenAI APIから取得した使用量データ
+        costs_data: OpenAI Costs APIから取得したデータ
 
     Returns:
         総コスト（ドル）
     """
     total_cost = 0.0
 
-    if "data" in usage_data:
-        for day_data in usage_data["data"]:
-            # APIレスポンスに応じて調整が必要
-            # 例: day_data.get("cost", 0)
-            total_cost += day_data.get("cost", 0)
+    if "data" in costs_data:
+        for bucket in costs_data["data"]:
+            if "results" in bucket:
+                for result in bucket["results"]:
+                    # amount フィールドがコスト（セント単位）
+                    # ドルに変換（100で割る）
+                    amount_cents = result.get("amount", {}).get("value", 0)
+                    total_cost += amount_cents / 100.0
 
     return total_cost
+
+def send_slack_notification(message: str, is_alert: bool = False):
+    """
+    Slack通知を送信
+
+    Args:
+        message: 送信するメッセージ
+        is_alert: アラートかどうか（色を変える）
+    """
+    if not SLACK_WEBHOOK_URL:
+        print("⚠️  Slack webhook URL not configured, skipping notification")
+        return
+
+    color = "#ff0000" if is_alert else "#36a64f"
+    payload = {
+        "attachments": [{
+            "color": color,
+            "title": "🚨 OpenAI APIコストアラート" if is_alert else "📊 OpenAI API使用量レポート",
+            "text": message,
+            "footer": "Stock Buddy Monitoring",
+            "ts": int(datetime.now().timestamp())
+        }]
+    }
+
+    try:
+        response = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+        response.raise_for_status()
+        print(f"✅ Slack notification sent")
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️  Failed to send Slack notification: {e}")
 
 def main():
     """メイン処理"""
@@ -75,21 +111,43 @@ def main():
         print("❌ Error: OPENAI_ADMIN_KEY environment variable is not set")
         sys.exit(1)
 
-    # 今月の開始日と今日の日付を取得
-    today = datetime.now()
-    start_of_month = today.replace(day=1).strftime("%Y-%m-%d")
-    today_str = today.strftime("%Y-%m-%d")
+    if not OPENAI_PROJECT_ID:
+        print("❌ Error: OPENAI_PROJECT_ID environment variable is not set")
+        sys.exit(1)
 
-    print(f"📊 Checking OpenAI API usage from {start_of_month} to {today_str}")
+    # 今月の開始日と終了日を取得
+    # OpenAI API仕様: end_date must come after start_date
+    # 月初（1日）の場合は先月のデータを取得する
+    today = datetime.now()
+
+    if today.day == 1:
+        # 月初の場合は先月のデータを取得
+        last_month = today.replace(day=1) - timedelta(days=1)
+        start_of_month = last_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = last_month.replace(hour=23, minute=59, second=59, microsecond=999999)
+        period_label = f"{last_month.strftime('%Y-%m')} (先月分)"
+    else:
+        # 月初以外は今月のデータを昨日まで取得
+        yesterday = today - timedelta(days=1)
+        start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+        period_label = f"{today.strftime('%Y-%m')} (今月)"
+
+    # UNIXタイムスタンプに変換
+    start_timestamp = int(start_of_month.timestamp())
+    end_timestamp = int(end_of_day.timestamp())
+
+    print(f"📊 Checking OpenAI API costs: {period_label}")
+    print(f"📅 Period: {start_of_month.strftime('%Y-%m-%d')} to {end_of_day.strftime('%Y-%m-%d')}")
     print(f"🎯 Project: Stock Buddy ({OPENAI_PROJECT_ID})")
     print(f"💰 Monthly budget: ${MONTHLY_BUDGET_USD}")
     print()
 
-    # 使用量データを取得
-    usage_data = get_usage_data(start_of_month, today_str)
+    # コストデータを取得
+    costs_data = get_costs_data(start_timestamp, end_timestamp)
 
     # コストを計算
-    total_cost = calculate_cost(usage_data)
+    total_cost = calculate_total_cost(costs_data)
     usage_percentage = (total_cost / MONTHLY_BUDGET_USD) * 100
 
     # 結果を表示
@@ -98,25 +156,48 @@ def main():
     print(f"💵 Remaining budget: ${MONTHLY_BUDGET_USD - total_cost:.2f}")
     print()
 
-    # アラート判定
+    # Slack通知メッセージを作成
+    slack_message = f"""
+*期間*: {start_of_month.strftime('%Y-%m-%d')} 〜 {end_of_day.strftime('%Y-%m-%d')} ({period_label})
+*プロジェクト*: Stock Buddy
+*総コスト*: ${total_cost:.2f}
+*予算*: ${MONTHLY_BUDGET_USD}
+*使用率*: {usage_percentage:.1f}%
+*残り*: ${MONTHLY_BUDGET_USD - total_cost:.2f}
+"""
+
+    # アラート判定とSlack通知
+    is_alert = False
     if usage_percentage >= 100:
         print("🚨 CRITICAL: Budget exceeded! Immediate action required.")
         print("   - Consider reducing AI analysis frequency")
         print("   - Review API usage patterns")
+        slack_message += "\n⚠️ *予算を超過しました！早急な対応が必要です*"
+        is_alert = True
+        send_slack_notification(slack_message, is_alert=True)
         sys.exit(1)
     elif usage_percentage >= 80:
         print("⚠️  WARNING: 80% of monthly budget used")
         print("   - Monitor usage closely")
         print("   - Consider optimizing prompts")
+        slack_message += "\n⚠️ 予算の80%に達しました。使用量を注視してください"
+        is_alert = True
+        send_slack_notification(slack_message, is_alert=True)
     elif usage_percentage >= 50:
         print("ℹ️  INFO: 50% of monthly budget used")
+        slack_message += "\nℹ️ 予算の50%に達しました"
+        send_slack_notification(slack_message, is_alert=False)
     else:
         print("✅ Usage is within normal range")
+        # 通常範囲の場合は週次レポートのみ送信（月曜日のみ）
+        if today.weekday() == 0:  # Monday
+            send_slack_notification(slack_message, is_alert=False)
 
-    # 詳細データをJSON形式で出力（GitHub Actions Summaryで使用）
+    # 詳細データをMarkdown形式で出力（GitHub Actions Summaryで使用）
     print()
     print("## Usage Details")
-    print(f"- **Period**: {start_of_month} to {today_str}")
+    print(f"- **Period**: {start_of_month.strftime('%Y-%m-%d')} to {end_of_day.strftime('%Y-%m-%d')} ({period_label})")
+    print(f"- **Project**: Stock Buddy ({OPENAI_PROJECT_ID})")
     print(f"- **Total Cost**: ${total_cost:.2f}")
     print(f"- **Budget**: ${MONTHLY_BUDGET_USD}")
     print(f"- **Usage**: {usage_percentage:.1f}%")
