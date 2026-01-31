@@ -1,13 +1,11 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import PortfolioGrowthChart from "./PortfolioGrowthChart"
 import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
 import DailyFeaturedStocks from "./DailyFeaturedStocks"
-
-const prisma = new PrismaClient()
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -19,7 +17,10 @@ export default async function DashboardPage() {
   // ユーザー情報を取得
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    include: {
+    select: {
+      id: true,
+      termsAccepted: true,
+      privacyPolicyAccepted: true,
       portfolio: {
         include: {
           stocks: {
@@ -29,20 +30,25 @@ export default async function DashboardPage() {
           },
           snapshots: {
             orderBy: { date: "asc" },
-            take: 30, // 過去30日分
           },
         },
       },
       watchlist: true,
       coachMessages: {
-        orderBy: { date: "desc" },
-        take: 1, // 最新のメッセージのみ
+        orderBy: { createdAt: "desc" },
+        take: 1,
       },
     },
   })
 
-  const hasPortfolio = (user?.portfolio?.stocks.length || 0) > 0
-  const hasWatchlist = (user?.watchlist?.length || 0) > 0
+  if (!user) {
+    redirect("/login")
+  }
+
+  // 利用規約・プライバシーポリシーの同意はクライアント側でモーダル表示するため、ここではチェックしない
+
+  const hasPortfolio = (user.portfolio?.stocks.length || 0) > 0
+  const hasWatchlist = (user.watchlist?.length || 0) > 0
   const stockCount = user?.portfolio?.stocks.length || 0
 
   // スナップショットデータを整形
@@ -65,7 +71,12 @@ export default async function DashboardPage() {
   return (
     <>
       <Header />
-      <DashboardClient hasPortfolio={hasPortfolio} hasWatchlist={hasWatchlist} />
+      <DashboardClient
+        hasPortfolio={hasPortfolio}
+        hasWatchlist={hasWatchlist}
+        termsAccepted={user.termsAccepted}
+        privacyPolicyAccepted={user.privacyPolicyAccepted}
+      />
       <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* ページタイトル */}
