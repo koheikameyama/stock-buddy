@@ -259,7 +259,7 @@ export default function ReportClient({
                 href="/dashboard/portfolio"
                 className="flex-1 px-6 py-3 bg-white text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors text-center border border-gray-300"
               >
-                今持ってる銘柄を見る
+                保有銘柄を見る
               </a>
             </div>
           </div>

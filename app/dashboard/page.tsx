@@ -92,7 +92,7 @@ export default async function DashboardPage() {
                       href="/dashboard/portfolio"
                       className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
                     >
-                      今持ってる銘柄を見る
+                      保有銘柄を見る
                     </Link>
                     <Link
                       href="/dashboard/watchlist"
@@ -142,7 +142,7 @@ export default async function DashboardPage() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  今持ってる銘柄
+                  保有銘柄
                 </h3>
                 <p className="text-sm text-gray-500">{stockCount}銘柄</p>
               </div>
