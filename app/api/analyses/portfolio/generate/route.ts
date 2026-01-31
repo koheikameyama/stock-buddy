@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 /**
  * Portfolio Stock Analysis Generator
@@ -127,8 +125,6 @@ export async function POST() {
       { error: "Failed to generate portfolio analyses" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import {
   calculateRSI,
   calculateSMA,
   calculateMACD,
   getTechnicalSignal,
 } from "@/lib/technical-indicators"
-
-const prisma = new PrismaClient()
 
 // 候補銘柄の型定義
 interface StockWithPrice {

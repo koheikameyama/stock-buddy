@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 /**
  * Stock Analysis Generator (for Watchlist)
@@ -120,8 +118,6 @@ export async function POST() {
       { error: "Failed to generate stock analyses" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

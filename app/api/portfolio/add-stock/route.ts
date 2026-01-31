@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { addStockToPortfolio } from "@/lib/portfolio"
-
-const prisma = new PrismaClient()
 
 /**
  * Add Stock to Portfolio API
@@ -71,7 +69,5 @@ export async function POST(request: NextRequest) {
       { error: "Failed to add stock to portfolio" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

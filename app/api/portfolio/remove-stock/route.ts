@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 /**
  * Remove Stock from Portfolio API
@@ -87,7 +85,5 @@ export async function DELETE(request: NextRequest) {
       { error: "Failed to remove stock from portfolio" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

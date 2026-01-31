@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { canRequestRecommendation } from "@/lib/recommendation-limit"
-
-const prisma = new PrismaClient()
 
 /**
  * GET /api/onboarding/limit
@@ -43,7 +41,5 @@ export async function GET() {
       { error: "Failed to check limit" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

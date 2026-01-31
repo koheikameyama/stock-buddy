@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import webpush from "web-push"
-
-const prisma = new PrismaClient()
 
 // VAPID設定を初期化（初回リクエスト時のみ実行）
 let vapidInitialized = false
@@ -97,7 +95,5 @@ export async function POST(request: NextRequest) {
       { error: "Failed to send notifications" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import webpush from "web-push"
-
-const prisma = new PrismaClient()
 
 /**
  * POST /api/watchlist/check-alerts
@@ -118,8 +116,6 @@ export async function POST() {
       { error: "価格アラートのチェックに失敗しました" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

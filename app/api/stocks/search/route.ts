@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 /**
  * Stock Search API
@@ -62,7 +60,5 @@ export async function GET(request: NextRequest) {
       { error: "Failed to search stocks" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

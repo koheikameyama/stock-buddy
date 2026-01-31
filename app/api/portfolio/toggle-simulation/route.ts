@@ -1,8 +1,6 @@
 import { NextResponse, NextRequest } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 /**
  * シミュレーション/実投資を切り替えるAPI
@@ -72,7 +70,5 @@ export async function PATCH(request: NextRequest) {
       { error: "Failed to toggle simulation status" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

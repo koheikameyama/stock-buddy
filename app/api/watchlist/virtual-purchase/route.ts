@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 /**
  * POST /api/watchlist/virtual-purchase
@@ -103,8 +101,6 @@ export async function POST(req: NextRequest) {
       { error: "仮想購入の設定に失敗しました" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -181,7 +177,5 @@ export async function DELETE(req: NextRequest) {
       { error: "仮想購入のキャンセルに失敗しました" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

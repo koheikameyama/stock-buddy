@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { canRequestRecommendation } from "@/lib/recommendation-limit"
-
-const prisma = new PrismaClient()
 
 async function saveRecommendationLog(params: {
   userId: string | null | undefined
@@ -157,8 +155,6 @@ export async function POST(request: Request) {
       { error: "Failed to generate recommendation" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 /**
  * GET /api/featured-stocks
@@ -64,7 +62,5 @@ export async function GET() {
       { error: "注目銘柄の取得に失敗しました" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

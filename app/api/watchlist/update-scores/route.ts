@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { calculateBuyTimingScore } from "@/lib/buy-timing-score"
-
-const prisma = new PrismaClient()
 
 /**
  * POST /api/watchlist/update-scores
@@ -99,7 +97,5 @@ export async function POST() {
       { error: "買い時スコアの更新に失敗しました" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

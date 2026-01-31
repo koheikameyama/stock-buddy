@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { addStockToWatchlist } from "@/lib/watchlist"
-
-const prisma = new PrismaClient()
 
 /**
  * オンボーディング提案をウォッチリストに追加するAPI
@@ -97,7 +95,5 @@ export async function POST(request: Request) {
       { error: "Failed to add to watchlist" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
