@@ -1,6 +1,10 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Clean Next.js cache to avoid stale type errors
+echo "🧹 Cleaning Next.js cache..."
+rm -rf .next
+
 # Run lint-staged (lint and type check on staged files)
 npx lint-staged
 
