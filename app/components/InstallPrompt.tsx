@@ -55,6 +55,74 @@ export default function InstallPrompt() {
     // プロンプトをクリア
     setDeferredPrompt(null)
     setShowInstallPrompt(false)
+
+    // インストールが完了したら、プッシュ通知の許可を求める
+    if (outcome === "accepted") {
+      setTimeout(() => {
+        requestNotificationPermission()
+      }, 2000)
+    }
+  }
+
+  const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) {
+      console.log("This browser does not support notifications")
+      return
+    }
+
+    if (Notification.permission === "granted") {
+      // 既に許可されている場合はサブスクリプションを登録
+      await subscribeToPush()
+      return
+    }
+
+    if (Notification.permission !== "denied") {
+      const permission = await Notification.requestPermission()
+      if (permission === "granted") {
+        await subscribeToPush()
+      }
+    }
+  }
+
+  const subscribeToPush = async () => {
+    try {
+      const registration = await navigator.serviceWorker.ready
+
+      // VAPID公開鍵を取得
+      const response = await fetch("/api/push/subscribe")
+      const { publicKey } = await response.json()
+
+      // プッシュマネージャーにサブスクリプションを登録
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      })
+
+      // サーバーに保存
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(subscription),
+      })
+
+      console.log("Push notification subscribed successfully")
+    } catch (error) {
+      console.error("Failed to subscribe to push notifications:", error)
+    }
+  }
+
+  // VAPID公開鍵をUint8Arrayに変換
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i)
+    }
+    return outputArray
   }
 
   const handleDismiss = () => {

@@ -44,6 +44,14 @@ jobs:
         run: |
           python scripts/github-actions/check_price_alerts.py
 
+      - name: Send push notifications
+        id: push-notifications
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notifications.py
+
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2

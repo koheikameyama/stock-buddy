@@ -100,12 +100,56 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
             </div>
           )}
 
-          <button
-            onClick={() => setStep(2)}
-            className="w-full bg-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg"
-          >
-            {isExistingInvestor ? '次へ' : '始める'}
-          </button>
+          {/* AI提案回数制限の表示（新規ユーザーのみ） */}
+          {!isExistingInvestor && limitInfo && (
+            <div className={`mb-6 p-4 rounded-lg ${
+              limitInfo.allowed
+                ? "bg-blue-50 border border-blue-200"
+                : "bg-red-50 border border-red-200"
+            }`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">{limitInfo.allowed ? "ℹ️" : "⚠️"}</span>
+                <p className="font-semibold text-gray-900">
+                  AI提案の利用状況
+                </p>
+              </div>
+              <p className="text-sm text-gray-700">
+                今月の利用回数: <span className="font-bold">{limitInfo.currentCount}</span> / {limitInfo.maxCount}回
+                {limitInfo.allowed ? (
+                  <span className="text-gray-600"> （残り{limitInfo.remainingCount}回）</span>
+                ) : (
+                  <span className="text-red-600 block mt-1">
+                    月次制限に達しました。次回は{new Date(limitInfo.resetDate).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}にリセットされます。
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {!isExistingInvestor && limitInfo && !limitInfo.allowed ? (
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="w-full bg-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-gray-700 transition-colors shadow-lg"
+            >
+              ダッシュボードに戻る
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setStep(2)}
+                className="w-full bg-blue-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg"
+              >
+                {isExistingInvestor ? '次へ' : '始める'}
+              </button>
+
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full mt-3 text-gray-600 hover:text-gray-800 py-2 text-sm transition-colors"
+              >
+                スキップしてダッシュボードへ →
+              </button>
+            </>
+          )}
 
           <p className="text-sm text-gray-500 mt-4 text-center">
             所要時間: 約{isExistingInvestor ? '1' : '3'}分
@@ -229,32 +273,6 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
             </p>
           </div>
 
-          {/* AI提案回数制限の表示 */}
-          {!isExistingInvestor && limitInfo && (
-            <div className={`mb-6 p-4 rounded-lg ${
-              limitInfo.allowed
-                ? "bg-blue-50 border border-blue-200"
-                : "bg-red-50 border border-red-200"
-            }`}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{limitInfo.allowed ? "ℹ️" : "⚠️"}</span>
-                <p className="font-semibold text-gray-900">
-                  AI提案の利用状況
-                </p>
-              </div>
-              <p className="text-sm text-gray-700">
-                今月の利用回数: <span className="font-bold">{limitInfo.currentCount}</span> / {limitInfo.maxCount}回
-                {limitInfo.allowed ? (
-                  <span className="text-gray-600"> （残り{limitInfo.remainingCount}回）</span>
-                ) : (
-                  <span className="text-red-600 block mt-1">
-                    月次制限に達しました。次回は{new Date(limitInfo.resetDate).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}にリセットされます。
-                  </span>
-                )}
-              </p>
-            </div>
-          )}
-
           {/* 予算選択（新規ユーザーのみ） */}
           {!isExistingInvestor && (
           <div className="mb-8">
@@ -337,6 +355,13 @@ export default function OnboardingClient({ isExistingInvestor }: { isExistingInv
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-700">{isExistingInvestor ? '設定を保存しています...' : 'あなたにぴったりのプランを考えています...'}</p>
             </div>
+          ) : limitInfo && !limitInfo.allowed ? (
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="w-full bg-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg hover:bg-gray-700 transition-colors shadow-lg"
+            >
+              ダッシュボードに戻る
+            </button>
           ) : (
             <button
               onClick={handleGetRecommendation}
