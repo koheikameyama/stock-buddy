@@ -21,10 +21,10 @@ DATABASE_URL = os.getenv("PRODUCTION_DATABASE_URL") or os.getenv("DATABASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # 検出パラメータ
-MIN_SCORE = 50  # スコア閾値
+MIN_SCORE = 30  # スコア閾値（50→30に緩和）
 MAX_HOT_STOCKS = 5  # 最大選出数
 VALID_DAYS = 7  # 有効期限（日数）
-MIN_CONFIDENCE = 0.6  # 最小信頼度
+MIN_CONFIDENCE = 0.5  # 最小信頼度（0.6→0.5に緩和）
 
 # スコアリング重み
 WEIGHTS = {

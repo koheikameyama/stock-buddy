@@ -72,17 +72,46 @@ export default function HotStocks() {
     return null // エラー時は非表示
   }
 
-  if (hotStocks.length === 0) {
-    return null // チャンス銘柄がない場合は非表示
-  }
-
   return (
     <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 shadow-lg border-2 border-orange-200">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <span className="text-2xl">🔥</span>
-          今週のチャンス銘柄
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <span className="text-2xl">🔥</span>
+            今週のチャンス銘柄
+          </h2>
+          <div className="group relative">
+            <button className="text-gray-400 hover:text-gray-600 transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <div className="absolute left-0 top-8 w-80 bg-white rounded-lg shadow-xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 border border-gray-200">
+              <h3 className="font-semibold text-sm text-gray-900 mb-2">スコア計算方法</h3>
+              <div className="text-xs text-gray-600 space-y-2">
+                <div>
+                  <span className="font-semibold">価格上昇 (30点)</span>
+                  <p className="text-gray-500">1週間で+10%以上で高得点</p>
+                </div>
+                <div>
+                  <span className="font-semibold">出来高増加 (25点)</span>
+                  <p className="text-gray-500">平均の1.5倍以上で高得点</p>
+                </div>
+                <div>
+                  <span className="font-semibold">ボラティリティ (20点)</span>
+                  <p className="text-gray-500">適度な値動き（5-15%）で高得点</p>
+                </div>
+                <div>
+                  <span className="font-semibold">モメンタム (15点)</span>
+                  <p className="text-gray-500">連続上昇日数で評価</p>
+                </div>
+                <div className="pt-2 border-t border-gray-200 mt-2">
+                  <p className="text-gray-500">合計30点以上の銘柄を選出</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <span className="text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full font-semibold">
           短期狙い
         </span>
@@ -91,6 +120,23 @@ export default function HotStocks() {
       <p className="text-sm text-gray-600 mb-6">
         今週、短期的なチャンスが期待できる銘柄です。リスクもあるので慎重に検討しましょう。
       </p>
+
+      {hotStocks.length === 0 ? (
+        <div className="bg-white rounded-lg p-8 text-center">
+          <div className="text-5xl mb-4">🔍</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            今日はチャンス銘柄が見つかりませんでした
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            市場の状況により、基準を満たす銘柄がない場合があります。
+            <br />
+            毎日朝7時に自動で分析しています。
+          </p>
+          <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 inline-block">
+            💡 スコア30点以上、信頼度50%以上の銘柄を選出
+          </div>
+        </div>
+      ) : (
 
       <div className="space-y-4">
         {hotStocks.map((hot, index) => (
@@ -190,14 +236,18 @@ export default function HotStocks() {
         ))}
       </div>
 
+      )}
+
       {/* 注意事項 */}
-      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <p className="text-xs text-yellow-800 leading-relaxed">
-          <span className="font-semibold">⚠️ チャンス銘柄とは:</span>
-          短期的な値動きが期待できる銘柄ですが、リスクも高めです。
-          予算の{hotStocks[0]?.recommendedBudgetPercent || 10}-20%程度に抑えることをおすすめします。
-        </p>
-      </div>
+      {hotStocks.length > 0 && (
+        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-xs text-yellow-800 leading-relaxed">
+            <span className="font-semibold">⚠️ チャンス銘柄とは:</span>
+            短期的な値動きが期待できる銘柄ですが、リスクも高めです。
+            予算の{hotStocks[0]?.recommendedBudgetPercent || 10}-20%程度に抑えることをおすすめします。
+          </p>
+        </div>
+      )}
     </div>
   )
 }
