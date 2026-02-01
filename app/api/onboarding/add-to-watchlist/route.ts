@@ -58,9 +58,6 @@ export async function POST(request: Request) {
         const result = await addStockToWatchlist({
           userId: user.id,
           stockId: stock.id,
-          recommendedPrice: rec.recommendedPrice,
-          recommendedQty: rec.quantity,
-          source: rec.source || "onboarding",
         })
 
         if (result.success) {

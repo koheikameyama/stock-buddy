@@ -9,8 +9,6 @@ interface PurchaseModalProps {
     id: string
     tickerCode: string
     name: string
-    recommendedPrice: string
-    recommendedQty: number
   }
   onSuccess: () => void
 }
@@ -21,10 +19,8 @@ export default function PurchaseModal({
   watchlistItem,
   onSuccess,
 }: PurchaseModalProps) {
-  const [quantity, setQuantity] = useState(watchlistItem.recommendedQty)
-  const [averagePrice, setAveragePrice] = useState(
-    parseFloat(watchlistItem.recommendedPrice)
-  )
+  const [quantity, setQuantity] = useState(100)
+  const [averagePrice, setAveragePrice] = useState<number>(0)
   const [purchaseDate, setPurchaseDate] = useState(
     new Date().toISOString().split("T")[0]
   )
@@ -108,9 +104,6 @@ export default function PurchaseModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
-              推奨: {watchlistItem.recommendedQty}株
-            </p>
           </div>
 
           <div className="mb-4">
@@ -126,9 +119,6 @@ export default function PurchaseModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
-              推奨: {parseFloat(watchlistItem.recommendedPrice).toLocaleString()}円
-            </p>
           </div>
 
           <div className="mb-6 p-3 bg-blue-50 rounded">

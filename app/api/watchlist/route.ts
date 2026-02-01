@@ -51,7 +51,7 @@ export async function GET() {
         },
       },
       orderBy: {
-        buyTimingScore: "desc", // 買い時スコアが高い順
+        createdAt: "desc", // 新しく追加した順
       },
     })
 
@@ -71,41 +71,15 @@ export async function GET() {
           },
         })
 
-        // 仮想購入の損益計算
-        let virtualGainLoss = null
-        let virtualGainLossPct = null
-
-        if (
-          item.virtualBuyPrice &&
-          item.virtualQuantity &&
-          latestPrice
-        ) {
-          const currentValue =
-            Number(latestPrice.close) * item.virtualQuantity
-          const costValue =
-            Number(item.virtualBuyPrice) * item.virtualQuantity
-          virtualGainLoss = currentValue - costValue
-          virtualGainLossPct = (virtualGainLoss / costValue) * 100
-        }
-
         return {
           id: item.id,
           stock: item.stock,
-          recommendedPrice: item.recommendedPrice,
-          recommendedQty: item.recommendedQty,
-          source: item.source,
           targetPrice: item.targetPrice,
+          targetCondition: item.targetCondition,
           priceAlert: item.priceAlert,
           lastAlertSent: item.lastAlertSent,
-          buyTimingScore: item.buyTimingScore,
-          lastAnalyzedAt: item.lastAnalyzedAt,
-          virtualBuyPrice: item.virtualBuyPrice,
-          virtualBuyDate: item.virtualBuyDate,
-          virtualQuantity: item.virtualQuantity,
           currentPrice: latestPrice?.close || null,
           priceDate: latestPrice?.date || null,
-          virtualGainLoss,
-          virtualGainLossPct,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
         }

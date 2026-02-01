@@ -122,9 +122,6 @@ export default async function PortfolioPage() {
           name: w.stock.name,
           market: w.stock.market,
           sector: w.stock.sector,
-          recommendedPrice: w.recommendedPrice.toString(),
-          recommendedQty: w.recommendedQty,
-          source: w.source,
         }))}
       />
     </>

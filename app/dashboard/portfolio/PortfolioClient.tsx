@@ -36,9 +36,6 @@ interface WatchlistItem {
   name: string
   market: string
   sector: string | null
-  recommendedPrice: string
-  recommendedQty: number
-  source: string
 }
 
 interface StockPrice {
@@ -1023,8 +1020,6 @@ export default function PortfolioClient({
                 </div>
               ) : (
                 watchlist.map((item) => {
-                  const recommendedPrice = Number(item.recommendedPrice)
-                  const totalCost = recommendedPrice * item.recommendedQty
                   const price = prices[item.tickerCode]
 
                   return (
@@ -1106,27 +1101,10 @@ export default function PortfolioClient({
                             </>
                           ) : (
                             <>
-                              <p className="text-sm text-gray-500 mb-1">推奨価格</p>
-                              <p className="text-3xl font-bold text-gray-600">
-                                {recommendedPrice.toLocaleString()}円
-                              </p>
+                              <p className="text-sm text-gray-500 mb-1">価格情報</p>
+                              <p className="text-lg text-gray-600">読み込み中...</p>
                             </>
                           )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">推奨株数</p>
-                          <p className="text-xl font-semibold text-gray-900">
-                            {item.recommendedQty}株
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">推奨投資額</p>
-                          <p className="text-xl font-semibold text-gray-900">
-                            {totalCost.toLocaleString()}円
-                          </p>
                         </div>
                       </div>
 
@@ -1156,21 +1134,14 @@ export default function PortfolioClient({
               <div className="mt-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-md p-6 text-white">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-blue-100 mb-1">推奨投資総額</p>
+                    <p className="text-blue-100 mb-1">ウォッチリスト</p>
                     <p className="text-4xl font-bold">
-                      {watchlist
-                        .reduce(
-                          (sum, w) => sum + Number(w.recommendedPrice) * w.recommendedQty,
-                          0
-                        )
-                        .toLocaleString()}
-                      円
+                      {watchlist.length}銘柄
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-blue-100 mb-1">銘柄数</p>
-                    <p className="text-2xl font-bold">
-                      {watchlist.length}銘柄
+                    <p className="text-sm text-blue-100">
+                      気になる銘柄の動向をチェック
                     </p>
                   </div>
                 </div>

@@ -7,9 +7,6 @@ export const MAX_WATCHLIST_STOCKS = 5
 export type AddStockToWatchlistParams = {
   userId: string
   stockId: string
-  recommendedPrice: number
-  recommendedQty: number
-  source?: string
 }
 
 export type AddStockToWatchlistResult = {
@@ -30,23 +27,9 @@ export type AddStockToWatchlistResult = {
 export async function addStockToWatchlist(
   params: AddStockToWatchlistParams
 ): Promise<AddStockToWatchlistResult> {
-  const {
-    userId,
-    stockId,
-    recommendedPrice,
-    recommendedQty,
-    source = "manual",
-  } = params
+  const { userId, stockId } = params
 
   try {
-    // バリデーション
-    if (recommendedPrice <= 0 || recommendedQty <= 0) {
-      return {
-        success: false,
-        error: "推奨価格と数量は正の数である必要があります",
-      }
-    }
-
     // ユーザーを取得
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -66,52 +49,41 @@ export async function addStockToWatchlist(
       },
     })
 
-    let watchlistId: string
-    let isNew = false
-
+    // 既に存在する場合は何もしない
     if (existingEntry) {
-      // 既に存在する場合は更新
-      const updated = await prisma.watchlist.update({
-        where: { id: existingEntry.id },
-        data: {
-          recommendedPrice,
-          recommendedQty,
-          source,
-        },
-      })
-      watchlistId = updated.id
-    } else {
-      // 新規追加の場合は銘柄数制限をチェック
-      const watchlistCount = await prisma.watchlist.count({
-        where: { userId: user.id },
-      })
-
-      if (watchlistCount >= MAX_WATCHLIST_STOCKS) {
-        return {
-          success: false,
-          error: `ウォッチリストには最大${MAX_WATCHLIST_STOCKS}銘柄まで登録できます`,
-        }
+      return {
+        success: true,
+        watchlistId: existingEntry.id,
+        message: "既にウォッチリストに登録されています",
+        isNew: false,
       }
-
-      // 新規追加
-      const created = await prisma.watchlist.create({
-        data: {
-          userId: user.id,
-          stockId: stockId,
-          recommendedPrice,
-          recommendedQty,
-          source,
-        },
-      })
-      watchlistId = created.id
-      isNew = true
     }
+
+    // 新規追加の場合は銘柄数制限をチェック
+    const watchlistCount = await prisma.watchlist.count({
+      where: { userId: user.id },
+    })
+
+    if (watchlistCount >= MAX_WATCHLIST_STOCKS) {
+      return {
+        success: false,
+        error: `ウォッチリストには最大${MAX_WATCHLIST_STOCKS}銘柄まで登録できます`,
+      }
+    }
+
+    // 新規追加
+    const created = await prisma.watchlist.create({
+      data: {
+        userId: user.id,
+        stockId: stockId,
+      },
+    })
 
     return {
       success: true,
-      watchlistId,
-      message: isNew ? "ウォッチリストに追加しました" : "ウォッチリストを更新しました",
-      isNew,
+      watchlistId: created.id,
+      message: "ウォッチリストに追加しました",
+      isNew: true,
     }
   } catch (error) {
     console.error("Error adding stock to watchlist:", error)
@@ -131,14 +103,10 @@ export async function addMultipleStocksToWatchlist(
   userId: string,
   stocks: Array<{
     stockId: string
-    recommendedPrice: number
-    recommendedQty: number
-    source?: string
   }>
 ): Promise<{
   success: boolean
   added: number
-  updated: number
   errors: string[]
   message?: string
 }> {
@@ -170,7 +138,6 @@ export async function addMultipleStocksToWatchlist(
       return {
         success: false,
         added: 0,
-        updated: 0,
         errors: [
           `ウォッチリストには最大${MAX_WATCHLIST_STOCKS}銘柄まで登録できます（現在${currentWatchlistCount}銘柄、追加可能${availableSlots}銘柄）`,
         ],
@@ -179,22 +146,17 @@ export async function addMultipleStocksToWatchlist(
 
     // 各銘柄を追加
     let added = 0
-    let updated = 0
     const errors: string[] = []
 
     for (const stock of stocks) {
       const result = await addStockToWatchlist({
         userId,
-        ...stock,
+        stockId: stock.stockId,
       })
 
-      if (result.success) {
-        if (result.isNew) {
-          added++
-        } else {
-          updated++
-        }
-      } else {
+      if (result.success && result.isNew) {
+        added++
+      } else if (!result.success) {
         errors.push(result.error)
       }
     }
@@ -202,16 +164,14 @@ export async function addMultipleStocksToWatchlist(
     return {
       success: true,
       added,
-      updated,
       errors,
-      message: `${added}銘柄を追加、${updated}銘柄を更新しました`,
+      message: `${added}銘柄を追加しました`,
     }
   } catch (error) {
     console.error("Error adding multiple stocks to watchlist:", error)
     return {
       success: false,
       added: 0,
-      updated: 0,
       errors: ["ウォッチリストへの追加に失敗しました"],
     }
   }
