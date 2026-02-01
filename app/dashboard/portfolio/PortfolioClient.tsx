@@ -1134,7 +1134,6 @@ export default function PortfolioClient({
                         <div className="text-sm text-gray-500">
                           {item.sector && `セクター: ${item.sector} | `}
                           市場: {item.market}
-                          {item.source && ` | 提案元: ${item.source === 'onboarding' ? 'オンボーディング' : item.source}`}
                         </div>
                         <button
                           onClick={() => {
