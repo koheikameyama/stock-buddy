@@ -32,8 +32,10 @@ export default function AddStockModal({
   const [isSimulation, setIsSimulation] = useState(false)
 
   // Purchase details
+  const today = new Date()
+  today.setHours(today.getHours() + 9) // JST (UTC+9)
   const [purchaseDate, setPurchaseDate] = useState(
-    new Date().toISOString().split("T")[0]
+    today.toISOString().split("T")[0]
   )
   const [quantity, setQuantity] = useState<number>(1)
   const [price, setPrice] = useState<number | "">("")
@@ -185,7 +187,9 @@ export default function AddStockModal({
     setSelectedStock(null)
     setQuantity(1)
     setPrice("")
-    setPurchaseDate(new Date().toISOString().split("T")[0])
+    const resetDate = new Date()
+    resetDate.setHours(resetDate.getHours() + 9) // JST (UTC+9)
+    setPurchaseDate(resetDate.toISOString().split("T")[0])
     setError(null)
     setIsSimulation(false)
     onClose()
@@ -361,7 +365,11 @@ export default function AddStockModal({
                     type="date"
                     value={purchaseDate}
                     onChange={(e) => setPurchaseDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
+                    max={(() => {
+                      const d = new Date()
+                      d.setHours(d.getHours() + 9) // JST (UTC+9)
+                      return d.toISOString().split("T")[0]
+                    })()}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />

@@ -86,7 +86,11 @@ export default function PurchaseModal({
               type="date"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
-              max={new Date().toISOString().split("T")[0]}
+              max={(() => {
+                const d = new Date()
+                d.setHours(d.getHours() + 9) // JST (UTC+9)
+                return d.toISOString().split("T")[0]
+              })()}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               required
             />
