@@ -23,7 +23,7 @@ export async function POST() {
               include: {
                 stock: true,
                 analyses: {
-                  where: { date: today },
+                  orderBy: { date: "desc" },
                   take: 1,
                 },
               },
@@ -39,7 +39,7 @@ export async function POST() {
             stock: {
               include: {
                 analyses: {
-                  where: { date: today },
+                  orderBy: { analyzedAt: "desc" },
                   take: 1,
                 },
               },

@@ -328,24 +328,38 @@ model CoachMessage {
   @@index([userId, date(sort: Desc)])
 }
 
-// 銘柄分析（ウォッチリスト用 - 銘柄の動向のみ）
+// 銘柄分析（AI予測機能）
 model StockAnalysis {
-  id             String   @id @default(cuid())
-  stockId        String
-  stock          Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  date           DateTime @db.Date
-  currentPrice   Decimal  @db.Decimal(12, 2)
-  priceChange    Decimal  @db.Decimal(12, 2)  // 前日比
-  priceChangePct Decimal  @db.Decimal(5, 2)   // 前日比（%）
-  trend          String   // 'bullish' | 'bearish' | 'neutral'
-  buyTiming      String   // 'good' | 'wait' | 'avoid'
-  analysis       String   @db.Text             // AI生成の分析テキスト
-  keyPoints      Json?                          // 重要ポイント（箇条書き用）
-  createdAt      DateTime @default(now())
+  id                  String   @id @default(cuid())
+  stockId             String
+  stock               Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
-  @@unique([stockId, date])
-  @@index([stockId, date(sort: Desc)])
-  @@index([date(sort: Desc)])
+  // 短期予測（1週間）
+  shortTermTrend      String   // 'up' | 'neutral' | 'down'
+  shortTermPriceLow   Decimal  @db.Decimal(12, 2)
+  shortTermPriceHigh  Decimal  @db.Decimal(12, 2)
+
+  // 中期予測（1ヶ月）
+  midTermTrend        String   // 'up' | 'neutral' | 'down'
+  midTermPriceLow     Decimal  @db.Decimal(12, 2)
+  midTermPriceHigh    Decimal  @db.Decimal(12, 2)
+
+  // 長期予測（3ヶ月）
+  longTermTrend       String   // 'up' | 'neutral' | 'down'
+  longTermPriceLow    Decimal  @db.Decimal(12, 2)
+  longTermPriceHigh   Decimal  @db.Decimal(12, 2)
+
+  // 総合推奨
+  recommendation      String   // 'buy' | 'hold' | 'sell'
+  advice              String   @db.Text // AI生成のアドバイス
+  confidence          Float    // 0.0 - 1.0
+
+  analyzedAt          DateTime @default(now())
+  createdAt           DateTime @default(now())
+
+  @@unique([stockId, analyzedAt])
+  @@index([stockId, analyzedAt(sort: Desc)])
+  @@index([analyzedAt(sort: Desc)])
 }
 
 // 保有銘柄分析（ポートフォリオ用 - ユーザー固有の分析）

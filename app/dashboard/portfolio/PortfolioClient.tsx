@@ -6,6 +6,7 @@ import PurchaseModal from "./PurchaseModal"
 import AddStockModal from "./AddStockModal"
 import UpdateStockModal from "./UpdateStockModal"
 import SettingsModal from "./SettingsModal"
+import StockPredictionModal from "./StockPredictionModal"
 
 interface StockAnalysis {
   action: string
@@ -81,6 +82,8 @@ export default function PortfolioClient({
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [addStockMode, setAddStockMode] = useState<"portfolio" | "watchlist">("portfolio")
   const [expandedStocks, setExpandedStocks] = useState<Set<string>>(new Set())
+  const [showPredictionModal, setShowPredictionModal] = useState(false)
+  const [selectedPredictionStock, setSelectedPredictionStock] = useState<{ stockId: string; name: string } | null>(null)
 
   // URLパラメータからタブを設定
   useEffect(() => {
@@ -653,6 +656,21 @@ export default function PortfolioClient({
                   </div>
                 )}
 
+                {/* 予測を見るボタン */}
+                <button
+                  onClick={() => {
+                    setSelectedPredictionStock({
+                      stockId: portfolioStock.stockId,
+                      name: portfolioStock.name
+                    })
+                    setShowPredictionModal(true)
+                  }}
+                  className="w-full mb-4 px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
+                  <span>🔮</span>
+                  今後の予測を見る
+                </button>
+
                 {/* 今日の分析 */}
                 {portfolioStock.analysis && (
                   <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
@@ -1108,6 +1126,21 @@ export default function PortfolioClient({
                         </div>
                       </div>
 
+                      {/* 予測を見るボタン */}
+                      <button
+                        onClick={() => {
+                          setSelectedPredictionStock({
+                            stockId: item.stockId,
+                            name: item.name
+                          })
+                          setShowPredictionModal(true)
+                        }}
+                        className="w-full my-4 px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                      >
+                        <span>🔮</span>
+                        今後の予測を見る
+                      </button>
+
                       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                         <div className="text-sm text-gray-500">
                           {item.sector && `セクター: ${item.sector} | `}
@@ -1206,6 +1239,19 @@ export default function PortfolioClient({
           router.refresh()
         }}
       />
+
+      {/* Stock Prediction Modal */}
+      {selectedPredictionStock && (
+        <StockPredictionModal
+          isOpen={showPredictionModal}
+          onClose={() => {
+            setShowPredictionModal(false)
+            setSelectedPredictionStock(null)
+          }}
+          stockId={selectedPredictionStock.stockId}
+          stockName={selectedPredictionStock.name}
+        />
+      )}
     </div>
   )
 }
