@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 # 環境変数
 OPENAI_ADMIN_KEY = os.getenv("OPENAI_ADMIN_KEY")
 OPENAI_PROJECT_ID = os.getenv("OPENAI_PROJECT_ID")
-SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
+SLACK_WEBHOOK_URL = os.getenv("OPENAI_SLACK_WEBHOOK_URL")
 MONTHLY_BUDGET_USD = float(os.getenv("MONTHLY_BUDGET_USD", "50"))
 
 def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
