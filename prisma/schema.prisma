@@ -126,6 +126,7 @@ model Stock {
   watchlists        Watchlist[]
   analyses          StockAnalysis[]
   featuredStocks    DailyFeaturedStock[]
+  hotStocks         HotStock[]
   createdAt         DateTime           @default(now())
 
   @@index([tickerCode])
@@ -437,4 +438,43 @@ model DailyFeaturedStock {
   @@unique([date, position])
   @@index([date(sort: Desc)])
   @@index([stockId])
+}
+
+// 今週のチャンス銘柄（ハイリスク・ハイリターン銘柄）
+model HotStock {
+  id              String    @id @default(cuid())
+  stockId         String
+  stock           Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  // ホットスコア（0-100）
+  hotScore        Int
+
+  // チャンスの理由
+  reasons         String[]  // ["先週から+15%", "半導体需要急増", ...]
+
+  // リスク要因
+  risks           String[]  // ["短期的に大きく変動", "ボラティリティ高", ...]
+
+  // 推奨投資額（予算の%）
+  recommendedBudgetPercent Int  // 10-20
+
+  // AIからの推奨コメント
+  recommendation  String    @db.Text
+
+  // 信頼度（0.0-1.0）
+  confidence      Float
+
+  // 有効期限（通常は1週間）
+  validUntil      DateTime
+
+  // メタ情報
+  analyzedAt      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([stockId, analyzedAt])
+  @@index([stockId])
+  @@index([hotScore])
+  @@index([validUntil])
+  @@index([analyzedAt(sort: Desc)])
 }

@@ -6,6 +6,7 @@ import PortfolioGrowthChart from "./PortfolioGrowthChart"
 import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
 import DailyFeaturedStocks from "./DailyFeaturedStocks"
+import HotStocks from "./HotStocks"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -134,6 +135,11 @@ export default async function DashboardPage() {
             <DailyFeaturedStocks userId={user.id} />
           </div>
         )}
+
+        {/* 今週のチャンス銘柄 */}
+        <div className="mb-8">
+          <HotStocks />
+        </div>
 
         {/* クイックアクションカード */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

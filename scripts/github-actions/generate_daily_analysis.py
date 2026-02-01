@@ -113,21 +113,14 @@ def main():
     # 各種分析を実行
     results = {}
 
-    # 1. 銘柄分析（ウォッチリスト用）
-    results["stock_analysis"] = call_api(
-        app_url,
-        "/api/analyses/stock/generate",
-        "Generating stock analysis for watchlist"
-    )
-
-    # 2. ポートフォリオ銘柄分析
+    # 1. ポートフォリオ銘柄分析
     results["portfolio_analysis"] = call_api(
         app_url,
         "/api/analyses/portfolio/generate",
         "Generating portfolio stock analysis"
     )
 
-    # 3. コーチメッセージ生成
+    # 2. コーチメッセージ生成
     results["coach_messages"] = call_api(
         app_url,
         "/api/coach-messages/generate",
