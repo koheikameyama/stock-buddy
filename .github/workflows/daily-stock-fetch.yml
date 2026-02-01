@@ -63,12 +63,12 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ Daily Stock Price Fetch Succeeded"
+          SLACK_TITLE: "✅ 株価データの取得に成功しました"
           SLACK_MESSAGE: |
-            Stock prices fetched ✅
-            Stock scores calculated ✅
-            Portfolio snapshots recorded ✅
-            Coach messages generated ✅
+            株価データを取得しました ✅
+            銘柄スコアを計算しました ✅
+            ポートフォリオスナップショットを記録しました ✅
+            コーチメッセージを生成しました ✅
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -77,7 +77,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ Daily Stock Price Fetch Failed"
-          SLACK_MESSAGE: "Error occurred during stock price fetch or score calculation"
+          SLACK_TITLE: "❌ 株価データの取得に失敗しました"
+          SLACK_MESSAGE: "株価取得またはスコア計算中にエラーが発生しました"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"

@@ -57,14 +57,14 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ Daily Analysis Succeeded"
+          SLACK_TITLE: "✅ 日次分析に成功しました"
           SLACK_MESSAGE: |
-            Stock Analysis: ✅
-            Portfolio Analysis: ✅
-            Watchlist Buy-Timing Scores: ✅
-            Price Alerts: ✅
-            Coach Messages: ✅
-            Push Notifications: ✅
+            銘柄分析: ✅
+            ポートフォリオ分析: ✅
+            ウォッチリスト買い時スコア: ✅
+            価格アラート: ✅
+            コーチメッセージ: ✅
+            プッシュ通知: ✅
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -73,8 +73,9 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ Daily Analysis Failed"
+          SLACK_TITLE: "❌ 日次分析に失敗しました"
           SLACK_MESSAGE: |
+            日次分析中にエラーが発生しました
             詳細はGitHub Actionsログを確認してください
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"

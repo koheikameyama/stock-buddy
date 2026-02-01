@@ -34,10 +34,9 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "⭐ Daily Featured Stocks Generated"
+          SLACK_TITLE: "⭐ 今日の注目銘柄の生成に成功しました"
           SLACK_MESSAGE: |
-            今日の注目銘柄を生成しました
-            Status: Success
+            今日の注目銘柄を生成しました ✅
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -46,7 +45,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ Daily Featured Stocks Failed"
+          SLACK_TITLE: "❌ 今日の注目銘柄の生成に失敗しました"
           SLACK_MESSAGE: |
             注目銘柄の生成に失敗しました
             詳細はGitHub Actionsログを確認してください

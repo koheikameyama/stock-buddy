@@ -37,10 +37,10 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ Hot Stocks Detection Succeeded"
+          SLACK_TITLE: "✅ チャンス銘柄の検出に成功しました"
           SLACK_MESSAGE: |
-            Hot stocks detected ✅
-            AI analysis completed ✅
+            チャンス銘柄を検出しました ✅
+            AI分析が完了しました ✅
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -49,7 +49,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ Hot Stocks Detection Failed"
-          SLACK_MESSAGE: "Error occurred during hot stocks detection or AI analysis"
+          SLACK_TITLE: "❌ チャンス銘柄の検出に失敗しました"
+          SLACK_MESSAGE: "チャンス銘柄の検出またはAI分析中にエラーが発生しました"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"
