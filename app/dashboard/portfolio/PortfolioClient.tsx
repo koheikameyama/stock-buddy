@@ -931,7 +931,7 @@ export default function PortfolioClient({
               <ul className="space-y-2 text-gray-700">
                 <li className="flex items-start">
                   <span className="mr-2">•</span>
-                  <span>推奨価格は目安です。実際の株価は市場の状況により変動します。</span>
+                  <span>株価は市場の状況により常に変動します。</span>
                 </li>
                 <li className="flex items-start">
                   <span className="mr-2">•</span>
