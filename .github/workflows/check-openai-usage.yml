@@ -24,7 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Check OpenAI API usage
+      - name: Check OpenAI API usage and notify Slack
         env:
           OPENAI_ADMIN_KEY: ${{ secrets.OPENAI_ADMIN_KEY }}
           OPENAI_PROJECT_ID: ${{ secrets.OPENAI_PROJECT_ID }}
@@ -32,53 +32,3 @@ jobs:
           MONTHLY_BUDGET_USD: ${{ secrets.MONTHLY_BUDGET_USD }}
         run: |
           python scripts/github-actions/check_openai_usage.py
-
-      - name: Create Issue on High Usage
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const title = '🚨 OpenAI API予算アラート';
-            const body = `
-            ## OpenAI API使用量が予算を超過しました
-
-            **日時**: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-
-            ### 対応が必要です
-
-            1. [OpenAI Usage Dashboard](https://platform.openai.com/usage)で詳細を確認
-            2. AI分析頻度の調整を検討
-            3. プロンプトの最適化を検討
-
-            ### 関連ドキュメント
-
-            - [OpenAI APIモニタリング手順](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/openai-api-monitoring.md)
-            - [コスト分析](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/cost-analysis.md)
-
-            ### 自動生成
-
-            このIssueはGitHub Actionsによって自動生成されました。
-            `;
-
-            // 既存のIssueがあるかチェック
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'alert,openai-usage',
-            });
-
-            // 既存のIssueがなければ新規作成
-            if (issues.data.length === 0) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: title,
-                body: body,
-                labels: ['alert', 'openai-usage', 'urgent'],
-              });
-              console.log('✅ Issue created');
-            } else {
-              console.log('ℹ️  Alert issue already exists');
-            }
