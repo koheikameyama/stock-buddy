@@ -200,6 +200,12 @@ export default async function DashboardPage() {
             >
               取扱銘柄について
             </Link>
+            <Link
+              href="/dashboard/stock-request"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold text-center"
+            >
+              📝 銘柄追加リクエスト
+            </Link>
           </div>
         </div>
       </div>
