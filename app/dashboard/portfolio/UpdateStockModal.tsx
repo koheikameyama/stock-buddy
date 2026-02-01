@@ -1,6 +1,12 @@
 "use client"
 
 import { useState } from "react"
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 interface UpdateStockModalProps {
   isOpen: boolean
@@ -120,11 +126,7 @@ export default function UpdateStockModal({
               type="date"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
-              max={(() => {
-                const d = new Date()
-                d.setHours(d.getHours() + 9) // JST (UTC+9)
-                return d.toISOString().split("T")[0]
-              })()}
+              max={dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD")}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />

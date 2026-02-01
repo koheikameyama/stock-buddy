@@ -1,6 +1,12 @@
 "use client"
 
 import { useState } from "react"
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 interface PurchaseModalProps {
   isOpen: boolean
@@ -86,11 +92,7 @@ export default function PurchaseModal({
               type="date"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
-              max={(() => {
-                const d = new Date()
-                d.setHours(d.getHours() + 9) // JST (UTC+9)
-                return d.toISOString().split("T")[0]
-              })()}
+              max={dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD")}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               required
             />

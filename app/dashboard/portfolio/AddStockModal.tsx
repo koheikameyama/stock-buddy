@@ -1,6 +1,12 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 interface SearchedStock {
   id: string
@@ -32,10 +38,8 @@ export default function AddStockModal({
   const [isSimulation, setIsSimulation] = useState(false)
 
   // Purchase details
-  const today = new Date()
-  today.setHours(today.getHours() + 9) // JST (UTC+9)
   const [purchaseDate, setPurchaseDate] = useState(
-    today.toISOString().split("T")[0]
+    dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD")
   )
   const [quantity, setQuantity] = useState<number>(1)
   const [price, setPrice] = useState<number | "">("")
@@ -187,9 +191,7 @@ export default function AddStockModal({
     setSelectedStock(null)
     setQuantity(1)
     setPrice("")
-    const resetDate = new Date()
-    resetDate.setHours(resetDate.getHours() + 9) // JST (UTC+9)
-    setPurchaseDate(resetDate.toISOString().split("T")[0])
+    setPurchaseDate(dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD"))
     setError(null)
     setIsSimulation(false)
     onClose()
@@ -365,11 +367,7 @@ export default function AddStockModal({
                     type="date"
                     value={purchaseDate}
                     onChange={(e) => setPurchaseDate(e.target.value)}
-                    max={(() => {
-                      const d = new Date()
-                      d.setHours(d.getHours() + 9) // JST (UTC+9)
-                      return d.toISOString().split("T")[0]
-                    })()}
+                    max={dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD")}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
