@@ -32,13 +32,24 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/github-actions/detect_hot_stocks.py
 
-      - name: Notify on failure
-        if: failure()
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          MESSAGE="❌ チャンス銘柄検出に失敗しました\nWorkflow: ${{ github.workflow }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ Hot Stocks Detection Succeeded"
+          SLACK_MESSAGE: |
+            Hot stocks detected ✅
+            AI analysis completed ✅
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
 
-          curl -X POST "$SLACK_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"text\":\"$MESSAGE\"}"
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ Hot Stocks Detection Failed"
+          SLACK_MESSAGE: "Error occurred during hot stocks detection or AI analysis"
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"
