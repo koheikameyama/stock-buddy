@@ -25,7 +25,6 @@ interface Stock {
   sector: string | null
   quantity: number
   averagePrice: string
-  reason: string | null
   isSimulation: boolean
   analysis: StockAnalysis | null
 }
@@ -39,7 +38,6 @@ interface WatchlistItem {
   sector: string | null
   recommendedPrice: string
   recommendedQty: number
-  reason: string | null
   source: string
 }
 
@@ -796,14 +794,6 @@ export default function PortfolioClient({
                           市場: {portfolioStock.market}
                         </p>
                       </div>
-                      {portfolioStock.reason && (
-                        <div className="pt-3 border-t border-blue-200">
-                          <p className="text-xs text-gray-500 mb-1">💡 推奨理由</p>
-                          <p className="text-sm text-gray-700 leading-relaxed">
-                            {portfolioStock.reason}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -1139,17 +1129,6 @@ export default function PortfolioClient({
                           </p>
                         </div>
                       </div>
-
-                      {item.reason && (
-                        <div className="bg-blue-50 rounded-lg p-4 mb-4">
-                          <p className="text-sm font-semibold text-gray-700 mb-2">
-                            📊 推奨理由
-                          </p>
-                          <p className="text-gray-700 leading-relaxed text-sm">
-                            {item.reason}
-                          </p>
-                        </div>
-                      )}
 
                       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                         <div className="text-sm text-gray-500">

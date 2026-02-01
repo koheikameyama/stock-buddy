@@ -77,6 +77,37 @@ def fetch_and_store():
                         print(f"  ⚠️  Error inserting data for {date.date()}: {e}")
                         continue
 
+                # 財務指標を取得・更新
+                try:
+                    info = stock.info
+                    cur.execute("""
+                        UPDATE "Stock"
+                        SET
+                            pbr = %s,
+                            per = %s,
+                            roe = %s,
+                            "operatingCF" = %s,
+                            "freeCF" = %s,
+                            "currentPrice" = %s,
+                            "fiftyTwoWeekHigh" = %s,
+                            "fiftyTwoWeekLow" = %s,
+                            "financialDataUpdatedAt" = NOW()
+                        WHERE id = %s
+                    """, (
+                        info.get('priceToBook'),
+                        info.get('trailingPE'),
+                        info.get('returnOnEquity'),
+                        info.get('operatingCashflow'),
+                        info.get('freeCashflow'),
+                        info.get('currentPrice'),
+                        info.get('fiftyTwoWeekHigh'),
+                        info.get('fiftyTwoWeekLow'),
+                        stock_id
+                    ))
+                    print(f"  ✓ Financial metrics updated")
+                except Exception as e:
+                    print(f"  ⚠️  Error updating financial metrics: {e}")
+
                 conn.commit()
                 print(f"  ✓ {ticker} completed ({inserted_count} new records)")
                 success_count += 1

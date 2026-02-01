@@ -10,7 +10,6 @@ export type AddStockToPortfolioParams = {
   quantity: number
   price: number
   purchaseDate?: Date
-  reason?: string
   isSimulation?: boolean
   note?: string
 }
@@ -39,7 +38,6 @@ export async function addStockToPortfolio(
     quantity,
     price,
     purchaseDate = new Date(),
-    reason,
     isSimulation = false,
     note = "手動追加",
   } = params
@@ -133,7 +131,6 @@ export async function addStockToPortfolio(
           stockId: stockId,
           quantity: quantity,
           averagePrice: price,
-          reason: reason,
           isSimulation: isSimulation,
         },
       })

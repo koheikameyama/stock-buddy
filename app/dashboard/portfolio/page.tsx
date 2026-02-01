@@ -103,7 +103,6 @@ export default async function PortfolioPage() {
           sector: s.stock.sector,
           quantity: s.quantity,
           averagePrice: s.averagePrice.toString(),
-          reason: s.reason,
           isSimulation: s.isSimulation,
           analysis: analysisMap.get(s.id)
             ? {
@@ -125,7 +124,6 @@ export default async function PortfolioPage() {
           sector: w.stock.sector,
           recommendedPrice: w.recommendedPrice.toString(),
           recommendedQty: w.recommendedQty,
-          reason: w.reason,
           source: w.source,
         }))}
       />

@@ -124,7 +124,6 @@ export async function POST(request: NextRequest) {
             quantity: rec.quantity,
             price: rec.recommendedPrice,
             purchaseDate: new Date(),
-            reason: rec.reason,
             isSimulation,
             note: "オンボーディングから追加",
           })
@@ -145,7 +144,6 @@ export async function POST(request: NextRequest) {
             stockId: stock.id,
             recommendedPrice: rec.recommendedPrice,
             recommendedQty: rec.quantity,
-            reason: rec.reason,
             source: "onboarding",
           })
 

@@ -60,8 +60,7 @@ export async function POST(request: Request) {
           stockId: stock.id,
           recommendedPrice: rec.recommendedPrice,
           recommendedQty: rec.quantity,
-          reason: rec.reason,
-          source: "onboarding",
+          source: rec.source || "onboarding",
         })
 
         if (result.success) {

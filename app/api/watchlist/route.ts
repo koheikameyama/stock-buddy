@@ -93,7 +93,6 @@ export async function GET() {
           stock: item.stock,
           recommendedPrice: item.recommendedPrice,
           recommendedQty: item.recommendedQty,
-          reason: item.reason,
           source: item.source,
           targetPrice: item.targetPrice,
           priceAlert: item.priceAlert,

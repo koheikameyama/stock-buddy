@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
       quantity,
       price: averagePrice,
       purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
-      reason: watchlistItem.reason || undefined,
       isSimulation: isSimulation ?? false,
       note: `ウォッチリストから追加: ${watchlistItem.stock.name}`,
     })

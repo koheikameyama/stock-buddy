@@ -9,7 +9,6 @@ export type AddStockToWatchlistParams = {
   stockId: string
   recommendedPrice: number
   recommendedQty: number
-  reason?: string
   source?: string
 }
 
@@ -36,7 +35,6 @@ export async function addStockToWatchlist(
     stockId,
     recommendedPrice,
     recommendedQty,
-    reason,
     source = "manual",
   } = params
 
@@ -78,7 +76,6 @@ export async function addStockToWatchlist(
         data: {
           recommendedPrice,
           recommendedQty,
-          reason,
           source,
         },
       })
@@ -103,7 +100,6 @@ export async function addStockToWatchlist(
           stockId: stockId,
           recommendedPrice,
           recommendedQty,
-          reason,
           source,
         },
       })
@@ -137,7 +133,6 @@ export async function addMultipleStocksToWatchlist(
     stockId: string
     recommendedPrice: number
     recommendedQty: number
-    reason?: string
     source?: string
   }>
 ): Promise<{

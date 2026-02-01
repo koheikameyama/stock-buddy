@@ -151,11 +151,14 @@ export default function AddStockModal({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            stockId: selectedStock.id,
-            recommendedPrice: Number(price),
-            recommendedQty: quantity,
-            reason: "手動追加",
-            source: "manual",
+            recommendations: [
+              {
+                tickerCode: selectedStock.tickerCode,
+                recommendedPrice: Number(price),
+                quantity,
+                source: "manual",
+              },
+            ],
           }),
         })
 
