@@ -56,17 +56,17 @@ def fetch_candidate_stocks(cur) -> List[Dict[str, Any]]:
     query = """
         SELECT DISTINCT ON (s.id)
             s.id,
-            s.ticker,
+            s."tickerCode" as ticker,
             s.name,
             s.sector,
-            s."beginnerFriendlyScore",
+            s."beginnerScore",
             s."currentPrice",
             sp.close as latest_close,
             sp.volume as latest_volume,
             sp.date as latest_date
         FROM "Stock" s
         LEFT JOIN "StockPrice" sp ON s.id = sp."stockId"
-        WHERE s."beginnerFriendlyScore" >= 50
+        WHERE s."beginnerScore" >= 50
         AND sp.date >= NOW() - INTERVAL '30 days'
         ORDER BY s.id, sp.date DESC
     """
