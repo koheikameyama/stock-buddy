@@ -60,6 +60,7 @@ model User {
   portfolioStockAnalyses  PortfolioStockAnalysis[]
   recommendationLogs      RecommendationLog[]
   pushSubscriptions       PushSubscription[]
+  stockRequests           StockRequest[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -477,4 +478,30 @@ model HotStock {
   @@index([hotScore])
   @@index([validUntil])
   @@index([analyzedAt(sort: Desc)])
+}
+
+// 銘柄追加リクエスト
+model StockRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // リクエストされた銘柄情報
+  tickerCode  String   // "6600.T"（東証）、"AAPL"（米国）など
+  name        String?  // "キオクシアホールディングス"
+  market      String?  // "東証プライム"など
+  reason      String?  // ユーザーが追加したい理由（任意）
+
+  // ステータス管理
+  status      String   @default("pending") // pending, approved, rejected, added
+  adminNote   String?  // 管理者メモ（却下理由など）
+
+  // メタ情報
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([tickerCode])
+  @@index([createdAt(sort: Desc)])
 }
