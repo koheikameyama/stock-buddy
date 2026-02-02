@@ -32,6 +32,14 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/github-actions/detect_hot_stocks.py
 
+      - name: Send push notification on success
+        if: success()
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notification.py "チャンス銘柄の検出が完了しました" "新しいチャンス銘柄をチェックしましょう！"
+
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
@@ -41,6 +49,7 @@ jobs:
           SLACK_MESSAGE: |
             チャンス銘柄を検出しました ✅
             AI分析が完了しました ✅
+            プッシュ通知を送信しました 📱
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 

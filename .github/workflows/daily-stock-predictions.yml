@@ -30,6 +30,14 @@ jobs:
         run: |
           python scripts/github-actions/generate_stock_predictions.py
 
+      - name: Send push notification on success
+        if: success()
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notification.py "株価予測を更新しました" "最新の予測をチェックしましょう！"
+
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
@@ -39,6 +47,7 @@ jobs:
           SLACK_MESSAGE: |
             短期・中期・長期の株価予測を生成しました
             ユーザーのポートフォリオとウォッチリストの銘柄を分析済み
+            プッシュ通知を送信しました 📱
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
