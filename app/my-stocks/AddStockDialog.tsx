@@ -57,7 +57,6 @@ export default function AddStockDialog({
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showRequestForm, setShowRequestForm] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // 検索機能
@@ -97,8 +96,21 @@ export default function AddStockDialog({
     e.preventDefault()
     setError(null)
 
-    if (!selectedStock) {
-      setError("銘柄を選択してください")
+    // 検索クエリから銘柄コードを取得
+    let tickerCode = ""
+
+    if (selectedStock) {
+      // 検索結果から選択した場合
+      tickerCode = selectedStock.tickerCode
+    } else if (searchQuery.trim()) {
+      // 直接銘柄コードを入力した場合
+      tickerCode = searchQuery.trim().toUpperCase()
+      // .T が含まれていなければ追加
+      if (!tickerCode.includes(".")) {
+        tickerCode += ".T"
+      }
+    } else {
+      setError("銘柄コードを入力するか、検索結果から選択してください")
       return
     }
 
@@ -111,7 +123,7 @@ export default function AddStockDialog({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tickerCode: selectedStock.tickerCode,
+          tickerCode,
           quantity: quantity ? parseInt(quantity) : null,
           averagePrice: averagePrice ? parseFloat(averagePrice) : null,
           purchaseDate: quantity ? purchaseDate : null,
@@ -138,10 +150,6 @@ export default function AddStockDialog({
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleRequestStock = () => {
-    setShowRequestForm(true)
   }
 
   if (!isOpen) return null
@@ -240,14 +248,10 @@ export default function AddStockDialog({
             {/* 検索結果なし */}
             {showResults && searchQuery.length >= 1 && searchResults.length === 0 && !searching && (
               <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
-                <p className="text-sm text-gray-600 mb-3">該当する銘柄が見つかりませんでした</p>
-                <button
-                  type="button"
-                  onClick={handleRequestStock}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  この銘柄の追加をリクエスト
-                </button>
+                <p className="text-sm text-gray-600 mb-2">マスタに該当する銘柄が見つかりませんでした</p>
+                <p className="text-xs text-gray-500">
+                  銘柄コードのままで「追加」ボタンを押すと、自動的にデータを取得して追加します
+                </p>
               </div>
             )}
           </div>
@@ -333,51 +337,6 @@ export default function AddStockDialog({
             </button>
           </div>
         </form>
-
-        {/* 銘柄リクエストフォーム */}
-        {showRequestForm && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-              <h3 className="text-lg font-bold text-gray-900 mb-3">
-                銘柄追加リクエスト
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                「{searchQuery}」の追加をリクエストしますか？<br />
-                リクエストは運営チームが確認し、順次対応します。
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowRequestForm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-                >
-                  キャンセル
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      await fetch("/api/stock-requests", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          requestText: searchQuery,
-                          requestType: "add_stock",
-                        }),
-                      })
-                      alert("リクエストを送信しました")
-                      setShowRequestForm(false)
-                      onClose()
-                    } catch (error) {
-                      alert("リクエストの送信に失敗しました")
-                    }
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  リクエスト送信
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

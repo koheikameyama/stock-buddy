@@ -154,16 +154,59 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find stock by ticker code
-    const stock = await prisma.stock.findUnique({
+    // Find stock by ticker code, or create if not exists
+    let stock = await prisma.stock.findUnique({
       where: { tickerCode },
     })
 
+    // If stock doesn't exist, try to fetch from yfinance and create it
     if (!stock) {
-      return NextResponse.json(
-        { error: `Stock with ticker code "${tickerCode}" not found` },
-        { status: 404 }
-      )
+      try {
+        // Call yfinance API to get stock info
+        const yfinanceResponse = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${tickerCode}?interval=1d&range=1d`
+        )
+
+        if (!yfinanceResponse.ok) {
+          return NextResponse.json(
+            { error: `銘柄コード "${tickerCode}" が見つかりませんでした` },
+            { status: 404 }
+          )
+        }
+
+        const yfinanceData = await yfinanceResponse.json()
+        const result = yfinanceData?.chart?.result?.[0]
+
+        if (!result) {
+          return NextResponse.json(
+            { error: `銘柄コード "${tickerCode}" の情報を取得できませんでした` },
+            { status: 404 }
+          )
+        }
+
+        // Extract stock name and current price
+        const stockName = result.meta?.longName || result.meta?.shortName || tickerCode
+        const currentPrice = result.meta?.regularMarketPrice || null
+        const market = tickerCode.includes('.T') ? 'Tokyo' : 'Unknown'
+
+        // Create new stock in database
+        stock = await prisma.stock.create({
+          data: {
+            tickerCode,
+            name: stockName,
+            market,
+            currentPrice: currentPrice ? parseFloat(currentPrice.toString()) : null,
+          },
+        })
+
+        console.log(`Auto-created stock: ${tickerCode} - ${stockName}`)
+      } catch (error) {
+        console.error('Error fetching stock from yfinance:', error)
+        return NextResponse.json(
+          { error: `銘柄コード "${tickerCode}" の情報を取得できませんでした` },
+          { status: 404 }
+        )
+      }
     }
 
     // Check if stock already exists for this user
