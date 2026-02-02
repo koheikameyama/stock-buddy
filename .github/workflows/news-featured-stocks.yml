@@ -1,0 +1,58 @@
+name: News-based Featured Stocks Generation
+
+on:
+  schedule:
+    # 毎日22:00 JST (13:00 UTC) に実行
+    - cron: '0 13 * * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  generate-featured-stocks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/news/requirements.txt
+          pip install psycopg2-binary requests
+
+      - name: Fetch news and extract trending stock codes
+        run: |
+          python scripts/news/fetch_jpx_news.py
+
+      - name: Generate featured stocks from trending news
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/news/generate_news_featured_stocks.py
+
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ ニュースベース注目銘柄の生成に成功しました"
+          SLACK_MESSAGE: |
+            ニュースから話題の銘柄を分析して注目銘柄を生成しました ✅
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ ニュースベース注目銘柄の生成に失敗しました"
+          SLACK_MESSAGE: |
+            注目銘柄生成中にエラーが発生しました
+            詳細はGitHub Actionsログを確認してください
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"

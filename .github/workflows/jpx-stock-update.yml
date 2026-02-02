@@ -1,9 +1,9 @@
 name: JPX Stock Update
 
 on:
-  # schedule:
+  schedule:
     # Run weekly on Monday at 10:00 JST (01:00 UTC)
-    # - cron: '0 1 * * 1'
+    - cron: '0 1 * * 1'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
