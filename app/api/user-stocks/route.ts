@@ -3,8 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 
 // Constants
-const MAX_HOLDINGS = 5
-const MAX_WATCHLIST = 5
+const MAX_USER_STOCKS = 5
 
 // Types
 export interface UserStockResponse {
@@ -184,23 +183,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check combined stock limit
+    const totalStocks = await prisma.userStock.count({
+      where: { userId },
+    })
+
+    if (totalStocks >= MAX_USER_STOCKS) {
+      return NextResponse.json(
+        { error: `最大${MAX_USER_STOCKS}銘柄まで登録できます` },
+        { status: 400 }
+      )
+    }
+
     // Determine if this is a holding or watchlist item
     const isHolding = quantity !== null && quantity !== undefined
 
-    // Check limits
+    // Validate holding data
     if (isHolding) {
-      const holdingsCount = await prisma.userStock.count({
-        where: { userId, quantity: { not: null } },
-      })
-
-      if (holdingsCount >= MAX_HOLDINGS) {
-        return NextResponse.json(
-          { error: `Maximum ${MAX_HOLDINGS} holdings allowed` },
-          { status: 400 }
-        )
-      }
-
-      // Validate holding data
       if (quantity <= 0) {
         return NextResponse.json(
           { error: "Quantity must be greater than 0" },
@@ -211,18 +210,6 @@ export async function POST(request: NextRequest) {
       if (averagePrice !== undefined && averagePrice !== null && averagePrice <= 0) {
         return NextResponse.json(
           { error: "Average price must be greater than 0" },
-          { status: 400 }
-        )
-      }
-    } else {
-      // Watchlist mode
-      const watchlistCount = await prisma.userStock.count({
-        where: { userId, quantity: null },
-      })
-
-      if (watchlistCount >= MAX_WATCHLIST) {
-        return NextResponse.json(
-          { error: `Maximum ${MAX_WATCHLIST} watchlist items allowed` },
           { status: 400 }
         )
       }

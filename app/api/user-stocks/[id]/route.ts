@@ -3,9 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { UserStockResponse } from "../route"
 
-// Constants
-const MAX_HOLDINGS = 5
-const MAX_WATCHLIST = 5
+// Note: No limit check needed on conversion since total count stays the same
 
 interface UpdateUserStockRequest {
   quantity?: number | null
@@ -67,32 +65,7 @@ export async function PATCH(
         ? body.quantity !== null && body.quantity !== 0
         : wasHolding
 
-    // Check limits when mode changes
-    if (!wasHolding && willBeHolding) {
-      // Converting watchlist → holding
-      const holdingsCount = await prisma.userStock.count({
-        where: { userId, quantity: { not: null } },
-      })
-
-      if (holdingsCount >= MAX_HOLDINGS) {
-        return NextResponse.json(
-          { error: `Maximum ${MAX_HOLDINGS} holdings allowed` },
-          { status: 400 }
-        )
-      }
-    } else if (wasHolding && !willBeHolding) {
-      // Converting holding → watchlist
-      const watchlistCount = await prisma.userStock.count({
-        where: { userId, quantity: null },
-      })
-
-      if (watchlistCount >= MAX_WATCHLIST) {
-        return NextResponse.json(
-          { error: `Maximum ${MAX_WATCHLIST} watchlist items allowed` },
-          { status: 400 }
-        )
-      }
-    }
+    // No limit check needed when converting since total count stays the same
 
     // Validate data
     if (body.quantity !== undefined && body.quantity !== null) {

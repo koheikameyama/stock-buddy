@@ -29,7 +29,6 @@ interface StockPrice {
 interface StockCardProps {
   stock: UserStock
   price?: StockPrice
-  mode: "holding" | "watchlist"
   onEdit: () => void
   onDelete: () => void
   onConvert: () => void
@@ -38,12 +37,11 @@ interface StockCardProps {
 export default function StockCard({
   stock,
   price,
-  mode,
   onEdit,
   onDelete,
   onConvert,
 }: StockCardProps) {
-  const isHolding = mode === "holding"
+  const isHolding = stock.quantity !== null
   const quantity = stock.quantity || 0
   const averagePrice = stock.averagePrice || 0
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -87,10 +85,10 @@ export default function StockCard({
             className={`px-3 py-1 text-xs font-semibold rounded-full ${
               isHolding
                 ? "bg-blue-100 text-blue-700"
-                : "bg-green-100 text-green-700"
+                : "bg-amber-100 text-amber-700"
             }`}
           >
-            {isHolding ? "保有中" : "ウォッチ中"}
+            {isHolding ? "保有中" : "気になる"}
           </span>
         </div>
         <p className="text-sm text-gray-500">
@@ -224,7 +222,7 @@ export default function StockCard({
               d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
             />
           </svg>
-          {isHolding ? "ウォッチに変更" : "保有に変更"}
+          {isHolding ? "気になるに変更" : "保有中に変更"}
         </button>
       </div>
 

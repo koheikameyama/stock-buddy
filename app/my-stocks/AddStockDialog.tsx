@@ -29,25 +29,21 @@ interface AddStockDialogProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (stock: UserStock) => void
-  mode: "holding" | "watchlist"
 }
 
 export default function AddStockDialog({
   isOpen,
   onClose,
   onSuccess,
-  mode,
 }: AddStockDialogProps) {
   const [tickerCode, setTickerCode] = useState("")
-  const [quantity, setQuantity] = useState("100")
+  const [quantity, setQuantity] = useState("")
   const [averagePrice, setAveragePrice] = useState("")
   const [purchaseDate, setPurchaseDate] = useState(
     new Date().toISOString().split("T")[0]
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const isHolding = mode === "holding"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,9 +64,9 @@ export default function AddStockDialog({
         },
         body: JSON.stringify({
           tickerCode: formattedTicker,
-          quantity: isHolding ? parseInt(quantity) : null,
-          averagePrice: isHolding && averagePrice ? parseFloat(averagePrice) : null,
-          purchaseDate: isHolding ? purchaseDate : null,
+          quantity: quantity ? parseInt(quantity) : null,
+          averagePrice: averagePrice ? parseFloat(averagePrice) : null,
+          purchaseDate: quantity ? purchaseDate : null,
         }),
       })
 
@@ -84,7 +80,7 @@ export default function AddStockDialog({
 
       // Reset form
       setTickerCode("")
-      setQuantity("100")
+      setQuantity("")
       setAveragePrice("")
       setPurchaseDate(new Date().toISOString().split("T")[0])
     } catch (err: any) {
@@ -102,7 +98,7 @@ export default function AddStockDialog({
       <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            {isHolding ? "保有銘柄を追加" : "ウォッチリストに追加"}
+            銘柄を追加
           </h2>
           <button
             onClick={onClose}
@@ -153,27 +149,30 @@ export default function AddStockDialog({
             </p>
           </div>
 
-          {/* Holdings specific fields */}
-          {isHolding && (
-            <>
-              <div>
-                <label
-                  htmlFor="quantity"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
-                >
-                  保有株数
-                </label>
-                <input
-                  type="number"
-                  id="quantity"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  min="1"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+          {/* Optional holding fields */}
+          <div>
+            <label
+              htmlFor="quantity"
+              className="block text-sm font-semibold text-gray-700 mb-2"
+            >
+              保有株数（オプション）
+            </label>
+            <input
+              type="number"
+              id="quantity"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              min="1"
+              placeholder="例: 100"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              入力すると「保有中」、空欄のままだと「気になる」として登録されます
+            </p>
+          </div>
 
+          {quantity && (
+            <>
               <div>
                 <label
                   htmlFor="averagePrice"
@@ -224,11 +223,7 @@ export default function AddStockDialog({
             </button>
             <button
               type="submit"
-              className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors text-white ${
-                isHolding
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "bg-green-600 hover:bg-green-700"
-              } disabled:bg-gray-300 disabled:cursor-not-allowed`}
+              className="flex-1 px-4 py-2 rounded-lg font-semibold transition-colors text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               disabled={loading}
             >
               {loading ? "追加中..." : "追加"}
