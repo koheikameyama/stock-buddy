@@ -8,8 +8,15 @@ import { prisma } from "@/lib/prisma"
  */
 export async function GET() {
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // 今日の日付を取得（JST基準）
+    const now = new Date()
+    const jstOffset = 9 * 60 * 60 * 1000 // JST is UTC+9
+    const jstDate = new Date(now.getTime() + jstOffset)
+    const today = new Date(jstDate.getFullYear(), jstDate.getMonth(), jstDate.getDate())
+
+    // 前日の日付も含めて検索（データ生成タイミングのズレを考慮）
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
 
     // 認証チェック
     const session = await auth()
@@ -49,10 +56,13 @@ export async function GET() {
       riskTolerance
     )
 
-    // 今日の注目銘柄を取得（優先カテゴリ順）
+    // 今日または前日の注目銘柄を取得（データ生成タイミングのズレを考慮）
     const featuredStocks = await prisma.dailyFeaturedStock.findMany({
       where: {
-        date: today,
+        date: {
+          gte: yesterday,
+          lte: today,
+        },
       },
       include: {
         stock: {
@@ -65,6 +75,7 @@ export async function GET() {
         },
       },
       orderBy: [
+        { date: "desc" }, // 最新の日付を優先
         { position: "asc" },
       ],
     })
