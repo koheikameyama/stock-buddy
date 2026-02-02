@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
 import AddStockDialog from "./AddStockDialog"
 import EditStockDialog from "./EditStockDialog"
+import StockPrediction from "@/app/components/StockPrediction"
 
 interface UserStock {
   id: string
@@ -265,14 +266,17 @@ export default function MyStocksClient({ userId }: { userId: string }) {
           ) : (
             <div className="grid gap-3 sm:gap-6">
               {userStocks.map((stock) => (
-                <StockCard
-                  key={stock.id}
-                  stock={stock}
-                  price={prices[stock.stock.tickerCode]}
-                  onEdit={() => handleEditStock(stock)}
-                  onDelete={() => handleDeleteStock(stock.id, stock.stock.name)}
-                  onConvert={() => handleConvertMode(stock)}
-                />
+                <div key={stock.id} className="space-y-4">
+                  <StockCard
+                    stock={stock}
+                    price={prices[stock.stock.tickerCode]}
+                    onEdit={() => handleEditStock(stock)}
+                    onDelete={() => handleDeleteStock(stock.id, stock.stock.name)}
+                    onConvert={() => handleConvertMode(stock)}
+                  />
+                  {/* AI分析予測 */}
+                  <StockPrediction stockId={stock.stockId} />
+                </div>
               ))}
             </div>
           )}
