@@ -67,6 +67,8 @@ export default function AddStockDialog({
 
     // 既に銘柄が選択されている場合は検索をスキップ
     if (selectedStock) {
+      setSearchResults([])
+      setShowResults(false)
       return
     }
 
@@ -89,8 +91,7 @@ export default function AddStockDialog({
         setSearching(false)
       }
     }, 300) // 300msのデバウンス
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]) // selectedStockは依存配列から除外（選択時の再検索を防ぐ）
+  }, [searchQuery, selectedStock]) // selectedStockを依存配列に追加（クリア時に検索を再開）
 
   const handleSelectStock = (stock: SearchResult) => {
     // 検索タイムアウトをクリアして、再検索を防ぐ
