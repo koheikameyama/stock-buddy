@@ -1,0 +1,16 @@
+[
+  {
+    "ticker": "1234.T",
+    "name": "テスト株式会社",
+    "sector": "情報・通信業",
+    "listedDate": "2025-02-01",
+    "source": "new_listing"
+  },
+  {
+    "ticker": "5678.T",
+    "name": "サンプル工業",
+    "sector": "製造業",
+    "listedDate": "2025-01-15",
+    "source": "new_listing"
+  }
+]
