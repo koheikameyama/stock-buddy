@@ -32,6 +32,12 @@ export default function DashboardClient({
       return
     }
 
+    // 投資スタイル編集モーダルを開く
+    if (searchParams.get("editStyle") === "true") {
+      setShowInvestmentStyleModal(true)
+      return
+    }
+
     // 投資スタイル未設定の場合にモーダルを表示
     if (!hasInvestmentStyle) {
       const hasSeenModal = localStorage.getItem("hasSeenInvestmentStyleModal")
