@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import OpenAI from "openai"
-import * as fs from "fs"
-import * as path from "path"
 
 /**
  * POST /api/featured-stocks/generate
  * Twitter連携で注目銘柄を自動生成
  *
  * フロー:
- * 1. twitter_tweets.jsonを読み込み
+ * 1. リクエストボディからtwitter_tweets.jsonデータを受け取る
  * 2. ティッカー別にツイートを集計
  * 3. メンション数が5以上の銘柄に対してOpenAI分析
  * 4. カテゴリ・理由・スコアを取得
  * 5. FeaturedStockテーブルにupsert
+ *
+ * 改善点:
+ * - N+1問題を解決（バッチクエリ化）
+ * - Race condition解決（Prisma upsert + unique制約）
+ * - OpenAIタイムアウト保護追加
+ * - ファイルシステム依存を削除（リクエストボディで受け取る）
  */
 
 interface TwitterTweet {
@@ -40,15 +44,9 @@ interface OpenAIAnalysisResult {
   score: number
 }
 
-const TWITTER_DATA_PATH = path.join(
-  process.cwd(),
-  "scripts",
-  "twitter",
-  "twitter_tweets.json"
-)
-
 const MIN_MENTIONS = 5
 const MAX_TWEET_SAMPLES = 5
+const OPENAI_TIMEOUT_MS = 30000 // 30 seconds
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,20 +68,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Read Twitter data
-    console.log("📖 Reading Twitter data from:", TWITTER_DATA_PATH)
-    if (!fs.existsSync(TWITTER_DATA_PATH)) {
-      console.error("❌ twitter_tweets.json not found")
+    // Read Twitter data from request body (Issue 4: File system dependency)
+    const body = await request.json()
+    const twitterData = body.twitterData as TwitterData
+
+    if (!twitterData || !twitterData.tweets) {
       return NextResponse.json(
-        { error: "Twitter data file not found" },
-        { status: 404 }
+        { error: "Missing twitterData in request body" },
+        { status: 400 }
       )
     }
 
-    const twitterDataRaw = fs.readFileSync(TWITTER_DATA_PATH, "utf-8")
-    const twitterData: TwitterData = JSON.parse(twitterDataRaw)
-
-    console.log(`✅ Loaded Twitter data: ${twitterData.total_tweets} tweets, ${twitterData.unique_tickers} unique tickers`)
+    console.log(`✅ Received Twitter data: ${twitterData.total_tweets} tweets, ${twitterData.unique_tickers} unique tickers`)
 
     // Filter tickers with sufficient mentions
     const qualifiedTickers = Object.entries(twitterData.ticker_mentions)
@@ -113,16 +109,39 @@ export async function POST(request: NextRequest) {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // Issue 1: N+1 Problem - Batch query all stocks at once
+    console.log("🔍 Fetching all stocks from database...")
+    const stockTickers = qualifiedTickers.map(([ticker]) => ticker)
+    const stocks = await prisma.stock.findMany({
+      where: { tickerCode: { in: stockTickers } },
+    })
+    const stockMap = new Map(stocks.map((s) => [s.tickerCode, s]))
+    console.log(`✅ Fetched ${stocks.length} stocks`)
+
+    // Issue 1: Batch query all existing featured stocks at once
+    console.log("🔍 Fetching existing featured stocks...")
+    const existingFeatured = await prisma.featuredStock.findMany({
+      where: {
+        stockId: { in: stocks.map((s) => s.id) },
+        date: { gte: today, lt: tomorrow },
+      },
+    })
+    const featuredMap = new Map(existingFeatured.map((f) => [f.stockId, f]))
+    console.log(`✅ Found ${existingFeatured.length} existing featured stocks for today`)
+
+    // Collect all upsert operations
+    const upsertOperations = []
 
     // Process each qualified ticker
     for (const [ticker, mentionCount] of qualifiedTickers) {
       try {
         console.log(`\n📊 Processing ${ticker} (${mentionCount} mentions)...`)
 
-        // Get stock from database
-        const stock = await prisma.stock.findUnique({
-          where: { tickerCode: ticker },
-        })
+        // Get stock from pre-fetched map (no DB query)
+        const stock = stockMap.get(ticker)
 
         if (!stock) {
           console.warn(`⚠️ Stock ${ticker} not found in database`)
@@ -149,9 +168,9 @@ export async function POST(request: NextRequest) {
           .join("\n")
 
         // Call OpenAI for analysis
-        console.log(`🤖 Calling OpenAI for ${ticker} (${stock.name})...`)
+        console.log(`🤖 Calling OpenAI for ${ticker} (${stock?.name ?? ticker})...`)
 
-        const prompt = `以下のツイートデータから、銘柄コード ${ticker} (${stock.name}) の投資判断を行ってください。
+        const prompt = `以下のツイートデータから、銘柄コード ${ticker} (${stock?.name ?? ticker}) の投資判断を行ってください。
 
 ツイート例 (全${mentionCount}件のメンションから抜粋):
 ${tweetSamples}
@@ -176,21 +195,27 @@ ${tweetSamples}
 
 必ず日本語で、初心者にも分かりやすく説明してください。`
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "あなたは投資初心者向けのアドバイザーです。専門用語を避け、分かりやすい言葉で説明します。",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.7,
-        })
+        // Issue 3: OpenAI timeout protection
+        const completion = await Promise.race([
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: "あなたは投資初心者向けのアドバイザーです。専門用語を避け、分かりやすい言葉で説明します。",
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.7,
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("OpenAI API timeout")), OPENAI_TIMEOUT_MS)
+          ),
+        ]) as OpenAI.Chat.Completions.ChatCompletion
 
         const resultText = completion.choices[0]?.message?.content
         if (!resultText) {
@@ -217,43 +242,41 @@ ${tweetSamples}
 
         console.log(`✅ AI Analysis: category=${analysis.category}, score=${analysis.score}`)
 
-        // Upsert to FeaturedStock table
-        const existingFeaturedStock = await prisma.featuredStock.findFirst({
+        // Check if this is an update or create (for stats tracking)
+        const isUpdate = featuredMap.has(stock.id)
+
+        // Issue 2: Race condition - Use Prisma upsert with unique constraint
+        const upsertOperation = prisma.featuredStock.upsert({
           where: {
-            stockId: stock.id,
-            date: {
-              gte: today,
-              lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+            stockId_date: {
+              stockId: stock.id,
+              date: today,
             },
+          },
+          update: {
+            category: analysis.category,
+            reason: analysis.reason,
+            score: analysis.score,
+            source: "twitter",
+            updatedAt: new Date(),
+          },
+          create: {
+            stockId: stock.id,
+            date: today,
+            category: analysis.category,
+            reason: analysis.reason,
+            score: analysis.score,
+            source: "twitter",
           },
         })
 
-        if (existingFeaturedStock) {
-          // Update existing
-          await prisma.featuredStock.update({
-            where: { id: existingFeaturedStock.id },
-            data: {
-              category: analysis.category,
-              reason: analysis.reason,
-              score: analysis.score,
-              source: "twitter",
-            },
-          })
-          console.log(`✅ Updated FeaturedStock for ${ticker}`)
+        upsertOperations.push(upsertOperation)
+
+        if (isUpdate) {
+          console.log(`✅ Will update FeaturedStock for ${ticker}`)
           stats.updated++
         } else {
-          // Create new
-          await prisma.featuredStock.create({
-            data: {
-              stockId: stock.id,
-              date: today,
-              category: analysis.category,
-              reason: analysis.reason,
-              score: analysis.score,
-              source: "twitter",
-            },
-          })
-          console.log(`✅ Created FeaturedStock for ${ticker}`)
+          console.log(`✅ Will create FeaturedStock for ${ticker}`)
           stats.added++
         }
 
@@ -264,6 +287,13 @@ ${tweetSamples}
         const errorMessage = error instanceof Error ? error.message : "Unknown error"
         stats.errors.push(`${ticker}: ${errorMessage}`)
       }
+    }
+
+    // Execute all upsert operations in a transaction
+    console.log(`\n💾 Executing ${upsertOperations.length} upsert operations...`)
+    if (upsertOperations.length > 0) {
+      await prisma.$transaction(upsertOperations)
+      console.log("✅ All upsert operations completed successfully")
     }
 
     console.log("\n📊 Final Stats:", stats)

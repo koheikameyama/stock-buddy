@@ -526,6 +526,7 @@ model FeaturedStock {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([stockId, date])
   @@index([date])
   @@index([category])
   @@index([stockId])
