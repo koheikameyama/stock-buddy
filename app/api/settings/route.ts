@@ -39,27 +39,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { investmentAmount, monthlyAmount, investmentPeriod, riskTolerance } =
-      await request.json()
+    const { investmentPeriod, riskTolerance } = await request.json()
 
     // バリデーション
-    const investmentAmountNum = parseInt(investmentAmount)
-    const monthlyAmountNum = parseInt(monthlyAmount)
-
-    if (isNaN(investmentAmountNum) || investmentAmountNum < 0) {
-      return NextResponse.json(
-        { error: "追加投資金額を正しく入力してください" },
-        { status: 400 }
-      )
-    }
-
-    if (isNaN(monthlyAmountNum) || monthlyAmountNum < 0) {
-      return NextResponse.json(
-        { error: "月々の積立金額を正しく入力してください" },
-        { status: 400 }
-      )
-    }
-
     if (!investmentPeriod || !riskTolerance) {
       return NextResponse.json(
         { error: "投資期間とリスク許容度を選択してください" },
@@ -84,14 +66,10 @@ export async function PUT(request: NextRequest) {
       where: { userId: user.id },
       create: {
         userId: user.id,
-        investmentAmount: investmentAmountNum,
-        monthlyAmount: monthlyAmountNum,
         investmentPeriod,
         riskTolerance,
       },
       update: {
-        investmentAmount: investmentAmountNum,
-        monthlyAmount: monthlyAmountNum,
         investmentPeriod,
         riskTolerance,
       },

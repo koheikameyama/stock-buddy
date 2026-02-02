@@ -76,11 +76,8 @@ model UserSettings {
   id                  String   @id @default(cuid())
   userId              String   @unique
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  investmentAmount    Int?     // 初期投資金額（オプショナル・非推奨: AI推奨時のみ使用）
-  monthlyAmount       Int?     // 月々の積立金額（オプショナル・将来的に削除予定）
   investmentPeriod    String   // 'short' | 'medium' | 'long'
   riskTolerance       String   // 'low' | 'medium' | 'high'
-  isExistingInvestor  Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
