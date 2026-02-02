@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { addStockToWatchlist } from "@/lib/watchlist"
-import { addStockToPortfolio } from "@/lib/portfolio"
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,27 +42,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ユーザーとポートフォリオを取得
+    // ユーザーを取得
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: {
-        portfolio: true,
-      },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // ポートフォリオが存在しない場合は作成
-    let portfolio = user.portfolio
-    if (!portfolio) {
-      portfolio = await prisma.portfolio.create({
-        data: {
-          userId: user.id,
-          name: "マイポートフォリオ",
-        },
-      })
     }
 
     // 投資スタイルを保存
@@ -85,15 +69,26 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    const MAX_USER_STOCKS = 5
     const results = {
-      watchlistAdded: 0,
-      portfolioAdded: 0,
+      added: 0,
       errors: [] as string[],
     }
+
+    // 現在のマイ銘柄数を取得
+    const currentCount = await prisma.userStock.count({
+      where: { userId: user.id },
+    })
 
     // 各推奨銘柄を追加
     for (const rec of recommendations) {
       try {
+        // 制限チェック
+        if (currentCount + results.added >= MAX_USER_STOCKS) {
+          results.errors.push(`最大${MAX_USER_STOCKS}銘柄まで登録できます`)
+          break
+        }
+
         // 銘柄コードで株式を検索（.Tあり/なし両方対応）
         const tickerCodeWithT = rec.tickerCode.includes(".T")
           ? rec.tickerCode
@@ -116,44 +111,18 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        if (addToPortfolio) {
-          // ポートフォリオに追加
-          const result = await addStockToPortfolio({
+        // UserStockに追加
+        await prisma.userStock.create({
+          data: {
             userId: user.id,
             stockId: stock.id,
-            quantity: rec.quantity,
-            price: rec.recommendedPrice,
-            purchaseDate: new Date(),
-            isSimulation,
+            quantity: addToPortfolio ? rec.quantity : null,
+            averagePurchasePrice: addToPortfolio ? rec.recommendedPrice : null,
             note: "オンボーディングから追加",
-          })
+          },
+        })
 
-          if (result.success) {
-            results.portfolioAdded++
-          } else {
-            results.errors.push(result.error)
-            // 制限エラーの場合はここで中断
-            if (result.error.includes("最大")) {
-              break
-            }
-          }
-        } else {
-          // ウォッチリストに追加
-          const result = await addStockToWatchlist({
-            userId: user.id,
-            stockId: stock.id,
-          })
-
-          if (result.success) {
-            results.watchlistAdded++
-          } else {
-            results.errors.push(result.error)
-            // 制限エラーの場合はここで中断
-            if (result.error.includes("最大")) {
-              break
-            }
-          }
-        }
+        results.added++
       } catch (error) {
         console.error(`Error processing ${rec.tickerCode}:`, error)
         results.errors.push(`銘柄 ${rec.tickerCode} の処理に失敗しました`)

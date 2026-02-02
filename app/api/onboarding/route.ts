@@ -54,7 +54,6 @@ export async function POST(request: NextRequest) {
       where: { email: session.user.email },
       include: {
         settings: true,
-        portfolio: true,
       },
     })
 
