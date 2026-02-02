@@ -17,8 +17,6 @@ type DashboardClientProps = {
 }
 
 export default function DashboardClient({
-  hasHoldings,
-  hasWatchlist,
   termsAccepted,
   privacyPolicyAccepted,
   hasInvestmentStyle,

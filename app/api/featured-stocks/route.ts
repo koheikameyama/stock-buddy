@@ -1,15 +1,12 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 
 /**
  * GET /api/featured-stocks
  * 今日の注目銘柄を取得（ユーザーの投資スタイルに応じてパーソナライズ）
- *
- * Query params:
- * - userId: ユーザーID（オプション）
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)

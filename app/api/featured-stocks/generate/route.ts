@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { OpenAI } from "openai"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -135,6 +137,7 @@ export async function POST(request: NextRequest) {
 
 簡潔に、専門用語を避けて説明してください。`
 
+          const openai = getOpenAIClient()
           const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }],
