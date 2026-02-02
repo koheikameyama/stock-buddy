@@ -2,8 +2,21 @@ import { auth } from "@/auth"
 import { NextResponse } from "next/server"
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth
   const { pathname } = req.nextUrl
+
+  // メンテナンスモードチェック
+  const isMaintenanceMode = process.env.MAINTENANCE_MODE === "true"
+
+  if (isMaintenanceMode && pathname !== "/maintenance") {
+    return NextResponse.redirect(new URL("/maintenance", req.url))
+  }
+
+  // メンテナンス画面からの戻り
+  if (!isMaintenanceMode && pathname === "/maintenance") {
+    return NextResponse.redirect(new URL("/", req.url))
+  }
+
+  const isLoggedIn = !!req.auth
 
   // ダッシュボードにアクセスしようとしているが、ログインしていない場合
   if (pathname.startsWith("/dashboard") && !isLoggedIn) {
@@ -19,6 +32,6 @@ export default auth((req) => {
 })
 
 export const config = {
-  // ダッシュボード、ルート、aboutページにマッチング
-  matcher: ["/dashboard/:path*", "/", "/about/:path*"],
+  // ダッシュボード、ルート、about、maintenanceページにマッチング
+  matcher: ["/dashboard/:path*", "/", "/about/:path*", "/maintenance"],
 }
