@@ -15,23 +15,32 @@ export async function GET() {
     const session = await auth()
     const userId = session?.user?.id
 
-    // ユーザーの投資スタイルを取得
+    // ユーザーの投資スタイルと保有銘柄を取得
     let investmentPeriod: string | undefined
     let riskTolerance: string | undefined
+    let userStockIds: string[] = []
 
     if (userId) {
-      const userSettings = await prisma.userSettings.findUnique({
-        where: { userId },
-        select: {
-          investmentPeriod: true,
-          riskTolerance: true,
-        },
-      })
+      const [userSettings, userStocks] = await Promise.all([
+        prisma.userSettings.findUnique({
+          where: { userId },
+          select: {
+            investmentPeriod: true,
+            riskTolerance: true,
+          },
+        }),
+        prisma.userStock.findMany({
+          where: { userId },
+          select: { stockId: true },
+        }),
+      ])
 
       if (userSettings) {
         investmentPeriod = userSettings.investmentPeriod
         riskTolerance = userSettings.riskTolerance
       }
+
+      userStockIds = userStocks.map((us) => us.stockId)
     }
 
     // 投資スタイルに応じてカテゴリを決定
@@ -92,6 +101,8 @@ export async function GET() {
       category: fs.category,
       reason: fs.reason,
       score: fs.score,
+      isOwned: userStockIds.includes(fs.stockId), // 保有中かどうか
+      isRecommended: preferredCategories[0] === fs.category, // 最優先カテゴリかどうか
       stock: {
         id: fs.stock.id,
         tickerCode: fs.stock.tickerCode,
@@ -103,7 +114,10 @@ export async function GET() {
       },
     }))
 
-    return NextResponse.json({ featuredStocks: response }, { status: 200 })
+    return NextResponse.json({
+      featuredStocks: response,
+      preferredCategory: preferredCategories[0], // 優先カテゴリ情報
+    }, { status: 200 })
   } catch (error) {
     console.error("Error fetching featured stocks:", error)
     return NextResponse.json(

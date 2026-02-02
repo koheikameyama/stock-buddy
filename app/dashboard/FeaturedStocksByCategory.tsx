@@ -8,6 +8,8 @@ interface FeaturedStock {
   category: string // "surge" | "stable" | "trending"
   reason: string | null
   score: number | null
+  isOwned: boolean // 保有中かどうか
+  isRecommended: boolean // 最優先カテゴリかどうか
   stock: {
     id: string
     tickerCode: string
@@ -207,10 +209,22 @@ export default function FeaturedStocksByCategory({
                       <div className="mb-2 sm:mb-3">
                         <div className="flex items-start justify-between mb-1">
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-sm sm:text-base font-bold text-gray-900 truncate">
-                              {stock.stock.name}
-                            </h4>
-                            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500 mt-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-sm sm:text-base font-bold text-gray-900 truncate">
+                                {stock.stock.name}
+                              </h4>
+                              {stock.isOwned && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 whitespace-nowrap">
+                                  保有中
+                                </span>
+                              )}
+                              {stock.isRecommended && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 whitespace-nowrap">
+                                  ⭐ おすすめ
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500">
                               <span>{stock.stock.tickerCode}</span>
                               {stock.stock.sector && (
                                 <>
