@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { addStockToWatchlist } from "@/lib/watchlist"
 
 interface FeaturedStock {
   id: string
