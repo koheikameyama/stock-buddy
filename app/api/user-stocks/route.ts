@@ -161,59 +161,19 @@ export async function POST(request: NextRequest) {
       normalizedTickerCode = `${tickerCode}.T`
     }
 
-    // Find stock by ticker code, or create if not exists
-    let stock = await prisma.stock.findUnique({
+    // Find stock by ticker code in database
+    const stock = await prisma.stock.findUnique({
       where: { tickerCode: normalizedTickerCode },
     })
 
-    // If stock doesn't exist, try to fetch from yfinance and create it
+    // If stock doesn't exist in database, return error
     if (!stock) {
-      try {
-        // Call yfinance API to get stock info (use normalized ticker code)
-        const yfinanceResponse = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${normalizedTickerCode}?interval=1d&range=1d`
-        )
-
-        if (!yfinanceResponse.ok) {
-          return NextResponse.json(
-            { error: `銘柄コード "${normalizedTickerCode}" が見つかりませんでした` },
-            { status: 404 }
-          )
-        }
-
-        const yfinanceData = await yfinanceResponse.json()
-        const result = yfinanceData?.chart?.result?.[0]
-
-        if (!result) {
-          return NextResponse.json(
-            { error: `銘柄コード "${normalizedTickerCode}" の情報を取得できませんでした` },
-            { status: 404 }
-          )
-        }
-
-        // Extract stock name and current price
-        const stockName = result.meta?.longName || result.meta?.shortName || normalizedTickerCode
-        const currentPrice = result.meta?.regularMarketPrice || null
-        const market = normalizedTickerCode.includes('.T') ? 'TSE' : 'Unknown'
-
-        // Create new stock in database (use normalized ticker code)
-        stock = await prisma.stock.create({
-          data: {
-            tickerCode: normalizedTickerCode,
-            name: stockName,
-            market,
-            currentPrice: currentPrice ? parseFloat(currentPrice.toString()) : null,
-          },
-        })
-
-        console.log(`Auto-created stock: ${tickerCode} - ${stockName}`)
-      } catch (error) {
-        console.error('Error fetching stock from yfinance:', error)
-        return NextResponse.json(
-          { error: `銘柄コード "${tickerCode}" の情報を取得できませんでした` },
-          { status: 404 }
-        )
-      }
+      return NextResponse.json(
+        {
+          error: `銘柄コード "${normalizedTickerCode}" が見つかりませんでした。銘柄マスタに登録されていない銘柄です。銘柄リクエストから追加申請してください。`
+        },
+        { status: 404 }
+      )
     }
 
     // Check if stock already exists for this user
