@@ -270,7 +270,7 @@ export default function AddStockDialog({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <p className="mt-1 text-xs text-gray-500">
-              入力すると「保有中」、空欄のままだと「気になる」として登録されます
+              保有株数を入力すると利益が自動計算されます
             </p>
           </div>
 
