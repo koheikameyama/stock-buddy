@@ -74,7 +74,7 @@ export default function FeaturedStocksByCategory({
   const fetchFeaturedStocks = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/featured-stocks-twitter")
+      const response = await fetch("/api/featured-stocks")
       const data = await response.json()
 
       if (response.ok) {
