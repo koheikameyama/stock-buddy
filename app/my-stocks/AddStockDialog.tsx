@@ -331,7 +331,7 @@ export default function AddStockDialog({
             <button
               type="submit"
               className="flex-1 px-4 py-2 rounded-lg font-semibold transition-colors text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              disabled={loading}
+              disabled={loading || (!selectedStock && !searchQuery.trim())}
             >
               {loading ? "追加中..." : "追加"}
             </button>
