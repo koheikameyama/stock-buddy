@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import OnboardingModal from "@/app/components/OnboardingModal"
 import InstallPrompt from "@/app/components/InstallPrompt"
 import TermsModal from "@/app/components/TermsModal"
+import InvestmentStyleModal from "@/app/components/InvestmentStyleModal"
 
 type DashboardClientProps = {
   hasHoldings: boolean
   hasWatchlist: boolean
   termsAccepted: boolean
   privacyPolicyAccepted: boolean
+  hasInvestmentStyle: boolean
 }
 
 export default function DashboardClient({
@@ -18,8 +19,9 @@ export default function DashboardClient({
   hasWatchlist,
   termsAccepted,
   privacyPolicyAccepted,
+  hasInvestmentStyle,
 }: DashboardClientProps) {
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+  const [showInvestmentStyleModal, setShowInvestmentStyleModal] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
   const searchParams = useSearchParams()
 
@@ -30,18 +32,18 @@ export default function DashboardClient({
       return
     }
 
-    // ポートフォリオもウォッチリストもない場合にオンボーディングモーダルを表示
-    if (!hasHoldings && !hasWatchlist) {
-      const hasSeenModal = localStorage.getItem("hasSeenOnboardingModal")
+    // 投資スタイル未設定の場合にモーダルを表示
+    if (!hasInvestmentStyle) {
+      const hasSeenModal = localStorage.getItem("hasSeenInvestmentStyleModal")
       if (!hasSeenModal) {
-        setShowOnboardingModal(true)
+        setShowInvestmentStyleModal(true)
       }
     }
-  }, [hasHoldings, hasWatchlist, termsAccepted, privacyPolicyAccepted, searchParams])
+  }, [termsAccepted, privacyPolicyAccepted, hasInvestmentStyle, searchParams])
 
-  const handleCloseOnboardingModal = () => {
-    setShowOnboardingModal(false)
-    localStorage.setItem("hasSeenOnboardingModal", "true")
+  const handleCloseInvestmentStyleModal = () => {
+    setShowInvestmentStyleModal(false)
+    localStorage.setItem("hasSeenInvestmentStyleModal", "true")
   }
 
   const handleTermsAccepted = () => {
@@ -53,7 +55,7 @@ export default function DashboardClient({
   return (
     <>
       {showTermsModal && <TermsModal onAccept={handleTermsAccepted} />}
-      <OnboardingModal isOpen={showOnboardingModal} onClose={handleCloseOnboardingModal} />
+      <InvestmentStyleModal isOpen={showInvestmentStyleModal} onClose={handleCloseInvestmentStyleModal} />
       <InstallPrompt />
     </>
   )

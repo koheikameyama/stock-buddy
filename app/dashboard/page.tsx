@@ -22,6 +22,7 @@ export default async function DashboardPage() {
       id: true,
       termsAccepted: true,
       privacyPolicyAccepted: true,
+      settings: true,
       userStocks: {
         include: {
           stock: true,
@@ -56,6 +57,7 @@ export default async function DashboardPage() {
         hasWatchlist={hasWatchlist}
         termsAccepted={user.termsAccepted}
         privacyPolicyAccepted={user.privacyPolicyAccepted}
+        hasInvestmentStyle={!!user.settings}
       />
       <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -77,21 +79,12 @@ export default async function DashboardPage() {
                 {coachMessage}
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                {hasHoldings ? (
-                  <Link
-                    href="/my-stocks"
-                    className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
-                  >
-                    マイ銘柄を見る
-                  </Link>
-                ) : (
-                  <Link
-                    href="/onboarding"
-                    className="inline-block w-full sm:w-auto px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center"
-                  >
-                    銘柄を探す
-                  </Link>
-                )}
+                <Link
+                  href="/my-stocks"
+                  className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
+                >
+                  {hasHoldings ? "マイ銘柄を見る" : "銘柄を探す"}
+                </Link>
               </div>
             </div>
           </div>
@@ -137,22 +130,22 @@ export default async function DashboardPage() {
           </Link>
 
           <Link
-            href="/dashboard/reports"
+            href="/dashboard/settings"
             className="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all border-2 border-transparent hover:border-purple-500"
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-2xl">
-                📈
+                ⚙️
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
-                  レポート
+                  設定
                 </h3>
-                <p className="text-sm text-gray-500">週次分析</p>
+                <p className="text-sm text-gray-500">投資スタイル・通知</p>
               </div>
             </div>
             <p className="text-sm text-gray-600">
-              投資成果を確認
+              アプリの設定を管理
             </p>
           </Link>
         </div>
