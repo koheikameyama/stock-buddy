@@ -5,11 +5,9 @@ import { useState, useEffect } from "react"
 interface FeaturedStock {
   id: string
   stockId: string
-  date: string
   category: string // "surge" | "stable" | "trending"
   reason: string | null
   score: number | null
-  source: string
   stock: {
     id: string
     tickerCode: string
@@ -169,10 +167,10 @@ export default function FeaturedStocksByCategory({
       <div className="mb-4 sm:mb-6">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xl sm:text-2xl">⭐</span>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900">注目銘柄</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900">あなたにおすすめの注目銘柄</h3>
         </div>
         <p className="text-xs sm:text-sm text-gray-600">
-          AIが分析した今日の注目銘柄を3つのカテゴリでご紹介します
+          あなたの投資スタイルに合わせて、AIが今日の注目銘柄をご紹介します
         </p>
       </div>
 
@@ -281,7 +279,7 @@ export default function FeaturedStocksByCategory({
       {/* Footer Note */}
       <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500 text-center">
-          注目銘柄は毎日AIがニュースを分析して更新されます
+          注目銘柄は毎日AIがニュースを分析して更新されます。投資スタイルに応じて最適な銘柄を優先的に表示しています。
         </p>
       </div>
     </div>

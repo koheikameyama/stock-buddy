@@ -6,12 +6,19 @@ import { useRouter } from "next/navigation"
 interface InvestmentStyleModalProps {
   isOpen: boolean
   onClose: () => void
+  defaultPeriod?: string
+  defaultRisk?: string
 }
 
-export default function InvestmentStyleModal({ isOpen, onClose }: InvestmentStyleModalProps) {
+export default function InvestmentStyleModal({
+  isOpen,
+  onClose,
+  defaultPeriod = "",
+  defaultRisk = ""
+}: InvestmentStyleModalProps) {
   const router = useRouter()
-  const [investmentPeriod, setInvestmentPeriod] = useState<string>("")
-  const [riskTolerance, setRiskTolerance] = useState<string>("")
+  const [investmentPeriod, setInvestmentPeriod] = useState<string>(defaultPeriod)
+  const [riskTolerance, setRiskTolerance] = useState<string>(defaultRisk)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!isOpen) return null

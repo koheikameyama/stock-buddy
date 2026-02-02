@@ -51,6 +51,8 @@ export default async function DashboardPage() {
         termsAccepted={user.termsAccepted}
         privacyPolicyAccepted={user.privacyPolicyAccepted}
         hasInvestmentStyle={!!user.settings}
+        investmentPeriod={user.settings?.investmentPeriod}
+        riskTolerance={user.settings?.riskTolerance}
       />
       <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
@@ -113,7 +115,48 @@ export default async function DashboardPage() {
             </div>
           )}
 
-
+          {/* マイ銘柄へのリンク */}
+          <a
+            href="/my-stocks"
+            className="block mb-6 bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-gray-900">マイ銘柄</div>
+                <div className="text-xs text-gray-500">保有銘柄と気になる銘柄を管理</div>
+              </div>
+              <div className="ml-auto">
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </div>
+            </div>
+          </a>
 
         {/* 成長グラフ */}
         {hasHoldings && <PortfolioGrowthChart snapshots={snapshots} />}

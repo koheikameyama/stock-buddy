@@ -284,6 +284,7 @@ model DailyFeaturedStock {
   date        DateTime @db.Date
   stockId     String
   stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  category    String   @default("stable") // surge: 短期急騰, stable: 中長期安定, trending: 話題
   position    Int      // 表示順序（1, 2, 3）
   reason      String   @db.Text // 注目理由
   score       Int      // 選定時のスコア
@@ -292,6 +293,7 @@ model DailyFeaturedStock {
   @@unique([date, position])
   @@index([date(sort: Desc)])
   @@index([stockId])
+  @@index([date, category])
 }
 
 // 今週のチャンス銘柄（ハイリスク・ハイリターン銘柄）

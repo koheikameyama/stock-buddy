@@ -12,6 +12,8 @@ type DashboardClientProps = {
   termsAccepted: boolean
   privacyPolicyAccepted: boolean
   hasInvestmentStyle: boolean
+  investmentPeriod?: string
+  riskTolerance?: string
 }
 
 export default function DashboardClient({
@@ -20,6 +22,8 @@ export default function DashboardClient({
   termsAccepted,
   privacyPolicyAccepted,
   hasInvestmentStyle,
+  investmentPeriod,
+  riskTolerance,
 }: DashboardClientProps) {
   const [showInvestmentStyleModal, setShowInvestmentStyleModal] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
@@ -61,7 +65,12 @@ export default function DashboardClient({
   return (
     <>
       {showTermsModal && <TermsModal onAccept={handleTermsAccepted} />}
-      <InvestmentStyleModal isOpen={showInvestmentStyleModal} onClose={handleCloseInvestmentStyleModal} />
+      <InvestmentStyleModal
+        isOpen={showInvestmentStyleModal}
+        onClose={handleCloseInvestmentStyleModal}
+        defaultPeriod={investmentPeriod}
+        defaultRisk={riskTolerance}
+      />
       <InstallPrompt />
     </>
   )
