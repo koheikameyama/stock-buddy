@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 
 interface UserStock {
   id: string
@@ -25,6 +25,15 @@ interface UserStock {
   updatedAt: string
 }
 
+interface SearchResult {
+  id: string
+  tickerCode: string
+  name: string
+  market: string
+  sector: string | null
+  latestPrice: number | null
+}
+
 interface AddStockDialogProps {
   isOpen: boolean
   onClose: () => void
@@ -36,34 +45,73 @@ export default function AddStockDialog({
   onClose,
   onSuccess,
 }: AddStockDialogProps) {
-  const [tickerCode, setTickerCode] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [showResults, setShowResults] = useState(false)
+  const [selectedStock, setSelectedStock] = useState<SearchResult | null>(null)
   const [quantity, setQuantity] = useState("")
   const [averagePrice, setAveragePrice] = useState("")
   const [purchaseDate, setPurchaseDate] = useState(
     new Date().toISOString().split("T")[0]
   )
   const [loading, setLoading] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showRequestForm, setShowRequestForm] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 検索機能
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (searchQuery.trim().length < 1) {
+      setSearchResults([])
+      setShowResults(false)
+      return
+    }
+
+    setSearching(true)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/stocks/search?q=${encodeURIComponent(searchQuery)}`)
+        const data = await response.json()
+        setSearchResults(data.stocks || [])
+        setShowResults(true)
+      } catch (error) {
+        console.error("Search error:", error)
+      } finally {
+        setSearching(false)
+      }
+    }, 300) // 300msのデバウンス
+  }, [searchQuery])
+
+  const handleSelectStock = (stock: SearchResult) => {
+    setSelectedStock(stock)
+    setSearchQuery(`${stock.tickerCode} - ${stock.name}`)
+    setShowResults(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (!selectedStock) {
+      setError("銘柄を選択してください")
+      return
+    }
+
     setLoading(true)
 
     try {
-      // Format ticker code (add .T if not present)
-      let formattedTicker = tickerCode.trim().toUpperCase()
-      if (!formattedTicker.includes(".")) {
-        formattedTicker += ".T"
-      }
-
       const response = await fetch("/api/user-stocks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tickerCode: formattedTicker,
+          tickerCode: selectedStock.tickerCode,
           quantity: quantity ? parseInt(quantity) : null,
           averagePrice: averagePrice ? parseFloat(averagePrice) : null,
           purchaseDate: quantity ? purchaseDate : null,
@@ -79,7 +127,8 @@ export default function AddStockDialog({
       onSuccess(newStock)
 
       // Reset form
-      setTickerCode("")
+      setSearchQuery("")
+      setSelectedStock(null)
       setQuantity("")
       setAveragePrice("")
       setPurchaseDate(new Date().toISOString().split("T")[0])
@@ -89,6 +138,10 @@ export default function AddStockDialog({
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleRequestStock = () => {
+    setShowRequestForm(true)
   }
 
   if (!isOpen) return null
@@ -127,26 +180,76 @@ export default function AddStockDialog({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Ticker Code */}
-          <div>
+          {/* 銘柄検索 */}
+          <div className="relative">
             <label
-              htmlFor="tickerCode"
+              htmlFor="searchQuery"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              銘柄コード
+              銘柄を検索
             </label>
             <input
               type="text"
-              id="tickerCode"
-              value={tickerCode}
-              onChange={(e) => setTickerCode(e.target.value)}
-              placeholder="例: 7203 または 7203.T"
+              id="searchQuery"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="銘柄コードまたは会社名を入力（例: 7203 または トヨタ）"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
+              autoComplete="off"
             />
-            <p className="mt-1 text-xs text-gray-500">
-              銘柄コードを入力してください（.Tは自動で追加されます）
-            </p>
+            {searching && (
+              <div className="absolute right-3 top-11 text-gray-400">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              </div>
+            )}
+
+            {/* 検索結果 */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {searchResults.map((stock) => (
+                  <button
+                    key={stock.id}
+                    type="button"
+                    onClick={() => handleSelectStock(stock)}
+                    className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className="font-semibold text-gray-900">{stock.name}</div>
+                    <div className="text-sm text-gray-600 flex items-center gap-2 mt-1">
+                      <span>{stock.tickerCode}</span>
+                      {stock.sector && (
+                        <>
+                          <span>•</span>
+                          <span>{stock.sector}</span>
+                        </>
+                      )}
+                      {stock.latestPrice && (
+                        <>
+                          <span>•</span>
+                          <span>¥{stock.latestPrice.toLocaleString()}</span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 検索結果なし */}
+            {showResults && searchQuery.length >= 1 && searchResults.length === 0 && !searching && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
+                <p className="text-sm text-gray-600 mb-3">該当する銘柄が見つかりませんでした</p>
+                <button
+                  type="button"
+                  onClick={handleRequestStock}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  この銘柄の追加をリクエスト
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Optional holding fields */}
@@ -230,6 +333,51 @@ export default function AddStockDialog({
             </button>
           </div>
         </form>
+
+        {/* 銘柄リクエストフォーム */}
+        {showRequestForm && (
+          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">
+                銘柄追加リクエスト
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                「{searchQuery}」の追加をリクエストしますか？<br />
+                リクエストは運営チームが確認し、順次対応します。
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRequestForm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await fetch("/api/stock-requests", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          requestText: searchQuery,
+                          requestType: "add_stock",
+                        }),
+                      })
+                      alert("リクエストを送信しました")
+                      setShowRequestForm(false)
+                      onClose()
+                    } catch (error) {
+                      alert("リクエストの送信に失敗しました")
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  リクエスト送信
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
