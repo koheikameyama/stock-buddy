@@ -65,6 +65,11 @@ export default function AddStockDialog({
       clearTimeout(searchTimeoutRef.current)
     }
 
+    // 既に銘柄が選択されている場合は検索をスキップ
+    if (selectedStock) {
+      return
+    }
+
     if (searchQuery.trim().length < 1) {
       setSearchResults([])
       setShowResults(false)
@@ -84,12 +89,16 @@ export default function AddStockDialog({
         setSearching(false)
       }
     }, 300) // 300msのデバウンス
-  }, [searchQuery])
+  }, [searchQuery, selectedStock])
 
   const handleSelectStock = (stock: SearchResult) => {
     setSelectedStock(stock)
     setSearchQuery(`${stock.tickerCode} - ${stock.name}`)
     setShowResults(false)
+    // 検索タイムアウトをクリアして、再検索を防ぐ
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,7 +209,13 @@ export default function AddStockDialog({
               type="text"
               id="searchQuery"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                // 入力欄を編集したら選択状態をクリア
+                if (selectedStock) {
+                  setSelectedStock(null)
+                }
+              }}
               placeholder="銘柄コードまたは会社名を入力（例: 7203 または トヨタ）"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               autoComplete="off"
