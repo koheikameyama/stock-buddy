@@ -89,16 +89,21 @@ export default function AddStockDialog({
         setSearching(false)
       }
     }, 300) // 300msのデバウンス
-  }, [searchQuery, selectedStock])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]) // selectedStockは依存配列から除外（選択時の再検索を防ぐ）
 
   const handleSelectStock = (stock: SearchResult) => {
-    setSelectedStock(stock)
-    setSearchQuery(`${stock.tickerCode} - ${stock.name}`)
-    setShowResults(false)
     // 検索タイムアウトをクリアして、再検索を防ぐ
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
     }
+    // 検索結果を先に非表示にする
+    setShowResults(false)
+    setSearchResults([])
+    // 選択状態を設定
+    setSelectedStock(stock)
+    // 最後にsearchQueryを更新（useEffectをトリガーするが、selectedStockがあるのでスキップされる）
+    setSearchQuery(`${stock.tickerCode} - ${stock.name}`)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
