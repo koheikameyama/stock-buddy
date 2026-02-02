@@ -17,9 +17,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Search by ticker code or company name
+    // If query is just numbers, append .T to prioritize exact ticker matches
+    const isNumericQuery = /^\d+$/.test(query)
+    const tickerQuery = isNumericQuery ? `${query}.T` : query
+
     const stocks = await prisma.stock.findMany({
       where: {
         OR: [
+          { tickerCode: { startsWith: tickerQuery, mode: "insensitive" } },
           { tickerCode: { contains: query, mode: "insensitive" } },
           { name: { contains: query, mode: "insensitive" } },
         ],
@@ -53,7 +58,18 @@ export async function GET(request: NextRequest) {
       latestPriceDate: stock.prices[0]?.date.toISOString() || null,
     }))
 
-    return NextResponse.json({ stocks: formattedStocks })
+    // Sort results: prioritize exact ticker matches with .T
+    const sortedStocks = formattedStocks.sort((a, b) => {
+      const aStartsWithQuery = a.tickerCode.toLowerCase().startsWith(tickerQuery.toLowerCase())
+      const bStartsWithQuery = b.tickerCode.toLowerCase().startsWith(tickerQuery.toLowerCase())
+
+      if (aStartsWithQuery && !bStartsWithQuery) return -1
+      if (!aStartsWithQuery && bStartsWithQuery) return 1
+
+      return 0
+    })
+
+    return NextResponse.json({ stocks: sortedStocks })
   } catch (error) {
     console.error("Error searching stocks:", error)
     return NextResponse.json(
