@@ -31,12 +31,6 @@ export default async function Header() {
                   マイ銘柄
                 </Link>
                 <Link
-                  href="/dashboard/reports"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors hidden sm:block"
-                >
-                  レポート
-                </Link>
-                <Link
                   href="/dashboard/settings"
                   className="text-gray-700 hover:text-blue-600 transition-colors p-2"
                   title="設定"
