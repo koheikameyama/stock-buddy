@@ -208,7 +208,7 @@ export default function AddStockDialog({
 
             {/* 検索結果 */}
             {showResults && searchResults.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {searchResults.map((stock) => (
                   <button
                     key={stock.id}
@@ -239,7 +239,7 @@ export default function AddStockDialog({
 
             {/* 検索結果なし */}
             {showResults && searchQuery.length >= 1 && searchResults.length === 0 && !searching && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
+              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
                 <p className="text-sm text-gray-600 mb-3">該当する銘柄が見つかりませんでした</p>
                 <button
                   type="button"
@@ -336,8 +336,8 @@ export default function AddStockDialog({
 
         {/* 銘柄リクエストフォーム */}
         {showRequestForm && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
               <h3 className="text-lg font-bold text-gray-900 mb-3">
                 銘柄追加リクエスト
               </h3>
