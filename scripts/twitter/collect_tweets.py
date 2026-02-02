@@ -98,7 +98,8 @@ class TwitterTweetCollector:
             await self.client.login(
                 auth_info_1=username,
                 auth_info_2=email,
-                password=password
+                password=password,
+                enable_ui_metrics=True  # Reduce risk of bot detection
             )
             print("✅ Logged in successfully")
 
@@ -108,6 +109,11 @@ class TwitterTweetCollector:
 
         except Exception as e:
             print(f"❌ Error: Login failed: {e}")
+            print("\n💡 Possible solutions:")
+            print("  1. Reset the Twitter account password and try again")
+            print("  2. Log in manually to twitter.com to verify account status")
+            print("  3. Check if the account is suspended or requires verification")
+            print("  4. Wait a few hours and try again (rate limiting)")
             sys.exit(1)
 
     def extract_tickers(self, text: str) -> List[str]:
