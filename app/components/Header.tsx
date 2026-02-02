@@ -15,21 +15,9 @@ export default async function Header() {
           </Link>
 
           {/* ナビゲーション */}
-          <nav className="flex items-center gap-3 sm:gap-4">
+          <nav className="flex items-center gap-2 sm:gap-4">
             {session?.user && (
               <>
-                <Link
-                  href="/dashboard"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors hidden sm:block"
-                >
-                  ダッシュボード
-                </Link>
-                <Link
-                  href="/my-stocks"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
-                >
-                  マイ銘柄
-                </Link>
                 <Link
                   href="/dashboard/settings"
                   className="text-gray-700 hover:text-blue-600 transition-colors p-2"
