@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma"
 import PortfolioGrowthChart from "./PortfolioGrowthChart"
 import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
-import DailyFeaturedStocks from "./DailyFeaturedStocks"
 import HotStocks from "./HotStocks"
+import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -121,10 +121,10 @@ export default async function DashboardPage() {
         {/* 成長グラフ */}
         {hasPortfolio && <PortfolioGrowthChart snapshots={snapshots} />}
 
-        {/* 今日の注目銘柄 */}
+        {/* 今日の注目銘柄（カテゴリ別） */}
         {user && (
           <div className="mb-8 mt-8">
-            <DailyFeaturedStocks userId={user.id} />
+            <FeaturedStocksByCategory userId={user.id} />
           </div>
         )}
 
