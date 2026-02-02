@@ -9,7 +9,7 @@
 4. FeaturedStockに登録（APIエンドポイント経由）
 
 Usage:
-    APP_URL="https://..." CRON_SECRET="..." python scripts/news/generate_news_featured_stocks.py
+    APP_URL="https://..." CRON_SECRET="..." python scripts/news/generate_featured_stocks.py
 """
 
 import sys
@@ -51,7 +51,7 @@ def generate_featured_stocks(stock_codes: List[str]) -> Dict:
     Returns:
         API レスポンス
     """
-    url = f"{APP_URL}/api/featured-stocks/generate-from-news"
+    url = f"{APP_URL}/api/featured-stocks/generate"
     headers = {
         "Authorization": f"Bearer {CRON_SECRET}",
         "Content-Type": "application/json",
@@ -91,7 +91,7 @@ def generate_featured_stocks(stock_codes: List[str]) -> Dict:
 def main():
     """メイン処理"""
     print("=" * 60)
-    print("News-based Featured Stocks Generation")
+    print("Featured Stocks Generation")
     print("=" * 60)
 
     # 話題の銘柄コードを読み込む

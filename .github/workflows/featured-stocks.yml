@@ -1,4 +1,4 @@
-name: News-based Featured Stocks Generation
+name: Featured Stocks Generation
 
 on:
   schedule:
@@ -27,19 +27,19 @@ jobs:
         run: |
           python scripts/news/fetch_jpx_news.py
 
-      - name: Generate featured stocks from trending news
+      - name: Generate featured stocks
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          python scripts/news/generate_news_featured_stocks.py
+          python scripts/news/generate_featured_stocks.py
 
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ ニュースベース注目銘柄の生成に成功しました"
+          SLACK_TITLE: "✅ 注目銘柄の生成に成功しました"
           SLACK_MESSAGE: |
             ニュースから話題の銘柄を分析して注目銘柄を生成しました ✅
           SLACK_COLOR: good
@@ -50,7 +50,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ ニュースベース注目銘柄の生成に失敗しました"
+          SLACK_TITLE: "❌ 注目銘柄の生成に失敗しました"
           SLACK_MESSAGE: |
             注目銘柄生成中にエラーが発生しました
             詳細はGitHub Actionsログを確認してください
