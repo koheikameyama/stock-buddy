@@ -189,13 +189,13 @@ def parse_japanese_date(date_str: str) -> Optional[str]:
         return None
 
 
-def save_to_json(stocks: List[Dict], output_path: str):
+def save_to_json(output_path: str, stocks: List[Dict]):
     """
     銘柄データをJSONファイルに保存
 
     Args:
-        stocks: 銘柄データのリスト
         output_path: 出力先ファイルパス
+        stocks: 銘柄データのリスト
     """
     try:
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -236,8 +236,10 @@ def main():
         all_stocks = []
 
     # JSONに保存
-    output_path = '/Users/kouheikameyama/development/stock-buddy/scripts/jpx/jpx_stocks.json'
-    save_to_json(all_stocks, output_path)
+    from pathlib import Path
+    script_dir = Path(__file__).parent
+    output_path = script_dir / 'jpx_stocks.json'
+    save_to_json(str(output_path), all_stocks)
 
     print()
     print("=" * 60)

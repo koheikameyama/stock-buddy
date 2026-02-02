@@ -23,6 +23,7 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 from typing import List, Dict, Optional
+from cuid2 import cuid
 
 
 # 環境変数からDB接続URLを取得
@@ -134,6 +135,8 @@ def update_stock_master(stocks: List[Dict]) -> Dict[str, int]:
                 existing_tickers = set(row[0] for row in cur.fetchall())
 
                 # UPSERT実行
+                # 注: Prismaは @default(cuid()) を使用するが、直接SQL挿入時はcuidライブラリが必要
+                # ここでは互換性のためcuid2ライブラリを使用してCUIDを生成
                 psycopg2.extras.execute_values(
                     cur,
                     '''
@@ -146,7 +149,7 @@ def update_stock_master(stocks: List[Dict]) -> Dict[str, int]:
                     ''',
                     [
                         (
-                            None,  # id は PostgreSQL の gen_random_uuid() で自動生成
+                            cuid(),  # id - CUID生成（Prismaと互換性あり）
                             item[0],  # tickerCode
                             item[1],  # name
                             "東証プライム",  # market（デフォルト）
@@ -156,7 +159,7 @@ def update_stock_master(stocks: List[Dict]) -> Dict[str, int]:
                         )
                         for item in batch
                     ],
-                    template='(gen_random_uuid(), %s, %s, %s, %s, %s, %s)',
+                    template='(%s, %s, %s, %s, %s, %s, %s)',
                     page_size=100
                 )
 
@@ -210,11 +213,13 @@ def main():
     print("=" * 60)
     print()
 
-    # JSONファイルのパス
-    json_file = '/Users/kouheikameyama/development/stock-buddy/scripts/jpx/jpx_stocks.json'
+    # JSONファイルのパス（相対パス使用）
+    from pathlib import Path
+    script_dir = Path(__file__).parent
+    json_file = script_dir / 'jpx_stocks.json'
 
     # JSONデータを読み込み
-    stocks = load_json_data(json_file)
+    stocks = load_json_data(str(json_file))
     print()
 
     if not stocks:
