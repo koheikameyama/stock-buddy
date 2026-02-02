@@ -11,7 +11,7 @@ export interface UserStockResponse {
   userId: string
   stockId: string
   quantity: number | null
-  averagePrice: number | null
+  averagePurchasePrice: number | null
   purchaseDate: string | null
   lastAnalysis: string | null
   shortTerm: string | null
@@ -32,7 +32,7 @@ export interface UserStockResponse {
 interface CreateUserStockRequest {
   tickerCode: string
   quantity?: number | null
-  averagePrice?: number | null
+  averagePurchasePrice?: number | null
   purchaseDate?: string | null
 }
 
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       userId: us.userId,
       stockId: us.stockId,
       quantity: us.quantity,
-      averagePrice: us.averagePrice,
+      averagePurchasePrice: us.averagePurchasePrice ? Number(us.averagePurchasePrice) : null,
       purchaseDate: us.purchaseDate ? us.purchaseDate.toISOString() : null,
       lastAnalysis: us.lastAnalysis ? us.lastAnalysis.toISOString() : null,
       shortTerm: us.shortTerm,
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
  * Body:
  * - tickerCode: string (required)
  * - quantity?: number (if provided → holding, if null → watchlist)
- * - averagePrice?: number
+ * - averagePurchasePrice?: number
  * - purchaseDate?: string (ISO format)
  */
 export async function POST(request: NextRequest) {
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body: CreateUserStockRequest = await request.json()
-    const { tickerCode, quantity, averagePrice, purchaseDate } = body
+    const { tickerCode, quantity, averagePurchasePrice, purchaseDate } = body
 
     // Validation
     if (!tickerCode) {
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      if (averagePrice !== undefined && averagePrice !== null && averagePrice <= 0) {
+      if (averagePurchasePrice !== undefined && averagePurchasePrice !== null && averagePurchasePrice <= 0) {
         return NextResponse.json(
           { error: "Average price must be greater than 0" },
           { status: 400 }
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
         userId,
         stockId: stock.id,
         quantity: isHolding ? quantity : null,
-        averagePrice: isHolding && averagePrice ? averagePrice : null,
+        averagePurchasePrice: isHolding && averagePurchasePrice ? averagePurchasePrice : null,
         purchaseDate: isHolding && purchaseDate ? new Date(purchaseDate) : null,
       },
       include: {
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
       userId: userStock.userId,
       stockId: userStock.stockId,
       quantity: userStock.quantity,
-      averagePrice: userStock.averagePrice,
+      averagePurchasePrice: userStock.averagePurchasePrice ? Number(userStock.averagePurchasePrice) : null,
       purchaseDate: userStock.purchaseDate ? userStock.purchaseDate.toISOString() : null,
       lastAnalysis: userStock.lastAnalysis ? userStock.lastAnalysis.toISOString() : null,
       shortTerm: userStock.shortTerm,

@@ -7,7 +7,7 @@ import { UserStockResponse } from "../route"
 
 interface UpdateUserStockRequest {
   quantity?: number | null
-  averagePrice?: number | null
+  averagePurchasePrice?: number | null
   purchaseDate?: string | null
 }
 
@@ -17,7 +17,7 @@ interface UpdateUserStockRequest {
  *
  * Body: Partial UserStock fields
  * - quantity?: number | null (can convert watchlist → holding or holding → watchlist)
- * - averagePrice?: number | null
+ * - averagePurchasePrice?: number | null
  * - purchaseDate?: string | null
  */
 export async function PATCH(
@@ -77,8 +77,8 @@ export async function PATCH(
       }
     }
 
-    if (body.averagePrice !== undefined && body.averagePrice !== null) {
-      if (body.averagePrice <= 0) {
+    if (body.averagePurchasePrice !== undefined && body.averagePurchasePrice !== null) {
+      if (body.averagePurchasePrice <= 0) {
         return NextResponse.json(
           { error: "Average price must be greater than 0" },
           { status: 400 }
@@ -89,7 +89,7 @@ export async function PATCH(
     // Build update data
     const updateData: {
       quantity?: number | null
-      averagePrice?: number | null
+      averagePurchasePrice?: number | null
       purchaseDate?: Date | null
     } = {}
 
@@ -97,8 +97,8 @@ export async function PATCH(
       updateData.quantity = body.quantity
     }
 
-    if (body.averagePrice !== undefined) {
-      updateData.averagePrice = body.averagePrice
+    if (body.averagePurchasePrice !== undefined) {
+      updateData.averagePurchasePrice = body.averagePurchasePrice
     }
 
     if (body.purchaseDate !== undefined) {
@@ -108,7 +108,7 @@ export async function PATCH(
     // When converting to watchlist, clear holding-specific fields
     if (!willBeHolding) {
       updateData.quantity = null
-      updateData.averagePrice = null
+      updateData.averagePurchasePrice = null
       updateData.purchaseDate = null
     }
 
@@ -136,7 +136,7 @@ export async function PATCH(
       userId: updatedUserStock.userId,
       stockId: updatedUserStock.stockId,
       quantity: updatedUserStock.quantity,
-      averagePrice: updatedUserStock.averagePrice,
+      averagePurchasePrice: updatedUserStock.averagePurchasePrice ? Number(updatedUserStock.averagePurchasePrice) : null,
       purchaseDate: updatedUserStock.purchaseDate
         ? updatedUserStock.purchaseDate.toISOString()
         : null,

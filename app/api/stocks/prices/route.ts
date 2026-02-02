@@ -16,28 +16,24 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // ユーザーのポートフォリオを取得
+    // ユーザーのマイ銘柄を取得
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: {
-        portfolio: {
+        userStocks: {
           include: {
-            stocks: {
-              include: {
-                stock: true,
-              },
-            },
+            stock: true,
           },
         },
       },
     })
 
-    if (!user?.portfolio) {
-      return NextResponse.json({ error: "Portfolio not found" }, { status: 404 })
+    if (!user || user.userStocks.length === 0) {
+      return NextResponse.json({ error: "User stocks not found" }, { status: 404 })
     }
 
     // ティッカーコードを抽出（.T の有無は fetchStockPrices が自動で正規化）
-    const tickerCodes = user.portfolio.stocks.map((ps) => ps.stock.tickerCode)
+    const tickerCodes = user.userStocks.map((us) => us.stock.tickerCode)
 
     // 株価を取得（モジュール化）
     const prices = await fetchStockPrices(tickerCodes)

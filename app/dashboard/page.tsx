@@ -22,22 +22,10 @@ export default async function DashboardPage() {
       id: true,
       termsAccepted: true,
       privacyPolicyAccepted: true,
-      portfolio: {
+      userStocks: {
         include: {
-          stocks: {
-            include: {
-              stock: true,
-            },
-          },
-          snapshots: {
-            orderBy: { date: "asc" },
-          },
+          stock: true,
         },
-      },
-      watchlist: true,
-      coachMessages: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
       },
     },
   })
@@ -48,32 +36,23 @@ export default async function DashboardPage() {
 
   // 利用規約・プライバシーポリシーの同意はクライアント側でモーダル表示するため、ここではチェックしない
 
-  const hasPortfolio = (user.portfolio?.stocks.length || 0) > 0
-  const hasWatchlist = (user.watchlist?.length || 0) > 0
-  const stockCount = user?.portfolio?.stocks.length || 0
+  const hasHoldings = user.userStocks.some((s) => s.quantity !== null)
+  const hasWatchlist = user.userStocks.some((s) => s.quantity === null)
+  const stockCount = user.userStocks.filter((s) => s.quantity !== null).length
 
-  // スナップショットデータを整形
-  const snapshots = user?.portfolio?.snapshots.map((s) => ({
-    date: s.date.toISOString(),
-    totalValue: Number(s.totalValue),
-    gainLossPct: Number(s.gainLossPct),
-  })) || []
+  // スナップショットデータは削除されたので空配列
+  const snapshots: never[] = []
 
-  // 今日のコーチメッセージを取得
-  const todayMessage = user?.coachMessages[0]
-
-  // デフォルトメッセージ（メッセージが生成されていない場合）
-  const defaultMessage = hasPortfolio
+  // デフォルトメッセージ
+  const coachMessage = hasHoldings
     ? `${stockCount}銘柄を一緒に見守っていますね。今日も市場の動きをチェックしましょう！`
     : "まだ投資を始めていませんね。一緒にあなたにぴったりの銘柄を探しましょう！"
-
-  const coachMessage = todayMessage?.message || defaultMessage
 
   return (
     <>
       <Header />
       <DashboardClient
-        hasPortfolio={hasPortfolio}
+        hasPortfolio={hasHoldings}
         hasWatchlist={hasWatchlist}
         termsAccepted={user.termsAccepted}
         privacyPolicyAccepted={user.privacyPolicyAccepted}
@@ -148,7 +127,7 @@ export default async function DashboardPage() {
                   マイ銘柄
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {stockCount}銘柄 / {user?.watchlist?.length || 0}ウォッチ中
+                  {stockCount}銘柄保有 / {user.userStocks.filter((s) => s.quantity === null).length}銘柄ウォッチ中
                 </p>
               </div>
             </div>
