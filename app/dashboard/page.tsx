@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma"
 import PortfolioGrowthChart from "./PortfolioGrowthChart"
 import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
-import HotStocks from "./HotStocks"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 
 export default async function DashboardPage() {
@@ -38,15 +37,10 @@ export default async function DashboardPage() {
 
   const hasHoldings = user.userStocks.some((s) => s.quantity !== null)
   const hasWatchlist = user.userStocks.some((s) => s.quantity === null)
-  const stockCount = user.userStocks.filter((s) => s.quantity !== null).length
 
   // スナップショットデータは削除されたので空配列
   const snapshots: never[] = []
 
-  // デフォルトメッセージ
-  const coachMessage = hasHoldings
-    ? `${stockCount}銘柄を一緒に見守っていますね。今日も市場の動きをチェックしましょう！`
-    : "まだ投資を始めていませんね。一緒にあなたにぴったりの銘柄を探しましょう！"
 
   return (
     <>
@@ -79,14 +73,6 @@ export default async function DashboardPage() {
             <FeaturedStocksByCategory userId={user.id} />
           </div>
         )}
-
-        {/* 今週のチャンス銘柄 */}
-        <div className="mb-8">
-          <HotStocks />
-        </div>
-
-
- 
       </div>
     </main>
     </>

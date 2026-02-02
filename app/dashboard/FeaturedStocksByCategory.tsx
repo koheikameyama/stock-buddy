@@ -156,7 +156,7 @@ export default function FeaturedStocksByCategory({
             注目銘柄がまだありません
           </h3>
           <p className="text-sm text-gray-600">
-            AIが毎日SNSを分析して注目銘柄を発見します
+            AIが毎日注目銘柄を発見します
           </p>
         </div>
       </div>
