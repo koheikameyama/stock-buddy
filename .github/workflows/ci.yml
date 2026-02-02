@@ -53,7 +53,6 @@ jobs:
           AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET || 'dummy-secret' }}
           DATABASE_URL: postgresql://user:password@localhost:5432/testdb
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'dummy-key' }}
-          RAKUTEN_APPLICATION_ID: ${{ secrets.RAKUTEN_APPLICATION_ID || 'dummy-id' }}
 
       - name: Notify Slack on success
         if: success()

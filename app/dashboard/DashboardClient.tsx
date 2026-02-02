@@ -7,14 +7,14 @@ import InstallPrompt from "@/app/components/InstallPrompt"
 import TermsModal from "@/app/components/TermsModal"
 
 type DashboardClientProps = {
-  hasPortfolio: boolean
+  hasHoldings: boolean
   hasWatchlist: boolean
   termsAccepted: boolean
   privacyPolicyAccepted: boolean
 }
 
 export default function DashboardClient({
-  hasPortfolio,
+  hasHoldings,
   hasWatchlist,
   termsAccepted,
   privacyPolicyAccepted,
@@ -31,13 +31,13 @@ export default function DashboardClient({
     }
 
     // ポートフォリオもウォッチリストもない場合にオンボーディングモーダルを表示
-    if (!hasPortfolio && !hasWatchlist) {
+    if (!hasHoldings && !hasWatchlist) {
       const hasSeenModal = localStorage.getItem("hasSeenOnboardingModal")
       if (!hasSeenModal) {
         setShowOnboardingModal(true)
       }
     }
-  }, [hasPortfolio, hasWatchlist, termsAccepted, privacyPolicyAccepted, searchParams])
+  }, [hasHoldings, hasWatchlist, termsAccepted, privacyPolicyAccepted, searchParams])
 
   const handleCloseOnboardingModal = () => {
     setShowOnboardingModal(false)

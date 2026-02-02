@@ -52,7 +52,7 @@ export default async function DashboardPage() {
     <>
       <Header />
       <DashboardClient
-        hasPortfolio={hasHoldings}
+        hasHoldings={hasHoldings}
         hasWatchlist={hasWatchlist}
         termsAccepted={user.termsAccepted}
         privacyPolicyAccepted={user.privacyPolicyAccepted}
@@ -77,7 +77,7 @@ export default async function DashboardPage() {
                 {coachMessage}
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                {hasPortfolio ? (
+                {hasHoldings ? (
                   <Link
                     href="/my-stocks"
                     className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
@@ -98,7 +98,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* 成長グラフ */}
-        {hasPortfolio && <PortfolioGrowthChart snapshots={snapshots} />}
+        {hasHoldings && <PortfolioGrowthChart snapshots={snapshots} />}
 
         {/* 今日の注目銘柄（カテゴリ別） */}
         {user && (
