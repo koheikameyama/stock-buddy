@@ -62,6 +62,49 @@ export default async function DashboardPage() {
             <p className="text-xs sm:text-base text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
           </div>
 
+          {/* クイックナビゲーション */}
+          <div className="mb-6 sm:mb-8">
+            <a
+              href="/my-stocks"
+              className="inline-flex items-center gap-2 px-4 py-3 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all group"
+            >
+              <svg
+                className="w-5 h-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                />
+              </svg>
+              <div>
+                <div className="text-sm sm:text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  マイ銘柄を見る
+                </div>
+                <div className="text-xs text-gray-500">
+                  気になる銘柄と保有銘柄を管理
+                </div>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-400 ml-auto group-hover:text-blue-600 transition-colors"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </a>
+          </div>
+
 
 
         {/* 成長グラフ */}
