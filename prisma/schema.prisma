@@ -61,6 +61,7 @@ model User {
   recommendationLogs      RecommendationLog[]
   pushSubscriptions       PushSubscription[]
   stockRequests           StockRequest[]
+  userStocks              UserStock[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -119,6 +120,9 @@ model Stock {
   stabilityScore    Int?               // 安定性スコア（低リスク・低変動）
   liquidityScore    Int?               // 流動性スコア（売買のしやすさ）
 
+  // IPO対応
+  listedDate        DateTime?          // 上場日
+
   prices            StockPrice[]
   indicators        StockIndicator[]
   portfolioStocks   PortfolioStock[]
@@ -128,6 +132,8 @@ model Stock {
   analyses          StockAnalysis[]
   featuredStocks    DailyFeaturedStock[]
   hotStocks         HotStock[]
+  userStocks        UserStock[]
+  featuredStocksPool FeaturedStock[]
   createdAt         DateTime           @default(now())
 
   @@index([tickerCode])
@@ -504,4 +510,50 @@ model StockRequest {
   @@index([status])
   @@index([tickerCode])
   @@index([createdAt(sort: Desc)])
+}
+
+// 注目銘柄プール（X連携で発見）
+model FeaturedStock {
+  id        String   @id @default(cuid())
+  stockId   String
+  stock     Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  category  String   // "surge" | "stable" | "trending"
+  reason    String?  @db.Text // AI分析結果
+  score     Float?
+  source    String   @default("manual") // "twitter" | "manual"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([category])
+  @@index([stockId])
+}
+
+// ユーザーの銘柄（ポートフォリオ + ウォッチリスト統合）
+model UserStock {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId      String
+  stock        Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  // 数量入力あり → 保有中、なし → ウォッチ中
+  quantity     Int?
+  averagePrice Float?
+  purchaseDate DateTime?
+
+  // AI分析結果
+  lastAnalysis DateTime?
+  shortTerm    String?   @db.Text // 短期予測
+  mediumTerm   String?   @db.Text // 中期予測
+  longTerm     String?   @db.Text // 長期予測
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, stockId])
+  @@index([userId])
+  @@index([stockId])
 }
