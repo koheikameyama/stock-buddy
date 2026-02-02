@@ -99,20 +99,12 @@ export default async function DashboardPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 {hasPortfolio ? (
-                  <>
-                    <Link
-                      href="/dashboard/portfolio"
-                      className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
-                    >
-                      保有銘柄を見る
-                    </Link>
-                    <Link
-                      href="/dashboard/watchlist"
-                      className="px-4 py-2 bg-white text-green-600 rounded-lg font-semibold hover:bg-green-50 transition-colors text-center text-sm sm:text-base"
-                    >
-                      気になる銘柄を見る
-                    </Link>
-                  </>
+                  <Link
+                    href="/my-stocks"
+                    className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-center text-sm sm:text-base"
+                  >
+                    マイ銘柄を見る
+                  </Link>
                 ) : (
                   <Link
                     href="/onboarding"
@@ -144,7 +136,7 @@ export default async function DashboardPage() {
         {/* クイックアクションカード */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Link
-            href="/dashboard/portfolio"
+            href="/my-stocks"
             className="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all border-2 border-transparent hover:border-blue-500"
           >
             <div className="flex items-center gap-4 mb-4">
@@ -153,33 +145,35 @@ export default async function DashboardPage() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  保有銘柄
+                  マイ銘柄
                 </h3>
-                <p className="text-sm text-gray-500">{stockCount}銘柄</p>
+                <p className="text-sm text-gray-500">
+                  {stockCount}銘柄 / {user?.watchlist?.length || 0}ウォッチ中
+                </p>
               </div>
             </div>
             <p className="text-sm text-gray-600">
-              保有銘柄を管理
+              保有銘柄とウォッチリストを管理
             </p>
           </Link>
 
           <Link
-            href="/dashboard/watchlist"
-            className="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all border-2 border-transparent hover:border-green-500"
+            href="/dashboard/reports"
+            className="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all border-2 border-transparent hover:border-purple-500"
           >
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-2xl">
-                👀
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-2xl">
+                📈
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors">
-                  気になる銘柄
+                <h3 className="text-lg font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
+                  レポート
                 </h3>
-                <p className="text-sm text-gray-500">{user?.watchlist?.length || 0}銘柄</p>
+                <p className="text-sm text-gray-500">週次分析</p>
               </div>
             </div>
             <p className="text-sm text-gray-600">
-              買い時をチェック
+              投資成果を確認
             </p>
           </Link>
         </div>
