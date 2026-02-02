@@ -1,0 +1,33 @@
+name: Sync JPX Stock Master
+
+on:
+  schedule:
+    # 毎月1日 朝9時（JST）= 前日24時（UTC）に実行
+    - cron: "0 0 1 * *"
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  sync-master:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pandas openpyxl xlrd psycopg2-binary requests
+
+      - name: Sync JPX stock master
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/jpx/sync_stock_master_from_jpx.py
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ JPX stock master sync failed!"
