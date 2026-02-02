@@ -185,11 +185,11 @@ export default function MyStocksClient({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">読み込み中...</p>
+            <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
           </div>
         </div>
       </main>
@@ -197,43 +197,40 @@ export default function MyStocksClient({ userId }: { userId: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
         {/* Page Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
             マイ銘柄
           </h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">
+          <p className="text-xs sm:text-base text-gray-600 mt-1">
             気になる銘柄と保有銘柄を一覧管理
           </p>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-700">{error}</p>
+          <div className="mb-4 sm:mb-6 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
         {/* Unified Stock List Section */}
         <section>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                マイ銘柄
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-xs sm:text-sm text-gray-500">
                 現在 {userStocks.length}/{MAX_USER_STOCKS} 銘柄
               </p>
             </div>
             <button
               onClick={handleAddStock}
               disabled={userStocks.length >= MAX_USER_STOCKS}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <svg
-                className="w-5 h-5"
+                className="w-4 h-4 sm:w-5 sm:h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -250,23 +247,23 @@ export default function MyStocksClient({ userId }: { userId: string }) {
           </div>
 
           {userStocks.length === 0 ? (
-            <div className="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm">
-              <div className="text-5xl mb-4">📊</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
+              <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📊</div>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                 まだ銘柄がありません
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
                 最初の銘柄を追加して投資を始めましょう
               </p>
               <button
                 onClick={handleAddStock}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
               >
                 銘柄を追加する
               </button>
             </div>
           ) : (
-            <div className="grid gap-4 sm:gap-6">
+            <div className="grid gap-3 sm:gap-6">
               {userStocks.map((stock) => (
                 <StockCard
                   key={stock.id}

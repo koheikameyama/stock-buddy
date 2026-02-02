@@ -133,29 +133,29 @@ export default function FeaturedStocksByCategory({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl p-6 shadow-md">
+      <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">⭐</span>
-          <h3 className="text-lg font-bold text-gray-900">注目銘柄</h3>
+          <span className="text-xl sm:text-2xl">⭐</span>
+          <h3 className="text-base sm:text-lg font-bold text-gray-900">注目銘柄</h3>
         </div>
-        <p className="text-sm text-gray-500">読み込み中...</p>
+        <p className="text-xs sm:text-sm text-gray-500">読み込み中...</p>
       </div>
     )
   }
 
   if (!hasAnyStocks) {
     return (
-      <div className="bg-white rounded-xl p-6 shadow-md">
+      <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">⭐</span>
-          <h3 className="text-lg font-bold text-gray-900">注目銘柄</h3>
+          <span className="text-xl sm:text-2xl">⭐</span>
+          <h3 className="text-base sm:text-lg font-bold text-gray-900">注目銘柄</h3>
         </div>
-        <div className="text-center py-8">
-          <div className="text-5xl mb-4">🔍</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <div className="text-center py-6 sm:py-8">
+          <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🔍</div>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
             注目銘柄がまだありません
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-xs sm:text-sm text-gray-600">
             AIが毎日注目銘柄を発見します
           </p>
         </div>
@@ -164,20 +164,20 @@ export default function FeaturedStocksByCategory({
   }
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-md">
+    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
       {/* Section Header */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-2xl">⭐</span>
-          <h3 className="text-xl font-bold text-gray-900">注目銘柄</h3>
+          <span className="text-xl sm:text-2xl">⭐</span>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900">注目銘柄</h3>
         </div>
-        <p className="text-sm text-gray-600">
+        <p className="text-xs sm:text-sm text-gray-600">
           AIが分析した今日の注目銘柄を3つのカテゴリでご紹介します
         </p>
       </div>
 
       {/* Category Sections */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {(["surge", "stable", "trending"] as const).map((categoryKey) => {
           const stocks = stocksByCategory[categoryKey]
           if (stocks.length === 0) return null
@@ -187,9 +187,9 @@ export default function FeaturedStocksByCategory({
           return (
             <div key={categoryKey}>
               {/* Category Header */}
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-3">
                 <span
-                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${config.bgColor} ${config.color} ${config.borderColor} border`}
+                  className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${config.bgColor} ${config.color} ${config.borderColor} border w-fit`}
                 >
                   <span>{config.icon}</span>
                   <span>{config.label}</span>
@@ -198,21 +198,21 @@ export default function FeaturedStocksByCategory({
               </div>
 
               {/* Horizontal Scroll Container */}
-              <div className="overflow-x-auto pb-2 -mx-2 px-2">
-                <div className="flex gap-4" style={{ minWidth: "min-content" }}>
+              <div className="overflow-x-auto pb-2 -mx-1 px-1">
+                <div className="flex gap-3 sm:gap-4" style={{ minWidth: "min-content" }}>
                   {stocks.map((stock) => (
                     <div
                       key={stock.id}
-                      className={`flex-shrink-0 w-72 bg-white rounded-lg p-4 border-2 ${config.borderColor} ${config.bgColor} hover:shadow-md transition-shadow`}
+                      className={`flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 ${config.borderColor} ${config.bgColor} hover:shadow-md transition-shadow`}
                     >
                       {/* Stock Header */}
-                      <div className="mb-3">
+                      <div className="mb-2 sm:mb-3">
                         <div className="flex items-start justify-between mb-1">
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-base font-bold text-gray-900 truncate">
+                            <h4 className="text-sm sm:text-base font-bold text-gray-900 truncate">
                               {stock.stock.name}
                             </h4>
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500 mt-1">
                               <span>{stock.stock.tickerCode}</span>
                               {stock.stock.sector && (
                                 <>
@@ -228,7 +228,7 @@ export default function FeaturedStocksByCategory({
 
                         {/* Current Price */}
                         {stock.stock.currentPrice && (
-                          <div className="text-lg font-bold text-gray-900 mt-2">
+                          <div className="text-base sm:text-lg font-bold text-gray-900 mt-1.5 sm:mt-2">
                             ¥{stock.stock.currentPrice.toLocaleString()}
                           </div>
                         )}
@@ -237,7 +237,7 @@ export default function FeaturedStocksByCategory({
                         {stock.score !== null && (
                           <div className="flex items-center gap-1 mt-1">
                             <div className="text-xs text-gray-500">スコア:</div>
-                            <div className="text-sm font-semibold text-gray-900">
+                            <div className="text-xs sm:text-sm font-semibold text-gray-900">
                               {Math.round(stock.score)}/100
                             </div>
                           </div>
@@ -246,7 +246,7 @@ export default function FeaturedStocksByCategory({
 
                       {/* AI Reason */}
                       {stock.reason && (
-                        <div className="mb-3">
+                        <div className="mb-2 sm:mb-3">
                           <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">
                             {stock.reason}
                           </p>
@@ -257,7 +257,7 @@ export default function FeaturedStocksByCategory({
                       <button
                         onClick={() => handleAddToWatchlist(stock.stockId)}
                         disabled={addingStockId === stock.stockId}
-                        className={`w-full px-4 py-2 rounded-lg font-semibold text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${
+                        className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${
                           categoryKey === "surge"
                             ? "bg-red-600 text-white hover:bg-red-700"
                             : categoryKey === "stable"
@@ -279,9 +279,9 @@ export default function FeaturedStocksByCategory({
       </div>
 
       {/* Footer Note */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
+      <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500 text-center">
-          注目銘柄は毎日AIがSNSを分析して更新されます
+          注目銘柄は毎日AIがニュースを分析して更新されます
         </p>
       </div>
     </div>

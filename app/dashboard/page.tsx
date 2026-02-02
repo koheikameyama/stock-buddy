@@ -52,14 +52,14 @@ export default async function DashboardPage() {
         privacyPolicyAccepted={user.privacyPolicyAccepted}
         hasInvestmentStyle={!!user.settings}
       />
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
           {/* ページタイトル */}
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          <div className="mb-4 sm:mb-8">
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
               おはようございます、{session.user.name?.split(" ")[0]}さん！
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
+            <p className="text-xs sm:text-base text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
           </div>
 
 
@@ -69,7 +69,7 @@ export default async function DashboardPage() {
 
         {/* 今日の注目銘柄（カテゴリ別） */}
         {user && (
-          <div className="mb-8 mt-8">
+          <div className="mb-4 sm:mb-8 mt-4 sm:mt-8">
             <FeaturedStocksByCategory userId={user.id} />
           </div>
         )}

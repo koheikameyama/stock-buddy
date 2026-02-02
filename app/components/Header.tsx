@@ -15,7 +15,7 @@ export default async function Header() {
           </Link>
 
           {/* ナビゲーション */}
-          <nav className="flex items-center gap-2 sm:gap-4">
+          <nav className="flex items-center gap-1 sm:gap-4">
             {session?.user && (
               <>
                 <Link
@@ -26,9 +26,23 @@ export default async function Header() {
                 </Link>
                 <Link
                   href="/my-stocks"
-                  className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors hidden sm:block"
+                  className="flex items-center gap-1.5 px-3 py-1.5 sm:px-0 sm:py-0 rounded-lg sm:rounded-none bg-blue-50 sm:bg-transparent text-blue-700 sm:text-gray-700 hover:text-blue-600 transition-colors"
+                  title="マイ銘柄"
                 >
-                  マイ銘柄
+                  <svg
+                    className="w-4 h-4 sm:w-0 sm:h-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                    />
+                  </svg>
+                  <span className="text-xs sm:text-sm font-semibold sm:font-medium">マイ銘柄</span>
                 </Link>
                 <Link
                   href="/dashboard/settings"
