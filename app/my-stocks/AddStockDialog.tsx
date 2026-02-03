@@ -285,7 +285,18 @@ export default function AddStockDialog({
             {/* 検索結果なし */}
             {showResults && searchQuery.length >= 1 && searchResults.length === 0 && !searching && (
               <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
-                <p className="text-sm text-gray-600 mb-2">マスタに該当する銘柄が見つかりませんでした</p>
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-sm text-gray-600">マスタに該当する銘柄が見つかりませんでした</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowResults(false)}
+                    className="text-gray-400 hover:text-gray-600 ml-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500">
                   銘柄コードのままで「追加」ボタンを押すと、自動的にデータを取得して追加します
                 </p>
@@ -294,7 +305,14 @@ export default function AddStockDialog({
           </div>
 
           {/* Optional holding fields */}
-          <div>
+          <div
+            onClick={() => {
+              // 他のフィールドをクリックしたら検索結果を閉じる
+              if (showResults) {
+                setShowResults(false)
+              }
+            }}
+          >
             <label
               htmlFor="quantity"
               className="block text-sm font-semibold text-gray-700 mb-2"
