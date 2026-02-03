@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 /**
  * GET /api/featured-stocks
@@ -8,13 +14,11 @@ import { prisma } from "@/lib/prisma"
  */
 export async function GET() {
   try {
-    // 今日の日付をUTC 00:00:00で取得
-    const now = new Date()
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    // 今日の日付（UTC 00:00:00）
+    const today = dayjs.utc().startOf("day").toDate()
 
     // 前日の日付も含めて検索（データ生成タイミングのズレを考慮）
-    const yesterday = new Date(today)
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    const yesterday = dayjs.utc().subtract(1, "day").startOf("day").toDate()
 
     // 認証チェック
     const session = await auth()

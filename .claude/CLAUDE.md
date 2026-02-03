@@ -203,3 +203,101 @@ postgresql://kouheikameyama@localhost:5432/stock_buddy
 - Railway でホスト
 - 接続情報は `.env` に記載（Gitにはコミットしない）
 - 直接操作は避ける（デプロイフローに任せる）
+
+## 日付・時刻の扱い
+
+**JavaScriptの`Date`オブジェクトではなく、dayjsを使用してください。**
+
+### 理由
+
+1. **タイムゾーン処理が明確**: UTCとJSTの変換が簡単
+2. **可読性**: `dayjs.utc().startOf("day")` は意図が明確
+3. **不変性**: 元のオブジェクトを変更しない
+4. **バグ防止**: Dateオブジェクトの複雑な挙動を回避
+
+### 基本的な使い方
+
+```typescript
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
+
+// ✅ 良い例: dayjsを使用
+const today = dayjs.utc().startOf("day").toDate()
+const yesterday = dayjs.utc().subtract(1, "day").startOf("day").toDate()
+const jstNow = dayjs().tz("Asia/Tokyo")
+
+// ❌ 悪い例: Dateオブジェクトを使用
+const today = new Date()
+today.setHours(0, 0, 0, 0)
+const yesterday = new Date(today)
+yesterday.setDate(yesterday.getDate() - 1)
+```
+
+### よくあるパターン
+
+#### 今日の日付（UTC 00:00:00）
+```typescript
+const today = dayjs.utc().startOf("day").toDate()
+```
+
+#### 日本時間の現在時刻
+```typescript
+const jstNow = dayjs().tz("Asia/Tokyo")
+```
+
+#### 日付範囲検索
+```typescript
+const startDate = dayjs.utc().subtract(7, "day").startOf("day").toDate()
+const endDate = dayjs.utc().endOf("day").toDate()
+
+const records = await prisma.record.findMany({
+  where: {
+    date: {
+      gte: startDate,
+      lte: endDate,
+    },
+  },
+})
+```
+
+#### 日付フォーマット
+```typescript
+// ✅ dayjsを使用
+const formatted = dayjs().format("YYYY-MM-DD HH:mm:ss")
+
+// ❌ Dateオブジェクトを使用
+const formatted = new Date().toISOString() // ISO形式固定
+```
+
+### Prismaでの日付扱い
+
+Prismaの `DateTime` 型はUTC基準で保存されます。dayjsで `.toDate()` を呼ぶと、Prismaが期待する形式に変換されます。
+
+```typescript
+// ✅ 正しい
+const record = await prisma.record.create({
+  data: {
+    date: dayjs.utc().startOf("day").toDate(),
+    createdAt: dayjs().toDate(), // 現在時刻
+  },
+})
+
+// ❌ 間違い
+const record = await prisma.record.create({
+  data: {
+    date: new Date(), // タイムゾーンが曖昧
+  },
+})
+```
+
+### 注意事項
+
+- **タイムスタンプ（createdAt, updatedAt等）**: `dayjs().toDate()` または `new Date()` でOK
+- **日付比較・計算**: 必ずdayjsを使用
+- **プラグイン**: utcとtimezoneプラグインを必ず読み込む
+
+**重要: 日付・時刻を扱うコードを書く際は、必ずdayjsを使用してください。**
