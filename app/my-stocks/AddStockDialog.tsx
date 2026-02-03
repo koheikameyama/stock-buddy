@@ -6,13 +6,20 @@ interface UserStock {
   id: string
   userId: string
   stockId: string
-  quantity: number | null
-  averagePrice: number | null
-  purchaseDate: string | null
-  lastAnalysis: string | null
-  shortTerm: string | null
-  mediumTerm: string | null
-  longTerm: string | null
+  type: "watchlist" | "portfolio"
+  // Watchlist fields
+  addedReason?: string | null
+  alertPrice?: number | null
+  // Portfolio fields
+  quantity?: number
+  averagePurchasePrice?: number
+  purchaseDate?: string
+  lastAnalysis?: string | null
+  shortTerm?: string | null
+  mediumTerm?: string | null
+  longTerm?: string | null
+  // Common fields
+  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -132,17 +139,26 @@ export default function AddStockDialog({
     setLoading(true)
 
     try {
+      // Determine type based on whether quantity is provided
+      const type = quantity ? "portfolio" : "watchlist"
+      const body: any = {
+        tickerCode,
+        type,
+      }
+
+      // Add portfolio-specific fields
+      if (type === "portfolio") {
+        body.quantity = parseInt(quantity)
+        body.averagePurchasePrice = averagePrice ? parseFloat(averagePrice) : null
+        body.purchaseDate = purchaseDate
+      }
+
       const response = await fetch("/api/user-stocks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          tickerCode,
-          quantity: quantity ? parseInt(quantity) : null,
-          averagePrice: averagePrice ? parseFloat(averagePrice) : null,
-          purchaseDate: quantity ? purchaseDate : null,
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!response.ok) {

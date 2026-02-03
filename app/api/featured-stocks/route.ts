@@ -38,10 +38,19 @@ export async function GET() {
             riskTolerance: true,
           },
         }),
-        prisma.userStock.findMany({
-          where: { userId },
-          select: { stockId: true },
-        }),
+        Promise.all([
+          prisma.watchlistStock.findMany({
+            where: { userId },
+            select: { stockId: true },
+          }),
+          prisma.portfolioStock.findMany({
+            where: { userId },
+            select: { stockId: true },
+          }),
+        ]).then(([watchlist, portfolio]) => [
+          ...watchlist,
+          ...portfolio,
+        ]),
       ])
 
       if (userSettings) {

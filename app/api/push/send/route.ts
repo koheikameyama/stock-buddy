@@ -32,15 +32,18 @@ export async function POST(request: NextRequest) {
       include: {
         user: {
           include: {
-            userStocks: true,
+            watchlistStocks: true,
+            portfolioStocks: true,
           },
         },
       },
     })
 
-    // UserStockを持つユーザーにのみ通知
+    // 何らかの銘柄を持つユーザーにのみ通知
     const activeSubscriptions = subscriptions.filter(
-      (sub) => sub.user.userStocks.length > 0
+      (sub) =>
+        sub.user.watchlistStocks.length > 0 ||
+        sub.user.portfolioStocks.length > 0
     )
 
     const results = {

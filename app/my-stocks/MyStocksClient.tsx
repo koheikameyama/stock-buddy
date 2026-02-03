@@ -5,19 +5,25 @@ import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
 import AddStockDialog from "./AddStockDialog"
 import EditStockDialog from "./EditStockDialog"
-import StockPrediction from "@/app/components/StockPrediction"
 
 interface UserStock {
   id: string
   userId: string
   stockId: string
-  quantity: number | null
-  averagePrice: number | null
-  purchaseDate: string | null
-  lastAnalysis: string | null
-  shortTerm: string | null
-  mediumTerm: string | null
-  longTerm: string | null
+  type: "watchlist" | "portfolio"
+  // Watchlist fields
+  addedReason?: string | null
+  alertPrice?: number | null
+  // Portfolio fields
+  quantity?: number
+  averagePurchasePrice?: number
+  purchaseDate?: string
+  lastAnalysis?: string | null
+  shortTerm?: string | null
+  mediumTerm?: string | null
+  longTerm?: string | null
+  // Common fields
+  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -134,25 +140,32 @@ export default function MyStocksClient({ userId }: { userId: string }) {
   }
 
   const handleConvertMode = async (stock: UserStock) => {
-    const isHolding = stock.quantity !== null
-    const newMode = isHolding ? "気になる" : "保有中"
-    const oldMode = isHolding ? "保有中" : "気になる"
+    const isPortfolio = stock.type === "portfolio"
+    const newMode = isPortfolio ? "気になる" : "保有中"
+    const oldMode = isPortfolio ? "保有中" : "気になる"
 
     if (!confirm(`${stock.stock.name}のステータスを「${oldMode}」から「${newMode}」に変更しますか？`)) {
       return
     }
 
     try {
+      const body: any = {
+        convertTo: isPortfolio ? "watchlist" : "portfolio",
+      }
+
+      // Converting to portfolio requires quantity and averagePurchasePrice
+      if (!isPortfolio) {
+        body.quantity = 100
+        body.averagePurchasePrice = stock.stock.currentPrice || 1000
+        body.purchaseDate = new Date().toISOString()
+      }
+
       const response = await fetch(`/api/user-stocks/${stock.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          quantity: isHolding ? null : 100,
-          averagePrice: isHolding ? null : stock.stock.currentPrice || 1000,
-          purchaseDate: isHolding ? null : new Date().toISOString(),
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!response.ok) {
@@ -266,17 +279,14 @@ export default function MyStocksClient({ userId }: { userId: string }) {
           ) : (
             <div className="grid gap-3 sm:gap-6">
               {userStocks.map((stock) => (
-                <div key={stock.id} className="space-y-4">
-                  <StockCard
-                    stock={stock}
-                    price={prices[stock.stock.tickerCode]}
-                    onEdit={() => handleEditStock(stock)}
-                    onDelete={() => handleDeleteStock(stock.id, stock.stock.name)}
-                    onConvert={() => handleConvertMode(stock)}
-                  />
-                  {/* AI分析予測 */}
-                  <StockPrediction stockId={stock.stockId} />
-                </div>
+                <StockCard
+                  key={stock.id}
+                  stock={stock}
+                  price={prices[stock.stock.tickerCode]}
+                  onEdit={() => handleEditStock(stock)}
+                  onDelete={() => handleDeleteStock(stock.id, stock.stock.name)}
+                  onConvert={() => handleConvertMode(stock)}
+                />
               ))}
             </div>
           )}

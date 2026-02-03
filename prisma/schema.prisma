@@ -58,7 +58,9 @@ model User {
   recommendationLogs     RecommendationLog[]
   pushSubscriptions      PushSubscription[]
   stockRequests          StockRequest[]
-  userStocks             UserStock[]
+  watchlistStocks        WatchlistStock[]
+  portfolioStocks        PortfolioStock[]
+  transactions           Transaction[]
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
@@ -117,14 +119,17 @@ model Stock {
   // IPO対応
   listedDate        DateTime?          // 上場日
 
-  prices             StockPrice[]
-  indicators         StockIndicator[]
-  analyses           StockAnalysis[]
-  featuredStocks     DailyFeaturedStock[]
-  hotStocks          HotStock[]
-  userStocks         UserStock[]
-  featuredStocksPool FeaturedStock[]
-  createdAt          DateTime @default(now())
+  prices                  StockPrice[]
+  indicators              StockIndicator[]
+  analyses                StockAnalysis[]
+  featuredStocks          DailyFeaturedStock[]
+  hotStocks               HotStock[]
+  featuredStocksPool      FeaturedStock[]
+  watchlistStocks         WatchlistStock[]
+  portfolioStocks         PortfolioStock[]
+  transactions            Transaction[]
+  purchaseRecommendations PurchaseRecommendation[]
+  createdAt               DateTime @default(now())
 
   @@index([tickerCode])
 }
@@ -381,30 +386,117 @@ model FeaturedStock {
   @@index([stockId])
 }
 
-// ユーザーの銘柄（ポートフォリオ + ウォッチリスト統合）
-model UserStock {
-  id           String    @id @default(cuid())
-  userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stockId      String
-  stock        Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+// ウォッチリスト（気になる銘柄）
+model WatchlistStock {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId     String
+  stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
-  // 数量入力あり → 保有中、なし → ウォッチ中
-  quantity              Int?
-  averagePurchasePrice  Decimal?  @db.Decimal(12, 2)
-  purchaseDate          DateTime?
-  note                  String?   @db.Text
-
-  // AI分析結果
-  lastAnalysis DateTime?
-  shortTerm    String?   @db.Text // 短期予測
-  mediumTerm   String?   @db.Text // 中期予測
-  longTerm     String?   @db.Text // 長期予測
+  // ウォッチリスト固有の情報
+  addedReason String?  @db.Text
+  alertPrice  Decimal? @db.Decimal(12, 2)
+  note        String?  @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([userId, stockId])
   @@index([userId])
+  @@index([stockId])
+}
+
+// ポートフォリオ（保有銘柄）
+model PortfolioStock {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId              String
+  stock                Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  // 保有情報（必須）
+  quantity             Int
+  averagePurchasePrice Decimal  @db.Decimal(12, 2)
+  purchaseDate         DateTime
+
+  // オプション情報
+  note                 String?  @db.Text
+
+  // AI分析結果（売買判断用）
+  lastAnalysis DateTime?
+  shortTerm    String?   @db.Text
+  mediumTerm   String?   @db.Text
+  longTerm     String?   @db.Text
+
+  // 取引履歴
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, stockId])
+  @@index([userId])
+  @@index([stockId])
+}
+
+// 取引履歴
+model Transaction {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId          String
+  stock            Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  portfolioStockId String?
+  portfolioStock   PortfolioStock? @relation(fields: [portfolioStockId], references: [id], onDelete: SetNull)
+
+  // 取引情報
+  type            String   // "buy" | "sell"
+  quantity        Int
+  price           Decimal  @db.Decimal(12, 2)
+  totalAmount     Decimal  @db.Decimal(15, 2)
+  transactionDate DateTime
+
+  // オプション
+  note String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([stockId])
+  @@index([portfolioStockId])
+  @@index([transactionDate(sort: Desc)])
+  @@index([type])
+}
+
+// 購入判断分析（ウォッチリスト向け）
+model PurchaseRecommendation {
+  id     String   @id @default(cuid())
+  stockId String
+  stock   Stock   @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  date    DateTime @db.Date
+
+  // 基本判断
+  recommendation String // "buy" | "hold" | "pass"
+  confidence     Float  // 0.0-1.0
+
+  // 購入提案（recommendationが"buy"の場合のみ）
+  recommendedQuantity Int?
+  recommendedPrice    Decimal? @db.Decimal(12, 2)
+  estimatedAmount     Decimal? @db.Decimal(15, 2)
+
+  // 説明
+  reason  String @db.Text
+  caution String @db.Text
+
+  // 将来拡張用
+  analysisData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([stockId, date])
+  @@index([date])
   @@index([stockId])
 }

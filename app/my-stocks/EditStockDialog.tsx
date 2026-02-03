@@ -5,9 +5,11 @@ import { useState, useEffect } from "react"
 interface UserStock {
   id: string
   stockId: string
-  quantity: number | null
-  averagePrice: number | null
-  purchaseDate: string | null
+  type: "watchlist" | "portfolio"
+  // Portfolio fields
+  quantity?: number
+  averagePurchasePrice?: number
+  purchaseDate?: string
   stock: {
     id: string
     tickerCode: string
@@ -33,7 +35,7 @@ export default function EditStockDialog({
 }: EditStockDialogProps) {
   const [quantity, setQuantity] = useState(stock.quantity?.toString() || "100")
   const [averagePrice, setAveragePrice] = useState(
-    stock.averagePrice?.toString() || ""
+    stock.averagePurchasePrice?.toString() || ""
   )
   const [purchaseDate, setPurchaseDate] = useState(
     stock.purchaseDate
@@ -46,7 +48,7 @@ export default function EditStockDialog({
   // Reset form when stock changes
   useEffect(() => {
     setQuantity(stock.quantity?.toString() || "100")
-    setAveragePrice(stock.averagePrice?.toString() || "")
+    setAveragePrice(stock.averagePurchasePrice?.toString() || "")
     setPurchaseDate(
       stock.purchaseDate
         ? new Date(stock.purchaseDate).toISOString().split("T")[0]
@@ -68,7 +70,7 @@ export default function EditStockDialog({
         },
         body: JSON.stringify({
           quantity: parseInt(quantity),
-          averagePrice: averagePrice ? parseFloat(averagePrice) : null,
+          averagePurchasePrice: averagePrice ? parseFloat(averagePrice) : null,
           purchaseDate: purchaseDate,
         }),
       })

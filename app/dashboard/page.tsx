@@ -21,7 +21,12 @@ export default async function DashboardPage() {
       termsAccepted: true,
       privacyPolicyAccepted: true,
       settings: true,
-      userStocks: {
+      watchlistStocks: {
+        include: {
+          stock: true,
+        },
+      },
+      portfolioStocks: {
         include: {
           stock: true,
         },
@@ -35,8 +40,8 @@ export default async function DashboardPage() {
 
   // 利用規約・プライバシーポリシーの同意はクライアント側でモーダル表示するため、ここではチェックしない
 
-  const hasHoldings = user.userStocks.some((s) => s.quantity !== null)
-  const hasWatchlist = user.userStocks.some((s) => s.quantity === null)
+  const hasHoldings = user.portfolioStocks.length > 0
+  const hasWatchlist = user.watchlistStocks.length > 0
 
   // スナップショットデータは削除されたので空配列
   const snapshots: never[] = []

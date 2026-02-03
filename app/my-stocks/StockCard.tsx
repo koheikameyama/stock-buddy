@@ -1,11 +1,21 @@
 "use client"
 
+import { useState } from "react"
+import StockPrediction from "@/app/components/StockPrediction"
+
 interface UserStock {
   id: string
   stockId: string
-  quantity: number | null
-  averagePrice: number | null
-  purchaseDate: string | null
+  type: "watchlist" | "portfolio"
+  // Watchlist fields
+  addedReason?: string | null
+  alertPrice?: number | null
+  // Portfolio fields
+  quantity?: number
+  averagePurchasePrice?: number
+  purchaseDate?: string
+  // Common fields
+  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -41,9 +51,10 @@ export default function StockCard({
   onDelete,
   onConvert,
 }: StockCardProps) {
-  const isHolding = stock.quantity !== null
+  const [showPrediction, setShowPrediction] = useState(false)
+  const isHolding = stock.type === "portfolio"
   const quantity = stock.quantity || 0
-  const averagePrice = stock.averagePrice || 0
+  const averagePrice = stock.averagePurchasePrice || 0
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
 
   // Calculate profit/loss for holdings
@@ -225,6 +236,34 @@ export default function StockCard({
           {isHolding ? "気になるに変更" : "保有中に変更"}
         </button>
       </div>
+
+      {/* Prediction Toggle */}
+      <button
+        onClick={() => setShowPrediction(!showPrediction)}
+        className="mt-4 w-full px-4 py-2 bg-purple-50 text-purple-700 rounded-lg font-semibold hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          />
+        </svg>
+        {showPrediction ? "予測を非表示" : "🔮 今後の予測を見る"}
+      </button>
+
+      {/* Stock Prediction */}
+      {showPrediction && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <StockPrediction stockId={stock.stockId} />
+        </div>
+      )}
 
       {/* Additional Info */}
       {price && (
