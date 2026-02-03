@@ -17,8 +17,8 @@ export async function GET() {
     // 今日の日付（UTC 00:00:00）
     const today = dayjs.utc().startOf("day").toDate()
 
-    // 前日の日付も含めて検索（データ生成タイミングのズレを考慮）
-    const yesterday = dayjs.utc().subtract(1, "day").startOf("day").toDate()
+    // 過去3日分を検索（データ生成タイミングのズレを考慮）
+    const threeDaysAgo = dayjs.utc().subtract(3, "day").startOf("day").toDate()
 
     // 認証チェック
     const session = await auth()
@@ -58,11 +58,11 @@ export async function GET() {
       riskTolerance
     )
 
-    // 今日または前日の注目銘柄を取得（データ生成タイミングのズレを考慮）
+    // 過去3日以内の注目銘柄を取得（データ生成タイミングのズレを考慮）
     const featuredStocks = await prisma.dailyFeaturedStock.findMany({
       where: {
         date: {
-          gte: yesterday,
+          gte: threeDaysAgo,
           lte: today,
         },
       },
