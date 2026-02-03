@@ -298,7 +298,7 @@ export default function AddStockDialog({
                   </button>
                 </div>
                 <p className="text-xs text-gray-500">
-                  銘柄コードのままで「追加」ボタンを押すと、自動的にデータを取得して追加します
+                  銘柄コード（例: 7203）を入力して「追加」を押すと、自動的にデータを収集して追加します
                 </p>
               </div>
             )}
