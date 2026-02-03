@@ -8,15 +8,13 @@ import { prisma } from "@/lib/prisma"
  */
 export async function GET() {
   try {
-    // 今日の日付を取得（JST基準）
+    // 今日の日付をUTC 00:00:00で取得
     const now = new Date()
-    const jstOffset = 9 * 60 * 60 * 1000 // JST is UTC+9
-    const jstDate = new Date(now.getTime() + jstOffset)
-    const today = new Date(jstDate.getFullYear(), jstDate.getMonth(), jstDate.getDate())
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 
     // 前日の日付も含めて検索（データ生成タイミングのズレを考慮）
     const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
 
     // 認証チェック
     const session = await auth()
