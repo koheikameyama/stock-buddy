@@ -29,6 +29,12 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/analysis/generate_stock_predictions.py
 
+      - name: Generate purchase recommendations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/github-actions/generate_purchase_recommendations.py
+
       - name: Notify on failure
         if: failure()
-        run: echo "❌ Stock predictions generation failed!"
+        run: echo "❌ Stock analysis generation failed!"
