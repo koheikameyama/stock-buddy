@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { searchAndAddStock } from "@/lib/stock-fetcher"
 
 // Constants
 const MAX_STOCKS = 5
@@ -213,17 +214,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Find stock
-    const stock = await prisma.stock.findUnique({
+    let stock = await prisma.stock.findUnique({
       where: { tickerCode: normalizedTickerCode },
     })
 
+    // マスタにない場合はyfinanceで検索して追加を試みる
     if (!stock) {
-      return NextResponse.json(
-        {
-          error: `銘柄コード "${normalizedTickerCode}" が見つかりませんでした。銘柄マスタに登録されていない銘柄です。`
-        },
-        { status: 404 }
-      )
+      console.log(`Stock not found in master, searching with yfinance: ${normalizedTickerCode}`)
+
+      const searchResult = await searchAndAddStock(normalizedTickerCode)
+
+      if (!searchResult.success || !searchResult.stock) {
+        return NextResponse.json(
+          {
+            error: searchResult.error || `銘柄 "${normalizedTickerCode}" が見つかりませんでした。銘柄コードが正しいか確認してください。`
+          },
+          { status: 404 }
+        )
+      }
+
+      // 新しく追加された銘柄を取得
+      stock = await prisma.stock.findUnique({
+        where: { id: searchResult.stock.id },
+      })
+
+      if (!stock) {
+        return NextResponse.json(
+          { error: "銘柄の登録に失敗しました" },
+          { status: 500 }
+        )
+      }
+
+      console.log(`Successfully added new stock to master: ${stock.tickerCode} - ${stock.name}`)
     }
 
     // Check if stock already exists
