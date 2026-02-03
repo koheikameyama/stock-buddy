@@ -35,6 +35,12 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/github-actions/generate_purchase_recommendations.py
 
+      - name: Generate portfolio analysis
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/github-actions/generate_portfolio_analysis.py
+
       - name: Notify on failure
         if: failure()
         run: echo "❌ Stock analysis generation failed!"
