@@ -21,12 +21,21 @@ export async function GET(request: NextRequest) {
     const isNumericQuery = /^\d+$/.test(query)
     const tickerQuery = isNumericQuery ? `${query}.T` : query
 
+    // Convert half-width to full-width for Japanese character search
+    const toFullWidth = (str: string) => {
+      return str.replace(/[A-Za-z0-9]/g, (s) => {
+        return String.fromCharCode(s.charCodeAt(0) + 0xFEE0)
+      })
+    }
+    const fullWidthQuery = toFullWidth(query)
+
     const stocks = await prisma.stock.findMany({
       where: {
         OR: [
           { tickerCode: { startsWith: tickerQuery, mode: "insensitive" } },
           { tickerCode: { contains: query, mode: "insensitive" } },
           { name: { contains: query, mode: "insensitive" } },
+          { name: { contains: fullWidthQuery, mode: "insensitive" } },
         ],
       },
       select: {
