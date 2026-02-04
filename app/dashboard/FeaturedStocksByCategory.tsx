@@ -47,7 +47,7 @@ const categories: Record<string, CategoryConfig> = {
   },
   trending: {
     label: "話題",
-    description: "SNSで話題になっている銘柄",
+    description: "注目度が高い銘柄",
     color: "text-purple-700",
     bgColor: "bg-purple-50",
     borderColor: "border-purple-200",
