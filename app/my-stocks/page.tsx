@@ -13,7 +13,7 @@ export default async function MyStocksPage() {
   return (
     <>
       <Header />
-      <MyStocksClient userId={session.user.id} />
+      <MyStocksClient />
     </>
   )
 }

@@ -31,44 +31,13 @@ jobs:
         run: |
           python scripts/data/fetch_stocks.py
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Calculate stock scores
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          npm run calculate-scores
-
-      - name: Record portfolio snapshots
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          npm run record-snapshots
-
-      - name: Generate coach messages
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          npm run generate-coach-messages
-
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "✅ 株価データの取得に成功しました"
-          SLACK_MESSAGE: |
-            株価データを取得しました ✅
-            銘柄スコアを計算しました ✅
-            ポートフォリオスナップショットを記録しました ✅
-            コーチメッセージを生成しました ✅
+          SLACK_MESSAGE: "株価データを取得しました ✅"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -78,6 +47,6 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "❌ 株価データの取得に失敗しました"
-          SLACK_MESSAGE: "株価取得またはスコア計算中にエラーが発生しました"
+          SLACK_MESSAGE: "株価取得中にエラーが発生しました"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"

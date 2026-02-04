@@ -1,10 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
 import AddStockDialog from "./AddStockDialog"
-import EditStockDialog from "./EditStockDialog"
 
 interface UserStock {
   id: string
@@ -49,15 +47,13 @@ interface StockPrice {
 
 const MAX_USER_STOCKS = 5
 
-export default function MyStocksClient({ userId }: { userId: string }) {
-  const router = useRouter()
+export default function MyStocksClient() {
   const [userStocks, setUserStocks] = useState<UserStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const [selectedStock, setSelectedStock] = useState<UserStock | null>(null)
+  const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
 
   // Fetch user stocks
   useEffect(() => {
@@ -111,91 +107,16 @@ export default function MyStocksClient({ userId }: { userId: string }) {
     setShowAddDialog(true)
   }
 
-  const handleEditStock = (stock: UserStock) => {
-    setSelectedStock(stock)
-    setShowEditDialog(true)
-  }
-
-  const handleDeleteStock = async (id: string, name: string) => {
-    if (!confirm(`${name}を削除しますか？`)) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/user-stocks/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "削除に失敗しました")
-      }
-
-      // Remove from local state
-      setUserStocks((prev) => prev.filter((s) => s.id !== id))
-    } catch (err: any) {
-      console.error(err)
-      setError(err.message || "削除に失敗しました")
-    }
-  }
-
-  const handleConvertMode = async (stock: UserStock) => {
-    const isPortfolio = stock.type === "portfolio"
-    const newMode = isPortfolio ? "気になる" : "保有中"
-    const oldMode = isPortfolio ? "保有中" : "気になる"
-
-    if (!confirm(`${stock.stock.name}のステータスを「${oldMode}」から「${newMode}」に変更しますか？`)) {
-      return
-    }
-
-    try {
-      const body: any = {
-        convertTo: isPortfolio ? "watchlist" : "portfolio",
-      }
-
-      // Converting to portfolio requires quantity and averagePurchasePrice
-      if (!isPortfolio) {
-        body.quantity = 100
-        body.averagePurchasePrice = stock.stock.currentPrice || 1000
-        body.purchaseDate = new Date().toISOString()
-      }
-
-      const response = await fetch(`/api/user-stocks/${stock.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "変更に失敗しました")
-      }
-
-      const updatedStock = await response.json()
-      setUserStocks((prev) =>
-        prev.map((s) => (s.id === stock.id ? updatedStock : s))
-      )
-      setError(null)
-    } catch (err: any) {
-      console.error(err)
-      setError(err.message || "変更に失敗しました")
-    }
-  }
 
   const handleStockAdded = (newStock: UserStock) => {
     setUserStocks((prev) => [...prev, newStock])
     setShowAddDialog(false)
   }
 
-  const handleStockUpdated = (updatedStock: UserStock) => {
-    setUserStocks((prev) =>
-      prev.map((s) => (s.id === updatedStock.id ? updatedStock : s))
-    )
-    setShowEditDialog(false)
-    setSelectedStock(null)
-  }
+  // Filter stocks by type
+  const portfolioStocks = userStocks.filter((s) => s.type === "portfolio")
+  const watchlistStocks = userStocks.filter((s) => s.type === "watchlist")
+  const displayStocks = activeTab === "portfolio" ? portfolioStocks : watchlistStocks
 
   if (loading) {
     return (
@@ -230,12 +151,36 @@ export default function MyStocksClient({ userId }: { userId: string }) {
           </div>
         )}
 
-        {/* Unified Stock List Section */}
+        {/* Tab Navigation */}
+        <div className="flex border-b border-gray-200 mb-6">
+          <button
+            onClick={() => setActiveTab("portfolio")}
+            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
+              activeTab === "portfolio"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            保有銘柄 ({portfolioStocks.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("watchlist")}
+            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
+              activeTab === "watchlist"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            気になる銘柄 ({watchlistStocks.length})
+          </button>
+        </div>
+
+        {/* Stock List Section */}
         <section>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
             <div>
               <p className="text-xs sm:text-sm text-gray-500">
-                現在 {userStocks.length}/{MAX_USER_STOCKS} 銘柄
+                現在 {displayStocks.length}/{MAX_USER_STOCKS} 銘柄
               </p>
             </div>
             <button
@@ -260,14 +205,14 @@ export default function MyStocksClient({ userId }: { userId: string }) {
             </button>
           </div>
 
-          {userStocks.length === 0 ? (
+          {displayStocks.length === 0 ? (
             <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
               <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📊</div>
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                まだ銘柄がありません
+                {activeTab === "portfolio" ? "保有銘柄がありません" : "気になる銘柄がありません"}
               </h3>
               <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-                最初の銘柄を追加して投資を始めましょう
+                銘柄を追加して投資を始めましょう
               </p>
               <button
                 onClick={handleAddStock}
@@ -278,14 +223,11 @@ export default function MyStocksClient({ userId }: { userId: string }) {
             </div>
           ) : (
             <div className="grid gap-3 sm:gap-6">
-              {userStocks.map((stock) => (
+              {displayStocks.map((stock) => (
                 <StockCard
                   key={stock.id}
                   stock={stock}
                   price={prices[stock.stock.tickerCode]}
-                  onEdit={() => handleEditStock(stock)}
-                  onDelete={() => handleDeleteStock(stock.id, stock.stock.name)}
-                  onConvert={() => handleConvertMode(stock)}
                 />
               ))}
             </div>
@@ -299,18 +241,6 @@ export default function MyStocksClient({ userId }: { userId: string }) {
         onClose={() => setShowAddDialog(false)}
         onSuccess={handleStockAdded}
       />
-
-      {selectedStock && (
-        <EditStockDialog
-          isOpen={showEditDialog}
-          onClose={() => {
-            setShowEditDialog(false)
-            setSelectedStock(null)
-          }}
-          onSuccess={handleStockUpdated}
-          stock={selectedStock}
-        />
-      )}
     </main>
   )
 }
