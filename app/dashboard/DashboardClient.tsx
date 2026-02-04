@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import InstallPrompt from "@/app/components/InstallPrompt"
 import TermsModal from "@/app/components/TermsModal"
 import InvestmentStyleModal from "@/app/components/InvestmentStyleModal"
+import PushNotificationPrompt from "@/app/components/PushNotificationPrompt"
 
 type DashboardClientProps = {
   hasHoldings: boolean
@@ -70,6 +71,7 @@ export default function DashboardClient({
         defaultRisk={riskTolerance}
       />
       <InstallPrompt />
+      <PushNotificationPrompt />
     </>
   )
 }

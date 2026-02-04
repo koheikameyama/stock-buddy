@@ -124,7 +124,7 @@ export default function SettingsPage() {
                 プッシュ通知
               </h2>
               <p className="text-sm text-gray-600 mb-4">
-                毎朝6:00に銘柄分析、9:00にデイリーレポートをお届けします
+                毎日の分析結果や注目銘柄の更新をお知らせします
               </p>
               {!pushState.supported ? (
                 <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50">
@@ -172,11 +172,15 @@ export default function SettingsPage() {
               <ul className="space-y-2 text-sm sm:text-base text-gray-700">
                 <li className="flex items-start gap-2">
                   <span>•</span>
-                  <span><strong>毎朝6:00</strong> - 銘柄分析とコーチメッセージ</span>
+                  <span><strong>7:00</strong> - ポートフォリオ分析</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span>•</span>
-                  <span><strong>毎朝9:00</strong> - デイリーレポート</span>
+                  <span><strong>9:00 / 15:00 / 22:00</strong> - 注目銘柄更新</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span>•</span>
+                  <span><strong>17:00</strong> - 株価データ更新</span>
                 </li>
               </ul>
             </div>
