@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { OpenAI } from "openai"
+import {
+  getRelatedNews,
+  formatNewsForPrompt,
+  formatNewsReferences,
+} from "@/lib/news-rag"
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -98,6 +103,30 @@ export async function POST(request: NextRequest) {
       })
       .join("\n\n")
 
+    // 関連ニュースを取得
+    const tickerCodes = [
+      ...portfolioStocks.map((ps) => ps.stock.tickerCode),
+      ...watchlistStocks.map((ws) => ws.stock.tickerCode),
+    ]
+
+    const sectors = Array.from(
+      new Set([
+        ...portfolioStocks
+          .map((ps) => ps.stock.sector)
+          .filter((s): s is string => !!s),
+        ...watchlistStocks
+          .map((ws) => ws.stock.sector)
+          .filter((s): s is string => !!s),
+      ])
+    )
+
+    const relatedNews = await getRelatedNews({
+      tickerCodes,
+      sectors,
+      limit: 10,
+      daysAgo: 7,
+    })
+
     // システムプロンプトを構築
     const systemPrompt = `あなたは投資初心者向けのAIコーチです。
 専門用語は使わず、中学生でも分かる言葉で説明してください。
@@ -116,6 +145,9 @@ ${
     : "投資スタイル情報はありません"
 }
 
+## 最新のニュース情報
+${formatNewsForPrompt(relatedNews)}
+
 ## 回答のルール
 1. 専門用語（PER、ROE、移動平均線など）は使わない
 2. 「成長性」「安定性」「割安」など平易な言葉を使う
@@ -125,7 +157,14 @@ ${
 6. 投資にはリスクがあることを適度に伝える
 7. 親しみやすく、励ます口調で話す
 8. 回答は簡潔に（300字以内を目安に）
-9. ユーザーが保有していない銘柄については、一般的なアドバイスをする`
+9. ユーザーが保有していない銘柄については、一般的なアドバイスをする
+
+## ニュース参照に関する重要なルール
+1. 提供されたニュース情報のみを参照してください
+2. ニュースにない情報は推測や創作をしないでください
+3. 不確かな場合は「この情報は提供されたニュースにはありません」と明示してください
+4. 回答の最後に必ず参考にしたニュースを列挙してください
+5. 日付や数値は提供されたデータから正確に引用してください`
 
     // OpenAI APIを呼び出し
     const openai = getOpenAIClient()
@@ -157,9 +196,12 @@ ${
       max_tokens: 600,
     })
 
-    const response =
+    const aiResponse =
       completion.choices[0]?.message?.content ||
       "申し訳ございません。回答を生成できませんでした。"
+
+    // 参考ニュースを追加
+    const response = aiResponse + formatNewsReferences(relatedNews)
 
     return NextResponse.json({
       response,

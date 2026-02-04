@@ -70,7 +70,8 @@ def calculate_total_cost(costs_data: dict) -> float:
                     # amount フィールドがコスト（セント単位）
                     # ドルに変換（100で割る）
                     amount_cents = result.get("amount", {}).get("value", 0)
-                    total_cost += amount_cents / 100.0
+                    # 文字列で返される場合があるためfloatにキャスト
+                    total_cost += float(amount_cents) / 100.0
 
     return total_cost
 
