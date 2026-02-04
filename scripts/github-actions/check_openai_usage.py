@@ -2,8 +2,10 @@
 """
 OpenAI API使用量チェックスクリプト
 
-GitHub Actionsから毎週月曜日に実行され、OpenAI APIの使用量とコストを取得します。
+GitHub Actionsから毎日実行され、OpenAI APIのトークン使用量を取得してコストを試算します。
 予算の80%を超えた場合はアラートを出力します。
+
+Usage APIを使用してトークン数を取得し、モデル別料金表から実際のコストを計算します。
 """
 
 import os
@@ -17,18 +19,18 @@ OPENAI_PROJECT_ID = os.getenv("OPENAI_PROJECT_ID")
 SLACK_WEBHOOK_URL = os.getenv("OPENAI_SLACK_WEBHOOK_URL")
 MONTHLY_BUDGET_USD = float(os.getenv("MONTHLY_BUDGET_USD", "50"))
 
-def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
+def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
     """
-    OpenAI Costs APIからコストデータを取得（Stock Buddyプロジェクト専用）
+    OpenAI Usage APIからトークン使用量データを取得（Stock Buddyプロジェクト専用）
 
     Args:
         start_timestamp: 開始日（UNIXタイムスタンプ）
         end_timestamp: 終了日（UNIXタイムスタンプ）
 
     Returns:
-        コストデータ
+        使用量データ
     """
-    url = "https://api.openai.com/v1/organization/costs"
+    url = "https://api.openai.com/v1/organization/usage"
 
     headers = {
         "Authorization": f"Bearer {OPENAI_ADMIN_KEY}",
@@ -39,6 +41,7 @@ def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
     params = {
         "start_time": start_timestamp,
         "end_time": end_timestamp,
+        "bucket_width": "1d",  # 日単位で集計
     }
 
     try:
@@ -46,32 +49,71 @@ def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error fetching costs data: {e}")
+        print(f"❌ Error fetching usage data: {e}")
         if hasattr(e, 'response') and e.response is not None:
             print(f"Response: {e.response.text}")
         sys.exit(1)
 
-def calculate_total_cost(costs_data: dict) -> float:
+def calculate_total_cost(usage_data: dict) -> float:
     """
-    コストデータから総コストを計算
+    トークン使用量から総コストを計算
+
+    料金（2026年1月時点）:
+    - GPT-4o: $2.50/1M input, $10.00/1M output
+    - GPT-4o Mini: $0.15/1M input, $0.60/1M output
+    - GPT-4o Realtime: $5.00/1M input, $20.00/1M output
+    - o1: $15.00/1M input, $60.00/1M output
+    - o1-mini: $3.00/1M input, $12.00/1M output
 
     Args:
-        costs_data: OpenAI Costs APIから取得したデータ
+        usage_data: OpenAI Usage APIから取得したデータ
 
     Returns:
         総コスト（ドル）
     """
+    # モデル別料金表（$/1M tokens）
+    MODEL_PRICING = {
+        "gpt-4o": {"input": 2.50, "output": 10.00},
+        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+        "gpt-4o-realtime": {"input": 5.00, "output": 20.00},
+        "o1": {"input": 15.00, "output": 60.00},
+        "o1-mini": {"input": 3.00, "output": 12.00},
+        "gpt-4-turbo": {"input": 10.00, "output": 30.00},
+    }
+
     total_cost = 0.0
 
-    if "data" in costs_data:
-        for bucket in costs_data["data"]:
-            if "results" in bucket:
-                for result in bucket["results"]:
-                    # amount フィールドがコスト（セント単位）
-                    # ドルに変換（100で割る）
-                    amount_cents = result.get("amount", {}).get("value", 0)
-                    # 文字列で返される場合があるためfloatにキャスト
-                    total_cost += float(amount_cents) / 100.0
+    if "data" not in usage_data:
+        return total_cost
+
+    for bucket in usage_data["data"]:
+        if "results" not in bucket:
+            continue
+
+        for result in bucket["results"]:
+            snapshot_id = result.get("snapshot_id", "")
+
+            # トークン数を取得
+            input_tokens = result.get("n_context_tokens_total", 0)
+            output_tokens = result.get("n_generated_tokens_total", 0)
+
+            # モデル名からベースモデルを判定
+            model_pricing = None
+            for model_key in MODEL_PRICING:
+                if model_key in snapshot_id.lower():
+                    model_pricing = MODEL_PRICING[model_key]
+                    break
+
+            # 料金が見つからない場合はデフォルト（GPT-4o料金）
+            if not model_pricing:
+                model_pricing = MODEL_PRICING["gpt-4o"]
+                print(f"⚠️  Unknown model: {snapshot_id}, using GPT-4o pricing")
+
+            # コスト計算（tokens / 1M * price）
+            input_cost = (input_tokens / 1_000_000) * model_pricing["input"]
+            output_cost = (output_tokens / 1_000_000) * model_pricing["output"]
+
+            total_cost += input_cost + output_cost
 
     return total_cost
 
@@ -144,11 +186,11 @@ def main():
     print(f"💰 Monthly budget: ${MONTHLY_BUDGET_USD}")
     print()
 
-    # コストデータを取得
-    costs_data = get_costs_data(start_timestamp, end_timestamp)
+    # 使用量データを取得
+    usage_data = get_usage_data(start_timestamp, end_timestamp)
 
-    # コストを計算
-    total_cost = calculate_total_cost(costs_data)
+    # トークン使用量からコストを計算
+    total_cost = calculate_total_cost(usage_data)
     usage_percentage = (total_cost / MONTHLY_BUDGET_USD) * 100
 
     # 結果を表示
