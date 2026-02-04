@@ -85,20 +85,17 @@ def calculate_total_cost(costs_data: dict) -> float:
 
         if "results" in bucket:
             for result in bucket["results"]:
-                # amount.value がコスト（セント単位）
+                # amount.value がコスト（ドル単位、文字列）
                 amount_value = result.get("amount", {}).get("value", 0)
-                # 文字列の場合もあるのでfloatにキャスト
-                amount_cents = float(amount_value) if amount_value else 0.0
-                # ドルに変換
-                cost_usd = amount_cents / 100.0
+                # 文字列の場合もあるのでfloatにキャスト（既にドル単位）
+                cost_usd = float(amount_value) if amount_value else 0.0
 
                 print(f"      Result: {result.get('line_item', 'unknown')} = ${cost_usd:.4f}")
                 total_cost += cost_usd
         elif "amount" in bucket:
             # bucketレベルにamountがある場合
             amount_value = bucket.get("amount", {}).get("value", 0)
-            amount_cents = float(amount_value) if amount_value else 0.0
-            cost_usd = amount_cents / 100.0
+            cost_usd = float(amount_value) if amount_value else 0.0
 
             print(f"   Bucket amount: ${cost_usd:.4f}")
             total_cost += cost_usd
