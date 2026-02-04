@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import StockPrediction from "@/app/components/StockPrediction"
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation"
 import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
@@ -53,6 +54,7 @@ export default function StockCard({
   onDelete,
   onConvert,
 }: StockCardProps) {
+  const router = useRouter()
   const [showPrediction, setShowPrediction] = useState(false)
   const [showPurchaseRecommendation, setShowPurchaseRecommendation] = useState(false)
   const [showPortfolioAnalysis, setShowPortfolioAnalysis] = useState(false)
@@ -92,7 +94,11 @@ export default function StockCard({
       </button>
 
       {/* Stock Header */}
-      <div className="mb-4 pr-8">
+      <div
+        className="mb-4 pr-8 cursor-pointer hover:bg-gray-50 -mx-6 -mt-6 px-6 pt-6 pb-2 rounded-t-xl transition-colors"
+        onClick={() => router.push(`/stocks/${stock.stockId}`)}
+        title="銘柄詳細を表示"
+      >
         <div className="flex items-center gap-3 mb-2">
           <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
             {stock.stock.name}
