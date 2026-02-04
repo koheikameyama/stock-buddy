@@ -16,6 +16,10 @@ import psycopg2
 import psycopg2.extras
 from openai import OpenAI
 
+# Add path to lib directory
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from lib.news_fetcher import get_related_news, format_news_for_prompt
+
 # OpenAI クライアント初期化
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -26,9 +30,8 @@ if not DATABASE_URL:
     sys.exit(1)
 
 
-def get_portfolio_stocks():
+def get_portfolio_stocks(conn):
     """保有銘柄（PortfolioStock）を取得"""
-    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
@@ -54,12 +57,10 @@ def get_portfolio_stocks():
         return stocks
     finally:
         cur.close()
-        conn.close()
 
 
-def get_recent_prices(ticker_code):
+def get_recent_prices(conn, ticker_code):
     """直近30日の株価データを取得"""
-    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
@@ -80,7 +81,6 @@ def get_recent_prices(ticker_code):
         return prices
     finally:
         cur.close()
-        conn.close()
 
 
 def calculate_profit_loss(average_price, current_price, quantity):
@@ -96,7 +96,7 @@ def calculate_profit_loss(average_price, current_price, quantity):
     return profit, profit_percent
 
 
-def generate_portfolio_analysis(stock, recent_prices):
+def generate_portfolio_analysis(stock, recent_prices, related_news=None):
     """OpenAI APIを使ってポートフォリオ分析を生成"""
 
     average_price = float(stock['averagePurchasePrice'])
@@ -104,6 +104,15 @@ def generate_portfolio_analysis(stock, recent_prices):
     quantity = stock['quantity']
 
     profit, profit_percent = calculate_profit_loss(average_price, current_price, quantity)
+
+    # ニュース情報をフォーマット
+    news_context = ""
+    if related_news:
+        news_context = f"""
+
+【最新のニュース情報】
+{format_news_for_prompt(related_news)}
+"""
 
     # プロンプト構築
     prompt = f"""あなたは投資初心者向けのAIコーチです。
@@ -120,17 +129,19 @@ def generate_portfolio_analysis(stock, recent_prices):
 
 【株価データ】
 直近30日の終値: {len(recent_prices)}件のデータあり
-
+{news_context}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {{
-  "shortTerm": "短期予測（今週）の分析結果を初心者に分かりやすく2-3文で",
-  "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で",
-  "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で"
+  "shortTerm": "短期予測（今週）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）",
+  "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）",
+  "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）"
 }}
 
 【判断の指針】
+- 提供されたニュース情報を参考にしてください
+- ニュースにない情報は推測や創作をしないでください
 - shortTerm: 「売り時」「保持」「買い増し時」のいずれかの判断を含める
 - mediumTerm: 今月の見通しと推奨行動を含める
 - longTerm: 今後3ヶ月の成長性と投資継続の判断を含める
@@ -172,9 +183,8 @@ def generate_portfolio_analysis(stock, recent_prices):
         return None
 
 
-def save_portfolio_analysis(portfolio_stock_id, analysis_data):
+def save_portfolio_analysis(conn, portfolio_stock_id, analysis_data):
     """ポートフォリオ分析をデータベースに保存（UPDATE）"""
-    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
     try:
@@ -206,7 +216,6 @@ def save_portfolio_analysis(portfolio_stock_id, analysis_data):
         return False
     finally:
         cur.close()
-        conn.close()
 
 
 def main():
@@ -219,48 +228,79 @@ def main():
         print("Error: OPENAI_API_KEY environment variable not set")
         sys.exit(1)
 
-    # ポートフォリオ取得
-    stocks = get_portfolio_stocks()
+    # データベース接続（単一接続を使用）
+    conn = psycopg2.connect(DATABASE_URL)
 
-    if not stocks:
-        print("No stocks in portfolio. Exiting.")
-        sys.exit(0)
+    try:
+        # ポートフォリオ取得
+        stocks = get_portfolio_stocks(conn)
 
-    success_count = 0
-    error_count = 0
+        if not stocks:
+            print("No stocks in portfolio. Exiting.")
+            sys.exit(0)
 
-    for stock in stocks:
-        print(f"\n--- Processing: {stock['name']} ({stock['tickerCode']}) ---")
+        # 関連ニュースを一括取得
+        ticker_codes = [s['tickerCode'] for s in stocks]
+        sectors = list(set([s['sector'] for s in stocks if s['sector']]))
 
-        # 直近価格取得
-        recent_prices = get_recent_prices(stock['tickerCode'])
+        print(f"Fetching related news for {len(ticker_codes)} stocks...")
+        all_news = get_related_news(
+            conn=conn,
+            ticker_codes=ticker_codes,
+            sectors=sectors,
+            limit=20,  # ポートフォリオ分析は多めに取得
+            days_ago=7,
+        )
+        print(f"Found {len(all_news)} related news articles")
 
-        # ポートフォリオ分析生成
-        analysis = generate_portfolio_analysis(stock, recent_prices)
+        success_count = 0
+        error_count = 0
 
-        if not analysis:
-            print(f"❌ Failed to generate analysis for {stock['name']}")
-            error_count += 1
-            continue
+        for stock in stocks:
+            print(f"\n--- Processing: {stock['name']} ({stock['tickerCode']}) ---")
 
-        print(f"Generated analysis:")
-        print(f"Short-term: {analysis['shortTerm'][:50]}...")
-        print(f"Medium-term: {analysis['mediumTerm'][:50]}...")
-        print(f"Long-term: {analysis['longTerm'][:50]}...")
+            # この銘柄に関連するニュースをフィルタリング
+            stock_news = [
+                n for n in all_news
+                if (stock['tickerCode'] in n['content'] or
+                    stock['tickerCode'].replace('.T', '') in n['content'] or
+                    n['sector'] == stock['sector'])
+            ][:5]  # 最大5件
 
-        # データベース保存
-        if save_portfolio_analysis(stock['id'], analysis):
-            success_count += 1
-        else:
-            error_count += 1
+            print(f"Found {len(stock_news)} news for this stock")
 
-    print(f"\n=== Summary ===")
-    print(f"Total stocks processed: {len(stocks)}")
-    print(f"Success: {success_count}")
-    print(f"Errors: {error_count}")
+            # 直近価格取得
+            recent_prices = get_recent_prices(conn, stock['tickerCode'])
 
-    if error_count > 0:
-        sys.exit(1)
+            # ポートフォリオ分析生成（ニュース付き）
+            analysis = generate_portfolio_analysis(stock, recent_prices, stock_news)
+
+            if not analysis:
+                print(f"❌ Failed to generate analysis for {stock['name']}")
+                error_count += 1
+                continue
+
+            print(f"Generated analysis:")
+            print(f"Short-term: {analysis['shortTerm'][:50]}...")
+            print(f"Medium-term: {analysis['mediumTerm'][:50]}...")
+            print(f"Long-term: {analysis['longTerm'][:50]}...")
+
+            # データベース保存
+            if save_portfolio_analysis(conn, stock['id'], analysis):
+                success_count += 1
+            else:
+                error_count += 1
+
+        print(f"\n=== Summary ===")
+        print(f"Total stocks processed: {len(stocks)}")
+        print(f"Success: {success_count}")
+        print(f"Errors: {error_count}")
+
+        if error_count > 0:
+            sys.exit(1)
+
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
