@@ -100,23 +100,25 @@ def calculate_total_cost(usage_data: dict) -> float:
             continue
 
         for result in bucket["results"]:
-            snapshot_id = result.get("snapshot_id", "")
+            model_name = result.get("model", "")
 
             # トークン数を取得
-            input_tokens = result.get("n_context_tokens_total", 0)
-            output_tokens = result.get("n_generated_tokens_total", 0)
+            input_tokens = result.get("input_tokens", 0)
+            output_tokens = result.get("output_tokens", 0)
 
             # モデル名からベースモデルを判定
             model_pricing = None
-            for model_key in MODEL_PRICING:
-                if model_key in snapshot_id.lower():
-                    model_pricing = MODEL_PRICING[model_key]
-                    break
+            if model_name:
+                for model_key in MODEL_PRICING:
+                    if model_key in model_name.lower():
+                        model_pricing = MODEL_PRICING[model_key]
+                        break
 
             # 料金が見つからない場合はデフォルト（GPT-4o料金）
             if not model_pricing:
                 model_pricing = MODEL_PRICING["gpt-4o"]
-                print(f"⚠️  Unknown model: {snapshot_id}, using GPT-4o pricing")
+                if model_name:
+                    print(f"⚠️  Unknown model: {model_name}, using GPT-4o pricing")
 
             # コスト計算（tokens / 1M * price）
             input_cost = (input_tokens / 1_000_000) * model_pricing["input"]
