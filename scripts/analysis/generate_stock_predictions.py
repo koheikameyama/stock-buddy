@@ -15,6 +15,10 @@ from openai import OpenAI
 from datetime import datetime
 import statistics
 
+# Add news fetcher module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from lib.news_fetcher import get_related_news, format_news_for_prompt
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -88,10 +92,19 @@ def get_baseline_data(cur, stock_id):
     }
 
 
-def generate_ai_prediction(stock, baseline, scores):
+def generate_ai_prediction(stock, baseline, scores, related_news=None):
     """AIで予測を生成"""
 
     trend_labels = {"up": "上昇", "neutral": "横ばい", "down": "下降"}
+
+    # ニュース情報をフォーマット
+    news_context = ""
+    if related_news:
+        news_context = f"""
+
+【最新のニュース情報】
+{format_news_for_prompt(related_news)}
+"""
 
     prompt = f"""あなたは株式投資の初心者向けアドバイザーです。
 以下の銘柄について、今後の動向予測とアドバイスを生成してください。
@@ -114,7 +127,7 @@ def generate_ai_prediction(stock, baseline, scores):
 
 【ボラティリティ（価格変動幅）】
 {baseline['volatility']:.2f}円
-
+{news_context}
 ---
 
 以下の形式でJSON形式で回答してください：
@@ -136,11 +149,13 @@ def generate_ai_prediction(stock, baseline, scores):
     "priceHigh": 数値
   }},
   "recommendation": "buy" | "hold" | "sell",
-  "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で）",
+  "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で、ニュース情報があれば参考にする）",
   "confidence": 0.0〜1.0の信頼度
 }}
 
 注意事項:
+- 提供されたニュース情報を参考にしてください
+- ニュースにない情報は推測や創作をしないでください
 - 価格予測は現在価格とボラティリティを考慮した現実的な範囲にする
 - アドバイスは具体的で分かりやすく
 - 断定的な表現は避け、「〜が期待できます」「〜の可能性があります」など柔らかい表現を使う
@@ -212,81 +227,110 @@ def main():
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    # ユーザーが保有/ウォッチしている銘柄を取得
-    cur.execute(
+    try:
+        # ユーザーが保有/ウォッチしている銘柄を取得
+        cur.execute(
+            """
+            SELECT DISTINCT s.id, s."tickerCode", s.name, s.sector,
+                   s."growthScore", s."stabilityScore", s."dividendScore"
+            FROM "Stock" s
+            WHERE s.id IN (
+                SELECT "stockId" FROM "PortfolioStock"
+                UNION
+                SELECT "stockId" FROM "WatchlistStock"
+            )
         """
-        SELECT DISTINCT s.id, s."tickerCode", s.name, s.sector,
-               s."growthScore", s."stabilityScore", s."dividendScore"
-        FROM "Stock" s
-        INNER JOIN "UserStock" us ON s.id = us."stockId"
-    """
-    )
+        )
 
-    stocks = cur.fetchall()
-    total = len(stocks)
-    success = 0
-    failed = 0
+        stocks = cur.fetchall()
+        total = len(stocks)
 
-    if total == 0:
-        print("⚠️  No stocks to analyze")
+        if total == 0:
+            print("⚠️  No stocks to analyze")
+            return
+
+        print(f"📊 Processing {total} stocks...")
+
+        # 関連ニュースを一括取得
+        ticker_codes = [s["tickerCode"] for s in stocks]
+        sectors = list(set([s["sector"] for s in stocks if s["sector"]]))
+
+        print(f"📰 Fetching related news for {len(ticker_codes)} stocks...")
+        all_news = get_related_news(
+            conn=conn,
+            ticker_codes=ticker_codes,
+            sectors=sectors,
+            limit=30,  # 予測生成は多めに取得
+            days_ago=7,
+        )
+        print(f"Found {len(all_news)} related news articles")
+
+        success = 0
+        failed = 0
+
+        for i, stock in enumerate(stocks, 1):
+            stock_dict = {
+                "id": stock["id"],
+                "ticker_code": stock["tickerCode"],
+                "name": stock["name"],
+                "sector": stock["sector"],
+            }
+
+            scores = {
+                "growth": stock["growthScore"] or 50,
+                "stability": stock["stabilityScore"] or 50,
+                "dividend": stock["dividendScore"] or 50,
+            }
+
+            try:
+                print(
+                    f"[{i}/{total}] Processing {stock_dict['name']} ({stock_dict['ticker_code']})..."
+                )
+
+                # この銘柄に関連するニュースをフィルタリング
+                stock_news = [
+                    n for n in all_news
+                    if (stock_dict['ticker_code'] in n['content'] or
+                        stock_dict['ticker_code'].replace('.T', '') in n['content'] or
+                        n['sector'] == stock_dict['sector'])
+                ][:5]  # 最大5件
+
+                print(f"  📰 Found {len(stock_news)} news for this stock")
+
+                # 1. 基礎データ計算
+                baseline = get_baseline_data(cur, stock_dict["id"])
+
+                if not baseline:
+                    print(f"  ⚠️  No price data available, skipping...")
+                    failed += 1
+                    continue
+
+                # 2. AI予測生成（ニュース付き）
+                prediction = generate_ai_prediction(stock_dict, baseline, scores, stock_news)
+
+                # 3. データベースに保存
+                save_prediction(cur, stock_dict["id"], prediction)
+
+                conn.commit()
+                success += 1
+                print(f"  ✅ Saved (recommendation: {prediction['recommendation']})")
+
+            except Exception as e:
+                print(f"  ❌ Error: {e}")
+                conn.rollback()
+                failed += 1
+
+        print(f"\n🎉 Completed!")
+        print(f"  ✅ Success: {success}")
+        print(f"  ❌ Failed: {failed}")
+        print(f"  📊 Total: {total}")
+
+        if failed > 0 and success == 0:
+            sys.exit(1)
+
+    finally:
         cur.close()
         conn.close()
-        return
-
-    print(f"📊 Processing {total} stocks...")
-
-    for i, stock in enumerate(stocks, 1):
-        stock_dict = {
-            "id": stock["id"],
-            "ticker_code": stock["tickerCode"],
-            "name": stock["name"],
-            "sector": stock["sector"],
-        }
-
-        scores = {
-            "growth": stock["growthScore"] or 50,
-            "stability": stock["stabilityScore"] or 50,
-            "dividend": stock["dividendScore"] or 50,
-        }
-
-        try:
-            print(
-                f"[{i}/{total}] Processing {stock_dict['name']} ({stock_dict['ticker_code']})..."
-            )
-
-            # 1. 基礎データ計算
-            baseline = get_baseline_data(cur, stock_dict["id"])
-
-            if not baseline:
-                print(f"  ⚠️  No price data available, skipping...")
-                failed += 1
-                continue
-
-            # 2. AI予測生成
-            prediction = generate_ai_prediction(stock_dict, baseline, scores)
-
-            # 3. データベースに保存
-            save_prediction(cur, stock_dict["id"], prediction)
-
-            conn.commit()
-            success += 1
-            print(f"  ✅ Saved (recommendation: {prediction['recommendation']})")
-
-        except Exception as e:
-            print(f"  ❌ Error: {e}")
-            conn.rollback()
-            failed += 1
-
-    cur.close()
-    conn.close()
-
-    print(f"\n🎉 Completed!")
-    print(f"  ✅ Success: {success}")
-    print(f"  ❌ Failed: {failed}")
-    print(f"  📊 Total: {total}")
-
-    if failed > 0 and success == 0:
-        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import PortfolioGrowthChart from "./PortfolioGrowthChart"
 import Header from "@/app/components/Header"
@@ -97,7 +98,7 @@ export default async function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                <a
+                <Link
                   href="/dashboard?editStyle=true"
                   className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                   title="投資スタイルを編集"
@@ -115,13 +116,13 @@ export default async function DashboardPage() {
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                     />
                   </svg>
-                </a>
+                </Link>
               </div>
             </div>
           )}
 
           {/* マイ銘柄へのリンク */}
-          <a
+          <Link
             href="/my-stocks"
             className="block mb-6 bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
           >
@@ -161,7 +162,7 @@ export default async function DashboardPage() {
                 </svg>
               </div>
             </div>
-          </a>
+          </Link>
 
         {/* 成長グラフ */}
         {hasHoldings && <PortfolioGrowthChart snapshots={snapshots} />}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import PWARegister from './components/PWARegister'
+import GlobalChatWrapper from './components/GlobalChatWrapper'
 
 export const metadata: Metadata = {
   title: 'Stock Buddy - AI投資アシスタント',
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className="antialiased">
         {children}
         <PWARegister />
+        <GlobalChatWrapper />
       </body>
     </html>
   )

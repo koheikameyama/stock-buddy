@@ -1,0 +1,52 @@
+name: Daily Stock Price Fetch
+
+on:
+  schedule:
+    # 毎日JST 17:00 (UTC 08:00) に実行（市場クローズ後）
+    - cron: '0 8 * * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  fetch-stock-prices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance psycopg2-binary python-dotenv
+
+      - name: Fetch stock prices
+        id: fetch
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/data/fetch_stocks.py
+
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ 株価データの取得に成功しました"
+          SLACK_MESSAGE: "株価データを取得しました ✅"
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ 株価データの取得に失敗しました"
+          SLACK_MESSAGE: "株価取得中にエラーが発生しました"
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"

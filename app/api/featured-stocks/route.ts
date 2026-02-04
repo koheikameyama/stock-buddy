@@ -14,12 +14,6 @@ dayjs.extend(timezone)
  */
 export async function GET() {
   try {
-    // 今日の日付（UTC 00:00:00）
-    const today = dayjs.utc().startOf("day").toDate()
-
-    // 過去3日分を検索（データ生成タイミングのズレを考慮）
-    const threeDaysAgo = dayjs.utc().subtract(3, "day").startOf("day").toDate()
-
     // 認証チェック
     const session = await auth()
     const userId = session?.user?.id
@@ -67,13 +61,24 @@ export async function GET() {
       riskTolerance
     )
 
-    // 過去3日以内の注目銘柄を取得（データ生成タイミングのズレを考慮）
+    // 最新の日付を取得
+    const latestDate = await prisma.dailyFeaturedStock.findFirst({
+      select: { date: true },
+      orderBy: { date: "desc" },
+    })
+
+    // データが存在しない場合
+    if (!latestDate) {
+      return NextResponse.json(
+        { featuredStocks: [], needsGeneration: true },
+        { status: 200 }
+      )
+    }
+
+    // 最新日付のデータのみを取得
     const featuredStocks = await prisma.dailyFeaturedStock.findMany({
       where: {
-        date: {
-          gte: threeDaysAgo,
-          lte: today,
-        },
+        date: latestDate.date,
       },
       include: {
         stock: {
@@ -86,7 +91,6 @@ export async function GET() {
         },
       },
       orderBy: [
-        { date: "desc" }, // 最新の日付を優先
         { position: "asc" },
       ],
     })

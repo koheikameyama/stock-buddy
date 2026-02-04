@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 JPX公式RSSからニュースを取得し、話題の銘柄コードを抽出するスクリプト
+（拡張版：MarketNewsテーブルへの保存・セクター/センチメント分析）
 
 Usage:
     python scripts/news/fetch_jpx_news.py
@@ -8,14 +9,40 @@ Usage:
 
 import sys
 import re
+import os
+import json
 import feedparser
-from typing import List, Dict, Set
+import psycopg2
+import psycopg2.extras
+from typing import List, Dict, Set, Optional, Tuple
 from datetime import datetime, timedelta
+from openai import OpenAI
 
 # ニュースソースURL（Google News RSSを使用）
 RSS_URLS = {
     "google_news_stock": "https://news.google.com/rss/search?q=日本株+OR+東証+OR+株式市場+when:7d&hl=ja&gl=JP&ceid=JP:ja",
     "google_news_nikkei": "https://news.google.com/rss/search?q=site:nikkei.com+株+OR+銘柄+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+}
+
+# セクター分類キーワード
+SECTOR_KEYWORDS = {
+    "半導体・電子部品": ["半導体", "電子部品", "チップ", "DRAM", "NAND", "フラッシュメモリ"],
+    "自動車": ["自動車", "トヨタ", "ホンダ", "日産", "マツダ", "スバル", "EV", "電気自動車"],
+    "金融": ["銀行", "証券", "保険", "金融", "メガバンク", "地銀", "信託"],
+    "医薬品": ["製薬", "医薬品", "新薬", "治験", "バイオ", "創薬"],
+    "通信": ["通信", "NTT", "KDDI", "ソフトバンク", "5G", "携帯"],
+    "小売": ["小売", "百貨店", "コンビニ", "EC", "通販", "スーパー"],
+    "不動産": ["不動産", "マンション", "オフィス", "REIT", "商業施設"],
+    "エネルギー": ["石油", "ガス", "電力", "エネルギー", "再生可能", "太陽光"],
+    "素材": ["鉄鋼", "化学", "素材", "建材", "セメント"],
+    "IT・サービス": ["IT", "ソフトウェア", "クラウド", "AI", "DX", "SaaS"],
+}
+
+# センチメント分類キーワード
+SENTIMENT_KEYWORDS = {
+    "positive": ["急騰", "上昇", "好調", "最高益", "増益", "買い", "強気", "上方修正", "好決算"],
+    "negative": ["急落", "下落", "減益", "赤字", "売り", "弱気", "懸念", "下方修正", "不調"],
+    "neutral": ["横ばい", "様子見", "保ち合い", "変わらず", "据え置き"],
 }
 
 
@@ -97,14 +124,226 @@ def filter_recent_entries(entries: List[Dict], days: int = 7) -> List[Dict]:
     return recent_entries
 
 
+def detect_sector_by_keywords(text: str) -> Optional[str]:
+    """
+    キーワードマッチングでセクターを判定
+
+    Args:
+        text: ニュースのタイトル + 内容
+
+    Returns:
+        セクター名（見つからない場合はNone）
+    """
+    text_lower = text.lower()
+
+    for sector, keywords in SECTOR_KEYWORDS.items():
+        for keyword in keywords:
+            if keyword.lower() in text_lower:
+                return sector
+
+    return None
+
+
+def detect_sentiment_by_keywords(text: str) -> Optional[str]:
+    """
+    キーワードマッチングでセンチメントを判定
+
+    Args:
+        text: ニュースのタイトル + 内容
+
+    Returns:
+        センチメント（positive/neutral/negative）（見つからない場合はNone）
+    """
+    text_lower = text.lower()
+
+    for sentiment, keywords in SENTIMENT_KEYWORDS.items():
+        for keyword in keywords:
+            if keyword.lower() in text_lower:
+                return sentiment
+
+    return None
+
+
+def analyze_with_openai(title: str, content: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    OpenAI APIでセクター・センチメントを分析
+
+    Args:
+        title: ニュースタイトル
+        content: ニュース内容
+
+    Returns:
+        (sector, sentiment) のタプル
+    """
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            print("⚠️  OPENAI_API_KEY not found, skipping AI analysis")
+            return None, None
+
+        client = OpenAI(api_key=api_key)
+
+        prompt = f"""以下のニュースを分析して、セクターとセンチメントを判定してください。
+
+タイトル: {title}
+内容: {content}
+
+セクター候補: 半導体・電子部品、自動車、金融、医薬品、通信、小売、不動産、エネルギー、素材、IT・サービス
+センチメント候補: positive、neutral、negative
+
+回答形式（JSON）:
+{{"sector": "セクター名 or null", "sentiment": "positive/neutral/negative or null"}}
+"""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        sector = result.get("sector")
+        sentiment = result.get("sentiment")
+
+        return sector, sentiment
+
+    except Exception as e:
+        print(f"⚠️  OpenAI API error: {e}")
+        return None, None
+
+
+def check_duplicate_news(title: str, url: str, cursor) -> bool:
+    """
+    重複ニュースをチェック（タイトル + URLでユニーク判定）
+
+    Args:
+        title: ニュースタイトル
+        url: ニュースURL
+        cursor: データベースカーソル
+
+    Returns:
+        True: 重複あり、False: 重複なし
+    """
+    try:
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM "MarketNews"
+            WHERE title = %s AND url = %s
+            """,
+            (title, url)
+        )
+        count = cursor.fetchone()[0]
+        return count > 0
+    except Exception as e:
+        print(f"⚠️  Error checking duplicate: {e}")
+        return False
+
+
+def save_news_to_db(news_items: List[Dict], conn) -> int:
+    """
+    MarketNewsテーブルにニュースを保存（バッチINSERT）
+
+    Args:
+        news_items: 保存するニュースアイテムのリスト
+        conn: データベース接続
+
+    Returns:
+        保存した件数
+    """
+    if not news_items:
+        return 0
+
+    try:
+        cursor = conn.cursor()
+
+        # バッチINSERT用のデータ準備
+        values = [
+            (
+                item["title"],
+                item["content"],
+                item["url"],
+                item["source"],
+                item["sector"],
+                item["sentiment"],
+                item["published_at"],
+            )
+            for item in news_items
+        ]
+
+        # cuidの生成（Prismaの@default(cuid())を模倣）
+        import secrets
+        import base64
+
+        def generate_cuid():
+            """Prismaのcuidを模倣したID生成"""
+            random_bytes = secrets.token_bytes(12)
+            return base64.urlsafe_b64encode(random_bytes).decode('utf-8').rstrip('=')
+
+        values_with_id = [
+            (
+                generate_cuid(),
+                item["title"],
+                item["content"],
+                item["url"],
+                item["source"],
+                item["sector"],
+                item["sentiment"],
+                item["published_at"],
+            )
+            for item in news_items
+        ]
+
+        psycopg2.extras.execute_values(
+            cursor,
+            """
+            INSERT INTO "MarketNews"
+            (id, title, content, url, source, sector, sentiment, "publishedAt", "createdAt")
+            VALUES %s
+            """,
+            values_with_id,
+            template='(%s, %s, %s, %s, %s, %s, %s, %s, NOW())',
+            page_size=100
+        )
+
+        conn.commit()
+        cursor.close()
+
+        return len(news_items)
+
+    except Exception as e:
+        print(f"❌ Error saving news to DB: {e}")
+        conn.rollback()
+        return 0
+
+
 def main():
     """メイン処理"""
     print("=" * 60)
-    print("JPX News & Stock Code Extraction Script")
+    print("JPX News & Stock Code Extraction Script (Enhanced)")
     print("=" * 60)
+
+    # データベース接続
+    database_url = os.getenv("DATABASE_URL")
+    conn = None
+
+    if database_url:
+        try:
+            print(f"\n🔌 Connecting to database...")
+            conn = psycopg2.connect(database_url)
+            print("✅ Database connected")
+        except Exception as e:
+            print(f"❌ Database connection failed: {e}")
+            print("⚠️  Continuing without database (stock code extraction only)")
+    else:
+        print("⚠️  DATABASE_URL not found, skipping database operations")
 
     all_stock_codes = set()
     all_entries = []
+    news_to_save = []
+
+    rule_based_count = 0
+    ai_based_count = 0
 
     # 各RSSフィードを取得
     for feed_name, url in RSS_URLS.items():
@@ -115,11 +354,12 @@ def main():
         recent_entries = filter_recent_entries(entries, days=7)
         print(f"ℹ️  Recent entries (last 7 days): {len(recent_entries)}")
 
-        # 銘柄コードを抽出
+        # 各ニュースを処理
         for entry in recent_entries:
             text = f"{entry['title']} {entry['summary']}"
-            stock_codes = extract_stock_codes(text)
 
+            # 銘柄コード抽出（既存機能）
+            stock_codes = extract_stock_codes(text)
             if stock_codes:
                 entry["stock_codes"] = list(stock_codes)
                 all_stock_codes.update(stock_codes)
@@ -130,6 +370,56 @@ def main():
                     "stock_codes": list(stock_codes),
                     "published": entry["published"],
                 })
+
+            # データベース保存用の処理
+            if conn:
+                # 重複チェック
+                cursor = conn.cursor()
+                if check_duplicate_news(entry["title"], entry["link"], cursor):
+                    cursor.close()
+                    continue
+                cursor.close()
+
+                # セクター・センチメント分析（ルールベース）
+                sector = detect_sector_by_keywords(text)
+                sentiment = detect_sentiment_by_keywords(text)
+
+                # ルールベースで判定できなかった場合はAI分析
+                if sector is None or sentiment is None:
+                    ai_sector, ai_sentiment = analyze_with_openai(entry["title"], entry["summary"])
+                    if sector is None:
+                        sector = ai_sector
+                    if sentiment is None:
+                        sentiment = ai_sentiment
+                    ai_based_count += 1
+                else:
+                    rule_based_count += 1
+
+                # 保存用データに追加
+                published_at = datetime(*entry["published_parsed"][:6]) if entry["published_parsed"] else datetime.now()
+                news_to_save.append({
+                    "title": entry["title"],
+                    "content": entry["summary"],
+                    "url": entry["link"],
+                    "source": "google_news",
+                    "sector": sector,
+                    "sentiment": sentiment,
+                    "published_at": published_at,
+                })
+
+    # ニュースをデータベースに保存
+    if conn and news_to_save:
+        print(f"\n🔍 Analyzing {len(news_to_save)} new entries...")
+        print(f"  ├─ Rule-based: {rule_based_count} entries")
+        print(f"  └─ AI-based: {ai_based_count} entries")
+
+        saved_count = save_news_to_db(news_to_save, conn)
+        print(f"💾 Saved {saved_count} news to database")
+
+    # データベース接続をクローズ
+    if conn:
+        conn.close()
+        print("🔌 Database connection closed")
 
     # 結果を表示
     print(f"\n{'=' * 60}")
@@ -146,7 +436,6 @@ def main():
         print(f"    Date: {entry['published']}")
 
     # 銘柄コードをJSON形式で出力（次のスクリプトで使用）
-    import json
     output_file = "scripts/news/trending_stock_codes.json"
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump({

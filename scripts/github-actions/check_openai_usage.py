@@ -2,8 +2,10 @@
 """
 OpenAI API使用量チェックスクリプト
 
-GitHub Actionsから毎週月曜日に実行され、OpenAI APIの使用量とコストを取得します。
+GitHub Actionsから毎日実行され、OpenAI APIの実際のコストを取得します。
 予算の80%を超えた場合はアラートを出力します。
+
+Costs APIを使用して、OpenAIが計算した実際の請求額を取得します。
 """
 
 import os
@@ -19,7 +21,7 @@ MONTHLY_BUDGET_USD = float(os.getenv("MONTHLY_BUDGET_USD", "50"))
 
 def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
     """
-    OpenAI Costs APIからコストデータを取得（Stock Buddyプロジェクト専用）
+    OpenAI Costs APIから実際のコストデータを取得（Stock Buddyプロジェクト専用）
 
     Args:
         start_timestamp: 開始日（UNIXタイムスタンプ）
@@ -39,6 +41,7 @@ def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
     params = {
         "start_time": start_timestamp,
         "end_time": end_timestamp,
+        "bucket_width": "1d",  # 日単位で集計
     }
 
     try:
@@ -53,7 +56,7 @@ def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
 
 def calculate_total_cost(costs_data: dict) -> float:
     """
-    コストデータから総コストを計算
+    Costs APIから取得した実際のコストを集計
 
     Args:
         costs_data: OpenAI Costs APIから取得したデータ
@@ -63,14 +66,22 @@ def calculate_total_cost(costs_data: dict) -> float:
     """
     total_cost = 0.0
 
-    if "data" in costs_data:
-        for bucket in costs_data["data"]:
-            if "results" in bucket:
-                for result in bucket["results"]:
-                    # amount フィールドがコスト（セント単位）
-                    # ドルに変換（100で割る）
-                    amount_cents = result.get("amount", {}).get("value", 0)
-                    total_cost += amount_cents / 100.0
+    if "data" not in costs_data:
+        return total_cost
+
+    for bucket in costs_data["data"]:
+        if "results" in bucket:
+            for result in bucket["results"]:
+                # amount.value がコスト（ドル単位、文字列）
+                amount_value = result.get("amount", {}).get("value", 0)
+                # 文字列の場合もあるのでfloatにキャスト（既にドル単位）
+                cost_usd = float(amount_value) if amount_value else 0.0
+                total_cost += cost_usd
+        elif "amount" in bucket:
+            # bucketレベルにamountがある場合
+            amount_value = bucket.get("amount", {}).get("value", 0)
+            cost_usd = float(amount_value) if amount_value else 0.0
+            total_cost += cost_usd
 
     return total_cost
 
@@ -146,7 +157,7 @@ def main():
     # コストデータを取得
     costs_data = get_costs_data(start_timestamp, end_timestamp)
 
-    # コストを計算
+    # 実際のコストを集計
     total_cost = calculate_total_cost(costs_data)
     usage_percentage = (total_cost / MONTHLY_BUDGET_USD) * 100
 
