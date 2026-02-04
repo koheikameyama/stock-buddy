@@ -292,9 +292,22 @@ export default function MyStocksClient() {
         <div className="mt-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="w-full py-3 px-6 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-base"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
-            ダッシュボードに戻る
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            <span className="text-sm sm:text-base font-semibold">ダッシュボードに戻る</span>
           </button>
         </div>
       </div>
