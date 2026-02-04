@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import PWARegister from './components/PWARegister'
 import GlobalChatWrapper from './components/GlobalChatWrapper'
+import AdSense from './components/AdSense'
 
 export const metadata: Metadata = {
   title: 'Stock Buddy - AI投資アシスタント',
@@ -43,11 +44,13 @@ export default function RootLayout({
     <html lang="ja">
       <head>
         <link rel="icon" type="image/png" href="/favicon.png" />
+        <meta name="google-adsense-account" content="ca-pub-7558679080857597" />
       </head>
       <body className="antialiased">
         {children}
         <PWARegister />
         <GlobalChatWrapper />
+        <AdSense />
       </body>
     </html>
   )
