@@ -30,7 +30,7 @@ def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
     Returns:
         使用量データ
     """
-    url = "https://api.openai.com/v1/organization/usage"
+    url = "https://api.openai.com/v1/organization/usage/completions"
 
     headers = {
         "Authorization": f"Bearer {OPENAI_ADMIN_KEY}",
