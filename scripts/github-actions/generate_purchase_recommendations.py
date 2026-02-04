@@ -16,6 +16,10 @@ import psycopg2
 import psycopg2.extras
 from openai import OpenAI
 
+# Add path to lib directory for news fetcher
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from lib.news_fetcher import get_related_news, format_news_for_prompt
+
 # OpenAI クライアント初期化
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -103,8 +107,17 @@ def get_recent_prices(ticker_code):
         conn.close()
 
 
-def generate_recommendation(stock, prediction, recent_prices):
+def generate_recommendation(stock, prediction, recent_prices, related_news=None):
     """OpenAI APIを使って購入判断を生成"""
+
+    # ニュース情報をフォーマット
+    news_context = ""
+    if related_news:
+        news_context = f"""
+
+【最新のニュース情報】
+{format_news_for_prompt(related_news)}
+"""
 
     # プロンプト構築
     prompt = f"""あなたは投資初心者向けのAIコーチです。
@@ -123,14 +136,14 @@ def generate_recommendation(stock, prediction, recent_prices):
 
 【株価データ】
 直近30日の終値: {len(recent_prices)}件のデータあり
-
+{news_context}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {{
   "recommendation": "buy" | "hold" | "pass",
   "confidence": 0.0から1.0の数値（小数点2桁）,
-  "reason": "初心者に分かりやすい言葉で1-2文の理由",
+  "reason": "初心者に分かりやすい言葉で1-2文の理由（ニュース情報があれば参考にする）",
   "recommendedQuantity": 100株単位の整数（buyの場合のみ、それ以外はnull）,
   "recommendedPrice": 目安価格の整数（buyの場合のみ、それ以外はnull）,
   "estimatedAmount": 必要金額の整数（buyの場合のみ、それ以外はnull）,
@@ -138,6 +151,8 @@ def generate_recommendation(stock, prediction, recent_prices):
 }}
 
 【制約】
+- 提供されたニュース情報を参考にしてください
+- ニュースにない情報は推測や創作をしないでください
 - 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
 - 「成長性」「安定性」「割安」のような平易な言葉を使う
 - 理由と注意点は、中学生でも理解できる表現にする
@@ -263,50 +278,81 @@ def main():
         print("Error: OPENAI_API_KEY environment variable not set")
         sys.exit(1)
 
-    # ウォッチリスト取得
-    stocks = get_watchlist_stocks()
+    # データベース接続
+    conn = psycopg2.connect(DATABASE_URL)
 
-    if not stocks:
-        print("No stocks in watchlist. Exiting.")
-        sys.exit(0)
+    try:
+        # ウォッチリスト取得
+        stocks = get_watchlist_stocks()
 
-    success_count = 0
-    error_count = 0
+        if not stocks:
+            print("No stocks in watchlist. Exiting.")
+            sys.exit(0)
 
-    for stock in stocks:
-        print(f"\n--- Processing: {stock['name']} ({stock['tickerCode']}) ---")
+        # 関連ニュースを一括取得
+        ticker_codes = [s['tickerCode'] for s in stocks]
+        sectors = list(set([s['sector'] for s in stocks if s['sector']]))
 
-        # 予測データ取得
-        prediction = get_stock_prediction(stock['id'])
+        print(f"Fetching related news for {len(ticker_codes)} stocks...")
+        all_news = get_related_news(
+            conn=conn,
+            ticker_codes=ticker_codes,
+            sectors=sectors,
+            limit=20,  # 購入判断は多めに取得
+            days_ago=7,
+        )
+        print(f"Found {len(all_news)} related news articles")
 
-        # 直近価格取得
-        recent_prices = get_recent_prices(stock['tickerCode'])
+        success_count = 0
+        error_count = 0
 
-        # 購入判断生成
-        recommendation = generate_recommendation(stock, prediction, recent_prices)
+        for stock in stocks:
+            print(f"\n--- Processing: {stock['name']} ({stock['tickerCode']}) ---")
 
-        if not recommendation:
-            print(f"❌ Failed to generate recommendation for {stock['name']}")
-            error_count += 1
-            continue
+            # この銘柄に関連するニュースをフィルタリング
+            stock_news = [
+                n for n in all_news
+                if (stock['tickerCode'] in n['content'] or
+                    stock['tickerCode'].replace('.T', '') in n['content'] or
+                    n['sector'] == stock['sector'])
+            ][:5]  # 最大5件
 
-        print(f"Generated recommendation: {recommendation['recommendation']}")
-        print(f"Confidence: {recommendation['confidence']}")
-        print(f"Reason: {recommendation['reason']}")
+            print(f"Found {len(stock_news)} news for this stock")
 
-        # データベース保存
-        if save_recommendation(stock['id'], recommendation):
-            success_count += 1
-        else:
-            error_count += 1
+            # 予測データ取得
+            prediction = get_stock_prediction(stock['id'])
 
-    print(f"\n=== Summary ===")
-    print(f"Total stocks processed: {len(stocks)}")
-    print(f"Success: {success_count}")
-    print(f"Errors: {error_count}")
+            # 直近価格取得
+            recent_prices = get_recent_prices(stock['tickerCode'])
 
-    if error_count > 0:
-        sys.exit(1)
+            # 購入判断生成（ニュース付き）
+            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news)
+
+            if not recommendation:
+                print(f"❌ Failed to generate recommendation for {stock['name']}")
+                error_count += 1
+                continue
+
+            print(f"Generated recommendation: {recommendation['recommendation']}")
+            print(f"Confidence: {recommendation['confidence']}")
+            print(f"Reason: {recommendation['reason']}")
+
+            # データベース保存
+            if save_recommendation(stock['id'], recommendation):
+                success_count += 1
+            else:
+                error_count += 1
+
+        print(f"\n=== Summary ===")
+        print(f"Total stocks processed: {len(stocks)}")
+        print(f"Success: {success_count}")
+        print(f"Errors: {error_count}")
+
+        if error_count > 0:
+            sys.exit(1)
+
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
