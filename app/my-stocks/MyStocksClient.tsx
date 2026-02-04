@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
 import AddStockDialog from "./AddStockDialog"
 
@@ -55,6 +56,7 @@ interface PurchaseRecommendation {
 const MAX_USER_STOCKS = 5
 
 export default function MyStocksClient() {
+  const router = useRouter()
   const [userStocks, setUserStocks] = useState<UserStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
@@ -285,6 +287,16 @@ export default function MyStocksClient() {
             </div>
           )}
         </section>
+
+        {/* 戻るボタン */}
+        <div className="mt-8">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="w-full py-3 px-6 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-base"
+          >
+            ダッシュボードに戻る
+          </button>
+        </div>
       </div>
 
       {/* Dialogs */}
