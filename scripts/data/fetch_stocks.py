@@ -12,14 +12,93 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import sys
+import time
+from urllib.error import HTTPError
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 MAX_WORKERS = 15  # 並列実行数
+MAX_RETRIES = 3  # API rate limit時の最大リトライ回数
+RETRY_DELAYS = [5, 10, 20]  # リトライ間隔（秒）
 
 if not DATABASE_URL:
     print("ERROR: DATABASE_URL environment variable is not set")
     sys.exit(1)
+
+
+def fetch_with_retry(ticker_obj, operation, max_retries=MAX_RETRIES):
+    """
+    yfinance APIをリトライロジック付きで実行
+
+    Args:
+        ticker_obj: yfinance.Ticker オブジェクト
+        operation: 実行する操作 ("history" or "info")
+        max_retries: 最大リトライ回数
+
+    Returns:
+        操作の結果
+    """
+    for attempt in range(max_retries):
+        try:
+            if operation == "history":
+                return ticker_obj.history(period="90d")
+            elif operation == "info":
+                return ticker_obj.info
+            else:
+                raise ValueError(f"Unknown operation: {operation}")
+
+        except Exception as e:
+            error_msg = str(e)
+
+            # Rate limit エラーをチェック（HTTPError または メッセージ文字列）
+            is_rate_limit = False
+            if isinstance(e, HTTPError) and e.code == 429:
+                is_rate_limit = True
+            elif "Too Many Requests" in error_msg or "Rate limited" in error_msg:
+                is_rate_limit = True
+
+            if is_rate_limit:
+                if attempt < max_retries - 1:
+                    wait_time = RETRY_DELAYS[attempt]
+                    print(f"    ⏳ Rate limit hit, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"    ✗ Rate limit exceeded after {max_retries} attempts")
+                    raise
+            else:
+                # その他のエラーは即座に失敗
+                raise
+
+    return None
+
+
+def has_todays_data(stock_id: str, target_date) -> bool:
+    """
+    指定した日付のデータがすでにDBにあるかチェック
+
+    Args:
+        stock_id: 銘柄ID
+        target_date: チェック対象の日付
+
+    Returns:
+        True: データがある（スキップ可能）
+        False: データがない（取得が必要）
+    """
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) FROM "StockPrice"
+            WHERE "stockId" = %s AND date = %s
+        """, (stock_id, target_date))
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return count > 0
+    except Exception as e:
+        print(f"  ⚠️  Error checking existing data: {e}")
+        return False  # エラー時は取得を試みる
 
 
 def fetch_single_stock(stock_data):
@@ -34,10 +113,55 @@ def fetch_single_stock(stock_data):
         cur = conn.cursor()
 
         print(f"Processing {ticker} ({name})...")
+
+        # 今日のデータがすでにあるかチェック
+        today = datetime.now().date()
+        if has_todays_data(stock_id, today):
+            print(f"  → Skipped (today's data already exists)")
+
+            # 財務指標のみ更新
+            try:
+                stock = yf.Ticker(ticker)
+                info = fetch_with_retry(stock, "info")
+                cur.execute("""
+                    UPDATE "Stock"
+                    SET
+                        pbr = %s,
+                        per = %s,
+                        roe = %s,
+                        "operatingCF" = %s,
+                        "freeCF" = %s,
+                        "currentPrice" = %s,
+                        "fiftyTwoWeekHigh" = %s,
+                        "fiftyTwoWeekLow" = %s,
+                        "financialDataUpdatedAt" = NOW()
+                    WHERE id = %s
+                """, (
+                    info.get('priceToBook'),
+                    info.get('trailingPE'),
+                    info.get('returnOnEquity'),
+                    info.get('operatingCashflow'),
+                    info.get('freeCashflow'),
+                    info.get('currentPrice'),
+                    info.get('fiftyTwoWeekHigh'),
+                    info.get('fiftyTwoWeekLow'),
+                    stock_id
+                ))
+                conn.commit()
+                print(f"  ✓ {ticker} financial metrics updated")
+            except Exception as e:
+                print(f"  ⚠️  {ticker}: Error updating financial metrics: {e}")
+            finally:
+                cur.close()
+                conn.close()
+
+            return {"ticker": ticker, "success": True, "skipped": True, "inserted": 0}
+
+        # 株価データを取得
         stock = yf.Ticker(ticker)
 
         # 過去90日分取得（指標計算用に余裕を持たせる）
-        hist = stock.history(period="90d")
+        hist = fetch_with_retry(stock, "history")
 
         if hist.empty:
             print(f"  ⚠️  No data available for {ticker}")
@@ -72,7 +196,7 @@ def fetch_single_stock(stock_data):
 
         # 財務指標を取得・更新
         try:
-            info = stock.info
+            info = fetch_with_retry(stock, "info")
             cur.execute("""
                 UPDATE "Stock"
                 SET
@@ -105,7 +229,7 @@ def fetch_single_stock(stock_data):
         conn.close()
 
         print(f"  ✓ {ticker} completed ({inserted_count} new records)")
-        return {"ticker": ticker, "success": True, "inserted": inserted_count}
+        return {"ticker": ticker, "success": True, "skipped": False, "inserted": inserted_count}
 
     except Exception as e:
         print(f"  ✗ Error processing {ticker}: {e}")
@@ -132,6 +256,7 @@ def fetch_and_store():
         print(f"Fetching data for {len(stocks)} stocks with {MAX_WORKERS} workers...")
 
         success_count = 0
+        skipped_count = 0
         error_count = 0
         results = []
 
@@ -144,12 +269,16 @@ def fetch_and_store():
                 results.append(result)
 
                 if result["success"]:
-                    success_count += 1
+                    if result.get("skipped"):
+                        skipped_count += 1
+                    else:
+                        success_count += 1
                 else:
                     error_count += 1
 
         print(f"\n[{datetime.now()}] Fetch completed!")
-        print(f"  Success: {success_count}")
+        print(f"  Fetched: {success_count}")
+        print(f"  Skipped: {skipped_count} (already have today's data)")
         print(f"  Errors: {error_count}")
         print(f"  Total: {len(stocks)}")
 
