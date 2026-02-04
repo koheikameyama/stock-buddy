@@ -47,15 +47,7 @@ def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
     try:
         response = requests.get(url, headers=headers, params=params, timeout=30)
         response.raise_for_status()
-        data = response.json()
-
-        # デバッグ: レスポンス構造を出力
-        print(f"📋 Costs API Response:")
-        print(f"   Keys: {list(data.keys())}")
-        if "data" in data and len(data["data"]) > 0:
-            print(f"   First bucket: {data['data'][0]}")
-
-        return data
+        return response.json()
     except requests.exceptions.RequestException as e:
         print(f"❌ Error fetching costs data: {e}")
         if hasattr(e, 'response') and e.response is not None:
@@ -75,29 +67,20 @@ def calculate_total_cost(costs_data: dict) -> float:
     total_cost = 0.0
 
     if "data" not in costs_data:
-        print("⚠️  No 'data' field in costs response")
         return total_cost
 
-    print(f"🔍 Processing {len(costs_data['data'])} buckets...")
-
     for bucket in costs_data["data"]:
-        print(f"   Bucket keys: {list(bucket.keys())}")
-
         if "results" in bucket:
             for result in bucket["results"]:
                 # amount.value がコスト（ドル単位、文字列）
                 amount_value = result.get("amount", {}).get("value", 0)
                 # 文字列の場合もあるのでfloatにキャスト（既にドル単位）
                 cost_usd = float(amount_value) if amount_value else 0.0
-
-                print(f"      Result: {result.get('line_item', 'unknown')} = ${cost_usd:.4f}")
                 total_cost += cost_usd
         elif "amount" in bucket:
             # bucketレベルにamountがある場合
             amount_value = bucket.get("amount", {}).get("value", 0)
             cost_usd = float(amount_value) if amount_value else 0.0
-
-            print(f"   Bucket amount: ${cost_usd:.4f}")
             total_cost += cost_usd
 
     return total_cost
