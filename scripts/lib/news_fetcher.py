@@ -41,43 +41,40 @@ def get_related_news(
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_ago)
         news_map = {}  # 重複排除用
 
-        # ステップ1: 銘柄コード検索（優先）
+        # ステップ1: 銘柄コード検索（一括実行）
         if ticker_codes:
-            for ticker_code in ticker_codes:
-                # .Tサフィックスを除去して検索
-                code_without_suffix = ticker_code.replace(".T", "")
+            # .Tサフィックスありとなしの両方を準備
+            codes_without_suffix = [code.replace(".T", "") for code in ticker_codes]
+            all_codes = codes_without_suffix + ticker_codes
 
-                cur.execute(
-                    """
-                    SELECT
-                        id,
-                        title,
-                        content,
-                        url,
-                        source,
-                        sector,
-                        sentiment,
-                        "publishedAt"
-                    FROM "MarketNews"
-                    WHERE (
-                        content LIKE %s OR content LIKE %s
-                    )
-                    AND "publishedAt" >= %s
-                    ORDER BY "publishedAt" DESC
-                    LIMIT %s
-                    """,
-                    (
-                        f"%{code_without_suffix}%",
-                        f"%{ticker_code}%",
-                        cutoff_date,
-                        limit,
-                    ),
-                )
+            # LIKE条件を動的に構築
+            like_conditions = " OR ".join(["content LIKE %s"] * len(all_codes))
+            like_params = [f"%{code}%" for code in all_codes]
 
-                for row in cur.fetchall():
-                    if row["id"] not in news_map:
-                        news_map[row["id"]] = dict(row)
-                        news_map[row["id"]]["match_type"] = "ticker"
+            cur.execute(
+                f"""
+                SELECT
+                    id,
+                    title,
+                    content,
+                    url,
+                    source,
+                    sector,
+                    sentiment,
+                    "publishedAt"
+                FROM "MarketNews"
+                WHERE ({like_conditions})
+                AND "publishedAt" >= %s
+                ORDER BY "publishedAt" DESC
+                LIMIT %s
+                """,
+                like_params + [cutoff_date, limit],
+            )
+
+            for row in cur.fetchall():
+                if row["id"] not in news_map:
+                    news_map[row["id"]] = dict(row)
+                    news_map[row["id"]]["match_type"] = "ticker"
 
         # ステップ2: セクター検索（フォールバック）
         if len(news_map) < limit and sectors:
@@ -85,7 +82,10 @@ def get_related_news(
             existing_ids = list(news_map.keys())
 
             placeholders = ",".join(["%s"] * len(sectors))
-            query = f"""
+
+            # クエリをパーツで構築
+            query_parts = [
+                f"""
                 SELECT
                     id,
                     title,
@@ -98,16 +98,21 @@ def get_related_news(
                 FROM "MarketNews"
                 WHERE sector IN ({placeholders})
                 AND "publishedAt" >= %s
-                {"AND id NOT IN (" + ",".join(["%s"] * len(existing_ids)) + ")" if existing_ids else ""}
-                ORDER BY "publishedAt" DESC
-                LIMIT %s
-            """
+                """
+            ]
 
             params = list(sectors) + [cutoff_date]
+
             if existing_ids:
+                id_placeholders = ",".join(["%s"] * len(existing_ids))
+                query_parts.append(f"AND id NOT IN ({id_placeholders})")
                 params.extend(existing_ids)
+
+            query_parts.append('ORDER BY "publishedAt" DESC')
+            query_parts.append("LIMIT %s")
             params.append(remaining_limit)
 
+            query = "\n".join(query_parts)
             cur.execute(query, params)
 
             for row in cur.fetchall():
