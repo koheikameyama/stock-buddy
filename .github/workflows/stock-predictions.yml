@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install psycopg2-binary openai
+          pip install psycopg2-binary openai requests
 
       - name: Generate stock predictions
         env:
@@ -45,6 +45,17 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/github-actions/generate_daily_featured_stocks.py
+
+      - name: Send push notification
+        if: success()
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notification.py \
+            --title "今日の株価予測が完了しました" \
+            --body "ポートフォリオ分析と購入レコメンドを更新しました" \
+            --url "/my-stocks"
 
       - name: Notify on failure
         if: failure()

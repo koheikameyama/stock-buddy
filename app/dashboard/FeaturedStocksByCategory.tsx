@@ -182,15 +182,17 @@ export default function FeaturedStocksByCategory({
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xl sm:text-2xl">⭐</span>
           <h3 className="text-lg sm:text-xl font-bold text-gray-900">あなたにおすすめの注目銘柄</h3>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <p className="text-xs sm:text-sm text-gray-600">
+            あなたの投資スタイルに合わせて、AIが今日の注目銘柄をご紹介します
+          </p>
           {date && (
-            <span className="text-xs sm:text-sm text-gray-500 ml-auto">
+            <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
               {formatDate(date)}
             </span>
           )}
         </div>
-        <p className="text-xs sm:text-sm text-gray-600">
-          あなたの投資スタイルに合わせて、AIが今日の注目銘柄をご紹介します
-        </p>
       </div>
 
       {/* Category Sections */}

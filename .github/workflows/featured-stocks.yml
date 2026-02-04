@@ -36,6 +36,17 @@ jobs:
         run: |
           python scripts/news/generate_featured_stocks.py
 
+      - name: Send push notification
+        if: success()
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notification.py \
+            --title "今日の注目銘柄が更新されました" \
+            --body "ニュースから話題の銘柄を分析しました" \
+            --url "/dashboard"
+
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2

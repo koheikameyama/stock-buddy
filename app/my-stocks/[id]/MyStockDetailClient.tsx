@@ -139,15 +139,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               {stock.stock.name}
             </h1>
-            <span
-              className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                isPortfolio
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-amber-100 text-amber-700"
-              }`}
-            >
-              {isPortfolio ? "保有中" : "気になる"}
-            </span>
           </div>
           <p className="text-sm text-gray-500">
             {stock.stock.tickerCode}

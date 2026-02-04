@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install yfinance psycopg2-binary python-dotenv
+          pip install yfinance psycopg2-binary python-dotenv requests
 
       - name: Fetch stock prices
         id: fetch
@@ -30,6 +30,17 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python scripts/data/fetch_stocks.py
+
+      - name: Send push notification
+        if: success()
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notification.py \
+            --title "本日の株価データが更新されました" \
+            --body "市場クローズ後の最新株価を取得しました" \
+            --url "/my-stocks"
 
       - name: Notify Slack on success
         if: success()
