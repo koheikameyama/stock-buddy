@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
 import AddStockDialog from "./AddStockDialog"
+import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
 
 interface UserStock {
   id: string
@@ -63,6 +64,8 @@ export default function MyStocksClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showAdditionalPurchaseDialog, setShowAdditionalPurchaseDialog] = useState(false)
+  const [selectedStockForPurchase, setSelectedStockForPurchase] = useState<UserStock | null>(null)
   const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
 
   // Fetch user stocks
@@ -155,10 +158,22 @@ export default function MyStocksClient() {
     setShowAddDialog(true)
   }
 
+  const handleAdditionalPurchase = (stock: UserStock) => {
+    setSelectedStockForPurchase(stock)
+    setShowAdditionalPurchaseDialog(true)
+  }
 
   const handleStockAdded = (newStock: UserStock) => {
     setUserStocks((prev) => [...prev, newStock])
     setShowAddDialog(false)
+  }
+
+  const handleAdditionalPurchaseSuccess = (updatedStock: UserStock) => {
+    setUserStocks((prev) =>
+      prev.map((s) => (s.id === updatedStock.id ? updatedStock : s))
+    )
+    setShowAdditionalPurchaseDialog(false)
+    setSelectedStockForPurchase(null)
   }
 
   // Filter stocks by type
@@ -182,6 +197,29 @@ export default function MyStocksClient() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
       <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+        {/* 戻るボタン */}
+        <div className="mb-4 sm:mb-6">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            <span className="text-sm sm:text-base font-semibold">ダッシュボードに戻る</span>
+          </button>
+        </div>
+
         {/* Page Header */}
         <div className="mb-4 sm:mb-8">
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
@@ -249,7 +287,7 @@ export default function MyStocksClient() {
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              銘柄を追加
+              {activeTab === "portfolio" ? "保有銘柄を追加" : "気になる銘柄を追加"}
             </button>
           </div>
 
@@ -282,34 +320,12 @@ export default function MyStocksClient() {
                     mediumTerm: stock.mediumTerm ?? null,
                     longTerm: stock.longTerm ?? null,
                   } : undefined}
+                  onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
                 />
               ))}
             </div>
           )}
         </section>
-
-        {/* 戻るボタン */}
-        <div className="mt-8">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            <span className="text-sm sm:text-base font-semibold">ダッシュボードに戻る</span>
-          </button>
-        </div>
       </div>
 
       {/* Dialogs */}
@@ -317,6 +333,17 @@ export default function MyStocksClient() {
         isOpen={showAddDialog}
         onClose={() => setShowAddDialog(false)}
         onSuccess={handleStockAdded}
+        defaultType={activeTab}
+      />
+
+      <AdditionalPurchaseDialog
+        isOpen={showAdditionalPurchaseDialog}
+        onClose={() => {
+          setShowAdditionalPurchaseDialog(false)
+          setSelectedStockForPurchase(null)
+        }}
+        stock={selectedStockForPurchase}
+        onSuccess={handleAdditionalPurchaseSuccess}
       />
     </main>
   )

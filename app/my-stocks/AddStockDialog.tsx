@@ -45,22 +45,34 @@ interface AddStockDialogProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (stock: UserStock) => void
+  defaultType: "portfolio" | "watchlist"
 }
 
 export default function AddStockDialog({
   isOpen,
   onClose,
   onSuccess,
+  defaultType,
 }: AddStockDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [showResults, setShowResults] = useState(false)
   const [selectedStock, setSelectedStock] = useState<SearchResult | null>(null)
+
+  // Portfolio fields
   const [quantity, setQuantity] = useState("")
   const [averagePrice, setAveragePrice] = useState("")
   const [purchaseDate, setPurchaseDate] = useState(
     new Date().toISOString().split("T")[0]
   )
+
+  // Watchlist fields
+  const [alertPrice, setAlertPrice] = useState("")
+  const [addedReason, setAddedReason] = useState("")
+
+  // Common field
+  const [note, setNote] = useState("")
+
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -98,7 +110,7 @@ export default function AddStockDialog({
         setSearching(false)
       }
     }, 300) // 300msのデバウンス
-  }, [searchQuery, selectedStock]) // selectedStockを依存配列に追加（クリア時に検索を再開）
+  }, [searchQuery, selectedStock])
 
   const handleSelectStock = (stock: SearchResult) => {
     // 検索タイムアウトをクリアして、再検索を防ぐ
@@ -136,21 +148,36 @@ export default function AddStockDialog({
       return
     }
 
+    // Validate portfolio fields
+    if (defaultType === "portfolio") {
+      if (!quantity || parseInt(quantity) <= 0) {
+        setError("保有株数を入力してください")
+        return
+      }
+      if (!averagePrice || parseFloat(averagePrice) <= 0) {
+        setError("平均取得単価を入力してください")
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
-      // Determine type based on whether quantity is provided
-      const type = quantity ? "portfolio" : "watchlist"
       const body: any = {
         tickerCode,
-        type,
+        type: defaultType,
       }
 
-      // Add portfolio-specific fields
-      if (type === "portfolio") {
+      // Add type-specific fields
+      if (defaultType === "portfolio") {
         body.quantity = parseInt(quantity)
-        body.averagePurchasePrice = averagePrice ? parseFloat(averagePrice) : null
+        body.averagePurchasePrice = parseFloat(averagePrice)
         body.purchaseDate = purchaseDate
+        if (note) body.note = note
+      } else {
+        if (alertPrice) body.alertPrice = parseFloat(alertPrice)
+        if (addedReason) body.addedReason = addedReason
+        if (note) body.note = note
       }
 
       const response = await fetch("/api/user-stocks", {
@@ -175,6 +202,9 @@ export default function AddStockDialog({
       setQuantity("")
       setAveragePrice("")
       setPurchaseDate(new Date().toISOString().split("T")[0])
+      setAlertPrice("")
+      setAddedReason("")
+      setNote("")
     } catch (err: any) {
       console.error(err)
       setError(err.message || "銘柄の追加に失敗しました")
@@ -187,10 +217,10 @@ export default function AddStockDialog({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            銘柄を追加
+            {defaultType === "portfolio" ? "保有銘柄を追加" : "気になる銘柄を追加"}
           </h2>
           <button
             onClick={onClose}
@@ -225,7 +255,7 @@ export default function AddStockDialog({
               htmlFor="searchQuery"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              銘柄を検索
+              銘柄を検索 <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -241,6 +271,7 @@ export default function AddStockDialog({
               placeholder="銘柄コードまたは会社名を入力（例: 7203 または トヨタ）"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               autoComplete="off"
+              required
             />
             {searching && (
               <div className="absolute right-3 top-11 text-gray-400">
@@ -304,43 +335,41 @@ export default function AddStockDialog({
             )}
           </div>
 
-          {/* Optional holding fields */}
-          <div
-            onClick={() => {
-              // 他のフィールドをクリックしたら検索結果を閉じる
-              if (showResults) {
-                setShowResults(false)
-              }
-            }}
-          >
-            <label
-              htmlFor="quantity"
-              className="block text-sm font-semibold text-gray-700 mb-2"
+          {/* Portfolio fields */}
+          {defaultType === "portfolio" && (
+            <div
+              onClick={() => {
+                // 他のフィールドをクリックしたら検索結果を閉じる
+                if (showResults) {
+                  setShowResults(false)
+                }
+              }}
             >
-              保有株数（オプション）
-            </label>
-            <input
-              type="number"
-              id="quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              min="1"
-              placeholder="例: 100"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              保有株数を入力すると利益が自動計算されます
-            </p>
-          </div>
+              <div>
+                <label
+                  htmlFor="quantity"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
+                  保有株数 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="quantity"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  min="1"
+                  placeholder="例: 100"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
 
-          {quantity && (
-            <>
               <div>
                 <label
                   htmlFor="averagePrice"
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
-                  平均取得単価（オプション）
+                  平均取得単価 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -351,7 +380,11 @@ export default function AddStockDialog({
                   step="0.01"
                   placeholder="例: 2500"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  複数回に分けて購入した場合は、平均価格を入力してください
+                </p>
               </div>
 
               <div>
@@ -359,7 +392,7 @@ export default function AddStockDialog({
                   htmlFor="purchaseDate"
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
-                  購入日
+                  購入日 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -370,7 +403,92 @@ export default function AddStockDialog({
                   required
                 />
               </div>
-            </>
+
+              <div>
+                <label
+                  htmlFor="note"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
+                  メモ（任意）
+                </label>
+                <textarea
+                  id="note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="購入理由や注意点などを記録できます"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Watchlist fields */}
+          {defaultType === "watchlist" && (
+            <div
+              onClick={() => {
+                // 他のフィールドをクリックしたら検索結果を閉じる
+                if (showResults) {
+                  setShowResults(false)
+                }
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="alertPrice"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
+                  目標価格（任意）
+                </label>
+                <input
+                  type="number"
+                  id="alertPrice"
+                  value={alertPrice}
+                  onChange={(e) => setAlertPrice(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  placeholder="例: 2000"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  この価格になったら購入を検討したい金額を入力
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="addedReason"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
+                  追加理由（任意）
+                </label>
+                <textarea
+                  id="addedReason"
+                  value={addedReason}
+                  onChange={(e) => setAddedReason(e.target.value)}
+                  placeholder="なぜこの銘柄が気になっているか記録できます"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="note"
+                  className="block text-sm font-semibold text-gray-700 mb-2"
+                >
+                  メモ（任意）
+                </label>
+                <textarea
+                  id="note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="その他のメモを記録できます"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
           )}
 
           {/* Action Buttons */}
