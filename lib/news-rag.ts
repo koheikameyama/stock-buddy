@@ -1,0 +1,183 @@
+import { prisma } from "@/lib/prisma"
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
+
+dayjs.extend(utc)
+
+export interface NewsRAGParams {
+  stockIds?: string[] // 銘柄ID配列
+  tickerCodes?: string[] // 銘柄コード配列（例：["7203", "6758"]）
+  sectors?: string[] // セクター配列（例：["自動車", "IT・サービス"]）
+  limit?: number // 取得件数（デフォルト: 10）
+  daysAgo?: number // 何日前まで（デフォルト: 7）
+}
+
+export interface RelatedNews {
+  id: string
+  title: string
+  content: string
+  url: string | null
+  source: string
+  sector: string | null
+  sentiment: string | null
+  publishedAt: Date
+  matchType: "ticker" | "sector" // どの条件でマッチしたか
+}
+
+/**
+ * 関連ニュースを取得する（ハイブリッド検索）
+ *
+ * 優先度:
+ * 1. 銘柄コード検索（content LIKE '%7203%'）
+ * 2. セクター検索（sector IN (...)）
+ */
+export async function getRelatedNews(
+  params: NewsRAGParams
+): Promise<RelatedNews[]> {
+  const {
+    tickerCodes = [],
+    sectors = [],
+    limit = 10,
+    daysAgo = 7,
+  } = params
+
+  try {
+    const cutoffDate = dayjs.utc().subtract(daysAgo, "day").startOf("day").toDate()
+    const newsMap = new Map<string, RelatedNews>()
+
+    // ステップ1: 銘柄コード検索（優先）
+    if (tickerCodes.length > 0) {
+      for (const tickerCode of tickerCodes) {
+        const news = await prisma.marketNews.findMany({
+          where: {
+            content: {
+              contains: tickerCode,
+            },
+            publishedAt: {
+              gte: cutoffDate,
+            },
+          },
+          orderBy: {
+            publishedAt: "desc",
+          },
+          take: limit,
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            url: true,
+            source: true,
+            sector: true,
+            sentiment: true,
+            publishedAt: true,
+          },
+        })
+
+        // 重複排除しながらMap に追加
+        for (const n of news) {
+          if (!newsMap.has(n.id)) {
+            newsMap.set(n.id, {
+              ...n,
+              matchType: "ticker",
+            })
+          }
+        }
+      }
+    }
+
+    // ステップ2: セクター検索（フォールバック）
+    // 銘柄コード検索で十分な件数が取得できていない場合のみ
+    if (newsMap.size < limit && sectors.length > 0) {
+      const remainingLimit = limit - newsMap.size
+
+      const sectorNews = await prisma.marketNews.findMany({
+        where: {
+          sector: {
+            in: sectors,
+          },
+          publishedAt: {
+            gte: cutoffDate,
+          },
+          // 既に取得済みのニュースは除外
+          id: {
+            notIn: Array.from(newsMap.keys()),
+          },
+        },
+        orderBy: {
+          publishedAt: "desc",
+        },
+        take: remainingLimit,
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          url: true,
+          source: true,
+          sector: true,
+          sentiment: true,
+          publishedAt: true,
+        },
+      })
+
+      for (const n of sectorNews) {
+        if (!newsMap.has(n.id)) {
+          newsMap.set(n.id, {
+            ...n,
+            matchType: "sector",
+          })
+        }
+      }
+    }
+
+    // Map を配列に変換し、日付順にソート
+    const result = Array.from(newsMap.values()).sort((a, b) => {
+      return b.publishedAt.getTime() - a.publishedAt.getTime()
+    })
+
+    return result.slice(0, limit)
+  } catch (error) {
+    console.error("Failed to fetch related news:", error)
+    // エラー時は空配列を返す（AIチャットは継続可能）
+    return []
+  }
+}
+
+/**
+ * ニュース参照リストをフォーマットする
+ *
+ * 回答の最後に追加する「参考にしたニュース」セクションを生成
+ */
+export function formatNewsReferences(news: RelatedNews[]): string {
+  if (news.length === 0) return ""
+
+  return (
+    `\n\n---\n📰 参考にしたニュース:\n` +
+    news
+      .map(
+        (n) =>
+          `• ${n.title} (${dayjs(n.publishedAt).format("YYYY-MM-DD")}) - ${n.sentiment || "不明"}\n  ${n.url || "(URLなし)"}`
+      )
+      .join("\n")
+  )
+}
+
+/**
+ * システムプロンプト用にニュース情報をフォーマットする
+ */
+export function formatNewsForPrompt(news: RelatedNews[]): string {
+  if (news.length === 0) {
+    return "（最新のニュース情報はありません）"
+  }
+
+  return news
+    .map(
+      (n) => `
+- タイトル: ${n.title}
+- 日付: ${dayjs(n.publishedAt).format("YYYY-MM-DD")}
+- センチメント: ${n.sentiment || "不明"}
+- 内容: ${n.content.substring(0, 300)}${n.content.length > 300 ? "..." : ""}
+- URL: ${n.url || "(URLなし)"}
+`
+    )
+    .join("\n")
+}

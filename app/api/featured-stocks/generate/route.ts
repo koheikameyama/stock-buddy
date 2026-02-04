@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { OpenAI } from "openai"
+import { getRelatedNews } from "@/lib/news-rag"
+import dayjs from "dayjs"
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -98,6 +100,20 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // 候補銘柄に関連するニュースを取得
+    const candidateTickerCodes = allStocks.map((s) => s.tickerCode)
+    const candidateSectors = Array.from(
+      new Set(allStocks.map((s) => s.sector).filter((s): s is string => !!s))
+    )
+
+    const relatedNews = await getRelatedNews({
+      tickerCodes: candidateTickerCodes,
+      sectors: candidateSectors,
+      limit: 20, // 注目銘柄生成は多めに取得
+      daysAgo: 7,
+    })
+
+    console.log(`📰 Found ${relatedNews.length} related news articles`)
     console.log(`🤖 Analyzing ${allStocks.length} stocks with OpenAI...`)
 
     // 既存のFeaturedStockを削除（ソース：news）
@@ -121,6 +137,14 @@ export async function POST(request: NextRequest) {
             continue
           }
 
+          // この銘柄に関連するニュースをフィルタリング
+          const stockNews = relatedNews.filter(
+            (n) =>
+              n.content.includes(stock.tickerCode) ||
+              n.content.includes(stock.tickerCode.replace(".T", "")) ||
+              n.sector === stock.sector
+          )
+
           // OpenAI APIで銘柄を分析
           const prompt = `あなたは投資初心者向けのアドバイザーです。以下の銘柄について、簡潔に分析してください。
 
@@ -130,12 +154,26 @@ export async function POST(request: NextRequest) {
 - セクター: ${stock.sector || "不明"}
 - 現在価格: ${latestPrice}円
 
+最新のニュース情報:
+${
+  stockNews.length > 0
+    ? stockNews
+        .slice(0, 3)
+        .map(
+          (n) =>
+            `- ${n.title} (${dayjs(n.publishedAt).format("MM/DD")}) - ${n.sentiment || "不明"}\n  ${n.content.substring(0, 150)}...`
+        )
+        .join("\n\n")
+    : "（関連ニュースはありません）"
+}
+
 以下の形式で回答してください（各項目50文字以内）:
 1. この銘柄の特徴
-2. 初心者におすすめの理由
+2. 初心者におすすめの理由（ニュース情報があれば参考にする）
 3. 注意点
 
-簡潔に、専門用語を避けて説明してください。`
+簡潔に、専門用語を避けて説明してください。
+ニュース情報がある場合は、それを理由に含めてください。`
 
           const openai = getOpenAIClient()
           const completion = await openai.chat.completions.create({
