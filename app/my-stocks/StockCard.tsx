@@ -35,12 +35,27 @@ interface StockPrice {
   low: number
 }
 
+interface PurchaseRecommendation {
+  recommendation: "buy" | "hold" | "pass"
+  confidence: number
+  reason: string
+  caution: string
+}
+
+interface PortfolioAnalysis {
+  shortTerm: string | null
+  mediumTerm: string | null
+  longTerm: string | null
+}
+
 interface StockCardProps {
   stock: UserStock
   price?: StockPrice
+  recommendation?: PurchaseRecommendation
+  portfolioAnalysis?: PortfolioAnalysis
 }
 
-export default function StockCard({ stock, price }: StockCardProps) {
+export default function StockCard({ stock, price, recommendation, portfolioAnalysis }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -54,16 +69,41 @@ export default function StockCard({ stock, price }: StockCardProps) {
   const profit = currentValue - totalCost
   const profitPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0
 
-  // AI Purchase Judgment (simple version for watchlist)
+  // AI Purchase Judgment using real recommendations (for watchlist)
   const getAIPurchaseJudgment = () => {
-    if (!price) return null
-    // Simple logic based on price change (can be enhanced with real AI later)
-    if (price.changePercent > 3) return { text: "様子見", color: "text-gray-600", bg: "bg-gray-50" }
-    if (price.changePercent < -2) return { text: "買い時です！", color: "text-green-700", bg: "bg-green-50" }
-    return { text: "検討中", color: "text-blue-700", bg: "bg-blue-50" }
+    if (!recommendation) return null
+
+    const displayMap = {
+      buy: { text: "買い時です！", color: "text-green-700", bg: "bg-green-50" },
+      hold: { text: "様子を見ましょう", color: "text-blue-700", bg: "bg-blue-50" },
+      pass: { text: "今は見送り", color: "text-gray-700", bg: "bg-gray-50" },
+    }
+
+    return displayMap[recommendation.recommendation]
   }
 
-  const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : null
+  // AI Sell Judgment using portfolio analysis (for portfolio)
+  const getAISellJudgment = () => {
+    if (!portfolioAnalysis?.shortTerm) return null
+
+    const text = portfolioAnalysis.shortTerm.toLowerCase()
+
+    // キーワードベースで判断を抽出
+    if (text.includes("売却") || text.includes("売り")) {
+      return { text: "売却検討", color: "text-red-700", bg: "bg-red-50" }
+    }
+    if (text.includes("買い増し")) {
+      return { text: "買い増し検討", color: "text-green-700", bg: "bg-green-50" }
+    }
+    if (text.includes("保有") || text.includes("ホールド") || text.includes("継続")) {
+      return { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" }
+    }
+
+    // デフォルトは保有継続
+    return { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" }
+  }
+
+  const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAISellJudgment()
 
   const handleClick = () => {
     router.push(`/my-stocks/${stock.id}`)
@@ -163,6 +203,18 @@ export default function StockCard({ stock, price }: StockCardProps) {
                       {profitPercent.toFixed(2)}%)
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI Sell Judgment for Portfolio */}
+            {aiJudgment && (
+              <div className={`rounded-lg p-3 sm:p-4 ${aiJudgment.bg}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🤖</span>
+                  <span className={`text-sm sm:text-base font-semibold ${aiJudgment.color}`}>
+                    {aiJudgment.text}
+                  </span>
                 </div>
               </div>
             )}

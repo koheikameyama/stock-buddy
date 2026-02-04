@@ -45,11 +45,19 @@ interface StockPrice {
   low: number
 }
 
+interface PurchaseRecommendation {
+  recommendation: "buy" | "hold" | "pass"
+  confidence: number
+  reason: string
+  caution: string
+}
+
 const MAX_USER_STOCKS = 5
 
 export default function MyStocksClient() {
   const [userStocks, setUserStocks] = useState<UserStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
+  const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -100,6 +108,44 @@ export default function MyStocksClient() {
       // Update prices every 5 minutes
       const interval = setInterval(fetchPrices, 5 * 60 * 1000)
       return () => clearInterval(interval)
+    }
+  }, [userStocks])
+
+  // Fetch purchase recommendations for watchlist stocks
+  useEffect(() => {
+    async function fetchRecommendations() {
+      const watchlistStocks = userStocks.filter((s) => s.type === "watchlist")
+      if (watchlistStocks.length === 0) return
+
+      try {
+        // Fetch recommendations for each watchlist stock
+        const results = await Promise.allSettled(
+          watchlistStocks.map((stock) =>
+            fetch(`/api/stocks/${stock.stockId}/purchase-recommendation`)
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data) => ({ stockId: stock.stockId, data }))
+          )
+        )
+
+        const recommendationMap: Record<string, PurchaseRecommendation> = {}
+        results.forEach((result) => {
+          if (result.status === "fulfilled" && result.value.data) {
+            recommendationMap[result.value.stockId] = {
+              recommendation: result.value.data.recommendation,
+              confidence: result.value.data.confidence,
+              reason: result.value.data.reason,
+              caution: result.value.data.caution,
+            }
+          }
+        })
+        setRecommendations(recommendationMap)
+      } catch (err) {
+        console.error("Error fetching recommendations:", err)
+      }
+    }
+
+    if (userStocks.length > 0) {
+      fetchRecommendations()
     }
   }, [userStocks])
 
@@ -228,6 +274,12 @@ export default function MyStocksClient() {
                   key={stock.id}
                   stock={stock}
                   price={prices[stock.stock.tickerCode]}
+                  recommendation={recommendations[stock.stockId]}
+                  portfolioAnalysis={stock.type === "portfolio" && stock.shortTerm ? {
+                    shortTerm: stock.shortTerm,
+                    mediumTerm: stock.mediumTerm ?? null,
+                    longTerm: stock.longTerm ?? null,
+                  } : undefined}
                 />
               ))}
             </div>
