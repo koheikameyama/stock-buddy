@@ -30,9 +30,8 @@ if not DATABASE_URL:
     sys.exit(1)
 
 
-def get_watchlist_stocks():
+def get_watchlist_stocks(conn):
     """ウォッチリスト（気になる銘柄）を取得"""
-    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
@@ -54,12 +53,10 @@ def get_watchlist_stocks():
         return stocks
     finally:
         cur.close()
-        conn.close()
 
 
-def get_stock_prediction(stock_id):
+def get_stock_prediction(conn, stock_id):
     """既存の株価予測データを取得"""
-    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
@@ -78,12 +75,10 @@ def get_stock_prediction(stock_id):
         return result if result else {}
     finally:
         cur.close()
-        conn.close()
 
 
-def get_recent_prices(ticker_code):
+def get_recent_prices(conn, ticker_code):
     """直近30日の株価データを取得"""
-    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
@@ -104,7 +99,6 @@ def get_recent_prices(ticker_code):
         return prices
     finally:
         cur.close()
-        conn.close()
 
 
 def generate_recommendation(stock, prediction, recent_prices, related_news=None):
@@ -198,9 +192,8 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None)
         return None
 
 
-def save_recommendation(stock_id, recommendation_data):
+def save_recommendation(conn, stock_id, recommendation_data):
     """購入判断をデータベースに保存（upsert）"""
-    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
     try:
@@ -265,7 +258,6 @@ def save_recommendation(stock_id, recommendation_data):
         return False
     finally:
         cur.close()
-        conn.close()
 
 
 def main():
@@ -283,7 +275,7 @@ def main():
 
     try:
         # ウォッチリスト取得
-        stocks = get_watchlist_stocks()
+        stocks = get_watchlist_stocks(conn)
 
         if not stocks:
             print("No stocks in watchlist. Exiting.")
@@ -320,10 +312,10 @@ def main():
             print(f"Found {len(stock_news)} news for this stock")
 
             # 予測データ取得
-            prediction = get_stock_prediction(stock['id'])
+            prediction = get_stock_prediction(conn, stock['id'])
 
             # 直近価格取得
-            recent_prices = get_recent_prices(stock['tickerCode'])
+            recent_prices = get_recent_prices(conn, stock['tickerCode'])
 
             # 購入判断生成（ニュース付き）
             recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news)
@@ -338,7 +330,7 @@ def main():
             print(f"Reason: {recommendation['reason']}")
 
             # データベース保存
-            if save_recommendation(stock['id'], recommendation):
+            if save_recommendation(conn, stock['id'], recommendation):
                 success_count += 1
             else:
                 error_count += 1
