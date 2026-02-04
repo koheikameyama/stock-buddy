@@ -21,9 +21,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r scripts/news/requirements.txt
-          pip install psycopg2-binary requests
 
-      - name: Fetch news and extract trending stock codes
+      - name: Fetch news and save to database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           python scripts/news/fetch_jpx_news.py
 
