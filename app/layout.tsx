@@ -3,6 +3,7 @@ import './globals.css'
 import PWARegister from './components/PWARegister'
 import GlobalChatWrapper from './components/GlobalChatWrapper'
 import AdSense from './components/AdSense'
+import GoogleAnalytics from './components/GoogleAnalytics'
 
 export const metadata: Metadata = {
   title: 'Stock Buddy - AI投資アシスタント',
@@ -47,6 +48,7 @@ export default function RootLayout({
         <meta name="google-adsense-account" content="ca-pub-7558679080857597" />
       </head>
       <body className="antialiased">
+        <GoogleAnalytics />
         {children}
         <PWARegister />
         <GlobalChatWrapper />
