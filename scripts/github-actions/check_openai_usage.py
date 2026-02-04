@@ -47,7 +47,16 @@ def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
     try:
         response = requests.get(url, headers=headers, params=params, timeout=30)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        # デバッグ: レスポンス構造を出力
+        print(f"📋 API Response structure:")
+        print(f"   Keys: {list(data.keys())}")
+        if "data" in data and len(data["data"]) > 0:
+            print(f"   First bucket keys: {list(data['data'][0].keys()) if data['data'] else 'No data'}")
+            if "results" in data["data"][0] and len(data["data"][0]["results"]) > 0:
+                print(f"   First result keys: {list(data['data'][0]['results'][0].keys())}")
+                print(f"   First result sample: {data['data'][0]['results'][0]}")
+        return data
     except requests.exceptions.RequestException as e:
         print(f"❌ Error fetching usage data: {e}")
         if hasattr(e, 'response') and e.response is not None:
