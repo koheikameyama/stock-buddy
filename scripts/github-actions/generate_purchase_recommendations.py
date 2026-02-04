@@ -62,12 +62,12 @@ def get_stock_prediction(conn, stock_id):
     try:
         cur.execute("""
             SELECT
-                "shortTerm",
-                "mediumTerm",
-                "longTerm"
-            FROM "StockPrediction"
+                "advice" as "shortTerm",
+                "advice" as "mediumTerm",
+                "advice" as "longTerm"
+            FROM "StockAnalysis"
             WHERE "stockId" = %s
-            ORDER BY date DESC
+            ORDER BY "analyzedAt" DESC
             LIMIT 1
         """, (stock_id,))
 
@@ -166,6 +166,15 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None)
         )
 
         content = response.choices[0].message.content.strip()
+
+        # マークダウンコードブロックを削除
+        if content.startswith("```json"):
+            content = content[7:]  # "```json" を削除
+        elif content.startswith("```"):
+            content = content[3:]  # "```" を削除
+        if content.endswith("```"):
+            content = content[:-3]  # 末尾の "```" を削除
+        content = content.strip()
 
         # JSONパース
         result = json.loads(content)

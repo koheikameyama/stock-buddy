@@ -234,7 +234,11 @@ def main():
             SELECT DISTINCT s.id, s."tickerCode", s.name, s.sector,
                    s."growthScore", s."stabilityScore", s."dividendScore"
             FROM "Stock" s
-            INNER JOIN "UserStock" us ON s.id = us."stockId"
+            WHERE s.id IN (
+                SELECT "stockId" FROM "PortfolioStock"
+                UNION
+                SELECT "stockId" FROM "WatchlistStock"
+            )
         """
         )
 
