@@ -92,10 +92,14 @@ def calculate_total_cost(usage_data: dict) -> float:
 
         for result in bucket["results"]:
             model_name = result.get("model", "")
+            num_requests = result.get("num_model_requests", 0)
 
             # トークン数を取得
             input_tokens = result.get("input_tokens", 0)
             output_tokens = result.get("output_tokens", 0)
+
+            # デバッグ出力
+            print(f"🔍 Debug: model={model_name or 'None'}, requests={num_requests}, input={input_tokens:,}, output={output_tokens:,}")
 
             # モデル名からベースモデルを判定
             model_pricing = None
@@ -114,6 +118,8 @@ def calculate_total_cost(usage_data: dict) -> float:
             # コスト計算（tokens / 1M * price）
             input_cost = (input_tokens / 1_000_000) * model_pricing["input"]
             output_cost = (output_tokens / 1_000_000) * model_pricing["output"]
+
+            print(f"   💰 Cost: input=${input_cost:.4f} + output=${output_cost:.4f} = ${input_cost + output_cost:.4f}")
 
             total_cost += input_cost + output_cost
 
