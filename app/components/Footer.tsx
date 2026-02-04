@@ -12,6 +12,44 @@ export default function Footer() {
             </p>
           </div>
 
+          {/* おすすめ証券会社 */}
+          <div className="mb-6 py-4 border-y border-gray-100">
+            <p className="text-xs text-gray-500 mb-2">
+              投資を始めるなら
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 text-sm">
+              <a
+                href="https://www.rakuten-sec.co.jp/"
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                楽天証券
+              </a>
+              <span className="text-gray-300">|</span>
+              <a
+                href="https://www.sbisec.co.jp/"
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+              className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                SBI証券
+              </a>
+              <span className="text-gray-300">|</span>
+              <a
+                href="https://www.monex.co.jp/"
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                マネックス証券
+              </a>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              ※ 当サイトはアフィリエイト広告を利用しています
+            </p>
+          </div>
+
           <div className="flex flex-wrap justify-center gap-4 mb-4 text-sm">
             <Link
               href="/privacy"
