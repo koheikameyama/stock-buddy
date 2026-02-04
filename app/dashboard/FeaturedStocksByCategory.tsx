@@ -138,7 +138,7 @@ export default function FeaturedStocksByCategory({
       <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xl sm:text-2xl">⭐</span>
-          <h3 className="text-base sm:text-lg font-bold text-gray-900">注目銘柄</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900">あなたにおすすめの注目銘柄</h3>
         </div>
         <p className="text-xs sm:text-sm text-gray-500">読み込み中...</p>
       </div>
@@ -150,7 +150,7 @@ export default function FeaturedStocksByCategory({
       <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xl sm:text-2xl">⭐</span>
-          <h3 className="text-base sm:text-lg font-bold text-gray-900">注目銘柄</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900">あなたにおすすめの注目銘柄</h3>
         </div>
         <div className="text-center py-6 sm:py-8">
           <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🔍</div>
