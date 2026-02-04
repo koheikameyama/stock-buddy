@@ -6,8 +6,8 @@ export default auth((req) => {
 
   const isLoggedIn = !!req.auth
 
-  // ダッシュボードにアクセスしようとしているが、ログインしていない場合
-  if (pathname.startsWith("/dashboard") && !isLoggedIn) {
+  // ダッシュボードまたは設定にアクセスしようとしているが、ログインしていない場合
+  if ((pathname.startsWith("/dashboard") || pathname.startsWith("/settings")) && !isLoggedIn) {
     return NextResponse.redirect(new URL("/login", req.url))
   }
 
@@ -20,6 +20,6 @@ export default auth((req) => {
 })
 
 export const config = {
-  // ダッシュボードとルートページにマッチング
-  matcher: ["/dashboard/:path*", "/"],
+  // ダッシュボード、設定、ルートページにマッチング
+  matcher: ["/dashboard/:path*", "/settings", "/"],
 }

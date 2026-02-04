@@ -19,7 +19,7 @@ export default async function Header() {
             {session?.user && (
               <>
                 <Link
-                  href="/dashboard/settings"
+                  href="/settings"
                   className="text-gray-700 hover:text-blue-600 transition-colors p-2"
                   title="設定"
                 >

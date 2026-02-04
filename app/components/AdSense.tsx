@@ -10,7 +10,7 @@ export default function AdSense() {
   const hideAdsPaths = [
     '/',                      // LP
     '/login',                 // ログイン
-    '/dashboard/settings',    // 設定
+    '/settings',              // 設定
     '/privacy',               // プライバシーポリシー
     '/terms',                 // 利用規約
     '/disclaimer',            // 免責事項
