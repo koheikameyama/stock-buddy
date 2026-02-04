@@ -72,23 +72,23 @@ export default async function DashboardPage() {
 
           {/* 投資スタイル表示 */}
           {user.settings && (
-            <div className="mb-6 bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <span className="text-xl">📊</span>
+            <div className="mb-4 sm:mb-6 bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                    <span className="text-lg sm:text-xl">📊</span>
                   </div>
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">あなたの投資スタイル</div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-gray-500 mb-1 sm:mb-1.5">あなたの投資スタイル</div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 w-fit">
                         {user.settings.investmentPeriod === "short"
                           ? "短期（〜1年）"
                           : user.settings.investmentPeriod === "medium"
                           ? "中期（1〜3年）"
                           : "長期（3年〜）"}
                       </span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 w-fit">
                         {user.settings.riskTolerance === "low"
                           ? "リスク低（安定重視）"
                           : user.settings.riskTolerance === "medium"
@@ -100,11 +100,11 @@ export default async function DashboardPage() {
                 </div>
                 <Link
                   href="/dashboard?editStyle=true"
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                  className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 transition-colors shrink-0"
                   title="投資スタイルを編集"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4 sm:w-5 sm:h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
