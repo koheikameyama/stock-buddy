@@ -2,10 +2,10 @@
 """
 OpenAI API使用量チェックスクリプト
 
-GitHub Actionsから毎日実行され、OpenAI APIのトークン使用量を取得してコストを試算します。
+GitHub Actionsから毎日実行され、OpenAI APIの実際のコストを取得します。
 予算の80%を超えた場合はアラートを出力します。
 
-Usage APIを使用してトークン数を取得し、モデル別料金表から実際のコストを計算します。
+Costs APIを使用して、OpenAIが計算した実際の請求額を取得します。
 """
 
 import os
@@ -19,18 +19,18 @@ OPENAI_PROJECT_ID = os.getenv("OPENAI_PROJECT_ID")
 SLACK_WEBHOOK_URL = os.getenv("OPENAI_SLACK_WEBHOOK_URL")
 MONTHLY_BUDGET_USD = float(os.getenv("MONTHLY_BUDGET_USD", "50"))
 
-def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
+def get_costs_data(start_timestamp: int, end_timestamp: int) -> dict:
     """
-    OpenAI Usage APIからトークン使用量データを取得（Stock Buddyプロジェクト専用）
+    OpenAI Costs APIから実際のコストデータを取得（Stock Buddyプロジェクト専用）
 
     Args:
         start_timestamp: 開始日（UNIXタイムスタンプ）
         end_timestamp: 終了日（UNIXタイムスタンプ）
 
     Returns:
-        使用量データ
+        コストデータ
     """
-    url = "https://api.openai.com/v1/organization/usage/completions"
+    url = "https://api.openai.com/v1/organization/costs"
 
     headers = {
         "Authorization": f"Bearer {OPENAI_ADMIN_KEY}",
@@ -47,81 +47,61 @@ def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
     try:
         response = requests.get(url, headers=headers, params=params, timeout=30)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        # デバッグ: レスポンス構造を出力
+        print(f"📋 Costs API Response:")
+        print(f"   Keys: {list(data.keys())}")
+        if "data" in data and len(data["data"]) > 0:
+            print(f"   First bucket: {data['data'][0]}")
+
+        return data
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error fetching usage data: {e}")
+        print(f"❌ Error fetching costs data: {e}")
         if hasattr(e, 'response') and e.response is not None:
             print(f"Response: {e.response.text}")
         sys.exit(1)
 
-def calculate_total_cost(usage_data: dict) -> float:
+def calculate_total_cost(costs_data: dict) -> float:
     """
-    トークン使用量から総コストを計算
-
-    料金（2026年1月時点）:
-    - GPT-4o: $2.50/1M input, $10.00/1M output
-    - GPT-4o Mini: $0.15/1M input, $0.60/1M output
-    - GPT-4o Realtime: $5.00/1M input, $20.00/1M output
-    - o1: $15.00/1M input, $60.00/1M output
-    - o1-mini: $3.00/1M input, $12.00/1M output
+    Costs APIから取得した実際のコストを集計
 
     Args:
-        usage_data: OpenAI Usage APIから取得したデータ
+        costs_data: OpenAI Costs APIから取得したデータ
 
     Returns:
         総コスト（ドル）
     """
-    # モデル別料金表（$/1M tokens）
-    MODEL_PRICING = {
-        "gpt-4o": {"input": 2.50, "output": 10.00},
-        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-        "gpt-4o-realtime": {"input": 5.00, "output": 20.00},
-        "o1": {"input": 15.00, "output": 60.00},
-        "o1-mini": {"input": 3.00, "output": 12.00},
-        "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-    }
-
     total_cost = 0.0
 
-    if "data" not in usage_data:
+    if "data" not in costs_data:
+        print("⚠️  No 'data' field in costs response")
         return total_cost
 
-    for bucket in usage_data["data"]:
-        if "results" not in bucket:
-            continue
+    print(f"🔍 Processing {len(costs_data['data'])} buckets...")
 
-        for result in bucket["results"]:
-            model_name = result.get("model", "")
-            num_requests = result.get("num_model_requests", 0)
+    for bucket in costs_data["data"]:
+        print(f"   Bucket keys: {list(bucket.keys())}")
 
-            # トークン数を取得
-            input_tokens = result.get("input_tokens", 0)
-            output_tokens = result.get("output_tokens", 0)
+        if "results" in bucket:
+            for result in bucket["results"]:
+                # amount.value がコスト（セント単位）
+                amount_value = result.get("amount", {}).get("value", 0)
+                # 文字列の場合もあるのでfloatにキャスト
+                amount_cents = float(amount_value) if amount_value else 0.0
+                # ドルに変換
+                cost_usd = amount_cents / 100.0
 
-            # デバッグ出力
-            print(f"🔍 Debug: model={model_name or 'None'}, requests={num_requests}, input={input_tokens:,}, output={output_tokens:,}")
+                print(f"      Result: {result.get('line_item', 'unknown')} = ${cost_usd:.4f}")
+                total_cost += cost_usd
+        elif "amount" in bucket:
+            # bucketレベルにamountがある場合
+            amount_value = bucket.get("amount", {}).get("value", 0)
+            amount_cents = float(amount_value) if amount_value else 0.0
+            cost_usd = amount_cents / 100.0
 
-            # モデル名からベースモデルを判定
-            model_pricing = None
-            if model_name:
-                for model_key in MODEL_PRICING:
-                    if model_key in model_name.lower():
-                        model_pricing = MODEL_PRICING[model_key]
-                        break
-
-            # 料金が見つからない場合はデフォルト（GPT-4o料金）
-            if not model_pricing:
-                model_pricing = MODEL_PRICING["gpt-4o"]
-                if model_name:
-                    print(f"⚠️  Unknown model: {model_name}, using GPT-4o pricing")
-
-            # コスト計算（tokens / 1M * price）
-            input_cost = (input_tokens / 1_000_000) * model_pricing["input"]
-            output_cost = (output_tokens / 1_000_000) * model_pricing["output"]
-
-            print(f"   💰 Cost: input=${input_cost:.4f} + output=${output_cost:.4f} = ${input_cost + output_cost:.4f}")
-
-            total_cost += input_cost + output_cost
+            print(f"   Bucket amount: ${cost_usd:.4f}")
+            total_cost += cost_usd
 
     return total_cost
 
@@ -194,11 +174,11 @@ def main():
     print(f"💰 Monthly budget: ${MONTHLY_BUDGET_USD}")
     print()
 
-    # 使用量データを取得
-    usage_data = get_usage_data(start_timestamp, end_timestamp)
+    # コストデータを取得
+    costs_data = get_costs_data(start_timestamp, end_timestamp)
 
-    # トークン使用量からコストを計算
-    total_cost = calculate_total_cost(usage_data)
+    # 実際のコストを集計
+    total_cost = calculate_total_cost(costs_data)
     usage_percentage = (total_cost / MONTHLY_BUDGET_USD) * 100
 
     # 結果を表示
