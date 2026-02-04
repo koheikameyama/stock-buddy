@@ -65,6 +65,7 @@ export default function FeaturedStocksByCategory({
   const [featuredStocks, setFeaturedStocks] = useState<FeaturedStock[]>([])
   const [loading, setLoading] = useState(true)
   const [addingStockId, setAddingStockId] = useState<string | null>(null)
+  const [date, setDate] = useState<string | null>(null)
 
   useEffect(() => {
     fetchFeaturedStocks()
@@ -79,6 +80,7 @@ export default function FeaturedStocksByCategory({
 
       if (response.ok) {
         setFeaturedStocks(data.featuredStocks || [])
+        setDate(data.date || null)
       } else {
         console.error("Error fetching featured stocks:", data.error)
       }
@@ -163,6 +165,16 @@ export default function FeaturedStocksByCategory({
     )
   }
 
+  // Format date as "YYYY年M月D日分"
+  const formatDate = (dateString: string | null): string => {
+    if (!dateString) return ""
+    const date = new Date(dateString)
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    return `${year}年${month}月${day}日分`
+  }
+
   return (
     <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
       {/* Section Header */}
@@ -170,6 +182,11 @@ export default function FeaturedStocksByCategory({
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xl sm:text-2xl">⭐</span>
           <h3 className="text-lg sm:text-xl font-bold text-gray-900">あなたにおすすめの注目銘柄</h3>
+          {date && (
+            <span className="text-xs sm:text-sm text-gray-500 ml-auto">
+              {formatDate(date)}
+            </span>
+          )}
         </div>
         <p className="text-xs sm:text-sm text-gray-600">
           あなたの投資スタイルに合わせて、AIが今日の注目銘柄をご紹介します

@@ -143,6 +143,7 @@ export async function GET() {
     return NextResponse.json({
       featuredStocks: response,
       preferredCategory: preferredCategories[0], // 優先カテゴリ情報
+      date: latestDate.date, // 注目銘柄の日付
     }, { status: 200 })
   } catch (error) {
     console.error("Error fetching featured stocks:", error)
