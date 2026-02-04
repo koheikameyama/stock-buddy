@@ -11,11 +11,9 @@ export default function AdSense() {
     '/',                      // LP
     '/login',                 // ログイン
     '/dashboard/settings',    // 設定
-    '/about/stock-selection', // 銘柄選定について
     '/privacy',               // プライバシーポリシー
     '/terms',                 // 利用規約
     '/disclaimer',            // 免責事項
-    '/maintenance'            // メンテナンスページ
   ]
 
   if (hideAdsPaths.includes(pathname)) {

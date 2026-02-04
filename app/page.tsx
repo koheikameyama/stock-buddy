@@ -109,13 +109,8 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 mt-24">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <div className="flex flex-col md:flex-row justify-center items-center">
             <p className="text-gray-400 text-sm">© 2026 Stock Buddy. All rights reserved.</p>
-            <div className="flex space-x-6">
-              <Link href="/about/stock-selection" className="text-gray-400 hover:text-white text-sm transition-colors">
-                取扱銘柄について
-              </Link>
-            </div>
           </div>
         </div>
       </footer>
