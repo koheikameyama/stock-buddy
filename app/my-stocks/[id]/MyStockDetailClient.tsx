@@ -6,6 +6,8 @@ import StockPrediction from "@/app/components/StockPrediction"
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation"
 import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
+import StockChart from "@/app/components/StockChart"
+import PriceHistory from "@/app/components/PriceHistory"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 
@@ -345,6 +347,12 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
             </section>
 
+            {/* Chart Section */}
+            <StockChart stockId={stock.stockId} />
+
+            {/* Price History Section */}
+            <PriceHistory stockId={stock.stockId} />
+
             {/* Financial Metrics Section */}
             <FinancialMetrics stock={stock.stock} />
           </>
@@ -405,6 +413,12 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
               <PurchaseRecommendation stockId={stock.stockId} />
             </section>
+
+            {/* Chart Section */}
+            <StockChart stockId={stock.stockId} />
+
+            {/* Price History Section */}
+            <PriceHistory stockId={stock.stockId} />
 
             {/* Financial Metrics Section */}
             <FinancialMetrics stock={stock.stock} />
