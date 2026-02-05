@@ -22,6 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   pages: {
     signIn: "/login",
+    error: "/login", // 認証エラー時もログインページにリダイレクト
   },
   session: {
     strategy: "jwt",
