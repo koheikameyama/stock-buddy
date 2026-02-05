@@ -170,12 +170,11 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
     return NextResponse.json(response)
   } else if (convertTo === "watchlist" && portfolioStock) {
     // Portfolio → Watchlist
-    // Delete portfolio (transactions will be orphaned but kept)
+    // Delete portfolio and its transactions
     await prisma.$transaction(async (tx) => {
-      // Orphan transactions
-      await tx.transaction.updateMany({
+      // Delete transactions
+      await tx.transaction.deleteMany({
         where: { portfolioStockId: id },
-        data: { portfolioStockId: null },
       })
       await tx.portfolioStock.delete({ where: { id } })
     })
@@ -399,11 +398,10 @@ export async function DELETE(
     if (watchlistStock) {
       await prisma.watchlistStock.delete({ where: { id } })
     } else if (portfolioStock) {
-      // Orphan transactions and delete portfolio
+      // Delete transactions and portfolio
       await prisma.$transaction(async (tx) => {
-        await tx.transaction.updateMany({
+        await tx.transaction.deleteMany({
           where: { portfolioStockId: id },
-          data: { portfolioStockId: null },
         })
         await tx.portfolioStock.delete({ where: { id } })
       })

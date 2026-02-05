@@ -87,10 +87,9 @@ export async function deletePortfolioStock(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await prisma.$transaction(async (tx) => {
-      // 関連するTransactionを先に削除（またはportfolioStockIdをnullに）
-      await tx.transaction.updateMany({
+      // 関連するTransactionを削除
+      await tx.transaction.deleteMany({
         where: { portfolioStockId },
-        data: { portfolioStockId: null },
       })
 
       // PortfolioStockを削除
