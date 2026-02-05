@@ -123,30 +123,29 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // OpenAI APIで分析（バッチ処理で効率化）
+    // OpenAI APIで分析（並列処理で高速化）
     const batchSize = 5
-    for (let i = 0; i < allStocks.length; i += batchSize) {
-      const batch = allStocks.slice(i, i + batchSize)
+    const openai = getOpenAIClient()
 
-      for (const stock of batch) {
-        try {
-          const latestPrice = stock.prices[0]?.close
+    // 銘柄を分析する関数
+    const analyzeStock = async (stock: (typeof allStocks)[0]) => {
+      const latestPrice = stock.prices[0]?.close
 
-          if (!latestPrice) {
-            console.log(`⚠️  No price data for ${stock.tickerCode}, skipping`)
-            continue
-          }
+      if (!latestPrice) {
+        console.log(`⚠️  No price data for ${stock.tickerCode}, skipping`)
+        return { success: false, skipped: true }
+      }
 
-          // この銘柄に関連するニュースをフィルタリング
-          const stockNews = relatedNews.filter(
-            (n) =>
-              n.content.includes(stock.tickerCode) ||
-              n.content.includes(stock.tickerCode.replace(".T", "")) ||
-              n.sector === stock.sector
-          )
+      // この銘柄に関連するニュースをフィルタリング
+      const stockNews = relatedNews.filter(
+        (n) =>
+          n.content.includes(stock.tickerCode) ||
+          n.content.includes(stock.tickerCode.replace(".T", "")) ||
+          n.sector === stock.sector
+      )
 
-          // OpenAI APIで銘柄を分析
-          const prompt = `あなたは投資初心者向けのアドバイザーです。以下の銘柄について、簡潔に分析してください。
+      // OpenAI APIで銘柄を分析
+      const prompt = `あなたは投資初心者向けのアドバイザーです。以下の銘柄について、簡潔に分析してください。
 
 銘柄情報:
 - 銘柄コード: ${stock.tickerCode}
@@ -175,41 +174,55 @@ ${
 簡潔に、専門用語を避けて説明してください。
 ニュース情報がある場合は、それを理由に含めてください。`
 
-          const openai = getOpenAIClient()
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.7,
-            max_tokens: 300,
-          })
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 300,
+      })
 
-          const analysis = completion.choices[0].message.content || ""
+      const analysis = completion.choices[0].message.content || ""
 
-          // FeaturedStockに登録
-          await prisma.featuredStock.create({
-            data: {
-              stockId: stock.id,
-              reason: analysis,
-              score: stock.beginnerScore || 50,
-              source: "news",
-              category: "話題",
-            },
-          })
+      // FeaturedStockに登録
+      await prisma.featuredStock.create({
+        data: {
+          stockId: stock.id,
+          reason: analysis,
+          score: stock.beginnerScore || 50,
+          source: "news",
+          category: "話題",
+        },
+      })
 
-          results.analyzed_count++
-          results.featured_count++
+      console.log(`✅ Analyzed and added: ${stock.name} (${stock.tickerCode})`)
+      return { success: true, skipped: false }
+    }
 
-          console.log(`✅ Analyzed and added: ${stock.name} (${stock.tickerCode})`)
-        } catch (error: any) {
-          console.error(`Error analyzing ${stock.tickerCode}:`, error.message)
+    // バッチ処理で並列実行
+    for (let i = 0; i < allStocks.length; i += batchSize) {
+      const batch = allStocks.slice(i, i + batchSize)
+
+      const batchResults = await Promise.allSettled(
+        batch.map((stock) => analyzeStock(stock))
+      )
+
+      // 結果を集計
+      for (const result of batchResults) {
+        if (result.status === "fulfilled") {
+          if (result.value.success) {
+            results.analyzed_count++
+            results.featured_count++
+          }
+        } else {
+          console.error(`Error analyzing stock:`, result.reason)
           results.error_count++
-          results.errors.push(`Failed to analyze ${stock.tickerCode}: ${error.message}`)
+          results.errors.push(`Failed: ${result.reason}`)
         }
       }
 
-      // レート制限対策：バッチ間で1秒待機
+      // レート制限対策：バッチ間で500ms待機
       if (i + batchSize < allStocks.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await new Promise((resolve) => setTimeout(resolve, 500))
       }
     }
 
