@@ -172,6 +172,11 @@ def fetch_single_stock(stock_data):
             try:
                 stock = yf.Ticker(ticker)
                 info = fetch_with_retry(stock, "info")
+                if info is None:
+                    print(f"  ⚠️  {ticker}: No info data available, skipping financial metrics update")
+                    cur.close()
+                    conn.close()
+                    return {"ticker": ticker, "success": True, "skipped": True, "inserted": 0}
                 beginner_score = calculate_beginner_score(info)
                 cur.execute("""
                     UPDATE "Stock"
@@ -249,33 +254,36 @@ def fetch_single_stock(stock_data):
         # 財務指標を取得・更新
         try:
             info = fetch_with_retry(stock, "info")
-            beginner_score = calculate_beginner_score(info)
-            cur.execute("""
-                UPDATE "Stock"
-                SET
-                    pbr = %s,
-                    per = %s,
-                    roe = %s,
-                    "operatingCF" = %s,
-                    "freeCF" = %s,
-                    "currentPrice" = %s,
-                    "fiftyTwoWeekHigh" = %s,
-                    "fiftyTwoWeekLow" = %s,
-                    "beginnerScore" = %s,
-                    "financialDataUpdatedAt" = NOW()
-                WHERE id = %s
-            """, (
-                info.get('priceToBook'),
-                info.get('trailingPE'),
-                info.get('returnOnEquity'),
-                info.get('operatingCashflow'),
-                info.get('freeCashflow'),
-                info.get('currentPrice'),
-                info.get('fiftyTwoWeekHigh'),
-                info.get('fiftyTwoWeekLow'),
-                beginner_score,
-                stock_id
-            ))
+            if info is None:
+                print(f"  ⚠️  {ticker}: No info data available, skipping financial metrics update")
+            else:
+                beginner_score = calculate_beginner_score(info)
+                cur.execute("""
+                    UPDATE "Stock"
+                    SET
+                        pbr = %s,
+                        per = %s,
+                        roe = %s,
+                        "operatingCF" = %s,
+                        "freeCF" = %s,
+                        "currentPrice" = %s,
+                        "fiftyTwoWeekHigh" = %s,
+                        "fiftyTwoWeekLow" = %s,
+                        "beginnerScore" = %s,
+                        "financialDataUpdatedAt" = NOW()
+                    WHERE id = %s
+                """, (
+                    info.get('priceToBook'),
+                    info.get('trailingPE'),
+                    info.get('returnOnEquity'),
+                    info.get('operatingCashflow'),
+                    info.get('freeCashflow'),
+                    info.get('currentPrice'),
+                    info.get('fiftyTwoWeekHigh'),
+                    info.get('fiftyTwoWeekLow'),
+                    beginner_score,
+                    stock_id
+                ))
         except Exception as e:
             print(f"  ⚠️  {ticker}: Error updating financial metrics: {e}")
 
