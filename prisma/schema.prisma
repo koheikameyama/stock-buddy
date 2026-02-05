@@ -78,6 +78,7 @@ model UserSettings {
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   investmentPeriod    String   // 'short' | 'medium' | 'long'
   riskTolerance       String   // 'low' | 'medium' | 'high'
+  investmentBudget    Int?     // 投資資金（円）例: 100000, 300000, 500000, 1000000
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

@@ -8,17 +8,28 @@ interface InvestmentStyleModalProps {
   onClose: () => void
   defaultPeriod?: string
   defaultRisk?: string
+  defaultBudget?: number | null
 }
+
+const budgetOptions = [
+  { value: 100000, label: "10万円", description: "少額から" },
+  { value: 300000, label: "30万円", description: "手軽に" },
+  { value: 500000, label: "50万円", description: "しっかり" },
+  { value: 1000000, label: "100万円", description: "本格的に" },
+  { value: 0, label: "未定", description: "あとで決める" },
+]
 
 export default function InvestmentStyleModal({
   isOpen,
   onClose,
   defaultPeriod = "",
-  defaultRisk = ""
+  defaultRisk = "",
+  defaultBudget = null,
 }: InvestmentStyleModalProps) {
   const router = useRouter()
   const [investmentPeriod, setInvestmentPeriod] = useState<string>(defaultPeriod)
   const [riskTolerance, setRiskTolerance] = useState<string>(defaultRisk)
+  const [investmentBudget, setInvestmentBudget] = useState<number | null>(defaultBudget)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!isOpen) return null
@@ -35,7 +46,11 @@ export default function InvestmentStyleModal({
       const response = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ investmentPeriod, riskTolerance }),
+        body: JSON.stringify({
+          investmentPeriod,
+          riskTolerance,
+          investmentBudget: investmentBudget && investmentBudget > 0 ? investmentBudget : null,
+        }),
       })
 
       if (!response.ok) {
@@ -149,6 +164,32 @@ export default function InvestmentStyleModal({
               <div className="text-sm font-semibold">高</div>
               <div className="text-xs text-gray-500">成長重視</div>
             </button>
+          </div>
+        </div>
+
+        {/* 投資資金 */}
+        <div className="mb-8">
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            投資にまわせる資金
+          </label>
+          <p className="text-xs text-gray-500 mb-3">
+            予算に合った銘柄をおすすめします
+          </p>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {budgetOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setInvestmentBudget(option.value)}
+                className={`py-2.5 px-2 rounded-lg border-2 transition-all ${
+                  investmentBudget === option.value
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-200 hover:border-blue-300"
+                }`}
+              >
+                <div className="text-sm font-semibold">{option.label}</div>
+                <div className="text-xs text-gray-500">{option.description}</div>
+              </button>
+            ))}
           </div>
         </div>
 

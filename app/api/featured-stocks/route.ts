@@ -21,6 +21,7 @@ export async function GET() {
     // ユーザーの投資スタイルと保有銘柄を取得
     let investmentPeriod: string | undefined
     let riskTolerance: string | undefined
+    let investmentBudget: number | null = null
     let userStockIds: string[] = []
 
     if (userId) {
@@ -30,6 +31,7 @@ export async function GET() {
           select: {
             investmentPeriod: true,
             riskTolerance: true,
+            investmentBudget: true,
           },
         }),
         Promise.all([
@@ -50,6 +52,7 @@ export async function GET() {
       if (userSettings) {
         investmentPeriod = userSettings.investmentPeriod
         riskTolerance = userSettings.riskTolerance
+        investmentBudget = userSettings.investmentBudget
       }
 
       userStockIds = userStocks.map((us) => us.stockId)
@@ -103,8 +106,21 @@ export async function GET() {
       )
     }
 
+    // 投資資金でフィルタリング（設定がある場合のみ）
+    // 日本株は通常100株単位なので、currentPrice * 100 が最低購入金額
+    const filteredStocks = investmentBudget
+      ? featuredStocks.filter((fs) => {
+          const currentPrice = fs.stock.prices[0]
+            ? Number(fs.stock.prices[0].close)
+            : null
+          if (currentPrice === null) return true // 価格不明の銘柄は表示
+          const minPurchaseAmount = currentPrice * 100
+          return minPurchaseAmount <= investmentBudget
+        })
+      : featuredStocks
+
     // カテゴリ別に並び替え（優先カテゴリを上位に）
-    const sortedStocks = [...featuredStocks].sort((a, b) => {
+    const sortedStocks = [...filteredStocks].sort((a, b) => {
       const aIndex = preferredCategories.indexOf(a.category)
       const bIndex = preferredCategories.indexOf(b.category)
 
