@@ -39,7 +39,10 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  // 利用規約・プライバシーポリシーの同意はクライアント側でモーダル表示するため、ここではチェックしない
+  // 利用規約・プライバシーポリシー未同意の場合は同意ページへリダイレクト
+  if (!user.termsAccepted || !user.privacyPolicyAccepted) {
+    redirect("/terms-acceptance")
+  }
 
   const hasHoldings = user.portfolioStocks.length > 0
   const hasWatchlist = user.watchlistStocks.length > 0
@@ -54,8 +57,6 @@ export default async function DashboardPage() {
       <DashboardClient
         hasHoldings={hasHoldings}
         hasWatchlist={hasWatchlist}
-        termsAccepted={user.termsAccepted}
-        privacyPolicyAccepted={user.privacyPolicyAccepted}
         hasInvestmentStyle={!!user.settings}
         investmentPeriod={user.settings?.investmentPeriod}
         riskTolerance={user.settings?.riskTolerance}
