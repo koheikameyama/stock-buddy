@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-株価データ取得スクリプト（Cron実行用）
+株価データ取得スクリプト（Cron実行用）- 最適化版
 
 毎日17:00 JSTに実行され、DBに登録された全銘柄の株価データを取得してPostgreSQLに保存する。
-並列処理により高速化。
+
+最適化ポイント:
+- yf.download()によるバッチ株価取得（個別API呼び出しを大幅削減）
+- 財務指標取得を小バッチ+ディレイで分割（rate limit回避）
+- DBアクセスをバッチ化（接続数削減）
 
 Usage:
   python fetch_stocks.py          # 通常実行（今日のデータがあればスキップ）
@@ -12,7 +16,9 @@ Usage:
 
 import yfinance as yf
 import psycopg2
-from datetime import datetime, timedelta
+import psycopg2.extras
+import pandas as pd
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import argparse
 import os
@@ -22,9 +28,15 @@ from urllib.error import HTTPError
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-MAX_WORKERS = 15  # 並列実行数
 FORCE_UPDATE = False  # 強制更新モード（コマンドライン引数で設定）
-MAX_RETRIES = 3  # API rate limit時の最大リトライ回数
+
+# バッチ設定
+PRICE_BATCH_SIZE = 50    # yf.download()1回あたりのティッカー数
+PRICE_BATCH_DELAY = 2    # 株価バッチ間の待機時間（秒）
+INFO_BATCH_SIZE = 20     # 財務指標取得のバッチサイズ
+INFO_WORKERS = 5         # 財務指標取得の並列数
+INFO_BATCH_DELAY = 5     # 財務指標バッチ間の待機時間（秒）
+MAX_RETRIES = 3          # API rate limit時の最大リトライ回数
 RETRY_DELAYS = [5, 10, 20]  # リトライ間隔（秒）
 
 
@@ -76,290 +88,423 @@ def calculate_beginner_score(info: dict) -> int:
     # 0-100の範囲にクランプ
     return max(0, min(100, score))
 
+
 if not DATABASE_URL:
     print("ERROR: DATABASE_URL environment variable is not set")
     sys.exit(1)
 
 
-def fetch_with_retry(ticker_obj, operation, max_retries=MAX_RETRIES):
-    """
-    yfinance APIをリトライロジック付きで実行
+# =============================================================================
+# Phase 0: DBバッチ操作
+# =============================================================================
 
-    Args:
-        ticker_obj: yfinance.Ticker オブジェクト
-        operation: 実行する操作 ("history" or "info")
-        max_retries: 最大リトライ回数
+def get_stocks_with_todays_data(stock_ids, target_date):
+    """
+    今日のデータがある銘柄IDのセットを一括取得
+
+    個別にDB接続する代わりに、1クエリで全銘柄をチェック
+    """
+    if not stock_ids:
+        return set()
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT DISTINCT "stockId" FROM "StockPrice"
+            WHERE "stockId" = ANY(%s) AND date = %s
+        """, (stock_ids, target_date))
+        result = {row[0] for row in cur.fetchall()}
+        cur.close()
+        conn.close()
+        return result
+    except Exception as e:
+        print(f"  ⚠️  Error checking existing data: {e}")
+        return set()
+
+
+# =============================================================================
+# Phase 1: バッチ株価取得（yf.download）
+# =============================================================================
+
+def batch_download_prices(tickers):
+    """
+    yf.download()を使ってバッチで株価データを取得
+
+    個別にyf.Ticker().history()を呼ぶ代わりに、yf.download()で一括取得。
+    PRICE_BATCH_SIZE件ずつに分割し、バッチ間にディレイを入れることで
+    rate limitのリスクを軽減する。
 
     Returns:
-        操作の結果
+        dict: {ticker: [{date, open, high, low, close, volume}, ...]}
+    """
+    all_price_data = {}
+    total_batches = (len(tickers) + PRICE_BATCH_SIZE - 1) // PRICE_BATCH_SIZE
+
+    for batch_idx in range(0, len(tickers), PRICE_BATCH_SIZE):
+        batch = tickers[batch_idx:batch_idx + PRICE_BATCH_SIZE]
+        batch_num = batch_idx // PRICE_BATCH_SIZE + 1
+
+        print(f"\n  [Batch {batch_num}/{total_batches}] Downloading prices for {len(batch)} tickers...")
+
+        try:
+            # yf.download()は内部でHTTPリクエストを最適化する
+            df = yf.download(
+                batch,
+                period="90d",
+                group_by="ticker",
+                threads=True,
+                progress=False
+            )
+
+            if df.empty:
+                print(f"    ⚠️  No data returned for batch {batch_num}")
+                continue
+
+            # MultiIndex（複数ティッカー）かどうかを判定
+            is_multi = isinstance(df.columns, pd.MultiIndex)
+
+            for ticker in batch:
+                try:
+                    if is_multi:
+                        ticker_df = df[ticker].dropna(how='all')
+                    else:
+                        # 1銘柄の場合はシンプルなDataFrame
+                        ticker_df = df.dropna(how='all')
+
+                    if ticker_df.empty:
+                        print(f"    ⚠️  {ticker}: No data")
+                        continue
+
+                    prices = []
+                    for date, row in ticker_df.iterrows():
+                        try:
+                            prices.append({
+                                'date': date.date() if hasattr(date, 'date') else date,
+                                'open': float(row['Open']),
+                                'high': float(row['High']),
+                                'low': float(row['Low']),
+                                'close': float(row['Close']),
+                                'volume': int(row['Volume']),
+                            })
+                        except (ValueError, KeyError, TypeError):
+                            continue
+
+                    if prices:
+                        all_price_data[ticker] = prices
+                        print(f"    ✓ {ticker}: {len(prices)} records")
+                    else:
+                        print(f"    ⚠️  {ticker}: No valid records")
+
+                except KeyError:
+                    print(f"    ⚠️  {ticker}: Not found in download results")
+                except Exception as e:
+                    print(f"    ⚠️  {ticker}: Error parsing: {e}")
+
+        except Exception as e:
+            print(f"    ✗ Batch {batch_num} download failed: {e}")
+
+        # バッチ間ディレイ
+        if batch_idx + PRICE_BATCH_SIZE < len(tickers):
+            print(f"    Waiting {PRICE_BATCH_DELAY}s before next batch...")
+            time.sleep(PRICE_BATCH_DELAY)
+
+    return all_price_data
+
+
+def batch_insert_prices(price_data, ticker_to_stock_id):
+    """
+    execute_valuesを使って株価データを一括INSERT
+
+    個別INSERT文の代わりにexecute_valuesでバッチ処理し、DB負荷を軽減。
+    ON CONFLICT DO NOTHINGで重複は自動スキップ。
+
+    Returns:
+        int: 処理したレコード数
+    """
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+
+    all_records = []
+    for ticker, prices in price_data.items():
+        stock_id = ticker_to_stock_id.get(ticker)
+        if not stock_id:
+            continue
+        for p in prices:
+            all_records.append((
+                stock_id,
+                p['date'],
+                p['open'],
+                p['high'],
+                p['low'],
+                p['close'],
+                p['volume'],
+                p['close']  # adjustedClose
+            ))
+
+    if not all_records:
+        cur.close()
+        conn.close()
+        return 0
+
+    batch_size = 1000
+    total_processed = 0
+    for i in range(0, len(all_records), batch_size):
+        batch = all_records[i:i + batch_size]
+        psycopg2.extras.execute_values(
+            cur,
+            """
+            INSERT INTO "StockPrice"
+            (id, "stockId", date, open, high, low, close, volume, "adjustedClose", "createdAt")
+            VALUES %s
+            ON CONFLICT ("stockId", date) DO NOTHING
+            """,
+            batch,
+            template="(gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, NOW())",
+            page_size=batch_size
+        )
+        total_processed += len(batch)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return total_processed
+
+
+# =============================================================================
+# Phase 2: バッチ財務指標取得（info）
+# =============================================================================
+
+def fetch_info_with_retry(ticker, max_retries=MAX_RETRIES):
+    """
+    1銘柄の財務指標をリトライ付きで取得
+
+    yfinanceのinfoにはバッチAPIがないため個別呼び出しが必要。
+    rate limit時は指数バックオフでリトライする。
     """
     for attempt in range(max_retries):
         try:
-            if operation == "history":
-                return ticker_obj.history(period="90d")
-            elif operation == "info":
-                return ticker_obj.info
-            else:
-                raise ValueError(f"Unknown operation: {operation}")
-
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            return info
         except Exception as e:
             error_msg = str(e)
 
-            # Rate limit エラーをチェック（HTTPError または メッセージ文字列）
             is_rate_limit = False
             if isinstance(e, HTTPError) and e.code == 429:
                 is_rate_limit = True
             elif "Too Many Requests" in error_msg or "Rate limited" in error_msg:
                 is_rate_limit = True
 
-            if is_rate_limit:
-                if attempt < max_retries - 1:
-                    wait_time = RETRY_DELAYS[attempt]
-                    print(f"    ⏳ Rate limit hit, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})...")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    print(f"    ✗ Rate limit exceeded after {max_retries} attempts")
-                    raise
+            if is_rate_limit and attempt < max_retries - 1:
+                wait = RETRY_DELAYS[attempt]
+                print(f"    ⏳ {ticker}: Rate limit, retry in {wait}s ({attempt + 1}/{max_retries})")
+                time.sleep(wait)
             else:
-                # その他のエラーは即座に失敗
                 raise
 
     return None
 
 
-def has_todays_data(stock_id: str, target_date) -> bool:
+def batch_fetch_info(tickers):
     """
-    指定した日付のデータがすでにDBにあるかチェック
+    財務指標を小バッチ+ディレイで取得
 
-    Args:
-        stock_id: 銘柄ID
-        target_date: チェック対象の日付
+    INFO_BATCH_SIZE件ずつに分割し、各バッチ内ではINFO_WORKERS並列で取得。
+    バッチ間にINFO_BATCH_DELAYのディレイを入れることでrate limitを回避。
 
     Returns:
-        True: データがある（スキップ可能）
-        False: データがない（取得が必要）
+        dict: {ticker: info_dict}
     """
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
+    all_info = {}
+    total_batches = (len(tickers) + INFO_BATCH_SIZE - 1) // INFO_BATCH_SIZE
+
+    for batch_idx in range(0, len(tickers), INFO_BATCH_SIZE):
+        batch = tickers[batch_idx:batch_idx + INFO_BATCH_SIZE]
+        batch_num = batch_idx // INFO_BATCH_SIZE + 1
+
+        print(f"\n  [Batch {batch_num}/{total_batches}] Fetching info for {len(batch)} tickers...")
+
+        with ThreadPoolExecutor(max_workers=INFO_WORKERS) as executor:
+            futures = {executor.submit(fetch_info_with_retry, t): t for t in batch}
+
+            for future in as_completed(futures):
+                ticker = futures[future]
+                try:
+                    info = future.result()
+                    if info:
+                        all_info[ticker] = info
+                        print(f"    ✓ {ticker}")
+                    else:
+                        print(f"    ⚠️  {ticker}: No info data")
+                except Exception as e:
+                    print(f"    ✗ {ticker}: {e}")
+
+        # バッチ間ディレイ
+        if batch_idx + INFO_BATCH_SIZE < len(tickers):
+            print(f"    Waiting {INFO_BATCH_DELAY}s before next batch...")
+            time.sleep(INFO_BATCH_DELAY)
+
+    return all_info
+
+
+def batch_update_financial_metrics(info_data, ticker_to_stock_id):
+    """
+    財務指標をバッチでDB更新
+
+    Returns:
+        int: 更新した銘柄数
+    """
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+
+    updated = 0
+    for ticker, info in info_data.items():
+        stock_id = ticker_to_stock_id.get(ticker)
+        if not stock_id:
+            continue
+
+        beginner_score = calculate_beginner_score(info)
+
         cur.execute("""
-            SELECT COUNT(*) FROM "StockPrice"
-            WHERE "stockId" = %s AND date = %s
-        """, (stock_id, target_date))
-        count = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-        return count > 0
-    except Exception as e:
-        print(f"  ⚠️  Error checking existing data: {e}")
-        return False  # エラー時は取得を試みる
+            UPDATE "Stock"
+            SET
+                pbr = %s,
+                per = %s,
+                roe = %s,
+                "operatingCF" = %s,
+                "freeCF" = %s,
+                "currentPrice" = %s,
+                "fiftyTwoWeekHigh" = %s,
+                "fiftyTwoWeekLow" = %s,
+                "beginnerScore" = %s,
+                "financialDataUpdatedAt" = NOW()
+            WHERE id = %s
+        """, (
+            info.get('priceToBook'),
+            info.get('trailingPE'),
+            info.get('returnOnEquity'),
+            info.get('operatingCashflow'),
+            info.get('freeCashflow'),
+            info.get('currentPrice'),
+            info.get('fiftyTwoWeekHigh'),
+            info.get('fiftyTwoWeekLow'),
+            beginner_score,
+            stock_id
+        ))
+        updated += 1
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return updated
 
 
-def fetch_single_stock(stock_data):
-    """
-    1銘柄の株価データを取得してDBに保存
-    """
-    stock_id, ticker, name = stock_data
-
-    try:
-        # スレッドごとにDB接続を作成
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-
-        print(f"Processing {ticker} ({name})...")
-
-        # 今日のデータがすでにあるかチェック
-        today = datetime.now().date()
-        if has_todays_data(stock_id, today):
-            # 強制更新モードでなければスキップ（API接続なし）
-            if not FORCE_UPDATE:
-                print(f"  → Skipped (price data already exists)")
-                cur.close()
-                conn.close()
-                return {"ticker": ticker, "success": True, "skipped": True, "inserted": 0}
-
-            # 強制更新モード: 財務指標のみ更新
-            print(f"  → Force updating financial metrics (price data already exists)")
-            try:
-                stock = yf.Ticker(ticker)
-                info = fetch_with_retry(stock, "info")
-                if info is None:
-                    print(f"  ⚠️  {ticker}: No info data available, skipping financial metrics update")
-                    cur.close()
-                    conn.close()
-                    return {"ticker": ticker, "success": True, "skipped": True, "inserted": 0}
-                beginner_score = calculate_beginner_score(info)
-                cur.execute("""
-                    UPDATE "Stock"
-                    SET
-                        pbr = %s,
-                        per = %s,
-                        roe = %s,
-                        "operatingCF" = %s,
-                        "freeCF" = %s,
-                        "currentPrice" = %s,
-                        "fiftyTwoWeekHigh" = %s,
-                        "fiftyTwoWeekLow" = %s,
-                        "beginnerScore" = %s,
-                        "financialDataUpdatedAt" = NOW()
-                    WHERE id = %s
-                """, (
-                    info.get('priceToBook'),
-                    info.get('trailingPE'),
-                    info.get('returnOnEquity'),
-                    info.get('operatingCashflow'),
-                    info.get('freeCashflow'),
-                    info.get('currentPrice'),
-                    info.get('fiftyTwoWeekHigh'),
-                    info.get('fiftyTwoWeekLow'),
-                    beginner_score,
-                    stock_id
-                ))
-                conn.commit()
-                print(f"  ✓ {ticker} financial metrics updated (beginnerScore: {beginner_score})")
-            except Exception as e:
-                print(f"  ⚠️  {ticker}: Error updating financial metrics: {e}")
-            finally:
-                cur.close()
-                conn.close()
-
-            return {"ticker": ticker, "success": True, "skipped": True, "inserted": 0}
-
-        # 株価データを取得
-        stock = yf.Ticker(ticker)
-
-        # 過去90日分取得（指標計算用に余裕を持たせる）
-        hist = fetch_with_retry(stock, "history")
-
-        if hist.empty:
-            print(f"  ⚠️  No data available for {ticker}")
-            cur.close()
-            conn.close()
-            return {"ticker": ticker, "success": False, "error": "No data"}
-
-        # 最新データをINSERT（重複は無視）
-        inserted_count = 0
-        for date, row in hist.iterrows():
-            try:
-                cur.execute("""
-                    INSERT INTO "StockPrice"
-                    (id, "stockId", date, open, high, low, close, volume, "adjustedClose", "createdAt")
-                    VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                    ON CONFLICT ("stockId", date) DO NOTHING
-                """, (
-                    stock_id,
-                    date.date(),
-                    float(row['Open']),
-                    float(row['High']),
-                    float(row['Low']),
-                    float(row['Close']),
-                    int(row['Volume']),
-                    float(row['Close'])  # adjustedClose
-                ))
-                if cur.rowcount > 0:
-                    inserted_count += 1
-            except Exception as e:
-                print(f"  ⚠️  {ticker}: Error inserting data for {date.date()}: {e}")
-                continue
-
-        # 財務指標を取得・更新
-        try:
-            info = fetch_with_retry(stock, "info")
-            if info is None:
-                print(f"  ⚠️  {ticker}: No info data available, skipping financial metrics update")
-            else:
-                beginner_score = calculate_beginner_score(info)
-                cur.execute("""
-                    UPDATE "Stock"
-                    SET
-                        pbr = %s,
-                        per = %s,
-                        roe = %s,
-                        "operatingCF" = %s,
-                        "freeCF" = %s,
-                        "currentPrice" = %s,
-                        "fiftyTwoWeekHigh" = %s,
-                        "fiftyTwoWeekLow" = %s,
-                        "beginnerScore" = %s,
-                        "financialDataUpdatedAt" = NOW()
-                    WHERE id = %s
-                """, (
-                    info.get('priceToBook'),
-                    info.get('trailingPE'),
-                    info.get('returnOnEquity'),
-                    info.get('operatingCashflow'),
-                    info.get('freeCashflow'),
-                    info.get('currentPrice'),
-                    info.get('fiftyTwoWeekHigh'),
-                    info.get('fiftyTwoWeekLow'),
-                    beginner_score,
-                    stock_id
-                ))
-        except Exception as e:
-            print(f"  ⚠️  {ticker}: Error updating financial metrics: {e}")
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        print(f"  ✓ {ticker} completed ({inserted_count} new records)")
-        return {"ticker": ticker, "success": True, "skipped": False, "inserted": inserted_count}
-
-    except Exception as e:
-        print(f"  ✗ Error processing {ticker}: {e}")
-        return {"ticker": ticker, "success": False, "error": str(e)}
-
+# =============================================================================
+# メイン処理
+# =============================================================================
 
 def fetch_and_store():
     """
-    1. DBから監視銘柄を取得
-    2. yfinanceで株価データを並列取得
-    3. PostgreSQLに保存
+    最適化されたデータ取得フロー:
+    1. DBから全銘柄を取得
+    2. 既存データをバッチチェック（1クエリ）
+    3. Phase 1: yf.download()でバッチ株価取得 + execute_valuesで一括INSERT
+    4. Phase 2: 財務指標を小バッチ+ディレイで取得 + バッチ更新
     """
     try:
-        print(f"[{datetime.now()}] Starting stock data fetch (parallel mode)...")
+        print(f"[{datetime.now()}] Starting optimized stock data fetch...")
+        print(f"  Price batch size: {PRICE_BATCH_SIZE}, delay: {PRICE_BATCH_DELAY}s")
+        print(f"  Info batch size: {INFO_BATCH_SIZE}, workers: {INFO_WORKERS}, delay: {INFO_BATCH_DELAY}s")
+
+        # 1. DBから全銘柄を取得
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
-
-        # 監視銘柄を取得
         cur.execute('SELECT id, "tickerCode", name FROM "Stock"')
         stocks = cur.fetchall()
         cur.close()
         conn.close()
 
-        print(f"Fetching data for {len(stocks)} stocks with {MAX_WORKERS} workers...")
+        print(f"\nTotal stocks in DB: {len(stocks)}")
 
-        success_count = 0
-        skipped_count = 0
-        error_count = 0
-        results = []
+        # 2. 今日のデータがある銘柄をバッチチェック（1クエリで全銘柄チェック）
+        today = datetime.now().date()
+        stock_ids = [s[0] for s in stocks]
+        stocks_with_data = get_stocks_with_todays_data(stock_ids, today)
 
-        # 並列処理で株価取得
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {executor.submit(fetch_single_stock, stock): stock for stock in stocks}
+        print(f"Stocks with today's data: {len(stocks_with_data)}")
 
-            for future in as_completed(futures):
-                result = future.result()
-                results.append(result)
+        # 3. 銘柄を分類
+        ticker_to_stock_id = {s[1]: s[0] for s in stocks}
 
-                if result["success"]:
-                    if result.get("skipped"):
-                        skipped_count += 1
-                    else:
-                        success_count += 1
+        needs_prices = []      # 株価+財務指標が必要
+        needs_info_only = []   # 財務指標のみ必要（force mode）
+        skipped = []           # スキップ
+
+        for stock_id, ticker, name in stocks:
+            if stock_id in stocks_with_data:
+                if FORCE_UPDATE:
+                    needs_info_only.append(ticker)
                 else:
-                    error_count += 1
+                    skipped.append(ticker)
+            else:
+                needs_prices.append(ticker)
 
-        print(f"\n[{datetime.now()}] Fetch completed!")
-        print(f"  Fetched: {success_count}")
-        print(f"  Skipped: {skipped_count} (already have today's data)")
-        print(f"  Errors: {error_count}")
-        print(f"  Total: {len(stocks)}")
+        print(f"\n  Prices + Info needed: {len(needs_prices)}")
+        print(f"  Info only (force):    {len(needs_info_only)}")
+        print(f"  Skipped:              {len(skipped)}")
+
+        # 4. Phase 1: バッチ株価取得
+        price_data = {}
+        if needs_prices:
+            print(f"\n{'='*60}")
+            print(f"Phase 1: Batch price download ({len(needs_prices)} stocks)")
+            print(f"{'='*60}")
+
+            price_data = batch_download_prices(needs_prices)
+
+            if price_data:
+                print(f"\n  Inserting price data into DB...")
+                total_processed = batch_insert_prices(price_data, ticker_to_stock_id)
+                print(f"  Processed {total_processed} price records")
+            else:
+                print(f"\n  ⚠️  No price data downloaded")
+        else:
+            print(f"\n  All stocks already have today's price data")
+
+        # 5. Phase 2: バッチ財務指標取得
+        all_info_tickers = needs_prices + needs_info_only
+        if all_info_tickers:
+            print(f"\n{'='*60}")
+            print(f"Phase 2: Batch financial metrics ({len(all_info_tickers)} stocks)")
+            print(f"{'='*60}")
+
+            info_data = batch_fetch_info(all_info_tickers)
+
+            if info_data:
+                print(f"\n  Updating financial metrics in DB...")
+                updated = batch_update_financial_metrics(info_data, ticker_to_stock_id)
+                print(f"  Updated {updated} stocks")
+            else:
+                print(f"\n  ⚠️  No financial metrics fetched")
+        else:
+            print(f"\n  No stocks need financial metric updates")
+
+        # 6. サマリー
+        price_success = len(price_data)
+        price_errors = len(needs_prices) - price_success if needs_prices else 0
+
+        print(f"\n{'='*60}")
+        print(f"[{datetime.now()}] Fetch completed!")
+        print(f"  Prices fetched:  {price_success}")
+        print(f"  Price errors:    {price_errors}")
+        print(f"  Info updated:    {len(all_info_tickers)}")
+        print(f"  Skipped:         {len(skipped)}")
+        print(f"  Total:           {len(stocks)}")
 
         # エラーが多すぎる場合は異常終了
-        if error_count > len(stocks) * 0.5:
-            print(f"\nERROR: Too many failures ({error_count}/{len(stocks)})")
+        total_to_process = len(needs_prices)
+        if total_to_process > 0 and price_errors > total_to_process * 0.5:
+            print(f"\nERROR: Too many failures ({price_errors}/{total_to_process})")
             sys.exit(1)
 
     except Exception as e:
@@ -378,6 +523,6 @@ if __name__ == "__main__":
 
     if args.force:
         FORCE_UPDATE = True
-        print("🔄 Force update mode enabled")
+        print("Force update mode enabled")
 
     fetch_and_store()
