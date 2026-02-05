@@ -1,0 +1,7 @@
+-- DropTable (不要なテーブルを削除)
+DROP TABLE IF EXISTS "HotStock" CASCADE;
+DROP TABLE IF EXISTS "CoachMessage" CASCADE;
+DROP TABLE IF EXISTS "StockIndicator" CASCADE;
+DROP TABLE IF EXISTS "IndicatorExplanation" CASCADE;
+DROP TABLE IF EXISTS "MarketNews" CASCADE;
+DROP TABLE IF EXISTS "RecommendationLog" CASCADE;

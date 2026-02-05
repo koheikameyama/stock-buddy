@@ -1,29 +1,17 @@
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
-
 // 月次の提案回数制限
 export const MAX_RECOMMENDATIONS_PER_MONTH = 3
 
 /**
  * ユーザーの今月のAI提案回数を取得
+ *
+ * 注意: RecommendationLogテーブルは削除されたため、常に0を返す
  */
-export async function getMonthlyRecommendationCount(userId: string): Promise<number> {
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-
-  const count = await prisma.recommendationLog.count({
-    where: {
-      userId,
-      createdAt: {
-        gte: startOfMonth,
-        lte: endOfMonth,
-      },
-    },
-  })
-
-  return count
+export async function getMonthlyRecommendationCount(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userId: string
+): Promise<number> {
+  // RecommendationLogテーブルは削除されたため、0を返す
+  return 0
 }
 
 /**

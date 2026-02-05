@@ -54,8 +54,6 @@ model User {
   accounts               Account[]
   sessions               Session[]
   settings               UserSettings?
-  coachMessages          CoachMessage[]
-  recommendationLogs     RecommendationLog[]
   pushSubscriptions      PushSubscription[]
   stockRequests          StockRequest[]
   watchlistStocks        WatchlistStock[]
@@ -120,10 +118,8 @@ model Stock {
   listedDate        DateTime?          // 上場日
 
   prices                  StockPrice[]
-  indicators              StockIndicator[]
   analyses                StockAnalysis[]
   featuredStocks          DailyFeaturedStock[]
-  hotStocks               HotStock[]
   featuredStocksPool      FeaturedStock[]
   watchlistStocks         WatchlistStock[]
   portfolioStocks         PortfolioStock[]
@@ -152,64 +148,6 @@ model StockPrice {
   @@index([stockId, date(sort: Desc)])
 }
 
-// 技術指標データ
-model StockIndicator {
-  id      String   @id @default(cuid())
-  stockId String
-  stock   Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  date    DateTime @db.Date
-  sma25   Decimal? @db.Decimal(12, 2)
-  sma75   Decimal? @db.Decimal(12, 2)
-  rsi14   Decimal? @db.Decimal(5, 2)
-  macd    Decimal? @db.Decimal(12, 4)
-  signal  Decimal? @db.Decimal(12, 4)
-  createdAt DateTime @default(now())
-
-  @@unique([stockId, date])
-  @@index([stockId, date(sort: Desc)])
-}
-
-
-// 指標解説マスタ
-model IndicatorExplanation {
-  id                   String   @id @default(cuid())
-  indicatorName        String   @unique
-  shortDescription     String
-  detailedExplanation  String?  @db.Text
-  exampleUsage         String?  @db.Text
-  createdAt            DateTime @default(now())
-}
-
-// 市場ニュース
-model MarketNews {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   @db.Text
-  url         String?
-  source      String   @default("tavily") // 'tavily' | 'yahoo' | 'nikkei' | 'reuters'
-  sector      String?  // 関連セクター（複数の場合はカンマ区切り）
-  sentiment   String?  // 'positive' | 'neutral' | 'negative'
-  publishedAt DateTime
-  createdAt   DateTime @default(now())
-
-  @@index([publishedAt(sort: Desc)])
-  @@index([sector])
-  @@index([source])
-}
-
-// コーチからの毎日のメッセージ
-model CoachMessage {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date      DateTime @db.Date
-  message   String   @db.Text
-  type      String   // 'encouragement' | 'advice' | 'milestone' | 'market_update'
-  createdAt DateTime @default(now())
-
-  @@unique([userId, date])
-  @@index([userId, date(sort: Desc)])
-}
 
 // 銘柄分析（AI予測機能）
 model StockAnalysis {
@@ -245,29 +183,6 @@ model StockAnalysis {
   @@index([analyzedAt(sort: Desc)])
 }
 
-// オンボーディング推奨ログ（分析用）
-model RecommendationLog {
-  id                String   @id @default(cuid())
-  userId            String?
-  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  budget            Int
-  period            String   // 'short' | 'medium' | 'long'
-  riskTolerance     String   // 'low' | 'medium' | 'high'
-  targetStockCount  Int      // 目標銘柄数
-  candidateStocks   Int      // 候補銘柄数（スコアリング後）
-  affordableStocks  Int      // 購入可能銘柄数
-  selectedStocks    Int      // 実際に選択された銘柄数
-  totalAmount       Decimal  @db.Decimal(15, 2) // 合計購入金額
-  budgetUsageRate   Decimal  @db.Decimal(5, 2)  // 予算使用率（%）
-  stocks            Json     // 選択された銘柄の詳細 [{name, ticker, price, quantity, total, score}]
-  prompt            String?  @db.Text           // AIに送信したプロンプト（分析・改善用）
-  createdAt         DateTime @default(now())
-
-  @@index([userId])
-  @@index([createdAt(sort: Desc)])
-  @@index([budget])
-  @@index([period])
-}
 
 // プッシュ通知購読
 model PushSubscription {
@@ -301,44 +216,6 @@ model DailyFeaturedStock {
   @@index([date, category])
 }
 
-// 今週のチャンス銘柄（ハイリスク・ハイリターン銘柄）
-model HotStock {
-  id              String    @id @default(cuid())
-  stockId         String
-  stock           Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
-
-  // ホットスコア（0-100）
-  hotScore        Int
-
-  // チャンスの理由
-  reasons         String[]  // ["先週から+15%", "半導体需要急増", ...]
-
-  // リスク要因
-  risks           String[]  // ["短期的に大きく変動", "ボラティリティ高", ...]
-
-  // 推奨投資額（予算の%）
-  recommendedBudgetPercent Int  // 10-20
-
-  // AIからの推奨コメント
-  recommendation  String    @db.Text
-
-  // 信頼度（0.0-1.0）
-  confidence      Float
-
-  // 有効期限（通常は1週間）
-  validUntil      DateTime
-
-  // メタ情報
-  analyzedAt      DateTime  @default(now())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@unique([stockId, analyzedAt])
-  @@index([stockId])
-  @@index([hotScore])
-  @@index([validUntil])
-  @@index([analyzedAt(sort: Desc)])
-}
 
 // 銘柄追加リクエスト
 model StockRequest {
