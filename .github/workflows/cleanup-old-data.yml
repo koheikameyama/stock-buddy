@@ -1,0 +1,51 @@
+name: Cleanup Old Data
+
+on:
+  schedule:
+    # 毎週日曜日 JST 03:00 (UTC 18:00 土曜日) に実行
+    - cron: '0 18 * * 6'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install psycopg2-binary
+
+      - name: Run cleanup script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/github-actions/cleanup_old_data.py
+
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "🧹 データクリーンアップ完了"
+          SLACK_MESSAGE: "古いデータの削除が完了しました"
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ データクリーンアップ失敗"
+          SLACK_MESSAGE: "古いデータの削除中にエラーが発生しました"
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"
