@@ -115,6 +115,14 @@ export default async function MyStockDetailPage({
       fiftyTwoWeekLow: userStock.stock.fiftyTwoWeekLow
         ? Number(userStock.stock.fiftyTwoWeekLow)
         : null,
+      // Financial metrics
+      pbr: userStock.stock.pbr ? Number(userStock.stock.pbr) : null,
+      per: userStock.stock.per ? Number(userStock.stock.per) : null,
+      roe: userStock.stock.roe ? Number(userStock.stock.roe) : null,
+      operatingCF: userStock.stock.operatingCF
+        ? Number(userStock.stock.operatingCF)
+        : null,
+      freeCF: userStock.stock.freeCF ? Number(userStock.stock.freeCF) : null,
     },
   }
 

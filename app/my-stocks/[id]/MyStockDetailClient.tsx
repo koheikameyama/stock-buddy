@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import StockPrediction from "@/app/components/StockPrediction"
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation"
 import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
+import FinancialMetrics from "@/app/components/FinancialMetrics"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 
@@ -38,6 +39,11 @@ interface Stock {
     currentPrice: number | null
     fiftyTwoWeekHigh: number | null
     fiftyTwoWeekLow: number | null
+    pbr: number | null
+    per: number | null
+    roe: number | null
+    operatingCF: number | null
+    freeCF: number | null
   }
 }
 
@@ -338,6 +344,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 <StockPrediction stockId={stock.stockId} />
               </div>
             </section>
+
+            {/* Financial Metrics Section */}
+            <FinancialMetrics stock={stock.stock} />
           </>
         )}
 
@@ -396,6 +405,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
               <PurchaseRecommendation stockId={stock.stockId} />
             </section>
+
+            {/* Financial Metrics Section */}
+            <FinancialMetrics stock={stock.stock} />
           </>
         )}
 

@@ -1,4 +1,4 @@
-import FinancialMetricTooltip from "./FinancialMetricTooltip"
+"use client"
 
 interface Stock {
   pbr?: number | null
@@ -6,92 +6,112 @@ interface Stock {
   roe?: number | null
   operatingCF?: number | null
   freeCF?: number | null
-  currentPrice?: number | null
-  fiftyTwoWeekHigh?: number | null
-  fiftyTwoWeekLow?: number | null
 }
 
 interface FinancialMetricsProps {
   stock: Stock
 }
 
+interface MetricCardProps {
+  label: string
+  technicalName: string
+  value: string
+  hint: string
+}
+
+function MetricCard({ label, technicalName, value, hint }: MetricCardProps) {
+  return (
+    <div className="bg-gray-50 rounded-lg p-4">
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className="text-sm font-semibold text-gray-900">{label}</span>
+        <span className="text-xs text-gray-500">({technicalName})</span>
+      </div>
+      <p className="text-xl font-bold text-gray-900 mb-1">{value}</p>
+      <p className="text-xs text-gray-500">{hint}</p>
+    </div>
+  )
+}
+
+function formatCashFlow(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "-"
+  const absValue = Math.abs(value)
+  if (absValue >= 1_000_000_000_000) {
+    return `${(value / 1_000_000_000_000).toFixed(1)}兆円`
+  }
+  if (absValue >= 100_000_000) {
+    return `${(value / 100_000_000).toFixed(0)}億円`
+  }
+  if (absValue >= 10_000) {
+    return `${(value / 10_000).toFixed(0)}万円`
+  }
+  return `${value.toLocaleString()}円`
+}
+
 export default function FinancialMetrics({ stock }: FinancialMetricsProps) {
-  // 数値をフォーマット
-  const formatNumber = (num: number | null | undefined) => {
-    if (num === null || num === undefined) return null
-    return num.toLocaleString()
-  }
+  const { pbr, per, roe, operatingCF, freeCF } = stock
+  const hasAnyData =
+    pbr !== null &&
+    pbr !== undefined ||
+    per !== null &&
+    per !== undefined ||
+    roe !== null &&
+    roe !== undefined ||
+    operatingCF !== null &&
+    operatingCF !== undefined ||
+    freeCF !== null &&
+    freeCF !== undefined
 
-  // 大きな数値を億円単位に変換
-  const formatCashflow = (num: number | null | undefined) => {
-    if (num === null || num === undefined) return null
-    const oku = num / 100000000
-    return `${oku.toFixed(0)}億円`
-  }
-
-  // パーセントをフォーマット
-  const formatPercent = (num: number | null | undefined) => {
-    if (num === null || num === undefined) return null
-    return `${(num * 100).toFixed(2)}%`
+  if (!hasAnyData) {
+    return null
   }
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-      <h3 className="text-sm font-bold text-gray-900 mb-3">財務指標</h3>
-
-      <div className="grid grid-cols-2 gap-3">
-        <FinancialMetricTooltip
-          label="PBR"
-          value={stock.pbr?.toFixed(2)}
-          description="株価純資産倍率（Price to Book Ratio）。会社の純資産に対して、株価が何倍になっているかを示します。"
-          howToRead="一般的に1倍未満は割安、3倍以上は割高とされますが、業種によって基準が異なります。成長企業は高くなりがちです。"
-        />
-
-        <FinancialMetricTooltip
-          label="PER"
-          value={stock.per?.toFixed(2)}
-          description="株価収益率（Price to Earnings Ratio）。会社の利益に対して、株価が何倍になっているかを示します。"
-          howToRead="一般的に15倍前後が適正とされますが、成長企業は高くなります。同業他社と比較することが重要です。"
-        />
-
-        <FinancialMetricTooltip
-          label="ROE"
-          value={formatPercent(stock.roe)}
-          description="自己資本利益率（Return on Equity）。株主が出資したお金をどれだけ効率的に使って利益を出しているかを示します。"
-          howToRead="10%以上が優良とされ、15%以上なら非常に優秀です。高いほど経営効率が良いと言えます。"
-        />
-
-        <FinancialMetricTooltip
-          label="営業CF"
-          value={formatCashflow(stock.operatingCF)}
-          description="営業キャッシュフロー。本業でどれだけ現金を稼いでいるかを示します。"
-          howToRead="プラスで大きいほど良く、マイナスの場合は注意が必要です。利益は黒字でもCFが赤字の場合があります。"
-        />
-
-        <FinancialMetricTooltip
-          label="フリーCF"
-          value={formatCashflow(stock.freeCF)}
-          description="フリーキャッシュフロー。会社が自由に使えるお金がどれだけあるかを示します。"
-          howToRead="プラスで大きいほど財務が健全です。この資金で配当や新規投資ができます。"
-        />
-
-        <FinancialMetricTooltip
-          label="現在株価"
-          value={stock.currentPrice ? `¥${formatNumber(stock.currentPrice)}` : null}
-          description="現在の株価です。"
-          howToRead="52週高値・安値と比較して、今が割安か割高かの参考になります。"
-        />
+    <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+      <div className="mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+          財務指標
+        </h2>
+        <p className="text-sm text-gray-500 mt-1">
+          この銘柄の健全性をチェック
+        </p>
       </div>
 
-      {stock.fiftyTwoWeekHigh && stock.fiftyTwoWeekLow && (
-        <div className="pt-3 border-t border-gray-200">
-          <p className="text-xs text-gray-600 mb-1">52週レンジ</p>
-          <p className="text-sm text-gray-900">
-            ¥{formatNumber(stock.fiftyTwoWeekLow)} 〜 ¥
-            {formatNumber(stock.fiftyTwoWeekHigh)}
-          </p>
-        </div>
-      )}
-    </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <MetricCard
+          label="割安度"
+          technicalName="PBR"
+          value={pbr !== null && pbr !== undefined ? `${pbr.toFixed(2)}倍` : "-"}
+          hint={pbr !== null && pbr !== undefined ? "1倍以下なら割安の可能性" : "データがありません"}
+        />
+
+        <MetricCard
+          label="収益性"
+          technicalName="PER"
+          value={per !== null && per !== undefined ? `${per.toFixed(2)}倍` : "-"}
+          hint={per !== null && per !== undefined ? "15倍以下なら割安傾向" : "データがありません"}
+        />
+
+        <MetricCard
+          label="稼ぐ力"
+          technicalName="ROE"
+          value={roe !== null && roe !== undefined ? `${roe.toFixed(2)}%` : "-"}
+          hint={roe !== null && roe !== undefined ? "10%以上なら優秀" : "データがありません"}
+        />
+
+        <MetricCard
+          label="本業の稼ぎ"
+          technicalName="営業CF"
+          value={formatCashFlow(operatingCF)}
+          hint={operatingCF !== null && operatingCF !== undefined ? "プラスなら健全" : "データがありません"}
+        />
+
+        <MetricCard
+          label="自由に使えるお金"
+          technicalName="フリーCF"
+          value={formatCashFlow(freeCF)}
+          hint={freeCF !== null && freeCF !== undefined ? "プラスなら余裕あり" : "データがありません"}
+        />
+      </div>
+    </section>
   )
 }
