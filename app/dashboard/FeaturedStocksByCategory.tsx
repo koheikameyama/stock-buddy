@@ -64,6 +64,7 @@ export default function FeaturedStocksByCategory({
 }: FeaturedStocksByCategoryProps) {
   const [featuredStocks, setFeaturedStocks] = useState<FeaturedStock[]>([])
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [addingStockId, setAddingStockId] = useState<string | null>(null)
   const [date, setDate] = useState<string | null>(null)
 
@@ -146,6 +147,29 @@ export default function FeaturedStocksByCategory({
     )
   }
 
+  const handleGenerate = async () => {
+    try {
+      setGenerating(true)
+      const response = await fetch("/api/featured-stocks/generate-for-user", {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // 生成成功後、データを再取得
+        await fetchFeaturedStocks()
+      } else {
+        alert(data.error || "生成に失敗しました")
+      }
+    } catch (error) {
+      console.error("Error generating featured stocks:", error)
+      alert("生成に失敗しました")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (!hasAnyStocks) {
     return (
       <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
@@ -158,9 +182,16 @@ export default function FeaturedStocksByCategory({
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
             注目銘柄がまだありません
           </h3>
-          <p className="text-xs sm:text-sm text-gray-600">
+          <p className="text-xs sm:text-sm text-gray-600 mb-4">
             AIが毎日注目銘柄を発見します
           </p>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {generating ? "生成中..." : "今すぐ生成する"}
+          </button>
         </div>
       </div>
     )

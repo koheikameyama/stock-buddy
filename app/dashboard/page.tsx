@@ -2,7 +2,6 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
-import PortfolioGrowthChart from "./PortfolioGrowthChart"
 import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
@@ -46,10 +45,6 @@ export default async function DashboardPage() {
 
   const hasHoldings = user.portfolioStocks.length > 0
   const hasWatchlist = user.watchlistStocks.length > 0
-
-  // スナップショットデータは削除されたので空配列
-  const snapshots: never[] = []
-
 
   return (
     <>
@@ -201,9 +196,6 @@ export default async function DashboardPage() {
               </div>
             </div>
           </Link>
-
-        {/* 成長グラフ */}
-        {hasHoldings && <PortfolioGrowthChart snapshots={snapshots} />}
 
         {/* 今日の注目銘柄（カテゴリ別） */}
         {user && (
