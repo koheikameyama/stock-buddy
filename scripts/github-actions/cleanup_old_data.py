@@ -119,14 +119,20 @@ def cleanup_old_data():
         print(f"Total deleted: {total_deleted} records")
         print("Cleanup completed successfully!")
 
-        # VACUUM ANALYZEを実行（ディスク領域の解放）
-        print("\nRunning VACUUM ANALYZE to reclaim disk space...")
+        # VACUUM FULLを実行（ディスク領域をOSに返却）
+        # 注意: VACUUM FULLはテーブルを排他ロックするため、実行中はアクセス不可
+        print("\nRunning VACUUM FULL to reclaim disk space...")
         conn.set_isolation_level(0)  # autocommit mode for VACUUM
-        cur.execute('VACUUM ANALYZE "StockPrice"')
-        cur.execute('VACUUM ANALYZE "StockIndicator"')
-        cur.execute('VACUUM ANALYZE "StockAnalysis"')
-        cur.execute('VACUUM ANALYZE "MarketNews"')
-        print("VACUUM ANALYZE completed!")
+
+        print("  VACUUM FULL StockPrice...")
+        cur.execute('VACUUM FULL "StockPrice"')
+        print("  VACUUM FULL StockIndicator...")
+        cur.execute('VACUUM FULL "StockIndicator"')
+        print("  VACUUM FULL StockAnalysis...")
+        cur.execute('VACUUM FULL "StockAnalysis"')
+        print("  VACUUM FULL MarketNews...")
+        cur.execute('VACUUM FULL "MarketNews"')
+        print("VACUUM FULL completed!")
 
     except Exception as e:
         conn.rollback()
