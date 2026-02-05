@@ -6,6 +6,10 @@ on:
     - cron: '0 1 * * 1'
   workflow_dispatch: # Allow manual trigger
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   update-stock-master:
     runs-on: ubuntu-latest

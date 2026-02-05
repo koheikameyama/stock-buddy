@@ -6,6 +6,10 @@ on:
     - cron: '0 8 * * *'
   workflow_dispatch: # 手動実行も可能
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fetch-stock-prices:
     runs-on: ubuntu-latest
