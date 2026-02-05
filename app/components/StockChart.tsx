@@ -184,11 +184,11 @@ export default function StockChart({ stockId }: StockChartProps) {
         </button>
       </div>
 
-      {/* Price Chart */}
+      {/* Price Chart - Candlestick */}
       {activeTab === "price" && (
         <div className="h-64 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+            <ComposedChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
                 dataKey="date"
@@ -200,22 +200,85 @@ export default function StockChart({ stockId }: StockChartProps) {
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 tick={{ fontSize: 11 }}
                 stroke="#9ca3af"
-                domain={["dataMin - 100", "dataMax + 100"]}
+                domain={["auto", "auto"]}
+                yAxisId="price"
               />
               <Tooltip
-                formatter={(value) => [formatPrice(Number(value)), "株価"]}
-                labelFormatter={(label) => `日付: ${label}`}
-                contentStyle={{ fontSize: 12 }}
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload
+                    const isUp = d.close >= d.open
+                    return (
+                      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                        <p className="font-medium text-gray-900 mb-1">{label}</p>
+                        <p className="text-gray-600">始値: {formatPrice(d.open)}</p>
+                        <p className="text-gray-600">高値: {formatPrice(d.high)}</p>
+                        <p className="text-gray-600">安値: {formatPrice(d.low)}</p>
+                        <p className={`font-medium ${isUp ? "text-green-600" : "text-red-600"}`}>
+                          終値: {formatPrice(d.close)}
+                        </p>
+                      </div>
+                    )
+                  }
+                  return null
+                }}
               />
-              <Line
-                type="monotone"
-                dataKey="close"
-                stroke="#2563eb"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
+              {/* 高値-安値のヒゲ線 */}
+              <Bar
+                dataKey="high"
+                yAxisId="price"
+                shape={(props) => {
+                  const { x, width, payload } = props as { x: number; width: number; payload: ChartData }
+                  const yScale = props.background?.height
+                    ? (v: number) => {
+                        const domain = [
+                          Math.min(...data.map(d => d.low)),
+                          Math.max(...data.map(d => d.high))
+                        ]
+                        const range = props.background?.height || 200
+                        const padding = 20
+                        return padding + (range - 2 * padding) * (1 - (v - domain[0]) / (domain[1] - domain[0]))
+                      }
+                    : null
+
+                  if (!yScale) return null
+
+                  const isUp = payload.close >= payload.open
+                  const color = isUp ? "#22c55e" : "#ef4444"
+                  const centerX = x + width / 2
+
+                  // ヒゲ
+                  const highY = yScale(payload.high)
+                  const lowY = yScale(payload.low)
+
+                  // 実体
+                  const bodyTop = yScale(Math.max(payload.open, payload.close))
+                  const bodyBottom = yScale(Math.min(payload.open, payload.close))
+                  const bodyHeight = Math.max(bodyBottom - bodyTop, 1)
+
+                  return (
+                    <g>
+                      <line
+                        x1={centerX}
+                        y1={highY}
+                        x2={centerX}
+                        y2={lowY}
+                        stroke={color}
+                        strokeWidth={1}
+                      />
+                      <rect
+                        x={x + 1}
+                        y={bodyTop}
+                        width={Math.max(width - 2, 3)}
+                        height={bodyHeight}
+                        fill={color}
+                        stroke={color}
+                      />
+                    </g>
+                  )
+                }}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
