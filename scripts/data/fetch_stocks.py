@@ -21,6 +21,55 @@ MAX_WORKERS = 15  # 並列実行数
 MAX_RETRIES = 3  # API rate limit時の最大リトライ回数
 RETRY_DELAYS = [5, 10, 20]  # リトライ間隔（秒）
 
+
+def calculate_beginner_score(info: dict) -> int:
+    """
+    財務指標からbeginnerScore（初心者向けスコア）を計算
+
+    スコア計算基準:
+    - 基本点: 50点
+    - PBR 1〜3の範囲: +10点
+    - PER 10〜20の範囲: +10点
+    - ROE 5%以上: +10点
+    - 現在価格が52週高値から20%以内: +10点
+    - 取引量が一定以上（100万株/日以上）: +10点
+
+    Returns:
+        beginnerScore (0-100)
+    """
+    score = 50  # 基本点
+
+    # PBR (Price to Book Ratio): 1〜3が適正
+    pbr = info.get('priceToBook')
+    if pbr is not None and 1.0 <= pbr <= 3.0:
+        score += 10
+
+    # PER (Price to Earnings Ratio): 10〜20が適正
+    per = info.get('trailingPE')
+    if per is not None and 10.0 <= per <= 20.0:
+        score += 10
+
+    # ROE (Return on Equity): 5%以上が良好
+    roe = info.get('returnOnEquity')
+    if roe is not None and roe >= 0.05:
+        score += 10
+
+    # 52週高値からの乖離: 20%以内なら安定
+    current_price = info.get('currentPrice')
+    high_52week = info.get('fiftyTwoWeekHigh')
+    if current_price and high_52week and high_52week > 0:
+        deviation = (high_52week - current_price) / high_52week
+        if deviation <= 0.20:
+            score += 10
+
+    # 平均出来高: 100万株以上なら流動性良好
+    avg_volume = info.get('averageVolume')
+    if avg_volume is not None and avg_volume >= 1_000_000:
+        score += 10
+
+    # 0-100の範囲にクランプ
+    return max(0, min(100, score))
+
 if not DATABASE_URL:
     print("ERROR: DATABASE_URL environment variable is not set")
     sys.exit(1)
@@ -123,6 +172,7 @@ def fetch_single_stock(stock_data):
             try:
                 stock = yf.Ticker(ticker)
                 info = fetch_with_retry(stock, "info")
+                beginner_score = calculate_beginner_score(info)
                 cur.execute("""
                     UPDATE "Stock"
                     SET
@@ -134,6 +184,7 @@ def fetch_single_stock(stock_data):
                         "currentPrice" = %s,
                         "fiftyTwoWeekHigh" = %s,
                         "fiftyTwoWeekLow" = %s,
+                        "beginnerScore" = %s,
                         "financialDataUpdatedAt" = NOW()
                     WHERE id = %s
                 """, (
@@ -145,10 +196,11 @@ def fetch_single_stock(stock_data):
                     info.get('currentPrice'),
                     info.get('fiftyTwoWeekHigh'),
                     info.get('fiftyTwoWeekLow'),
+                    beginner_score,
                     stock_id
                 ))
                 conn.commit()
-                print(f"  ✓ {ticker} financial metrics updated")
+                print(f"  ✓ {ticker} financial metrics updated (beginnerScore: {beginner_score})")
             except Exception as e:
                 print(f"  ⚠️  {ticker}: Error updating financial metrics: {e}")
             finally:
@@ -197,6 +249,7 @@ def fetch_single_stock(stock_data):
         # 財務指標を取得・更新
         try:
             info = fetch_with_retry(stock, "info")
+            beginner_score = calculate_beginner_score(info)
             cur.execute("""
                 UPDATE "Stock"
                 SET
@@ -208,6 +261,7 @@ def fetch_single_stock(stock_data):
                     "currentPrice" = %s,
                     "fiftyTwoWeekHigh" = %s,
                     "fiftyTwoWeekLow" = %s,
+                    "beginnerScore" = %s,
                     "financialDataUpdatedAt" = NOW()
                 WHERE id = %s
             """, (
@@ -219,6 +273,7 @@ def fetch_single_stock(stock_data):
                 info.get('currentPrice'),
                 info.get('fiftyTwoWeekHigh'),
                 info.get('fiftyTwoWeekLow'),
+                beginner_score,
                 stock_id
             ))
         except Exception as e:
