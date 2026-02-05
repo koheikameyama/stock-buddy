@@ -34,34 +34,47 @@ export async function POST(
 
     // リクエストボディを取得
     const body = await request.json()
-    const { quantity, price, purchaseDate, note } = body
+    const { type = "buy", quantity, price, purchaseDate, note } = body
+
+    // typeのバリデーション
+    if (type !== "buy" && type !== "sell") {
+      return NextResponse.json(
+        { error: "取引種別が不正です" },
+        { status: 400 }
+      )
+    }
+
+    const isBuy = type === "buy"
 
     // バリデーション
     if (!quantity || quantity <= 0) {
       return NextResponse.json(
-        { error: "購入株数を入力してください" },
+        { error: isBuy ? "購入株数を入力してください" : "売却株数を入力してください" },
         { status: 400 }
       )
     }
 
     if (!price || price <= 0) {
       return NextResponse.json(
-        { error: "購入単価を入力してください" },
+        { error: isBuy ? "購入単価を入力してください" : "売却単価を入力してください" },
         { status: 400 }
       )
     }
 
     if (!purchaseDate) {
       return NextResponse.json(
-        { error: "購入日を入力してください" },
+        { error: isBuy ? "購入日を入力してください" : "売却日を入力してください" },
         { status: 400 }
       )
     }
 
-    // ポートフォリオストックを取得
+    // ポートフォリオストックを取得（売却時は現在の保有数も確認）
     const portfolioStock = await prisma.portfolioStock.findUnique({
       where: { id },
-      include: { stock: true },
+      include: {
+        stock: true,
+        transactions: { orderBy: { transactionDate: "asc" } },
+      },
     })
 
     if (!portfolioStock) {
@@ -79,13 +92,26 @@ export async function POST(
       )
     }
 
+    // 売却の場合、現在の保有数を超えていないかチェック
+    if (!isBuy) {
+      const { quantity: currentQuantity } = calculatePortfolioFromTransactions(
+        portfolioStock.transactions
+      )
+      if (quantity > currentQuantity) {
+        return NextResponse.json(
+          { error: `売却可能な株数は${currentQuantity}株までです` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Transactionを作成
     await prisma.transaction.create({
       data: {
         userId: user.id,
         stockId: portfolioStock.stockId,
         portfolioStockId: portfolioStock.id,
-        type: "buy",
+        type,
         quantity,
         price: new Decimal(price),
         totalAmount: new Decimal(quantity).times(price),
@@ -163,9 +189,9 @@ export async function POST(
 
     return NextResponse.json(response)
   } catch (error) {
-    console.error("Additional purchase error:", error)
+    console.error("Transaction error:", error)
     return NextResponse.json(
-      { error: "追加購入の登録に失敗しました" },
+      { error: "取引の登録に失敗しました" },
       { status: 500 }
     )
   }

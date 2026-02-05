@@ -6,6 +6,7 @@ import StockPrediction from "@/app/components/StockPrediction"
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation"
 import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
 import EditTransactionDialog from "../EditTransactionDialog"
+import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 
 interface Transaction {
   id: string
@@ -52,6 +53,8 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [price, setPrice] = useState<StockPrice | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [showTransactionDialog, setShowTransactionDialog] = useState(false)
+  const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -236,11 +239,11 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
             </section>
 
-            {/* Purchase History Section */}
+            {/* Transaction History Section */}
             {stock.transactions && stock.transactions.length > 0 && (
               <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-                  購入履歴
+                  取引履歴
                 </h2>
 
                 <div className="space-y-3">
@@ -249,13 +252,24 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                       key={transaction.id}
                       className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
                     >
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {new Date(transaction.transactionDate).toLocaleDateString("ja-JP")}
-                        </p>
-                        {transaction.note && (
-                          <p className="text-xs text-gray-500">{transaction.note}</p>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                            transaction.type === "buy"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {transaction.type === "buy" ? "買" : "売"}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {new Date(transaction.transactionDate).toLocaleDateString("ja-JP")}
+                          </p>
+                          {transaction.note && (
+                            <p className="text-xs text-gray-500">{transaction.note}</p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
@@ -366,6 +380,55 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3">
+          {isPortfolio && (
+            <>
+              <button
+                onClick={() => {
+                  setTransactionType("buy")
+                  setShowTransactionDialog(true)
+                }}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                追加購入
+              </button>
+              <button
+                onClick={() => {
+                  setTransactionType("sell")
+                  setShowTransactionDialog(true)
+                }}
+                disabled={quantity === 0}
+                className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 12H4"
+                  />
+                </svg>
+                売却
+              </button>
+            </>
+          )}
           <button
             onClick={handleDelete}
             className="flex-1 px-4 py-3 bg-red-50 text-red-700 rounded-lg font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
@@ -400,6 +463,30 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             stockName={stock.stock.name}
           />
         )}
+
+        {/* Additional Purchase / Sell Dialog */}
+        <AdditionalPurchaseDialog
+          isOpen={showTransactionDialog}
+          onClose={() => setShowTransactionDialog(false)}
+          stock={{
+            id: stock.id,
+            userId: "",
+            stockId: stock.stockId,
+            type: stock.type,
+            quantity: stock.quantity,
+            averagePurchasePrice: stock.averagePurchasePrice,
+            purchaseDate: stock.purchaseDate,
+            note: stock.note,
+            stock: stock.stock,
+            createdAt: "",
+            updatedAt: "",
+          }}
+          onSuccess={() => {
+            setShowTransactionDialog(false)
+            router.refresh()
+          }}
+          transactionType={transactionType}
+        />
       </div>
     </main>
   )

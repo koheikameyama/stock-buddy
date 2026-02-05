@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface UserStock {
   id: string
@@ -28,6 +28,7 @@ interface AdditionalPurchaseDialogProps {
   onClose: () => void
   stock: UserStock | null
   onSuccess: (updatedStock: UserStock) => void
+  transactionType?: "buy" | "sell"
 }
 
 export default function AdditionalPurchaseDialog({
@@ -35,15 +36,29 @@ export default function AdditionalPurchaseDialog({
   onClose,
   stock,
   onSuccess,
+  transactionType = "buy",
 }: AdditionalPurchaseDialogProps) {
   const [quantity, setQuantity] = useState("")
   const [price, setPrice] = useState("")
-  const [purchaseDate, setPurchaseDate] = useState(
+  const [transactionDate, setTransactionDate] = useState(
     new Date().toISOString().split("T")[0]
   )
   const [note, setNote] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isBuy = transactionType === "buy"
+
+  // Reset form when dialog opens/closes or type changes
+  useEffect(() => {
+    if (isOpen) {
+      setQuantity("")
+      setPrice("")
+      setTransactionDate(new Date().toISOString().split("T")[0])
+      setNote("")
+      setError(null)
+    }
+  }, [isOpen, transactionType])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,13 +69,20 @@ export default function AdditionalPurchaseDialog({
       return
     }
 
-    if (!quantity || parseInt(quantity) <= 0) {
-      setError("追加購入株数を入力してください")
+    const qty = parseInt(quantity)
+    if (!quantity || qty <= 0) {
+      setError(isBuy ? "追加購入株数を入力してください" : "売却株数を入力してください")
+      return
+    }
+
+    // 売却時は保有数を超えないかチェック
+    if (!isBuy && qty > (stock.quantity || 0)) {
+      setError(`売却可能な株数は${stock.quantity || 0}株までです`)
       return
     }
 
     if (!price || parseFloat(price) <= 0) {
-      setError("購入単価を入力してください")
+      setError(isBuy ? "購入単価を入力してください" : "売却単価を入力してください")
       return
     }
 
@@ -68,9 +90,10 @@ export default function AdditionalPurchaseDialog({
 
     try {
       const body = {
-        quantity: parseInt(quantity),
+        type: transactionType,
+        quantity: qty,
         price: parseFloat(price),
-        purchaseDate,
+        purchaseDate: transactionDate,
         note: note || undefined,
       }
 
@@ -84,20 +107,14 @@ export default function AdditionalPurchaseDialog({
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || "追加購入の登録に失敗しました")
+        throw new Error(data.error || (isBuy ? "追加購入の登録に失敗しました" : "売却の登録に失敗しました"))
       }
 
       const updatedStock = await response.json()
       onSuccess(updatedStock)
-
-      // Reset form
-      setQuantity("")
-      setPrice("")
-      setPurchaseDate(new Date().toISOString().split("T")[0])
-      setNote("")
     } catch (err: any) {
       console.error(err)
-      setError(err.message || "追加購入の登録に失敗しました")
+      setError(err.message || (isBuy ? "追加購入の登録に失敗しました" : "売却の登録に失敗しました"))
     } finally {
       setLoading(false)
     }
@@ -105,15 +122,28 @@ export default function AdditionalPurchaseDialog({
 
   if (!isOpen || !stock) return null
 
-  // Calculate new average price
   const currentQuantity = stock.quantity || 0
   const currentAvgPrice = stock.averagePurchasePrice || 0
-  const additionalQuantity = parseInt(quantity) || 0
-  const additionalPrice = parseFloat(price) || 0
+  const inputQuantity = parseInt(quantity) || 0
+  const inputPrice = parseFloat(price) || 0
 
-  const newTotalQuantity = currentQuantity + additionalQuantity
-  const newAvgPrice = newTotalQuantity > 0
-    ? (currentQuantity * currentAvgPrice + additionalQuantity * additionalPrice) / newTotalQuantity
+  // Calculate preview
+  let previewQuantity: number
+  let previewAvgPrice: number
+
+  if (isBuy) {
+    previewQuantity = currentQuantity + inputQuantity
+    previewAvgPrice = previewQuantity > 0
+      ? (currentQuantity * currentAvgPrice + inputQuantity * inputPrice) / previewQuantity
+      : 0
+  } else {
+    previewQuantity = currentQuantity - inputQuantity
+    previewAvgPrice = currentAvgPrice // 売却しても平均単価は変わらない
+  }
+
+  // 売却損益計算
+  const sellProfit = !isBuy && inputQuantity > 0 && inputPrice > 0
+    ? (inputPrice - currentAvgPrice) * inputQuantity
     : 0
 
   return (
@@ -121,7 +151,7 @@ export default function AdditionalPurchaseDialog({
       <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            追加購入
+            {isBuy ? "追加購入" : "売却"}
           </h2>
           <button
             onClick={onClose}
@@ -171,7 +201,7 @@ export default function AdditionalPurchaseDialog({
               htmlFor="quantity"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              追加購入株数 <span className="text-red-500">*</span>
+              {isBuy ? "追加購入株数" : "売却株数"} <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -179,10 +209,16 @@ export default function AdditionalPurchaseDialog({
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               min="1"
+              max={!isBuy ? currentQuantity : undefined}
               placeholder="例: 100"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
+            {!isBuy && (
+              <p className="mt-1 text-xs text-gray-500">
+                売却可能: {currentQuantity}株
+              </p>
+            )}
           </div>
 
           <div>
@@ -190,7 +226,7 @@ export default function AdditionalPurchaseDialog({
               htmlFor="price"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              購入単価 <span className="text-red-500">*</span>
+              {isBuy ? "購入単価" : "売却単価"} <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -207,16 +243,16 @@ export default function AdditionalPurchaseDialog({
 
           <div>
             <label
-              htmlFor="purchaseDate"
+              htmlFor="transactionDate"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              購入日 <span className="text-red-500">*</span>
+              {isBuy ? "購入日" : "売却日"} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
-              id="purchaseDate"
-              value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)}
+              id="transactionDate"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
@@ -233,25 +269,42 @@ export default function AdditionalPurchaseDialog({
               id="note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="購入理由や注意点などを記録できます"
+              placeholder={isBuy ? "購入理由や注意点などを記録できます" : "売却理由などを記録できます"}
               rows={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
           </div>
 
-          {/* Preview of new average */}
+          {/* Preview */}
           {quantity && price && (
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">購入後の状況</h4>
+            <div className={`p-4 rounded-lg ${isBuy ? "bg-blue-50" : "bg-orange-50"}`}>
+              <h4 className={`text-sm font-semibold mb-2 ${isBuy ? "text-blue-900" : "text-orange-900"}`}>
+                {isBuy ? "購入後の状況" : "売却後の状況"}
+              </h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-blue-700">合計保有数</span>
-                  <span className="font-semibold text-blue-900">{newTotalQuantity}株</span>
+                  <span className={isBuy ? "text-blue-700" : "text-orange-700"}>
+                    {isBuy ? "合計保有数" : "残り保有数"}
+                  </span>
+                  <span className={`font-semibold ${isBuy ? "text-blue-900" : "text-orange-900"}`}>
+                    {previewQuantity}株
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-700">新しい平均単価</span>
-                  <span className="font-semibold text-blue-900">¥{newAvgPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                </div>
+                {isBuy ? (
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">新しい平均単価</span>
+                    <span className="font-semibold text-blue-900">
+                      ¥{previewAvgPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between">
+                    <span className="text-orange-700">売却損益</span>
+                    <span className={`font-semibold ${sellProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {sellProfit >= 0 ? "+" : ""}¥{sellProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -268,10 +321,12 @@ export default function AdditionalPurchaseDialog({
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 rounded-lg font-semibold transition-colors text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors text-white disabled:bg-gray-300 disabled:cursor-not-allowed ${
+                isBuy ? "bg-blue-600 hover:bg-blue-700" : "bg-orange-600 hover:bg-orange-700"
+              }`}
               disabled={loading}
             >
-              {loading ? "登録中..." : "追加購入を登録"}
+              {loading ? "登録中..." : (isBuy ? "追加購入を登録" : "売却を登録")}
             </button>
           </div>
         </form>
