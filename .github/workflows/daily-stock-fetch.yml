@@ -4,7 +4,13 @@ on:
   schedule:
     # 毎日JST 17:00 (UTC 08:00) に実行（市場クローズ後）
     - cron: '0 8 * * *'
-  workflow_dispatch: # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '強制更新（今日のデータがあっても財務指標を更新）'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,7 +39,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          python scripts/data/fetch_stocks.py
+          if [ "${{ inputs.force }}" = "true" ]; then
+            python scripts/data/fetch_stocks.py --force
+          else
+            python scripts/data/fetch_stocks.py
+          fi
 
       - name: Send push notification
         if: success()

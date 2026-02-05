@@ -4,12 +4,17 @@
 
 毎日17:00 JSTに実行され、DBに登録された全銘柄の株価データを取得してPostgreSQLに保存する。
 並列処理により高速化。
+
+Usage:
+  python fetch_stocks.py          # 通常実行（今日のデータがあればスキップ）
+  python fetch_stocks.py --force  # 強制実行（今日のデータがあっても財務指標を更新）
 """
 
 import yfinance as yf
 import psycopg2
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import argparse
 import os
 import sys
 import time
@@ -18,6 +23,7 @@ from urllib.error import HTTPError
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 MAX_WORKERS = 15  # 並列実行数
+FORCE_UPDATE = False  # 強制更新モード（コマンドライン引数で設定）
 MAX_RETRIES = 3  # API rate limit時の最大リトライ回数
 RETRY_DELAYS = [5, 10, 20]  # リトライ間隔（秒）
 
@@ -166,9 +172,15 @@ def fetch_single_stock(stock_data):
         # 今日のデータがすでにあるかチェック
         today = datetime.now().date()
         if has_todays_data(stock_id, today):
-            print(f"  → Updating financial metrics only (price data already exists)")
+            # 強制更新モードでなければスキップ（API接続なし）
+            if not FORCE_UPDATE:
+                print(f"  → Skipped (price data already exists)")
+                cur.close()
+                conn.close()
+                return {"ticker": ticker, "success": True, "skipped": True, "inserted": 0}
 
-            # 財務指標のみ更新
+            # 強制更新モード: 財務指標のみ更新
+            print(f"  → Force updating financial metrics (price data already exists)")
             try:
                 stock = yf.Ticker(ticker)
                 info = fetch_with_retry(stock, "info")
@@ -356,4 +368,16 @@ def fetch_and_store():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="株価データ取得スクリプト")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="今日のデータがあっても財務指標を強制更新"
+    )
+    args = parser.parse_args()
+
+    if args.force:
+        FORCE_UPDATE = True
+        print("🔄 Force update mode enabled")
+
     fetch_and_store()
