@@ -55,6 +55,7 @@ export default async function DashboardPage() {
         hasInvestmentStyle={!!user.settings}
         investmentPeriod={user.settings?.investmentPeriod}
         riskTolerance={user.settings?.riskTolerance}
+        investmentBudget={user.settings?.investmentBudget}
       />
       <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
@@ -128,6 +129,11 @@ export default async function DashboardPage() {
                           ? "リスク中（バランス）"
                           : "リスク高（成長重視）"}
                       </span>
+                      {user.settings.investmentBudget && (
+                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 w-fit">
+                          資金 {(user.settings.investmentBudget / 10000).toLocaleString()}万円
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

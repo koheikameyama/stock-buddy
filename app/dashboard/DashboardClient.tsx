@@ -12,12 +12,14 @@ type DashboardClientProps = {
   hasInvestmentStyle: boolean
   investmentPeriod?: string
   riskTolerance?: string
+  investmentBudget?: number | null
 }
 
 export default function DashboardClient({
   hasInvestmentStyle,
   investmentPeriod,
   riskTolerance,
+  investmentBudget,
 }: DashboardClientProps) {
   const [showInvestmentStyleModal, setShowInvestmentStyleModal] = useState(false)
   const searchParams = useSearchParams()
@@ -50,6 +52,7 @@ export default function DashboardClient({
         onClose={handleCloseInvestmentStyleModal}
         defaultPeriod={investmentPeriod}
         defaultRisk={riskTolerance}
+        defaultBudget={investmentBudget}
       />
       <InstallPrompt />
       <PushNotificationPrompt />

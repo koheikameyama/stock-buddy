@@ -39,7 +39,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { investmentPeriod, riskTolerance } = await request.json()
+    const { investmentPeriod, riskTolerance, investmentBudget } = await request.json()
 
     // バリデーション
     if (!investmentPeriod || !riskTolerance) {
@@ -68,10 +68,12 @@ export async function PUT(request: NextRequest) {
         userId: user.id,
         investmentPeriod,
         riskTolerance,
+        investmentBudget: investmentBudget ?? null,
       },
       update: {
         investmentPeriod,
         riskTolerance,
+        investmentBudget: investmentBudget ?? null,
       },
     })
 
