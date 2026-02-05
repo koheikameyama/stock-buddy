@@ -10,7 +10,9 @@ dayjs.extend(timezone)
 
 /**
  * GET /api/featured-stocks
- * 今日の注目銘柄を取得（ユーザーの投資スタイルに応じてパーソナライズ）
+ * 今日の注目銘柄を取得
+ * - あなたへのおすすめ（3件）: 投資スタイル・予算に基づきパーソナライズ
+ * - みんなが注目（3件）: 全ユーザー共通の話題銘柄
  */
 export async function GET() {
   try {
@@ -58,7 +60,7 @@ export async function GET() {
       userStockIds = userStocks.map((us) => us.stockId)
     }
 
-    // 投資スタイルに応じてカテゴリを決定
+    // 投資スタイルに応じて優先カテゴリを決定
     const preferredCategories = determinePreferredCategories(
       investmentPeriod,
       riskTolerance
@@ -73,7 +75,7 @@ export async function GET() {
     // データが存在しない場合
     if (!latestDate) {
       return NextResponse.json(
-        { featuredStocks: [], needsGeneration: true },
+        { personalRecommendations: [], trendingStocks: [], needsGeneration: true },
         { status: 200 }
       )
     }
@@ -94,57 +96,27 @@ export async function GET() {
         },
       },
       orderBy: [
-        { position: "asc" },
+        { score: "desc" },
       ],
     })
 
     // 注目銘柄が存在しない場合
     if (featuredStocks.length === 0) {
       return NextResponse.json(
-        { featuredStocks: [], needsGeneration: true },
+        { personalRecommendations: [], trendingStocks: [], needsGeneration: true },
         { status: 200 }
       )
     }
 
-    // 投資資金でフィルタリング（設定がある場合のみ）
-    // 日本株は通常100株単位なので、currentPrice * 100 が最低購入金額
-    const filteredStocks = investmentBudget
-      ? featuredStocks.filter((fs) => {
-          const currentPrice = fs.stock.prices[0]
-            ? Number(fs.stock.prices[0].close)
-            : null
-          if (currentPrice === null) return true // 価格不明の銘柄は表示
-          const minPurchaseAmount = currentPrice * 100
-          return minPurchaseAmount <= investmentBudget
-        })
-      : featuredStocks
-
-    // カテゴリ別に並び替え（優先カテゴリを上位に）
-    const sortedStocks = [...filteredStocks].sort((a, b) => {
-      const aIndex = preferredCategories.indexOf(a.category)
-      const bIndex = preferredCategories.indexOf(b.category)
-
-      // 優先カテゴリに含まれる場合、その順序で並べる
-      if (aIndex !== -1 && bIndex !== -1) {
-        return aIndex - bIndex
-      }
-      if (aIndex !== -1) return -1
-      if (bIndex !== -1) return 1
-
-      // それ以外はposition順
-      return a.position - b.position
-    })
-
-    // レスポンス整形
-    const response = sortedStocks.map((fs) => ({
+    // レスポンス整形用ヘルパー
+    const formatStock = (fs: typeof featuredStocks[number]) => ({
       id: fs.id,
       stockId: fs.stockId,
       position: fs.position,
       category: fs.category,
       reason: fs.reason,
       score: fs.score,
-      isOwned: userStockIds.includes(fs.stockId), // 保有中かどうか
-      isRecommended: preferredCategories[0] === fs.category, // 最優先カテゴリかどうか
+      isOwned: userStockIds.includes(fs.stockId),
       stock: {
         id: fs.stock.id,
         tickerCode: fs.stock.tickerCode,
@@ -154,12 +126,44 @@ export async function GET() {
           ? Number(fs.stock.prices[0].close)
           : null,
       },
-    }))
+    })
+
+    // --- あなたへのおすすめ（surge + stable から予算・スタイルでフィルタ、上位3件）---
+    const recommendationCandidates = featuredStocks
+      .filter((fs) => fs.category === "surge" || fs.category === "stable")
+
+    // 予算フィルタリング（設定がある場合のみ）
+    const budgetFiltered = investmentBudget
+      ? recommendationCandidates.filter((fs) => {
+          const currentPrice = fs.stock.prices[0]
+            ? Number(fs.stock.prices[0].close)
+            : null
+          if (currentPrice === null) return true
+          const minPurchaseAmount = currentPrice * 100
+          return minPurchaseAmount <= investmentBudget
+        })
+      : recommendationCandidates
+
+    // 優先カテゴリ順 → スコア順でソート
+    const personalSorted = [...budgetFiltered].sort((a, b) => {
+      const aIndex = preferredCategories.indexOf(a.category)
+      const bIndex = preferredCategories.indexOf(b.category)
+      if (aIndex !== bIndex) return aIndex - bIndex
+      return b.score - a.score
+    })
+
+    const personalRecommendations = personalSorted.slice(0, 3).map(formatStock)
+
+    // --- みんなが注目（trending カテゴリ、予算フィルタなし、上位3件）---
+    const trendingStocks = featuredStocks
+      .filter((fs) => fs.category === "trending")
+      .slice(0, 3)
+      .map(formatStock)
 
     return NextResponse.json({
-      featuredStocks: response,
-      preferredCategory: preferredCategories[0], // 優先カテゴリ情報
-      date: latestDate.date, // 注目銘柄の日付
+      personalRecommendations,
+      trendingStocks,
+      date: latestDate.date,
     }, { status: 200 })
   } catch (error) {
     console.error("Error fetching featured stocks:", error)
@@ -172,10 +176,6 @@ export async function GET() {
 
 /**
  * 投資スタイルに応じて優先カテゴリを決定
- *
- * @param investmentPeriod 投資期間（short/medium/long）
- * @param riskTolerance リスク許容度（low/medium/high）
- * @returns 優先カテゴリの配列（優先順）
  */
 function determinePreferredCategories(
   investmentPeriod?: string,
@@ -184,25 +184,17 @@ function determinePreferredCategories(
   // デフォルトは安定→話題→急騰
   let categories = ["stable", "trending", "surge"]
 
-  // 投資期間が短期の場合
   if (investmentPeriod === "short") {
     categories = ["surge", "trending", "stable"]
-  }
-  // 投資期間が中期の場合
-  else if (investmentPeriod === "medium") {
+  } else if (investmentPeriod === "medium") {
     categories = ["trending", "stable", "surge"]
-  }
-  // 投資期間が長期の場合
-  else if (investmentPeriod === "long") {
+  } else if (investmentPeriod === "long") {
     categories = ["stable", "trending", "surge"]
   }
 
-  // リスク許容度が高い場合は急騰を優先
   if (riskTolerance === "high") {
     categories = ["surge", ...categories.filter((c) => c !== "surge")]
-  }
-  // リスク許容度が低い場合は安定を優先
-  else if (riskTolerance === "low") {
+  } else if (riskTolerance === "low") {
     categories = ["stable", ...categories.filter((c) => c !== "stable")]
   }
 
