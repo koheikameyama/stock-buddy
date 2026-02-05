@@ -149,6 +149,23 @@ model StockPrice {
 }
 
 
+// マーケットニュース
+model MarketNews {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  url         String?
+  source      String   @default("tavily")
+  sector      String?
+  sentiment   String?  // 'positive' | 'negative' | 'neutral'
+  publishedAt DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([publishedAt(sort: Desc)])
+  @@index([sector])
+  @@index([source])
+}
+
 // 銘柄分析（AI予測機能）
 model StockAnalysis {
   id                  String   @id @default(cuid())
