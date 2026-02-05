@@ -54,9 +54,10 @@ interface StockCardProps {
   recommendation?: PurchaseRecommendation
   portfolioAnalysis?: PortfolioAnalysis
   onAdditionalPurchase?: () => void
+  onSell?: () => void
 }
 
-export default function StockCard({ stock, price, recommendation, portfolioAnalysis, onAdditionalPurchase }: StockCardProps) {
+export default function StockCard({ stock, price, recommendation, portfolioAnalysis, onAdditionalPurchase, onSell }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -211,30 +212,58 @@ export default function StockCard({ stock, price, recommendation, portfolioAnaly
               </div>
             )}
 
-            {/* Additional Purchase Button */}
-            {onAdditionalPurchase && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onAdditionalPurchase()
-                }}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                追加購入
-              </button>
+            {/* Transaction Buttons */}
+            {(onAdditionalPurchase || onSell) && (
+              <div className="flex gap-2">
+                {onAdditionalPurchase && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAdditionalPurchase()
+                    }}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    追加購入
+                  </button>
+                )}
+                {onSell && quantity > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSell()
+                    }}
+                    className="flex-1 px-3 py-2 bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20 12H4"
+                      />
+                    </svg>
+                    売却
+                  </button>
+                )}
+              </div>
             )}
           </>
         )}
@@ -250,6 +279,24 @@ export default function StockCard({ stock, price, recommendation, portfolioAnaly
             </div>
           </div>
         )}
+
+        {/* Detail Link */}
+        <div className="flex items-center justify-end text-blue-600 pt-2 mt-2 border-t border-gray-100">
+          <span className="text-sm font-medium">詳細を見る</span>
+          <svg
+            className="w-4 h-4 ml-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </div>
       </div>
     </div>
   )

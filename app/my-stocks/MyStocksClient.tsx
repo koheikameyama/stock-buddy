@@ -64,8 +64,9 @@ export default function MyStocksClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showAdditionalPurchaseDialog, setShowAdditionalPurchaseDialog] = useState(false)
-  const [selectedStockForPurchase, setSelectedStockForPurchase] = useState<UserStock | null>(null)
+  const [showTransactionDialog, setShowTransactionDialog] = useState(false)
+  const [selectedStock, setSelectedStock] = useState<UserStock | null>(null)
+  const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
 
   // Fetch user stocks
@@ -159,8 +160,15 @@ export default function MyStocksClient() {
   }
 
   const handleAdditionalPurchase = (stock: UserStock) => {
-    setSelectedStockForPurchase(stock)
-    setShowAdditionalPurchaseDialog(true)
+    setSelectedStock(stock)
+    setTransactionType("buy")
+    setShowTransactionDialog(true)
+  }
+
+  const handleSell = (stock: UserStock) => {
+    setSelectedStock(stock)
+    setTransactionType("sell")
+    setShowTransactionDialog(true)
   }
 
   const handleStockAdded = (newStock: UserStock) => {
@@ -168,12 +176,12 @@ export default function MyStocksClient() {
     setShowAddDialog(false)
   }
 
-  const handleAdditionalPurchaseSuccess = (updatedStock: UserStock) => {
+  const handleTransactionSuccess = (updatedStock: UserStock) => {
     setUserStocks((prev) =>
       prev.map((s) => (s.id === updatedStock.id ? updatedStock : s))
     )
-    setShowAdditionalPurchaseDialog(false)
-    setSelectedStockForPurchase(null)
+    setShowTransactionDialog(false)
+    setSelectedStock(null)
   }
 
   // Filter stocks by type
@@ -321,6 +329,7 @@ export default function MyStocksClient() {
                     longTerm: stock.longTerm ?? null,
                   } : undefined}
                   onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
+                  onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
                 />
               ))}
             </div>
@@ -337,13 +346,14 @@ export default function MyStocksClient() {
       />
 
       <AdditionalPurchaseDialog
-        isOpen={showAdditionalPurchaseDialog}
+        isOpen={showTransactionDialog}
         onClose={() => {
-          setShowAdditionalPurchaseDialog(false)
-          setSelectedStockForPurchase(null)
+          setShowTransactionDialog(false)
+          setSelectedStock(null)
         }}
-        stock={selectedStockForPurchase}
-        onSuccess={handleAdditionalPurchaseSuccess}
+        stock={selectedStock}
+        onSuccess={handleTransactionSuccess}
+        transactionType={transactionType}
       />
     </main>
   )
