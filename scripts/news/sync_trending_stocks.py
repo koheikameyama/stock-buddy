@@ -31,7 +31,7 @@ def load_trending_codes(file_path: str = "scripts/news/trending_stock_codes.json
             data = json.load(f)
             return data.get("stock_codes", [])
     except FileNotFoundError:
-        print(f"❌ Error: {file_path} not found. Run fetch_jpx_news.py first.")
+        print(f"❌ Error: {file_path} not found. Run fetch_news.py first.")
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error loading trending codes: {e}")

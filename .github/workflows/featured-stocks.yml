@@ -27,7 +27,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python scripts/news/fetch_jpx_news.py
+          python scripts/news/fetch_news.py
 
       - name: Generate featured stocks
         env:

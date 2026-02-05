@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-JPX公式RSSからニュースを取得し、話題の銘柄コードを抽出するスクリプト
-（拡張版：MarketNewsテーブルへの保存・セクター/センチメント分析）
+株式関連ニュースを取得してMarketNewsテーブルに保存するスクリプト
+
+機能:
+- Google News RSSから株式関連ニュースを取得
+- セクター・センチメント分析（ルールベース + AI）
+- MarketNewsテーブルへの保存
+- 話題の銘柄コード抽出
 
 Usage:
-    python scripts/news/fetch_jpx_news.py
+    python scripts/news/fetch_news.py
 """
 
 import sys
