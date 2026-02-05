@@ -336,10 +336,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 AI購入判断
               </h2>
 
-              <div className="space-y-4">
-                <PurchaseRecommendation stockId={stock.stockId} />
-                <StockPrediction stockId={stock.stockId} />
-              </div>
+              <PurchaseRecommendation stockId={stock.stockId} />
             </section>
           </>
         )}

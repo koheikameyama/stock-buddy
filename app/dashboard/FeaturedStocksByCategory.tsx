@@ -91,18 +91,19 @@ export default function FeaturedStocksByCategory({
     }
   }
 
-  const handleAddToWatchlist = async (stockId: string) => {
+  const handleAddToWatchlist = async (stock: FeaturedStock) => {
     try {
-      setAddingStockId(stockId)
+      setAddingStockId(stock.stockId)
 
-      const response = await fetch("/api/watchlist/add", {
+      const response = await fetch("/api/user-stocks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId,
-          stockId,
+          tickerCode: stock.stock.tickerCode,
+          type: "watchlist",
+          addedReason: stock.reason || "注目銘柄から追加",
         }),
       })
 
@@ -286,7 +287,7 @@ export default function FeaturedStocksByCategory({
 
                       {/* Add to Watchlist Button */}
                       <button
-                        onClick={() => handleAddToWatchlist(stock.stockId)}
+                        onClick={() => handleAddToWatchlist(stock)}
                         disabled={addingStockId === stock.stockId}
                         className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${
                           categoryKey === "surge"
