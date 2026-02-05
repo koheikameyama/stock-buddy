@@ -4,6 +4,7 @@ import { OpenAI } from "openai"
 import { getRelatedNews } from "@/lib/news-rag"
 import dayjs from "dayjs"
 import pLimit from "p-limit"
+import { notifySlack } from "@/lib/slack"
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -129,6 +130,18 @@ export async function POST(request: NextRequest) {
     const limit = pLimit(concurrency)
     const openai = getOpenAIClient()
 
+    // 進捗追跡
+    const totalStocks = allStocks.length
+    let processedCount = 0
+    let lastNotifiedPercentage = 0
+
+    // 開始通知
+    await notifySlack({
+      title: "🤖 注目銘柄の分析を開始",
+      message: `${totalStocks}銘柄をOpenAI APIで分析します`,
+      color: "#439FE0",
+    })
+
     // 銘柄を分析する関数
     const analyzeStock = async (stock: (typeof allStocks)[0]) => {
       const latestPrice = stock.prices[0]?.close
@@ -197,6 +210,24 @@ ${
       })
 
       console.log(`✅ Analyzed and added: ${stock.name} (${stock.tickerCode})`)
+
+      // 進捗を更新して通知
+      processedCount++
+      const currentPercentage = Math.floor((processedCount / totalStocks) * 100)
+
+      // 25%ごとに通知（25%, 50%, 75%）
+      if (
+        currentPercentage >= lastNotifiedPercentage + 25 &&
+        currentPercentage < 100
+      ) {
+        lastNotifiedPercentage = Math.floor(currentPercentage / 25) * 25
+        await notifySlack({
+          title: "📊 注目銘柄の分析中",
+          message: `${processedCount}/${totalStocks}銘柄完了 (${lastNotifiedPercentage}%)`,
+          color: "#439FE0",
+        })
+      }
+
       return { success: true, skipped: false }
     }
 
@@ -224,6 +255,17 @@ ${
     console.log(`   - Analyzed: ${results.analyzed_count}`)
     console.log(`   - Featured stocks: ${results.featured_count}`)
     console.log(`   - Errors: ${results.error_count}`)
+
+    // 完了通知
+    await notifySlack({
+      title: "✅ 注目銘柄の分析が完了",
+      message: `${results.featured_count}銘柄を登録しました`,
+      color: "good",
+      fields: [
+        { title: "分析完了", value: `${results.analyzed_count}銘柄`, short: true },
+        { title: "エラー", value: `${results.error_count}件`, short: true },
+      ],
+    })
 
     return NextResponse.json({
       success: true,
