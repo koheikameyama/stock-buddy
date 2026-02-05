@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { OpenAI } from "openai"
 import { getRelatedNews } from "@/lib/news-rag"
 import dayjs from "dayjs"
+import pLimit from "p-limit"
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -123,8 +124,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // OpenAI APIで分析（並列処理で高速化）
-    const batchSize = 5
+    // OpenAI APIで分析（キュー方式で並列処理）
+    const concurrency = 5
+    const limit = pLimit(concurrency)
     const openai = getOpenAIClient()
 
     // 銘柄を分析する関数
@@ -198,31 +200,22 @@ ${
       return { success: true, skipped: false }
     }
 
-    // バッチ処理で並列実行
-    for (let i = 0; i < allStocks.length; i += batchSize) {
-      const batch = allStocks.slice(i, i + batchSize)
+    // キュー方式で並列実行（常に5つのタスクが走り、1つ終わったら即座に次を開始）
+    const allResults = await Promise.allSettled(
+      allStocks.map((stock) => limit(() => analyzeStock(stock)))
+    )
 
-      const batchResults = await Promise.allSettled(
-        batch.map((stock) => analyzeStock(stock))
-      )
-
-      // 結果を集計
-      for (const result of batchResults) {
-        if (result.status === "fulfilled") {
-          if (result.value.success) {
-            results.analyzed_count++
-            results.featured_count++
-          }
-        } else {
-          console.error(`Error analyzing stock:`, result.reason)
-          results.error_count++
-          results.errors.push(`Failed: ${result.reason}`)
+    // 結果を集計
+    for (const result of allResults) {
+      if (result.status === "fulfilled") {
+        if (result.value.success) {
+          results.analyzed_count++
+          results.featured_count++
         }
-      }
-
-      // レート制限対策：バッチ間で500ms待機
-      if (i + batchSize < allStocks.length) {
-        await new Promise((resolve) => setTimeout(resolve, 500))
+      } else {
+        console.error(`Error analyzing stock:`, result.reason)
+        results.error_count++
+        results.errors.push(`Failed: ${result.reason}`)
       }
     }
 
