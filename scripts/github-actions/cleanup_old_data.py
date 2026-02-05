@@ -121,18 +121,32 @@ def cleanup_old_data():
 
         # VACUUM FULLを実行（ディスク領域をOSに返却）
         # 注意: VACUUM FULLはテーブルを排他ロックするため、実行中はアクセス不可
+        # 小さいテーブルから実行して、徐々に空き容量を確保する
         print("\nRunning VACUUM FULL to reclaim disk space...")
         conn.set_isolation_level(0)  # autocommit mode for VACUUM
 
-        print("  VACUUM FULL StockPrice...")
-        cur.execute('VACUUM FULL "StockPrice"')
-        print("  VACUUM FULL StockIndicator...")
-        cur.execute('VACUUM FULL "StockIndicator"')
-        print("  VACUUM FULL StockAnalysis...")
-        cur.execute('VACUUM FULL "StockAnalysis"')
-        print("  VACUUM FULL MarketNews...")
-        cur.execute('VACUUM FULL "MarketNews"')
-        print("VACUUM FULL completed!")
+        # 小さいテーブルから順に実行（エラーがあっても続行）
+        tables = ["StockIndicator", "StockAnalysis", "MarketNews", "StockPrice"]
+        vacuum_errors = []
+
+        for table in tables:
+            try:
+                print(f"  VACUUM FULL {table}...")
+                cur.execute(f'VACUUM FULL "{table}"')
+                print(f"  VACUUM FULL {table} completed!")
+            except Exception as e:
+                print(f"  VACUUM FULL {table} failed: {e}")
+                vacuum_errors.append(table)
+                # 新しい接続で続行
+                conn = psycopg2.connect(DATABASE_URL)
+                conn.set_isolation_level(0)
+                cur = conn.cursor()
+
+        if vacuum_errors:
+            print(f"\nVACUUM FULL failed for: {', '.join(vacuum_errors)}")
+            print("Some tables could not be vacuumed due to disk space constraints.")
+        else:
+            print("VACUUM FULL completed for all tables!")
 
     except Exception as e:
         conn.rollback()
