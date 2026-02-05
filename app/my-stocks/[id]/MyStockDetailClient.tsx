@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import StockPrediction from "@/app/components/StockPrediction"
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation"
 import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
-import EditStockDialog from "../EditStockDialog"
+import EditTransactionDialog from "../EditTransactionDialog"
 
 interface Transaction {
   id: string
@@ -51,7 +51,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const router = useRouter()
   const [price, setPrice] = useState<StockPrice | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -153,30 +153,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           <>
             {/* Current Status Section */}
             <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                  現在の状況
-                </h2>
-                <button
-                  onClick={() => setIsEditDialogOpen(true)}
-                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="保有情報を編集"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </button>
-              </div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
+                現在の状況
+              </h2>
 
               <div className="space-y-4">
                 {/* Current Price */}
@@ -278,13 +257,34 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                           <p className="text-xs text-gray-500">{transaction.note}</p>
                         )}
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-gray-900">
-                          {transaction.quantity}株 @ ¥{transaction.price.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          ¥{transaction.totalAmount.toLocaleString()}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {transaction.quantity}株 @ ¥{transaction.price.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            ¥{transaction.totalAmount.toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setSelectedTransaction(transaction)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="編集"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -387,16 +387,17 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           </button>
         </div>
 
-        {/* Edit Dialog */}
-        {isPortfolio && (
-          <EditStockDialog
-            isOpen={isEditDialogOpen}
-            onClose={() => setIsEditDialogOpen(false)}
+        {/* Edit Transaction Dialog */}
+        {selectedTransaction && (
+          <EditTransactionDialog
+            isOpen={true}
+            onClose={() => setSelectedTransaction(null)}
             onSuccess={() => {
-              setIsEditDialogOpen(false)
+              setSelectedTransaction(null)
               router.refresh()
             }}
-            stock={stock}
+            transaction={selectedTransaction}
+            stockName={stock.stock.name}
           />
         )}
       </div>

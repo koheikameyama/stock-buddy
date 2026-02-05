@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { searchAndAddStock } from "@/lib/stock-fetcher"
+import { Decimal } from "@prisma/client/runtime/library"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 // Constants
 const MAX_STOCKS = 5
@@ -15,7 +17,7 @@ export interface UserStockResponse {
   // Watchlist fields
   addedReason?: string | null
   alertPrice?: number | null
-  // Portfolio fields
+  // Portfolio fields (calculated from transactions)
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
@@ -23,6 +25,16 @@ export interface UserStockResponse {
   shortTerm?: string | null
   mediumTerm?: string | null
   longTerm?: string | null
+  // Transaction data
+  transactions?: {
+    id: string
+    type: string
+    quantity: number
+    price: number
+    totalAmount: number
+    transactionDate: string
+    note: string | null
+  }[]
   // Common fields
   note?: string | null
   stock: {
@@ -107,6 +119,9 @@ export async function GET(request: NextRequest) {
               currentPrice: true,
             },
           },
+          transactions: {
+            orderBy: { transactionDate: "asc" },
+          },
         },
         orderBy: { createdAt: "desc" },
       })
@@ -133,30 +148,48 @@ export async function GET(request: NextRequest) {
       updatedAt: ws.updatedAt.toISOString(),
     }))
 
-    const portfolioResponse: UserStockResponse[] = portfolioStocks.map((ps) => ({
-      id: ps.id,
-      userId: ps.userId,
-      stockId: ps.stockId,
-      type: "portfolio" as const,
-      quantity: ps.quantity,
-      averagePurchasePrice: ps.averagePurchasePrice ? Number(ps.averagePurchasePrice) : undefined,
-      purchaseDate: ps.purchaseDate ? ps.purchaseDate.toISOString() : undefined,
-      lastAnalysis: ps.lastAnalysis ? ps.lastAnalysis.toISOString() : null,
-      shortTerm: ps.shortTerm,
-      mediumTerm: ps.mediumTerm,
-      longTerm: ps.longTerm,
-      note: ps.note,
-      stock: {
-        id: ps.stock.id,
-        tickerCode: ps.stock.tickerCode,
-        name: ps.stock.name,
-        sector: ps.stock.sector,
-        market: ps.stock.market,
-        currentPrice: ps.stock.currentPrice ? Number(ps.stock.currentPrice) : null,
-      },
-      createdAt: ps.createdAt.toISOString(),
-      updatedAt: ps.updatedAt.toISOString(),
-    }))
+    const portfolioResponse: UserStockResponse[] = portfolioStocks.map((ps) => {
+      // Calculate from transactions
+      const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
+        ps.transactions
+      )
+      const firstBuyTransaction = ps.transactions.find((t: any) => t.type === "buy")
+      const purchaseDate = firstBuyTransaction?.transactionDate || ps.createdAt
+
+      return {
+        id: ps.id,
+        userId: ps.userId,
+        stockId: ps.stockId,
+        type: "portfolio" as const,
+        quantity,
+        averagePurchasePrice: averagePurchasePrice.toNumber(),
+        purchaseDate: purchaseDate.toISOString(),
+        lastAnalysis: ps.lastAnalysis ? ps.lastAnalysis.toISOString() : null,
+        shortTerm: ps.shortTerm,
+        mediumTerm: ps.mediumTerm,
+        longTerm: ps.longTerm,
+        transactions: ps.transactions.map((t: any) => ({
+          id: t.id,
+          type: t.type,
+          quantity: t.quantity,
+          price: t.price.toNumber(),
+          totalAmount: t.totalAmount.toNumber(),
+          transactionDate: t.transactionDate.toISOString(),
+          note: t.note,
+        })),
+        note: ps.note,
+        stock: {
+          id: ps.stock.id,
+          tickerCode: ps.stock.tickerCode,
+          name: ps.stock.name,
+          sector: ps.stock.sector,
+          market: ps.stock.market,
+          currentPrice: ps.stock.currentPrice ? Number(ps.stock.currentPrice) : null,
+        },
+        createdAt: ps.createdAt.toISOString(),
+        updatedAt: ps.updatedAt.toISOString(),
+      }
+    })
 
     const response = [...watchlistResponse, ...portfolioResponse]
 
@@ -341,52 +374,81 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const portfolioStock = await prisma.portfolioStock.create({
-        data: {
-          userId,
-          stockId: stock.id,
-          quantity,
-          averagePurchasePrice,
-          purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-          note,
-        },
-        include: {
-          stock: {
-            select: {
-              id: true,
-              tickerCode: true,
-              name: true,
-              sector: true,
-              market: true,
-              currentPrice: true,
+      const transactionDate = purchaseDate ? new Date(purchaseDate) : new Date()
+
+      // トランザクション内でポートフォリオと購入履歴を同時に作成
+      const result = await prisma.$transaction(async (tx) => {
+        // PortfolioStock を作成（quantity, averagePurchasePrice カラムなし）
+        const portfolioStock = await tx.portfolioStock.create({
+          data: {
+            userId,
+            stockId: stock.id,
+            note,
+          },
+          include: {
+            stock: {
+              select: {
+                id: true,
+                tickerCode: true,
+                name: true,
+                sector: true,
+                market: true,
+                currentPrice: true,
+              },
             },
           },
-        },
+        })
+
+        // 購入履歴（トランザクション記録）を作成
+        const transaction = await tx.transaction.create({
+          data: {
+            userId,
+            stockId: stock.id,
+            portfolioStockId: portfolioStock.id,
+            type: "buy",
+            quantity,
+            price: new Decimal(averagePurchasePrice),
+            totalAmount: new Decimal(quantity).times(averagePurchasePrice),
+            transactionDate,
+            note,
+          },
+        })
+
+        return { portfolioStock, transaction }
       })
 
       const response: UserStockResponse = {
-        id: portfolioStock.id,
-        userId: portfolioStock.userId,
-        stockId: portfolioStock.stockId,
+        id: result.portfolioStock.id,
+        userId: result.portfolioStock.userId,
+        stockId: result.portfolioStock.stockId,
         type: "portfolio",
-        quantity: portfolioStock.quantity,
-        averagePurchasePrice: Number(portfolioStock.averagePurchasePrice),
-        purchaseDate: portfolioStock.purchaseDate.toISOString(),
-        lastAnalysis: portfolioStock.lastAnalysis ? portfolioStock.lastAnalysis.toISOString() : null,
-        shortTerm: portfolioStock.shortTerm,
-        mediumTerm: portfolioStock.mediumTerm,
-        longTerm: portfolioStock.longTerm,
-        note: portfolioStock.note,
+        quantity,
+        averagePurchasePrice,
+        purchaseDate: transactionDate.toISOString(),
+        lastAnalysis: result.portfolioStock.lastAnalysis ? result.portfolioStock.lastAnalysis.toISOString() : null,
+        shortTerm: result.portfolioStock.shortTerm,
+        mediumTerm: result.portfolioStock.mediumTerm,
+        longTerm: result.portfolioStock.longTerm,
+        transactions: [{
+          id: result.transaction.id,
+          type: result.transaction.type,
+          quantity: result.transaction.quantity,
+          price: result.transaction.price.toNumber(),
+          totalAmount: result.transaction.totalAmount.toNumber(),
+          transactionDate: result.transaction.transactionDate.toISOString(),
+          note: result.transaction.note,
+        }],
+        note: result.portfolioStock.note,
         stock: {
-          id: portfolioStock.stock.id,
-          tickerCode: portfolioStock.stock.tickerCode,
-          name: portfolioStock.stock.name,
-          sector: portfolioStock.stock.sector,
-          market: portfolioStock.stock.market,
-          currentPrice: portfolioStock.stock.currentPrice ? Number(portfolioStock.stock.currentPrice) : null,
+          id: result.portfolioStock.stock.id,
+          tickerCode: result.portfolioStock.stock.tickerCode,
+          name: result.portfolioStock.stock.name,
+          sector: result.portfolioStock.stock.sector,
+          market: result.portfolioStock.stock.market,
+          currentPrice: result.portfolioStock.stock.currentPrice ? Number(result.portfolioStock.stock.currentPrice) : null,
         },
-        createdAt: portfolioStock.createdAt.toISOString(),
-        updatedAt: portfolioStock.updatedAt.toISOString(),
+        createdAt: result.portfolioStock.createdAt.toISOString(),
+        updatedAt: result.portfolioStock.updatedAt.toISOString(),
       }
 
       return NextResponse.json(response, { status: 201 })

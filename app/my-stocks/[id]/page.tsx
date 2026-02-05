@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import Header from "@/app/components/Header"
 import MyStockDetailClient from "./MyStockDetailClient"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 export default async function MyStockDetailPage({
   params,
@@ -57,17 +58,34 @@ export default async function MyStockDetailPage({
     redirect("/my-stocks")
   }
 
+  // Calculate portfolio values from transactions
+  let calculatedQuantity: number | undefined
+  let calculatedAveragePrice: number | undefined
+  let calculatedPurchaseDate: string | undefined
+
+  if (portfolioStock && portfolioStock.transactions.length > 0) {
+    const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
+      portfolioStock.transactions
+    )
+    calculatedQuantity = quantity
+    calculatedAveragePrice = averagePurchasePrice.toNumber()
+
+    // Get the first purchase date
+    const firstBuyTransaction = [...portfolioStock.transactions]
+      .sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime())
+      .find((t) => t.type === "buy")
+    calculatedPurchaseDate = firstBuyTransaction?.transactionDate.toISOString()
+  }
+
   // Transform to unified format
   const stockData = {
     id: userStock.id,
     stockId: userStock.stockId,
     type: portfolioStock ? ("portfolio" as const) : ("watchlist" as const),
-    // Portfolio fields
-    quantity: portfolioStock?.quantity,
-    averagePurchasePrice: portfolioStock?.averagePurchasePrice
-      ? Number(portfolioStock.averagePurchasePrice)
-      : undefined,
-    purchaseDate: portfolioStock?.purchaseDate.toISOString(),
+    // Portfolio fields (calculated from transactions)
+    quantity: calculatedQuantity,
+    averagePurchasePrice: calculatedAveragePrice,
+    purchaseDate: calculatedPurchaseDate,
     transactions: portfolioStock?.transactions.map((t) => ({
       id: t.id,
       type: t.type,

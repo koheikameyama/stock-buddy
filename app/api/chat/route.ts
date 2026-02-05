@@ -7,6 +7,7 @@ import {
   formatNewsForPrompt,
   formatNewsReferences,
 } from "@/lib/news-rag"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
               },
             },
           },
+          transactions: {
+            orderBy: { transactionDate: "asc" },
+          },
         },
       }),
       prisma.watchlistStock.findMany({
@@ -72,8 +76,11 @@ export async function POST(request: NextRequest) {
           : ps.stock.currentPrice
           ? Number(ps.stock.currentPrice)
           : 0
-        const averagePrice = Number(ps.averagePurchasePrice)
-        const quantity = ps.quantity
+        // Calculate from transactions
+        const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
+          ps.transactions
+        )
+        const averagePrice = averagePurchasePrice.toNumber()
         const totalCost = averagePrice * quantity
         const currentValue = currentPrice * quantity
         const profit = currentValue - totalCost

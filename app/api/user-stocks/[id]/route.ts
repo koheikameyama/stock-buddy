@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { Decimal } from "@prisma/client/runtime/library"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { UserStockResponse } from "../route"
 
 interface UpdateUserStockRequest {
@@ -8,10 +10,6 @@ interface UpdateUserStockRequest {
   // Watchlist fields
   addedReason?: string
   alertPrice?: number
-  // Portfolio fields
-  quantity?: number
-  averagePurchasePrice?: number
-  purchaseDate?: string
   // Common
   note?: string
 }
@@ -64,7 +62,10 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
   // Find in both tables
   const [watchlistStock, portfolioStock] = await Promise.all([
     prisma.watchlistStock.findUnique({ where: { id }, include: { stock: true } }),
-    prisma.portfolioStock.findUnique({ where: { id }, include: { stock: true } }),
+    prisma.portfolioStock.findUnique({
+      where: { id },
+      include: { stock: true, transactions: { orderBy: { transactionDate: "asc" } } },
+    }),
   ])
 
   const existingStock = watchlistStock || portfolioStock
@@ -92,60 +93,92 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       )
     }
 
-    // Delete from watchlist
-    await prisma.watchlistStock.delete({ where: { id } })
+    const transactionDate = purchaseDate ? new Date(purchaseDate) : new Date()
 
-    // Create in portfolio
-    const newPortfolioStock = await prisma.portfolioStock.create({
-      data: {
-        userId,
-        stockId: watchlistStock.stockId,
-        quantity,
-        averagePurchasePrice,
-        purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-        note: watchlistStock.note,
-      },
-      include: {
-        stock: {
-          select: {
-            id: true,
-            tickerCode: true,
-            name: true,
-            sector: true,
-            market: true,
-            currentPrice: true,
+    // Delete from watchlist and create in portfolio with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.watchlistStock.delete({ where: { id } })
+
+      const newPortfolioStock = await tx.portfolioStock.create({
+        data: {
+          userId,
+          stockId: watchlistStock.stockId,
+          note: watchlistStock.note,
+        },
+        include: {
+          stock: {
+            select: {
+              id: true,
+              tickerCode: true,
+              name: true,
+              sector: true,
+              market: true,
+              currentPrice: true,
+            },
           },
         },
-      },
+      })
+
+      const transaction = await tx.transaction.create({
+        data: {
+          userId,
+          stockId: watchlistStock.stockId,
+          portfolioStockId: newPortfolioStock.id,
+          type: "buy",
+          quantity,
+          price: new Decimal(averagePurchasePrice),
+          totalAmount: new Decimal(quantity).times(averagePurchasePrice),
+          transactionDate,
+        },
+      })
+
+      return { portfolioStock: newPortfolioStock, transaction }
     })
 
     const response: UserStockResponse = {
-      id: newPortfolioStock.id,
-      userId: newPortfolioStock.userId,
-      stockId: newPortfolioStock.stockId,
+      id: result.portfolioStock.id,
+      userId: result.portfolioStock.userId,
+      stockId: result.portfolioStock.stockId,
       type: "portfolio",
-      quantity: newPortfolioStock.quantity,
-      averagePurchasePrice: Number(newPortfolioStock.averagePurchasePrice),
-      purchaseDate: newPortfolioStock.purchaseDate.toISOString(),
-      note: newPortfolioStock.note,
+      quantity,
+      averagePurchasePrice,
+      purchaseDate: transactionDate.toISOString(),
+      note: result.portfolioStock.note,
+      transactions: [{
+        id: result.transaction.id,
+        type: result.transaction.type,
+        quantity: result.transaction.quantity,
+        price: result.transaction.price.toNumber(),
+        totalAmount: result.transaction.totalAmount.toNumber(),
+        transactionDate: result.transaction.transactionDate.toISOString(),
+        note: result.transaction.note,
+      }],
       stock: {
-        id: newPortfolioStock.stock.id,
-        tickerCode: newPortfolioStock.stock.tickerCode,
-        name: newPortfolioStock.stock.name,
-        sector: newPortfolioStock.stock.sector,
-        market: newPortfolioStock.stock.market,
-        currentPrice: newPortfolioStock.stock.currentPrice
-          ? Number(newPortfolioStock.stock.currentPrice)
+        id: result.portfolioStock.stock.id,
+        tickerCode: result.portfolioStock.stock.tickerCode,
+        name: result.portfolioStock.stock.name,
+        sector: result.portfolioStock.stock.sector,
+        market: result.portfolioStock.stock.market,
+        currentPrice: result.portfolioStock.stock.currentPrice
+          ? Number(result.portfolioStock.stock.currentPrice)
           : null,
       },
-      createdAt: newPortfolioStock.createdAt.toISOString(),
-      updatedAt: newPortfolioStock.updatedAt.toISOString(),
+      createdAt: result.portfolioStock.createdAt.toISOString(),
+      updatedAt: result.portfolioStock.updatedAt.toISOString(),
     }
 
     return NextResponse.json(response)
   } else if (convertTo === "watchlist" && portfolioStock) {
     // Portfolio → Watchlist
-    await prisma.portfolioStock.delete({ where: { id } })
+    // Delete portfolio (transactions will be orphaned but kept)
+    await prisma.$transaction(async (tx) => {
+      // Orphan transactions
+      await tx.transaction.updateMany({
+        where: { portfolioStockId: id },
+        data: { portfolioStockId: null },
+      })
+      await tx.portfolioStock.delete({ where: { id } })
+    })
 
     const newWatchlistStock = await prisma.watchlistStock.create({
       data: {
@@ -202,7 +235,10 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
   // Find in both tables
   const [watchlistStock, portfolioStock] = await Promise.all([
     prisma.watchlistStock.findUnique({ where: { id }, include: { stock: true } }),
-    prisma.portfolioStock.findUnique({ where: { id }, include: { stock: true } }),
+    prisma.portfolioStock.findUnique({
+      where: { id },
+      include: { stock: true, transactions: { orderBy: { transactionDate: "asc" } } },
+    }),
   ])
 
   const existingStock = watchlistStock || portfolioStock
@@ -259,16 +295,10 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
 
     return NextResponse.json(response)
   } else if (portfolioStock) {
-    // Update portfolio
-    const updateData: any = { note: body.note }
-
-    if (body.quantity !== undefined) updateData.quantity = body.quantity
-    if (body.averagePurchasePrice !== undefined) updateData.averagePurchasePrice = body.averagePurchasePrice
-    if (body.purchaseDate !== undefined) updateData.purchaseDate = new Date(body.purchaseDate)
-
+    // Update portfolio (only note can be updated directly)
     const updated = await prisma.portfolioStock.update({
       where: { id },
-      data: updateData,
+      data: { note: body.note },
       include: {
         stock: {
           select: {
@@ -280,21 +310,40 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
             currentPrice: true,
           },
         },
+        transactions: {
+          orderBy: { transactionDate: "asc" },
+        },
       },
     })
+
+    // Calculate from transactions
+    const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
+      updated.transactions
+    )
+    const firstBuyTransaction = updated.transactions.find((t) => t.type === "buy")
+    const purchaseDate = firstBuyTransaction?.transactionDate || updated.createdAt
 
     const response: UserStockResponse = {
       id: updated.id,
       userId: updated.userId,
       stockId: updated.stockId,
       type: "portfolio",
-      quantity: updated.quantity,
-      averagePurchasePrice: Number(updated.averagePurchasePrice),
-      purchaseDate: updated.purchaseDate.toISOString(),
+      quantity,
+      averagePurchasePrice: averagePurchasePrice.toNumber(),
+      purchaseDate: purchaseDate.toISOString(),
       lastAnalysis: updated.lastAnalysis ? updated.lastAnalysis.toISOString() : null,
       shortTerm: updated.shortTerm,
       mediumTerm: updated.mediumTerm,
       longTerm: updated.longTerm,
+      transactions: updated.transactions.map((t) => ({
+        id: t.id,
+        type: t.type,
+        quantity: t.quantity,
+        price: t.price.toNumber(),
+        totalAmount: t.totalAmount.toNumber(),
+        transactionDate: t.transactionDate.toISOString(),
+        note: t.note,
+      })),
       note: updated.note,
       stock: {
         id: updated.stock.id,
@@ -350,7 +399,14 @@ export async function DELETE(
     if (watchlistStock) {
       await prisma.watchlistStock.delete({ where: { id } })
     } else if (portfolioStock) {
-      await prisma.portfolioStock.delete({ where: { id } })
+      // Orphan transactions and delete portfolio
+      await prisma.$transaction(async (tx) => {
+        await tx.transaction.updateMany({
+          where: { portfolioStockId: id },
+          data: { portfolioStockId: null },
+        })
+        await tx.portfolioStock.delete({ where: { id } })
+      })
     }
 
     return NextResponse.json({

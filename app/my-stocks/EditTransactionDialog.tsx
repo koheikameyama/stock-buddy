@@ -2,60 +2,50 @@
 
 import { useState, useEffect } from "react"
 
-interface UserStock {
+interface Transaction {
   id: string
-  stockId: string
-  type: "watchlist" | "portfolio"
-  // Portfolio fields
-  quantity?: number
-  averagePurchasePrice?: number
-  purchaseDate?: string
-  stock: {
-    id: string
-    tickerCode: string
-    name: string
-    sector: string | null
-    market: string
-    currentPrice: number | null
-  }
+  type: string
+  quantity: number
+  price: number
+  totalAmount: number
+  transactionDate: string
+  note: string | null
 }
 
-interface EditStockDialogProps {
+interface EditTransactionDialogProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: (stock: any) => void
-  stock: UserStock
+  onSuccess: () => void
+  transaction: Transaction
+  stockName: string
 }
 
-export default function EditStockDialog({
+export default function EditTransactionDialog({
   isOpen,
   onClose,
   onSuccess,
-  stock,
-}: EditStockDialogProps) {
-  const [quantity, setQuantity] = useState(stock.quantity?.toString() || "100")
-  const [averagePrice, setAveragePrice] = useState(
-    stock.averagePurchasePrice?.toString() || ""
+  transaction,
+  stockName,
+}: EditTransactionDialogProps) {
+  const [quantity, setQuantity] = useState(transaction.quantity.toString())
+  const [price, setPrice] = useState(transaction.price.toString())
+  const [transactionDate, setTransactionDate] = useState(
+    new Date(transaction.transactionDate).toISOString().split("T")[0]
   )
-  const [purchaseDate, setPurchaseDate] = useState(
-    stock.purchaseDate
-      ? new Date(stock.purchaseDate).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0]
-  )
+  const [note, setNote] = useState(transaction.note || "")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Reset form when stock changes
+  // Reset form when transaction changes
   useEffect(() => {
-    setQuantity(stock.quantity?.toString() || "100")
-    setAveragePrice(stock.averagePurchasePrice?.toString() || "")
-    setPurchaseDate(
-      stock.purchaseDate
-        ? new Date(stock.purchaseDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0]
+    setQuantity(transaction.quantity.toString())
+    setPrice(transaction.price.toString())
+    setTransactionDate(
+      new Date(transaction.transactionDate).toISOString().split("T")[0]
     )
+    setNote(transaction.note || "")
     setError(null)
-  }, [stock])
+  }, [transaction])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,15 +53,16 @@ export default function EditStockDialog({
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/user-stocks/${stock.id}`, {
+      const response = await fetch(`/api/transactions/${transaction.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           quantity: parseInt(quantity),
-          averagePurchasePrice: averagePrice ? parseFloat(averagePrice) : null,
-          purchaseDate: purchaseDate,
+          price: parseFloat(price),
+          transactionDate: transactionDate,
+          note: note || null,
         }),
       })
 
@@ -80,8 +71,7 @@ export default function EditStockDialog({
         throw new Error(data.error || "更新に失敗しました")
       }
 
-      const updatedStock = await response.json()
-      onSuccess(updatedStock)
+      onSuccess()
     } catch (err: any) {
       console.error(err)
       setError(err.message || "更新に失敗しました")
@@ -90,14 +80,43 @@ export default function EditStockDialog({
     }
   }
 
+  const handleDelete = async () => {
+    if (!confirm("この購入履歴を削除しますか？保有数量と平均単価が再計算されます。")) {
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/transactions/${transaction.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "削除に失敗しました")
+      }
+
+      onSuccess()
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "削除に失敗しました")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!isOpen) return null
+
+  const totalAmount = parseInt(quantity || "0") * parseFloat(price || "0")
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            保有情報を編集
+            購入履歴を編集
           </h2>
           <button
             onClick={onClose}
@@ -121,8 +140,10 @@ export default function EditStockDialog({
 
         {/* Stock Info */}
         <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-bold text-gray-900">{stock.stock.name}</h3>
-          <p className="text-sm text-gray-600">{stock.stock.tickerCode}</p>
+          <h3 className="font-bold text-gray-900">{stockName}</h3>
+          <p className="text-sm text-gray-600">
+            {transaction.type === "buy" ? "購入" : "売却"}
+          </p>
         </div>
 
         {error && (
@@ -138,7 +159,7 @@ export default function EditStockDialog({
               htmlFor="quantity"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              保有株数
+              株数
             </label>
             <input
               type="number"
@@ -151,46 +172,80 @@ export default function EditStockDialog({
             />
           </div>
 
-          {/* Average Price */}
+          {/* Price */}
           <div>
             <label
-              htmlFor="averagePrice"
+              htmlFor="price"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              平均取得単価（オプション）
+              単価
             </label>
             <input
               type="number"
-              id="averagePrice"
-              value={averagePrice}
-              onChange={(e) => setAveragePrice(e.target.value)}
+              id="price"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
               min="0"
               step="0.01"
-              placeholder="例: 2500"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Purchase Date */}
-          <div>
-            <label
-              htmlFor="purchaseDate"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
-              購入日
-            </label>
-            <input
-              type="date"
-              id="purchaseDate"
-              value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
           </div>
 
+          {/* Total Amount (calculated) */}
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <span className="text-sm text-gray-600">合計金額: </span>
+            <span className="font-semibold text-gray-900">
+              ¥{totalAmount.toLocaleString()}
+            </span>
+          </div>
+
+          {/* Transaction Date */}
+          <div>
+            <label
+              htmlFor="transactionDate"
+              className="block text-sm font-semibold text-gray-700 mb-2"
+            >
+              取引日
+            </label>
+            <input
+              type="date"
+              id="transactionDate"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          {/* Note */}
+          <div>
+            <label
+              htmlFor="note"
+              className="block text-sm font-semibold text-gray-700 mb-2"
+            >
+              メモ（オプション）
+            </label>
+            <input
+              type="text"
+              id="note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="メモを入力"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-50 text-red-700 rounded-lg font-semibold hover:bg-red-100 transition-colors disabled:bg-gray-100 disabled:text-gray-400"
+              disabled={loading}
+            >
+              削除
+            </button>
             <button
               type="button"
               onClick={onClose}

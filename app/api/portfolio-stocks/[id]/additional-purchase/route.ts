@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 export async function POST(
   request: NextRequest,
@@ -78,47 +79,52 @@ export async function POST(
       )
     }
 
-    // 新しい平均取得単価を計算
-    const currentQuantity = portfolioStock.quantity
-    const currentAvgPrice = portfolioStock.averagePurchasePrice
-    const newTotalQuantity = currentQuantity + quantity
-    const newAvgPrice = new Decimal(currentQuantity)
-      .times(currentAvgPrice)
-      .plus(new Decimal(quantity).times(price))
-      .div(newTotalQuantity)
-
-    // トランザクション内で更新
-    const result = await prisma.$transaction(async (tx) => {
-      // ポートフォリオストックを更新
-      const updatedPortfolioStock = await tx.portfolioStock.update({
-        where: { id },
-        data: {
-          quantity: newTotalQuantity,
-          averagePurchasePrice: newAvgPrice,
-          note: note ? note : portfolioStock.note, // 新しいメモがあれば更新、なければ既存を保持
-        },
-        include: {
-          stock: true,
-        },
-      })
-
-      // トランザクション記録を作成
-      await tx.transaction.create({
-        data: {
-          userId: user.id,
-          stockId: portfolioStock.stockId,
-          portfolioStockId: portfolioStock.id,
-          type: "buy",
-          quantity,
-          price: new Decimal(price),
-          totalAmount: new Decimal(quantity).times(price),
-          transactionDate: new Date(purchaseDate),
-          note,
-        },
-      })
-
-      return updatedPortfolioStock
+    // Transactionを作成
+    await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        stockId: portfolioStock.stockId,
+        portfolioStockId: portfolioStock.id,
+        type: "buy",
+        quantity,
+        price: new Decimal(price),
+        totalAmount: new Decimal(quantity).times(price),
+        transactionDate: new Date(purchaseDate),
+        note,
+      },
     })
+
+    // メモがあれば更新
+    if (note) {
+      await prisma.portfolioStock.update({
+        where: { id },
+        data: { note },
+      })
+    }
+
+    // 更新後のデータを取得（Transactionを含む）
+    const result = await prisma.portfolioStock.findUnique({
+      where: { id },
+      include: {
+        stock: true,
+        transactions: {
+          orderBy: { transactionDate: "asc" },
+        },
+      },
+    })
+
+    if (!result) {
+      return NextResponse.json(
+        { error: "更新後のデータ取得に失敗しました" },
+        { status: 500 }
+      )
+    }
+
+    // Transactionから計算
+    const { quantity: totalQuantity, averagePurchasePrice } =
+      calculatePortfolioFromTransactions(result.transactions)
+    const firstBuyTransaction = result.transactions.find((t) => t.type === "buy")
+    const firstPurchaseDate = firstBuyTransaction?.transactionDate || result.createdAt
 
     // レスポンス用のデータ整形
     const response = {
@@ -126,14 +132,23 @@ export async function POST(
       userId: result.userId,
       stockId: result.stockId,
       type: "portfolio" as const,
-      quantity: result.quantity,
-      averagePurchasePrice: result.averagePurchasePrice.toNumber(),
-      purchaseDate: result.purchaseDate.toISOString(),
+      quantity: totalQuantity,
+      averagePurchasePrice: averagePurchasePrice.toNumber(),
+      purchaseDate: firstPurchaseDate.toISOString(),
       note: result.note,
       lastAnalysis: result.lastAnalysis?.toISOString() || null,
       shortTerm: result.shortTerm,
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
+      transactions: result.transactions.map((t) => ({
+        id: t.id,
+        type: t.type,
+        quantity: t.quantity,
+        price: t.price.toNumber(),
+        totalAmount: t.totalAmount.toNumber(),
+        transactionDate: t.transactionDate.toISOString(),
+        note: t.note,
+      })),
       stock: {
         id: result.stock.id,
         tickerCode: result.stock.tickerCode,

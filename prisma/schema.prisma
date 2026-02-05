@@ -302,20 +302,16 @@ model WatchlistStock {
 }
 
 // ポートフォリオ（保有銘柄）
+// quantity と averagePurchasePrice は Transaction から計算
 model PortfolioStock {
-  id                   String   @id @default(cuid())
-  userId               String
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stockId              String
-  stock                Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-
-  // 保有情報（必須）
-  quantity             Int
-  averagePurchasePrice Decimal  @db.Decimal(12, 2)
-  purchaseDate         DateTime
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId String
+  stock   Stock  @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
   // オプション情報
-  note                 String?  @db.Text
+  note String? @db.Text
 
   // AI分析結果（売買判断用）
   lastAnalysis DateTime?
