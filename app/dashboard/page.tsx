@@ -70,6 +70,43 @@ export default async function DashboardPage() {
             <p className="text-xs sm:text-base text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
           </div>
 
+          {/* 投資スタイル未設定の場合のプロンプト */}
+          {!user.settings && (
+            <Link
+              href="/dashboard?editStyle=true"
+              className="block mb-4 sm:mb-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 sm:p-5 shadow-md hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <span className="text-2xl sm:text-3xl">📊</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white font-bold text-base sm:text-lg mb-1">
+                    投資スタイルを登録しましょう
+                  </div>
+                  <div className="text-blue-100 text-xs sm:text-sm">
+                    あなたに合った銘柄をおすすめするために、投資期間とリスク許容度を教えてください
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <svg
+                    className="w-6 h-6 sm:w-7 sm:h-7 text-white/80"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </Link>
+          )}
+
           {/* 投資スタイル表示 */}
           {user.settings && (
             <div className="mb-4 sm:mb-6 bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-200">
