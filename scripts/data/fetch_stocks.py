@@ -166,7 +166,7 @@ def fetch_single_stock(stock_data):
         # 今日のデータがすでにあるかチェック
         today = datetime.now().date()
         if has_todays_data(stock_id, today):
-            print(f"  → Skipped (today's data already exists)")
+            print(f"  → Updating financial metrics only (price data already exists)")
 
             # 財務指標のみ更新
             try:
