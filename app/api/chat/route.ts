@@ -273,12 +273,12 @@ ${
     })
 
     const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-05-20",
+      model: "gemini-2.5-flash",
       contents,
       config: {
         tools: [{ googleSearch: {} }],
         temperature: 0.7,
-        maxOutputTokens: 600,
+        maxOutputTokens: 1500,
       },
     })
 
