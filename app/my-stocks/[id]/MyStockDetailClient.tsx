@@ -8,6 +8,7 @@ import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
 import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
+import StockChat from "@/app/components/StockChat"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 
@@ -347,6 +348,21 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
             </section>
 
+            {/* AI Chat Section */}
+            <StockChat
+              stock={{
+                tickerCode: stock.stock.tickerCode,
+                name: stock.stock.name,
+                sector: stock.stock.sector,
+                currentPrice: currentPrice,
+                type: "portfolio",
+                quantity: quantity,
+                averagePurchasePrice: averagePrice,
+                profit: profit,
+                profitPercent: profitPercent,
+              }}
+            />
+
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />
 
@@ -413,6 +429,17 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
               <PurchaseRecommendation stockId={stock.stockId} />
             </section>
+
+            {/* AI Chat Section */}
+            <StockChat
+              stock={{
+                tickerCode: stock.stock.tickerCode,
+                name: stock.stock.name,
+                sector: stock.stock.sector,
+                currentPrice: price?.currentPrice || stock.stock.currentPrice,
+                type: "watchlist",
+              }}
+            />
 
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />

@@ -33,6 +33,18 @@ function formatGroundingSources(
   return `\n\n---\n📰 参考にした情報:\n${sources}`
 }
 
+interface StockContext {
+  tickerCode: string
+  name: string
+  sector: string | null
+  currentPrice: number | null
+  type: "portfolio" | "watchlist"
+  quantity?: number
+  averagePurchasePrice?: number
+  profit?: number
+  profitPercent?: number
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -41,7 +53,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { message, conversationHistory } = await request.json()
+    const { message, conversationHistory, stockContext } = await request.json() as {
+      message: string
+      conversationHistory?: Array<{ role: string; content: string }>
+      stockContext?: StockContext
+    }
 
     if (!message || typeof message !== "string") {
       return NextResponse.json(
@@ -128,10 +144,31 @@ export async function POST(request: NextRequest) {
       })
       .join("\n\n")
 
+    // 銘柄コンテキストがある場合の情報を整形
+    let stockContextInfo = ""
+    if (stockContext) {
+      stockContextInfo = `
+## 現在質問対象の銘柄（この銘柄について回答してください）
+- 銘柄名: ${stockContext.name}（${stockContext.tickerCode}）
+- セクター: ${stockContext.sector || "不明"}
+- 現在価格: ${stockContext.currentPrice?.toLocaleString() || "不明"}円
+- 種別: ${stockContext.type === "portfolio" ? "保有中" : "ウォッチリスト"}${
+        stockContext.type === "portfolio" && stockContext.quantity
+          ? `
+- 保有数: ${stockContext.quantity}株
+- 平均取得単価: ${stockContext.averagePurchasePrice?.toLocaleString()}円
+- 評価損益: ${(stockContext.profit ?? 0) >= 0 ? "+" : ""}${stockContext.profit?.toLocaleString()}円（${(stockContext.profitPercent ?? 0) >= 0 ? "+" : ""}${stockContext.profitPercent?.toFixed(2)}%）`
+          : ""
+      }
+
+**重要**: ユーザーは上記の銘柄について質問しています。この銘柄に特化して回答してください。
+`
+    }
+
     // システムプロンプトを構築
     const systemPrompt = `あなたは投資初心者向けのAIコーチです。
 専門用語は使わず、中学生でも分かる言葉で説明してください。
-
+${stockContextInfo}
 ## ユーザーの保有銘柄
 ${portfolioStocks.length > 0 ? portfolioInfo : "保有銘柄はありません"}
 
