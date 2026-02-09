@@ -227,6 +227,11 @@ export default function AdditionalPurchaseDialog({
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
               {isBuy ? "購入単価" : "売却単価"} <span className="text-red-500">*</span>
+              {stock.stock.currentPrice && (
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  （現在価格: ¥{stock.stock.currentPrice.toLocaleString()}）
+                </span>
+              )}
             </label>
             <input
               type="number"

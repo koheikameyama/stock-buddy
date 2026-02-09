@@ -76,7 +76,6 @@ export default function AddStockDialog({
 
   // Watchlist fields
   const [alertPrice, setAlertPrice] = useState("")
-  const [addedReason, setAddedReason] = useState("")
 
   // Common field
   const [note, setNote] = useState("")
@@ -212,7 +211,6 @@ export default function AddStockDialog({
         }
       } else {
         if (alertPrice) body.alertPrice = parseFloat(alertPrice)
-        if (addedReason) body.addedReason = addedReason
         if (note) body.note = note
       }
 
@@ -241,7 +239,6 @@ export default function AddStockDialog({
       setTargetPrice("")
       setStopLossPrice("")
       setAlertPrice("")
-      setAddedReason("")
       setNote("")
     } catch (err: any) {
       console.error(err)
@@ -408,6 +405,11 @@ export default function AddStockDialog({
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
                   購入時単価 <span className="text-red-500">*</span>
+                  {selectedStock?.latestPrice && (
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      （現在価格: ¥{selectedStock.latestPrice.toLocaleString()}）
+                    </span>
+                  )}
                 </label>
                 <input
                   type="number"
@@ -533,6 +535,11 @@ export default function AddStockDialog({
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
                   目標価格（任意）
+                  {selectedStock?.latestPrice && (
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      （現在価格: ¥{selectedStock.latestPrice.toLocaleString()}）
+                    </span>
+                  )}
                 </label>
                 <input
                   type="number"
@@ -551,23 +558,6 @@ export default function AddStockDialog({
 
               <div>
                 <label
-                  htmlFor="addedReason"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
-                >
-                  追加理由（任意）
-                </label>
-                <textarea
-                  id="addedReason"
-                  value={addedReason}
-                  onChange={(e) => setAddedReason(e.target.value)}
-                  placeholder="なぜこの銘柄が気になっているか記録できます"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-              </div>
-
-              <div>
-                <label
                   htmlFor="note"
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
@@ -577,7 +567,7 @@ export default function AddStockDialog({
                   id="note"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="その他のメモを記録できます"
+                  placeholder="気になっている理由やメモを記録できます"
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />
