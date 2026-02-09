@@ -1,18 +1,36 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { OpenAI } from "openai"
-import {
-  getRelatedNews,
-  formatNewsForPrompt,
-  formatNewsReferences,
-} from "@/lib/news-rag"
+import { GoogleGenAI } from "@google/genai"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+function getGeminiClient() {
+  return new GoogleGenAI({
+    apiKey: process.env.GOOGLE_AI_API_KEY,
   })
+}
+
+// グラウンディングメタデータから参照ソースを整形
+function formatGroundingSources(
+  groundingMetadata: {
+    groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>
+  } | undefined
+): string {
+  if (!groundingMetadata?.groundingChunks?.length) {
+    return ""
+  }
+
+  const sources = groundingMetadata.groundingChunks
+    .filter((chunk) => chunk.web?.uri)
+    .slice(0, 5) // 最大5件
+    .map((chunk) => `• ${chunk.web?.title || "参考記事"}\n  ${chunk.web?.uri}`)
+    .join("\n")
+
+  if (!sources) {
+    return ""
+  }
+
+  return `\n\n---\n📰 参考にした情報:\n${sources}`
 }
 
 export async function POST(request: NextRequest) {
@@ -110,30 +128,6 @@ export async function POST(request: NextRequest) {
       })
       .join("\n\n")
 
-    // 関連ニュースを取得
-    const tickerCodes = [
-      ...portfolioStocks.map((ps) => ps.stock.tickerCode),
-      ...watchlistStocks.map((ws) => ws.stock.tickerCode),
-    ]
-
-    const sectors = Array.from(
-      new Set([
-        ...portfolioStocks
-          .map((ps) => ps.stock.sector)
-          .filter((s): s is string => !!s),
-        ...watchlistStocks
-          .map((ws) => ws.stock.sector)
-          .filter((s): s is string => !!s),
-      ])
-    )
-
-    const relatedNews = await getRelatedNews({
-      tickerCodes,
-      sectors,
-      limit: 10,
-      daysAgo: 7,
-    })
-
     // システムプロンプトを構築
     const systemPrompt = `あなたは投資初心者向けのAIコーチです。
 専門用語は使わず、中学生でも分かる言葉で説明してください。
@@ -152,9 +146,6 @@ ${
     : "投資スタイル情報はありません"
 }
 
-## 最新のニュース情報
-${formatNewsForPrompt(relatedNews)}
-
 ## 回答のルール
 1. 専門用語（PER、ROE、移動平均線など）は使わない
 2. 「成長性」「安定性」「割安」など平易な言葉を使う
@@ -165,59 +156,74 @@ ${formatNewsForPrompt(relatedNews)}
 7. 親しみやすく、励ます口調で話す
 8. 回答は簡潔に（300字以内を目安に）
 9. ユーザーが保有していない銘柄については、一般的なアドバイスをする
+10. 最新のニュースや市場情報を踏まえて回答する`
 
-## ニュース参照に関する重要なルール
-1. 提供されたニュース情報のみを参照してください
-2. ニュースにない情報は推測や創作をしないでください
-3. 不確かな場合は「この情報は提供されたニュースにはありません」と明示してください
-4. 回答の最後に必ず参考にしたニュースを列挙してください
-5. 日付や数値は提供されたデータから正確に引用してください`
+    // Gemini APIを呼び出し
+    const ai = getGeminiClient()
 
-    // OpenAI APIを呼び出し
-    const openai = getOpenAIClient()
+    // 会話履歴を構築
+    const contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = []
 
-    const messages: any[] = [{ role: "system", content: systemPrompt }]
+    // システムプロンプトを最初のユーザーメッセージとして追加
+    contents.push({
+      role: "user",
+      parts: [{ text: systemPrompt }],
+    })
+    contents.push({
+      role: "model",
+      parts: [{ text: "はい、投資初心者向けのAIコーチとしてお手伝いします。ユーザーの情報を把握しました。何でもお気軽にご質問ください！" }],
+    })
 
     // 会話履歴を追加（最大4件）
     if (conversationHistory && Array.isArray(conversationHistory)) {
-      conversationHistory.slice(-4).forEach((msg: any) => {
-        if (msg.role === "user" || msg.role === "assistant") {
-          messages.push({
-            role: msg.role,
-            content: msg.content,
+      conversationHistory.slice(-4).forEach((msg: { role: string; content: string }) => {
+        if (msg.role === "user") {
+          contents.push({
+            role: "user",
+            parts: [{ text: msg.content }],
+          })
+        } else if (msg.role === "assistant") {
+          contents.push({
+            role: "model",
+            parts: [{ text: msg.content }],
           })
         }
       })
     }
 
     // ユーザーの質問を追加
-    messages.push({
+    contents.push({
       role: "user",
-      content: message,
+      parts: [{ text: message }],
     })
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // コスト重視
-      messages,
-      temperature: 0.7,
-      max_tokens: 600,
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-05-20",
+      contents,
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0.7,
+        maxOutputTokens: 600,
+      },
     })
 
     const aiResponse =
-      completion.choices[0]?.message?.content ||
+      result.text ||
       "申し訳ございません。回答を生成できませんでした。"
 
-    // 参考ニュースを追加
-    const response = aiResponse + formatNewsReferences(relatedNews)
+    // グラウンディングソースを追加
+    const groundingMetadata = result.candidates?.[0]?.groundingMetadata
+    const response = aiResponse + formatGroundingSources(groundingMetadata)
 
     return NextResponse.json({
       response,
       suggestedQuestions: [], // 将来的に追加可能
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Chat API error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: "Internal server error", details: errorMessage },
       { status: 500 }
     )
   }
