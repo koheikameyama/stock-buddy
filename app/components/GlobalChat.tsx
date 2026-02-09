@@ -1,24 +1,55 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useChatContext } from "@/app/contexts/ChatContext"
 
 interface Message {
   role: "user" | "assistant"
   content: string
 }
 
-const SUGGESTED_QUESTIONS = [
+const DEFAULT_QUESTIONS = [
   "今日の注目点は？",
   "ポートフォリオどう？",
   "何か気をつけることある？",
 ]
 
+const PORTFOLIO_STOCK_QUESTIONS = [
+  "今後の見通しは？",
+  "売り時？まだ持つべき？",
+  "追加購入すべき？",
+]
+
+const WATCHLIST_STOCK_QUESTIONS = [
+  "今後の見通しは？",
+  "今が買い時？",
+  "どんなリスクがある？",
+]
+
 export default function GlobalChat() {
+  const { stockContext } = useChatContext()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // 銘柄が変わったら会話をリセット
+  const prevStockRef = useRef<string | null>(null)
+  useEffect(() => {
+    const currentStockKey = stockContext?.tickerCode ?? null
+    if (prevStockRef.current !== currentStockKey) {
+      setMessages([])
+      prevStockRef.current = currentStockKey
+    }
+  }, [stockContext])
+
+  // 質問候補を決定
+  const suggestedQuestions = stockContext
+    ? stockContext.type === "portfolio"
+      ? PORTFOLIO_STOCK_QUESTIONS
+      : WATCHLIST_STOCK_QUESTIONS
+    : DEFAULT_QUESTIONS
 
   // メッセージが更新されたら自動スクロール
   useEffect(() => {
@@ -45,7 +76,8 @@ export default function GlobalChat() {
         },
         body: JSON.stringify({
           message: messageText.trim(),
-          conversationHistory: messages.slice(-4), // 直近4件のみ送信
+          conversationHistory: messages.slice(-4),
+          stockContext: stockContext,
         }),
       })
 
@@ -87,13 +119,25 @@ export default function GlobalChat() {
     setIsOpen(!isOpen)
   }
 
+  // チャットタイトル
+  const chatTitle = stockContext
+    ? `${stockContext.name}について相談`
+    : "投資について相談"
+
+  // プレースホルダー
+  const placeholder = stockContext
+    ? `${stockContext.name}について質問...`
+    : "投資について相談..."
+
   return (
     <>
       {/* Floating Button */}
       <button
         onClick={toggleChat}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all z-50"
-        title="投資について相談"
+        className={`fixed bottom-6 right-6 w-14 h-14 ${
+          stockContext ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
+        } text-white rounded-full shadow-lg flex items-center justify-center transition-all z-50`}
+        title={chatTitle}
       >
         {isOpen ? (
           <svg
@@ -130,7 +174,9 @@ export default function GlobalChat() {
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-8rem)] bg-white rounded-xl shadow-2xl flex flex-col z-50 border border-gray-200">
           {/* Header */}
-          <div className="bg-blue-600 text-white px-4 py-3 rounded-t-xl flex items-center justify-between">
+          <div className={`${
+            stockContext ? "bg-green-600" : "bg-blue-600"
+          } text-white px-4 py-3 rounded-t-xl flex items-center justify-between`}>
             <div className="flex items-center gap-2">
               <svg
                 className="w-5 h-5"
@@ -145,7 +191,12 @@ export default function GlobalChat() {
                   d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
-              <h3 className="font-semibold">投資について相談</h3>
+              <div>
+                <h3 className="font-semibold text-sm">{chatTitle}</h3>
+                {stockContext && (
+                  <p className="text-xs opacity-80">{stockContext.tickerCode}</p>
+                )}
+              </div>
             </div>
             <button
               onClick={toggleChat}
@@ -171,10 +222,23 @@ export default function GlobalChat() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                <p className="mb-4">投資について何でも質問してください</p>
-                <p className="text-sm">
-                  あなたの保有銘柄やウォッチリストをもとにアドバイスします
-                </p>
+                {stockContext ? (
+                  <>
+                    <p className="mb-4 font-semibold text-gray-700">
+                      {stockContext.name}について質問してください
+                    </p>
+                    <p className="text-sm">
+                      この銘柄に特化したアドバイスをします
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-4">投資について何でも質問してください</p>
+                    <p className="text-sm">
+                      あなたの保有銘柄やウォッチリストをもとにアドバイスします
+                    </p>
+                  </>
+                )}
               </div>
             )}
 
@@ -188,7 +252,9 @@ export default function GlobalChat() {
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-3 ${
                     message.role === "user"
-                      ? "bg-blue-600 text-white"
+                      ? stockContext
+                        ? "bg-green-600 text-white"
+                        : "bg-blue-600 text-white"
                       : "bg-gray-100 text-gray-900"
                   }`}
                 >
@@ -220,11 +286,15 @@ export default function GlobalChat() {
             <div className="px-4 pb-3">
               <p className="text-xs text-gray-500 mb-2">💡 よくある質問:</p>
               <div className="flex flex-wrap gap-2">
-                {SUGGESTED_QUESTIONS.map((question, index) => (
+                {suggestedQuestions.map((question, index) => (
                   <button
                     key={index}
                     onClick={() => handleSuggestedQuestion(question)}
-                    className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition-colors"
+                    className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                      stockContext
+                        ? "bg-green-50 text-green-700 hover:bg-green-100"
+                        : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    }`}
                     disabled={isLoading}
                   >
                     {question}
@@ -241,14 +311,18 @@ export default function GlobalChat() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="投資について相談..."
+                placeholder={placeholder}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+                className={`px-4 py-2 text-white rounded-lg font-semibold transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm ${
+                  stockContext
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
                 送信
               </button>

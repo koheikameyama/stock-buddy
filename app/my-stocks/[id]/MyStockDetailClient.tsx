@@ -8,9 +8,9 @@ import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
 import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
-import StockChat from "@/app/components/StockChat"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
+import { useChatContext } from "@/app/contexts/ChatContext"
 
 interface Transaction {
   id: string
@@ -59,6 +59,7 @@ interface StockPrice {
 
 export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const router = useRouter()
+  const { setStockContext } = useChatContext()
   const [price, setPrice] = useState<StockPrice | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -75,6 +76,26 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const currentValue = currentPrice * quantity
   const profit = currentValue - totalCost
   const profitPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0
+
+  // Set stock context for global chat
+  useEffect(() => {
+    setStockContext({
+      tickerCode: stock.stock.tickerCode,
+      name: stock.stock.name,
+      sector: stock.stock.sector,
+      currentPrice: currentPrice,
+      type: stock.type,
+      quantity: isPortfolio ? quantity : undefined,
+      averagePurchasePrice: isPortfolio ? averagePrice : undefined,
+      profit: isPortfolio ? profit : undefined,
+      profitPercent: isPortfolio ? profitPercent : undefined,
+    })
+
+    // Clear context when leaving the page
+    return () => {
+      setStockContext(null)
+    }
+  }, [stock, currentPrice, quantity, averagePrice, profit, profitPercent, isPortfolio, setStockContext])
 
   // Fetch current price
   useEffect(() => {
@@ -348,21 +369,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
             </section>
 
-            {/* AI Chat Section */}
-            <StockChat
-              stock={{
-                tickerCode: stock.stock.tickerCode,
-                name: stock.stock.name,
-                sector: stock.stock.sector,
-                currentPrice: currentPrice,
-                type: "portfolio",
-                quantity: quantity,
-                averagePurchasePrice: averagePrice,
-                profit: profit,
-                profitPercent: profitPercent,
-              }}
-            />
-
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />
 
@@ -429,17 +435,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
               <PurchaseRecommendation stockId={stock.stockId} />
             </section>
-
-            {/* AI Chat Section */}
-            <StockChat
-              stock={{
-                tickerCode: stock.stock.tickerCode,
-                name: stock.stock.name,
-                sector: stock.stock.sector,
-                currentPrice: price?.currentPrice || stock.stock.currentPrice,
-                type: "watchlist",
-              }}
-            />
 
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />
