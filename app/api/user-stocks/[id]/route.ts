@@ -10,6 +10,9 @@ interface UpdateUserStockRequest {
   // Watchlist fields
   addedReason?: string
   alertPrice?: number
+  // Portfolio fields - 売却目標設定
+  targetReturnRate?: number | null
+  stopLossRate?: number | null
   // Common
   note?: string
 }
@@ -294,10 +297,32 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
 
     return NextResponse.json(response)
   } else if (portfolioStock) {
-    // Update portfolio (only note can be updated directly)
+    // Validate target return rate
+    const validReturnRates = [5, 10, 15, 20, 30]
+    if (body.targetReturnRate !== undefined && body.targetReturnRate !== null && !validReturnRates.includes(body.targetReturnRate)) {
+      return NextResponse.json(
+        { error: "無効な目標利益率です" },
+        { status: 400 }
+      )
+    }
+
+    // Validate stop loss rate
+    const validStopLossRates = [-5, -10, -15, -20]
+    if (body.stopLossRate !== undefined && body.stopLossRate !== null && !validStopLossRates.includes(body.stopLossRate)) {
+      return NextResponse.json(
+        { error: "無効な損切りラインです" },
+        { status: 400 }
+      )
+    }
+
+    // Update portfolio
     const updated = await prisma.portfolioStock.update({
       where: { id },
-      data: { note: body.note },
+      data: {
+        note: body.note,
+        targetReturnRate: body.targetReturnRate,
+        stopLossRate: body.stopLossRate,
+      },
       include: {
         stock: {
           select: {
@@ -334,6 +359,8 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       shortTerm: updated.shortTerm,
       mediumTerm: updated.mediumTerm,
       longTerm: updated.longTerm,
+      targetReturnRate: updated.targetReturnRate,
+      stopLossRate: updated.stopLossRate,
       transactions: updated.transactions.map((t) => ({
         id: t.id,
         type: t.type,

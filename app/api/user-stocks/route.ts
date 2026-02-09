@@ -25,6 +25,9 @@ export interface UserStockResponse {
   shortTerm?: string | null
   mediumTerm?: string | null
   longTerm?: string | null
+  // 売却目標設定（Portfolio only）
+  targetReturnRate?: number | null
+  stopLossRate?: number | null
   // Transaction data
   transactions?: {
     id: string

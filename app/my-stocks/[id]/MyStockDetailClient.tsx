@@ -28,6 +28,9 @@ interface Stock {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
+  // 売却目標設定
+  targetReturnRate?: number | null
+  stopLossRate?: number | null
   transactions?: Transaction[]
   addedReason?: string | null
   alertPrice?: number | null
@@ -49,6 +52,21 @@ interface Stock {
   }
 }
 
+const TARGET_RETURN_OPTIONS = [
+  { value: 5, label: "+5%" },
+  { value: 10, label: "+10%" },
+  { value: 15, label: "+15%" },
+  { value: 20, label: "+20%" },
+  { value: 30, label: "+30%" },
+]
+
+const STOP_LOSS_OPTIONS = [
+  { value: -5, label: "-5%" },
+  { value: -10, label: "-10%" },
+  { value: -15, label: "-15%" },
+  { value: -20, label: "-20%" },
+]
+
 interface StockPrice {
   currentPrice: number
   previousClose: number
@@ -64,6 +82,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [showTransactionDialog, setShowTransactionDialog] = useState(false)
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
+  const [targetReturnRate, setTargetReturnRate] = useState<number | null>(stock.targetReturnRate ?? null)
+  const [stopLossRate, setStopLossRate] = useState<number | null>(stock.stopLossRate ?? null)
+  const [savingTarget, setSavingTarget] = useState(false)
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -119,6 +140,41 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
     fetchPrice()
   }, [stock.stock.tickerCode])
+
+  const saveTargetSettings = async (newTargetReturn: number | null, newStopLoss: number | null) => {
+    setSavingTarget(true)
+    try {
+      const response = await fetch(`/api/user-stocks/${stock.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetReturnRate: newTargetReturn,
+          stopLossRate: newStopLoss,
+        }),
+      })
+
+      if (response.ok) {
+        setTargetReturnRate(newTargetReturn)
+        setStopLossRate(newStopLoss)
+      } else {
+        alert("設定の保存に失敗しました")
+      }
+    } catch (error) {
+      console.error("Error saving target settings:", error)
+      alert("設定の保存に失敗しました")
+    } finally {
+      setSavingTarget(false)
+    }
+  }
+
+  // Calculate target prices based on settings
+  const calculateTargetPrice = (rate: number | null) => {
+    if (rate === null || !averagePrice) return null
+    return Math.round(averagePrice * (1 + rate / 100))
+  }
+
+  const targetPrice = calculateTargetPrice(targetReturnRate)
+  const stopLossPrice = calculateTargetPrice(stopLossRate)
 
   const handleDelete = async () => {
     if (!confirm(`${stock.stock.name}を削除しますか？`)) {
@@ -286,6 +342,102 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                     </div>
                   </div>
                 )}
+              </div>
+            </section>
+
+            {/* Target Settings Section */}
+            <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
+                売却目標設定
+              </h2>
+
+              <div className="space-y-4">
+                {/* Target Return Rate */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                      <span>📈</span> 利確ライン
+                    </span>
+                    {targetPrice && (
+                      <span className="text-sm font-bold text-green-600">
+                        ¥{targetPrice.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {TARGET_RETURN_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => saveTargetSettings(option.value, stopLossRate)}
+                        disabled={savingTarget}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                          targetReturnRate === option.value
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        } disabled:opacity-50`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => saveTargetSettings(null, stopLossRate)}
+                      disabled={savingTarget}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                        targetReturnRate === null
+                          ? "bg-gray-500 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      } disabled:opacity-50`}
+                    >
+                      未設定
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stop Loss Rate */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                      <span>📉</span> 損切りライン
+                    </span>
+                    {stopLossPrice && (
+                      <span className="text-sm font-bold text-red-600">
+                        ¥{stopLossPrice.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {STOP_LOSS_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => saveTargetSettings(targetReturnRate, option.value)}
+                        disabled={savingTarget}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                          stopLossRate === option.value
+                            ? "bg-red-500 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        } disabled:opacity-50`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => saveTargetSettings(targetReturnRate, null)}
+                      disabled={savingTarget}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                        stopLossRate === null
+                          ? "bg-gray-500 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      } disabled:opacity-50`}
+                    >
+                      未設定
+                    </button>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <p className="text-xs text-gray-500 mt-2">
+                  未設定の場合、設定画面のデフォルト値が適用されます
+                </p>
               </div>
             </section>
 
