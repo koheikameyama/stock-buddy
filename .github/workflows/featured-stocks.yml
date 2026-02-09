@@ -46,6 +46,13 @@ jobs:
         run: |
           python scripts/news/generate_featured_stocks.py
 
+      - name: Generate user recommendations (AI)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/github-actions/generate_user_recommendations.py
+
       - name: Send push notification
         if: success()
         env:
