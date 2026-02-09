@@ -31,7 +31,7 @@ if not DATABASE_URL:
 
 
 def get_portfolio_stocks(conn):
-    """保有銘柄（PortfolioStock）を取得"""
+    """保有銘柄（PortfolioStock）を取得。Transactionテーブルから数量と平均取得単価を集計"""
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
@@ -40,13 +40,38 @@ def get_portfolio_stocks(conn):
                 ps.id,
                 ps."userId",
                 ps."stockId",
-                ps.quantity,
-                ps."averagePurchasePrice",
-                ps."purchaseDate",
                 s."tickerCode",
                 s.name,
                 s.sector,
-                s."currentPrice"
+                s."currentPrice",
+                s."marketCap",
+                s."dividendYield",
+                s.pbr,
+                s.per,
+                s.roe,
+                s."fiftyTwoWeekHigh",
+                s."fiftyTwoWeekLow",
+                s."beginnerScore",
+                s."growthScore",
+                s."dividendScore",
+                s."stabilityScore",
+                COALESCE(
+                    (SELECT SUM(CASE WHEN t.type = 'buy' THEN t.quantity ELSE -t.quantity END)
+                     FROM "Transaction" t
+                     WHERE t."portfolioStockId" = ps.id),
+                    0
+                ) AS quantity,
+                COALESCE(
+                    (SELECT SUM(CASE WHEN t.type = 'buy' THEN t."totalAmount" ELSE 0 END) /
+                            NULLIF(SUM(CASE WHEN t.type = 'buy' THEN t.quantity ELSE 0 END), 0)
+                     FROM "Transaction" t
+                     WHERE t."portfolioStockId" = ps.id),
+                    0
+                ) AS "averagePurchasePrice",
+                (SELECT MIN(t."transactionDate")
+                 FROM "Transaction" t
+                 WHERE t."portfolioStockId" = ps.id AND t.type = 'buy'
+                ) AS "purchaseDate"
             FROM "PortfolioStock" ps
             JOIN "Stock" s ON ps."stockId" = s.id
             ORDER BY ps."userId", s.name
@@ -96,6 +121,66 @@ def calculate_profit_loss(average_price, current_price, quantity):
     return profit, profit_percent
 
 
+def format_financial_metrics(stock):
+    """財務指標を初心者向けにフォーマット"""
+    metrics = []
+
+    # 時価総額
+    if stock.get('marketCap'):
+        market_cap = float(stock['marketCap'])
+        if market_cap >= 10000:
+            metrics.append(f"- 会社の規模: 大企業（時価総額{market_cap/10000:.1f}兆円）")
+        elif market_cap >= 1000:
+            metrics.append(f"- 会社の規模: 中堅企業（時価総額{market_cap:.0f}億円）")
+        else:
+            metrics.append(f"- 会社の規模: 小型企業（時価総額{market_cap:.0f}億円）")
+
+    # 配当利回り
+    if stock.get('dividendYield'):
+        div_yield = float(stock['dividendYield'])
+        if div_yield >= 4:
+            metrics.append(f"- 配当: 高配当（年{div_yield:.2f}%）")
+        elif div_yield >= 2:
+            metrics.append(f"- 配当: 普通（年{div_yield:.2f}%）")
+        elif div_yield > 0:
+            metrics.append(f"- 配当: 低め（年{div_yield:.2f}%）")
+        else:
+            metrics.append("- 配当: なし")
+
+    # 割安/割高判断（PBR）
+    if stock.get('pbr'):
+        pbr = float(stock['pbr'])
+        if pbr < 1:
+            metrics.append(f"- 株価水準: 割安（資産価値より安い）")
+        elif pbr < 1.5:
+            metrics.append(f"- 株価水準: 適正")
+        else:
+            metrics.append(f"- 株価水準: やや割高")
+
+    # 52週高値/安値との比較
+    if stock.get('fiftyTwoWeekHigh') and stock.get('fiftyTwoWeekLow') and stock.get('currentPrice'):
+        high = float(stock['fiftyTwoWeekHigh'])
+        low = float(stock['fiftyTwoWeekLow'])
+        current = float(stock['currentPrice'])
+        position = (current - low) / (high - low) * 100 if high != low else 50
+        metrics.append(f"- 1年間の値動き: 高値{high:.0f}円〜安値{low:.0f}円（現在は{position:.0f}%の位置）")
+
+    # スコア
+    scores = []
+    if stock.get('beginnerScore'):
+        scores.append(f"初心者向け{stock['beginnerScore']}点")
+    if stock.get('growthScore'):
+        scores.append(f"成長性{stock['growthScore']}点")
+    if stock.get('stabilityScore'):
+        scores.append(f"安定性{stock['stabilityScore']}点")
+    if stock.get('dividendScore'):
+        scores.append(f"配当{stock['dividendScore']}点")
+    if scores:
+        metrics.append(f"- 評価スコア（100点満点）: {', '.join(scores)}")
+
+    return "\n".join(metrics) if metrics else "財務データなし"
+
+
 def generate_portfolio_analysis(stock, recent_prices, related_news=None):
     """OpenAI APIを使ってポートフォリオ分析を生成"""
 
@@ -104,6 +189,9 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
     quantity = stock['quantity']
 
     profit, profit_percent = calculate_profit_loss(average_price, current_price, quantity)
+
+    # 財務指標をフォーマット
+    financial_metrics = format_financial_metrics(stock)
 
     # ニュース情報をフォーマット
     news_context = ""
@@ -127,6 +215,9 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
 - 現在価格: {current_price or '不明'}円
 - 損益: {f'{profit:,.0f}円 ({profit_percent:+.2f}%)' if profit is not None else '不明'}
 
+【財務指標（初心者向け解説）】
+{financial_metrics}
+
 【株価データ】
 直近30日の終値: {len(recent_prices)}件のデータあり
 {news_context}
@@ -140,6 +231,7 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
 }}
 
 【判断の指針】
+- 財務指標（会社の規模、配当、株価水準、評価スコア）を分析に活用してください
 - 提供されたニュース情報を参考にしてください
 - ニュースにない情報は推測や創作をしないでください
 - shortTerm: 「売り時」「保持」「買い増し時」のいずれかの判断を含める
@@ -148,7 +240,7 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
 - 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
 - 「成長性」「安定性」「割安」「割高」のような平易な言葉を使う
 - 中学生でも理解できる表現にする
-- 損益状況を考慮した実践的なアドバイスを含める
+- 損益状況と財務指標を考慮した実践的なアドバイスを含める
 """
 
     try:
@@ -258,6 +350,11 @@ def main():
 
         for stock in stocks:
             print(f"\n--- Processing: {stock['name']} ({stock['tickerCode']}) ---")
+
+            # 保有数量が0以下の場合はスキップ（売却済み）
+            if not stock['quantity'] or stock['quantity'] <= 0:
+                print(f"⏭️  Skipping: No holdings (quantity: {stock['quantity']})")
+                continue
 
             # この銘柄に関連するニュースをフィルタリング
             stock_news = [
