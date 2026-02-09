@@ -19,6 +19,26 @@ export async function GET() {
     const session = await auth()
     const userId = session?.user?.id
 
+    if (!userId) {
+      return NextResponse.json(
+        { error: "認証が必要です" },
+        { status: 401 }
+      )
+    }
+
+    // ユーザーの保有銘柄IDを取得（ウォッチリスト + ポートフォリオ）
+    const [watchlist, portfolio] = await Promise.all([
+      prisma.watchlistStock.findMany({
+        where: { userId },
+        select: { stockId: true },
+      }),
+      prisma.portfolioStock.findMany({
+        where: { userId },
+        select: { stockId: true },
+      }),
+    ])
+    const userStockIds = [...watchlist, ...portfolio].map((s) => s.stockId)
+
     // --- あなたへのおすすめ（ユーザーごとのAI生成） ---
     let personalRecommendations: {
       id: string
@@ -36,64 +56,49 @@ export async function GET() {
 
     let recommendationDate: Date | null = null
 
-    if (userId) {
-      // ユーザーの保有銘柄IDを取得
-      const [watchlist, portfolio] = await Promise.all([
-        prisma.watchlistStock.findMany({
-          where: { userId },
-          select: { stockId: true },
-        }),
-        prisma.portfolioStock.findMany({
-          where: { userId },
-          select: { stockId: true },
-        }),
-      ])
-      const userStockIds = [...watchlist, ...portfolio].map((s) => s.stockId)
+    // 最新日付のおすすめを取得
+    const latestRec = await prisma.userDailyRecommendation.findFirst({
+      where: { userId },
+      select: { date: true },
+      orderBy: { date: "desc" },
+    })
 
-      // 最新日付のおすすめを取得
-      const latestRec = await prisma.userDailyRecommendation.findFirst({
-        where: { userId },
-        select: { date: true },
-        orderBy: { date: "desc" },
-      })
+    if (latestRec) {
+      recommendationDate = latestRec.date
 
-      if (latestRec) {
-        recommendationDate = latestRec.date
-
-        const recs = await prisma.userDailyRecommendation.findMany({
-          where: {
-            userId,
-            date: latestRec.date,
-          },
-          include: {
-            stock: {
-              include: {
-                prices: {
-                  orderBy: { date: "desc" },
-                  take: 1,
-                },
+      const recs = await prisma.userDailyRecommendation.findMany({
+        where: {
+          userId,
+          date: latestRec.date,
+        },
+        include: {
+          stock: {
+            include: {
+              prices: {
+                orderBy: { date: "desc" },
+                take: 1,
               },
             },
           },
-          orderBy: { position: "asc" },
-        })
+        },
+        orderBy: { position: "asc" },
+      })
 
-        personalRecommendations = recs.map((r) => ({
-          id: r.id,
-          stockId: r.stockId,
-          reason: r.reason,
-          isOwned: userStockIds.includes(r.stockId),
-          stock: {
-            id: r.stock.id,
-            tickerCode: r.stock.tickerCode,
-            name: r.stock.name,
-            sector: r.stock.sector,
-            currentPrice: r.stock.prices[0]
-              ? Number(r.stock.prices[0].close)
-              : null,
-          },
-        }))
-      }
+      personalRecommendations = recs.map((r) => ({
+        id: r.id,
+        stockId: r.stockId,
+        reason: r.reason,
+        isOwned: userStockIds.includes(r.stockId),
+        stock: {
+          id: r.stock.id,
+          tickerCode: r.stock.tickerCode,
+          name: r.stock.name,
+          sector: r.stock.sector,
+          currentPrice: r.stock.prices[0]
+            ? Number(r.stock.prices[0].close)
+            : null,
+        },
+      }))
     }
 
     // --- みんなが注目（DailyFeaturedStock の trending） ---
@@ -137,12 +142,11 @@ export async function GET() {
         take: 3,
       })
 
-      const userStockIds = personalRecommendations.map((r) => r.stockId)
       trendingStocks = trending.map((t) => ({
         id: t.id,
         stockId: t.stockId,
         reason: t.reason,
-        isOwned: false,
+        isOwned: userStockIds.includes(t.stockId),
         stock: {
           id: t.stock.id,
           tickerCode: t.stock.tickerCode,

@@ -227,12 +227,14 @@ export default function FeaturedStocksByCategory({
 
         <button
           onClick={() => handleAddToWatchlist(stock)}
-          disabled={addingStockId === stock.stockId}
-          className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${theme.button}`}
+          disabled={addingStockId === stock.stockId || stock.isOwned}
+          className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${stock.isOwned ? "" : theme.button}`}
         >
           {addingStockId === stock.stockId
             ? "追加中..."
-            : "ウォッチリストに追加"}
+            : stock.isOwned
+              ? "登録済み"
+              : "ウォッチリストに追加"}
         </button>
       </div>
     )
