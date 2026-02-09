@@ -39,12 +39,36 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { investmentPeriod, riskTolerance, investmentBudget } = await request.json()
+    const {
+      investmentPeriod,
+      riskTolerance,
+      investmentBudget,
+      targetReturnRate,
+      stopLossRate,
+    } = await request.json()
 
     // バリデーション
     if (!investmentPeriod || !riskTolerance) {
       return NextResponse.json(
         { error: "投資期間とリスク許容度を選択してください" },
+        { status: 400 }
+      )
+    }
+
+    // 目標利益率のバリデーション（設定されている場合のみ）
+    const validReturnRates = [5, 10, 15, 20, 30]
+    if (targetReturnRate !== undefined && targetReturnRate !== null && !validReturnRates.includes(targetReturnRate)) {
+      return NextResponse.json(
+        { error: "無効な目標利益率です" },
+        { status: 400 }
+      )
+    }
+
+    // 損切りラインのバリデーション（設定されている場合のみ）
+    const validStopLossRates = [-5, -10, -15, -20]
+    if (stopLossRate !== undefined && stopLossRate !== null && !validStopLossRates.includes(stopLossRate)) {
+      return NextResponse.json(
+        { error: "無効な損切りラインです" },
         { status: 400 }
       )
     }
@@ -69,11 +93,15 @@ export async function PUT(request: NextRequest) {
         investmentPeriod,
         riskTolerance,
         investmentBudget: investmentBudget ?? null,
+        targetReturnRate: targetReturnRate ?? null,
+        stopLossRate: stopLossRate ?? null,
       },
       update: {
         investmentPeriod,
         riskTolerance,
         investmentBudget: investmentBudget ?? null,
+        targetReturnRate: targetReturnRate ?? null,
+        stopLossRate: stopLossRate ?? null,
       },
     })
 

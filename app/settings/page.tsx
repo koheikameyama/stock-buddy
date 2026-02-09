@@ -10,6 +10,26 @@ type PushSubscriptionState = {
   loading: boolean
 }
 
+type UserSettings = {
+  targetReturnRate: number | null
+  stopLossRate: number | null
+}
+
+const TARGET_RETURN_OPTIONS = [
+  { value: 5, label: "+5%", description: "安定志向" },
+  { value: 10, label: "+10%", description: "バランス型" },
+  { value: 15, label: "+15%", description: "やや積極的" },
+  { value: 20, label: "+20%", description: "積極的" },
+  { value: 30, label: "+30%", description: "長期・ハイリターン" },
+]
+
+const STOP_LOSS_OPTIONS = [
+  { value: -5, label: "-5%", description: "慎重派" },
+  { value: -10, label: "-10%", description: "バランス型" },
+  { value: -15, label: "-15%", description: "中長期" },
+  { value: -20, label: "-20%", description: "長期・変動許容" },
+]
+
 export default function SettingsPage() {
   const router = useRouter()
   const [pushState, setPushState] = useState<PushSubscriptionState>({
@@ -17,10 +37,73 @@ export default function SettingsPage() {
     subscribed: false,
     loading: true,
   })
+  const [settings, setSettings] = useState<UserSettings>({
+    targetReturnRate: null,
+    stopLossRate: null,
+  })
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [savingSettings, setSavingSettings] = useState(false)
 
   useEffect(() => {
     checkPushNotificationStatus()
+    fetchSettings()
   }, [])
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch("/api/settings")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.settings) {
+          setSettings({
+            targetReturnRate: data.settings.targetReturnRate,
+            stopLossRate: data.settings.stopLossRate,
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching settings:", error)
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
+  const saveTargetSettings = async (
+    targetReturnRate: number | null,
+    stopLossRate: number | null
+  ) => {
+    setSavingSettings(true)
+    try {
+      // まず現在の全設定を取得
+      const getResponse = await fetch("/api/settings")
+      const currentData = await getResponse.json()
+      const currentSettings = currentData.settings || {}
+
+      // 目標設定だけ更新
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          investmentPeriod: currentSettings.investmentPeriod || "medium",
+          riskTolerance: currentSettings.riskTolerance || "medium",
+          investmentBudget: currentSettings.investmentBudget,
+          targetReturnRate,
+          stopLossRate,
+        }),
+      })
+
+      if (response.ok) {
+        setSettings({ targetReturnRate, stopLossRate })
+      } else {
+        alert("設定の保存に失敗しました")
+      }
+    } catch (error) {
+      console.error("Error saving settings:", error)
+      alert("設定の保存に失敗しました")
+    } finally {
+      setSavingSettings(false)
+    }
+  }
 
   const checkPushNotificationStatus = async () => {
     try {
@@ -110,10 +193,10 @@ export default function SettingsPage() {
         <div className="max-w-3xl mx-auto">
           <div className="mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-              通知設定
+              設定
             </h1>
             <p className="text-sm sm:text-base text-gray-600">
-              プッシュ通知で最新のレポートをお知らせします
+              投資目標と通知の設定ができます
             </p>
           </div>
 
@@ -183,6 +266,120 @@ export default function SettingsPage() {
                   <span><strong>17:00</strong> - 株価データ更新</span>
                 </li>
               </ul>
+            </div>
+
+            {/* 区切り線 */}
+            <hr className="border-gray-200" />
+
+            {/* 売却目標設定 */}
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+                売却目標設定
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                利益確定と損切りの目安を設定できます。AIが売却タイミングを提案する際に参考にします。
+              </p>
+
+              {settingsLoading ? (
+                <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50 text-center">
+                  <p className="text-gray-600">読み込み中...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* 目標利益率 */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="text-lg">📈</span>
+                      <span>目標利益率（利確ライン）</span>
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {TARGET_RETURN_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => saveTargetSettings(option.value, settings.stopLossRate)}
+                          disabled={savingSettings}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            settings.targetReturnRate === option.value
+                              ? "border-green-500 bg-green-50"
+                              : "border-gray-200 hover:border-gray-300 bg-white"
+                          } disabled:opacity-50`}
+                        >
+                          <div className={`font-bold ${
+                            settings.targetReturnRate === option.value
+                              ? "text-green-600"
+                              : "text-gray-900"
+                          }`}>
+                            {option.label}
+                          </div>
+                          <div className="text-xs text-gray-500">{option.description}</div>
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => saveTargetSettings(null, settings.stopLossRate)}
+                        disabled={savingSettings}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          settings.targetReturnRate === null
+                            ? "border-gray-500 bg-gray-100"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        } disabled:opacity-50`}
+                      >
+                        <div className="font-bold text-gray-600">未設定</div>
+                        <div className="text-xs text-gray-500">AIにお任せ</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 損切りライン */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="text-lg">📉</span>
+                      <span>損切りライン（逆指値目安）</span>
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {STOP_LOSS_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => saveTargetSettings(settings.targetReturnRate, option.value)}
+                          disabled={savingSettings}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            settings.stopLossRate === option.value
+                              ? "border-red-500 bg-red-50"
+                              : "border-gray-200 hover:border-gray-300 bg-white"
+                          } disabled:opacity-50`}
+                        >
+                          <div className={`font-bold ${
+                            settings.stopLossRate === option.value
+                              ? "text-red-600"
+                              : "text-gray-900"
+                          }`}>
+                            {option.label}
+                          </div>
+                          <div className="text-xs text-gray-500">{option.description}</div>
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => saveTargetSettings(settings.targetReturnRate, null)}
+                        disabled={savingSettings}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          settings.stopLossRate === null
+                            ? "border-gray-500 bg-gray-100"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        } disabled:opacity-50`}
+                      >
+                        <div className="font-bold text-gray-600">未設定</div>
+                        <div className="text-xs text-gray-500">AIにお任せ</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 説明 */}
+                  <div className="bg-amber-50 rounded-xl p-4">
+                    <p className="text-sm text-amber-800">
+                      💡 設定した目標は全銘柄に適用されます。銘柄ごとに変更したい場合は、マイ銘柄の詳細画面から個別に設定できます。
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 戻るボタン */}

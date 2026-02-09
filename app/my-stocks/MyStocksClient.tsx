@@ -54,6 +54,11 @@ interface PurchaseRecommendation {
   caution: string
 }
 
+interface UserSettings {
+  targetReturnRate: number | null
+  stopLossRate: number | null
+}
+
 const MAX_USER_STOCKS = 5
 
 export default function MyStocksClient() {
@@ -61,6 +66,7 @@ export default function MyStocksClient() {
   const [userStocks, setUserStocks] = useState<UserStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -69,25 +75,39 @@ export default function MyStocksClient() {
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
 
-  // Fetch user stocks
+  // Fetch user stocks and settings
   useEffect(() => {
-    async function fetchUserStocks() {
+    async function fetchData() {
       try {
-        const response = await fetch("/api/user-stocks?mode=all")
-        if (!response.ok) {
+        const [stocksResponse, settingsResponse] = await Promise.all([
+          fetch("/api/user-stocks?mode=all"),
+          fetch("/api/settings"),
+        ])
+
+        if (!stocksResponse.ok) {
           throw new Error("Failed to fetch stocks")
         }
-        const data = await response.json()
-        setUserStocks(data)
+        const stocksData = await stocksResponse.json()
+        setUserStocks(stocksData)
+
+        if (settingsResponse.ok) {
+          const settingsData = await settingsResponse.json()
+          if (settingsData.settings) {
+            setUserSettings({
+              targetReturnRate: settingsData.settings.targetReturnRate ?? null,
+              stopLossRate: settingsData.settings.stopLossRate ?? null,
+            })
+          }
+        }
       } catch (err) {
-        console.error("Error fetching user stocks:", err)
+        console.error("Error fetching data:", err)
         setError("銘柄の取得に失敗しました")
       } finally {
         setLoading(false)
       }
     }
 
-    fetchUserStocks()
+    fetchData()
   }, [])
 
   // Fetch stock prices
@@ -343,6 +363,8 @@ export default function MyStocksClient() {
         onClose={() => setShowAddDialog(false)}
         onSuccess={handleStockAdded}
         defaultType={activeTab}
+        defaultTargetReturnRate={userSettings?.targetReturnRate}
+        defaultStopLossRate={userSettings?.stopLossRate}
       />
 
       <AdditionalPurchaseDialog
