@@ -5,10 +5,10 @@ import { useState, useEffect } from "react"
 interface FeaturedStock {
   id: string
   stockId: string
-  category: string
+  category: string | null
   reason: string | null
-  score: number | null
-  isOwned: boolean
+  isOwned: boolean // ポートフォリオにある場合
+  isRegistered: boolean // ウォッチリストまたはポートフォリオにある場合
   stock: {
     id: string
     tickerCode: string
@@ -16,6 +16,13 @@ interface FeaturedStock {
     sector: string | null
     currentPrice: number | null
   }
+}
+
+// カテゴリのバッジ表示用
+const categoryBadges: Record<string, { label: string; className: string }> = {
+  surge: { label: "急騰", className: "bg-red-100 text-red-800" },
+  stable: { label: "安定", className: "bg-blue-100 text-blue-800" },
+  trending: { label: "話題", className: "bg-yellow-100 text-yellow-800" },
 }
 
 interface FeaturedStocksByCategoryProps {
@@ -207,12 +214,11 @@ export default function FeaturedStocksByCategory({
             </div>
           )}
 
-          {stock.score !== null && (
-            <div className="flex items-center gap-1 mt-1">
-              <div className="text-xs text-gray-500">スコア:</div>
-              <div className="text-xs sm:text-sm font-semibold text-gray-900">
-                {Math.round(stock.score)}/100
-              </div>
+          {stock.category && categoryBadges[stock.category] && (
+            <div className="mt-1">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${categoryBadges[stock.category].className}`}>
+                {categoryBadges[stock.category].label}
+              </span>
             </div>
           )}
         </div>
@@ -227,12 +233,12 @@ export default function FeaturedStocksByCategory({
 
         <button
           onClick={() => handleAddToWatchlist(stock)}
-          disabled={addingStockId === stock.stockId || stock.isOwned}
-          className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${stock.isOwned ? "" : theme.button}`}
+          disabled={addingStockId === stock.stockId || stock.isRegistered}
+          className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${stock.isRegistered ? "" : theme.button}`}
         >
           {addingStockId === stock.stockId
             ? "追加中..."
-            : stock.isOwned
+            : stock.isRegistered
               ? "登録済み"
               : "ウォッチリストに追加"}
         </button>

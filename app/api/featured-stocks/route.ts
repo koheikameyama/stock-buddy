@@ -26,7 +26,7 @@ export async function GET() {
       )
     }
 
-    // ユーザーの保有銘柄IDを取得（ウォッチリスト + ポートフォリオ）
+    // ユーザーの銘柄IDを取得
     const [watchlist, portfolio] = await Promise.all([
       prisma.watchlistStock.findMany({
         where: { userId },
@@ -37,14 +37,19 @@ export async function GET() {
         select: { stockId: true },
       }),
     ])
-    const userStockIds = [...watchlist, ...portfolio].map((s) => s.stockId)
+    // 保有中 = ポートフォリオにある銘柄のみ
+    const portfolioStockIds = portfolio.map((s) => s.stockId)
+    // 登録済み = ウォッチリストまたはポートフォリオにある銘柄
+    const registeredStockIds = [...watchlist, ...portfolio].map((s) => s.stockId)
 
     // --- あなたへのおすすめ（ユーザーごとのAI生成） ---
     let personalRecommendations: {
       id: string
       stockId: string
       reason: string
+      category: string | null
       isOwned: boolean
+      isRegistered: boolean
       stock: {
         id: string
         tickerCode: string
@@ -88,7 +93,9 @@ export async function GET() {
         id: r.id,
         stockId: r.stockId,
         reason: r.reason,
-        isOwned: userStockIds.includes(r.stockId),
+        category: null, // UserDailyRecommendation にはカテゴリがない
+        isOwned: portfolioStockIds.includes(r.stockId),
+        isRegistered: registeredStockIds.includes(r.stockId),
         stock: {
           id: r.stock.id,
           tickerCode: r.stock.tickerCode,
@@ -112,7 +119,9 @@ export async function GET() {
       id: string
       stockId: string
       reason: string
+      category: string
       isOwned: boolean
+      isRegistered: boolean
       stock: {
         id: string
         tickerCode: string
@@ -146,7 +155,9 @@ export async function GET() {
         id: t.id,
         stockId: t.stockId,
         reason: t.reason,
-        isOwned: userStockIds.includes(t.stockId),
+        category: t.category,
+        isOwned: portfolioStockIds.includes(t.stockId),
+        isRegistered: registeredStockIds.includes(t.stockId),
         stock: {
           id: t.stock.id,
           tickerCode: t.stock.tickerCode,
