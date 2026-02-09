@@ -8,6 +8,97 @@ interface Message {
   content: string
 }
 
+interface ParsedSource {
+  title: string
+  url: string
+}
+
+interface ParsedMessage {
+  mainContent: string
+  sources: ParsedSource[]
+}
+
+// メッセージから本文と参考情報を分離
+function parseMessage(content: string): ParsedMessage {
+  const separator = "\n\n---\n📰 参考にした情報:"
+  const separatorIndex = content.indexOf(separator)
+
+  if (separatorIndex === -1) {
+    return { mainContent: content, sources: [] }
+  }
+
+  const mainContent = content.substring(0, separatorIndex)
+  const sourcesText = content.substring(separatorIndex + separator.length)
+
+  // ソースをパース（• タイトル\n  URL の形式）
+  const sources: ParsedSource[] = []
+  const lines = sourcesText.trim().split("\n")
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (line.startsWith("•")) {
+      const title = line.substring(1).trim()
+      // 次の行がURLかチェック
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim()
+        if (nextLine.startsWith("http")) {
+          sources.push({ title, url: nextLine })
+          i++ // URLの行をスキップ
+        }
+      }
+    }
+  }
+
+  return { mainContent, sources }
+}
+
+// ソースアコーディオンコンポーネント
+function SourcesAccordion({ sources }: { sources: ParsedSource[] }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  if (sources.length === 0) return null
+
+  return (
+    <div className="mt-2 border-t border-gray-200 pt-2">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+      >
+        <svg
+          className={`w-3 h-3 transition-transform ${isOpen ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
+        </svg>
+        📰 参考情報（{sources.length}件）
+      </button>
+      {isOpen && (
+        <ul className="mt-2 space-y-1">
+          {sources.map((source, index) => (
+            <li key={index} className="text-xs">
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 hover:underline break-all"
+              >
+                {source.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 const DEFAULT_QUESTIONS = [
   "今日の注目点は？",
   "ポートフォリオどう？",
@@ -242,26 +333,35 @@ export default function GlobalChat() {
               </div>
             )}
 
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
+            {messages.map((message, index) => {
+              const parsed = message.role === "assistant"
+                ? parseMessage(message.content)
+                : { mainContent: message.content, sources: [] }
+
+              return (
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                    message.role === "user"
-                      ? stockContext
-                        ? "bg-green-600 text-white"
-                        : "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-900"
+                  key={index}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                      message.role === "user"
+                        ? stockContext
+                          ? "bg-green-600 text-white"
+                          : "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-900"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{parsed.mainContent}</p>
+                    {message.role === "assistant" && (
+                      <SourcesAccordion sources={parsed.sources} />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {isLoading && (
               <div className="flex justify-start">
