@@ -87,6 +87,7 @@ export default function AddStockDialog({
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // 平均取得単価が変更されたら、投資スタイルの%からデフォルト価格を計算
+  // targetPrice/stopLossPriceを依存に入れると無限ループになるため除外
   useEffect(() => {
     const price = parseFloat(averagePrice)
     if (!price || price <= 0) return
@@ -102,6 +103,7 @@ export default function AddStockDialog({
       const defaultStop = Math.round(price * (1 + defaultStopLossRate / 100))
       setStopLossPrice(defaultStop.toString())
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [averagePrice, defaultTargetReturnRate, defaultStopLossRate])
 
   // 検索機能
