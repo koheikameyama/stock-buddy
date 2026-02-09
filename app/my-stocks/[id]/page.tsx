@@ -87,8 +87,8 @@ export default async function MyStockDetailPage({
     averagePurchasePrice: calculatedAveragePrice,
     purchaseDate: calculatedPurchaseDate,
     // 売却目標設定
-    targetReturnRate: portfolioStock?.targetReturnRate ?? null,
-    stopLossRate: portfolioStock?.stopLossRate ?? null,
+    targetPrice: portfolioStock?.targetPrice ? Number(portfolioStock.targetPrice) : null,
+    stopLossPrice: portfolioStock?.stopLossPrice ? Number(portfolioStock.stopLossPrice) : null,
     transactions: portfolioStock?.transactions.map((t) => ({
       id: t.id,
       type: t.type,

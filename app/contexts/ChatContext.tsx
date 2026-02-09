@@ -12,6 +12,8 @@ interface StockContext {
   averagePurchasePrice?: number
   profit?: number
   profitPercent?: number
+  targetPrice?: number | null
+  stopLossPrice?: number | null
 }
 
 interface ChatContextType {

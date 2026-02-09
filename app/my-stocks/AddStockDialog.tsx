@@ -49,6 +49,10 @@ interface AddStockDialogProps {
   // 投資スタイルからのデフォルト設定
   defaultTargetReturnRate?: number | null
   defaultStopLossRate?: number | null
+  // 事前選択された銘柄（おすすめから追加する場合など）
+  initialStock?: SearchResult | null
+  // 初期メモ（おすすめ理由など）
+  initialNote?: string
 }
 
 export default function AddStockDialog({
@@ -58,6 +62,8 @@ export default function AddStockDialog({
   defaultType,
   defaultTargetReturnRate,
   defaultStopLossRate,
+  initialStock,
+  initialNote,
 }: AddStockDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
@@ -76,7 +82,6 @@ export default function AddStockDialog({
 
   // Watchlist fields
   const [alertPrice, setAlertPrice] = useState("")
-  const [addedReason, setAddedReason] = useState("")
 
   // Common field
   const [note, setNote] = useState("")
@@ -140,6 +145,33 @@ export default function AddStockDialog({
     }, 300) // 300msのデバウンス
   }, [searchQuery, selectedStock])
 
+  // ダイアログを開いた時にフォームをリセット、または初期値を設定
+  useEffect(() => {
+    if (isOpen) {
+      if (initialStock) {
+        // 初期銘柄が指定されている場合
+        setSelectedStock(initialStock)
+        setSearchQuery(`${initialStock.tickerCode} - ${initialStock.name}`)
+        setNote(initialNote || "")
+      } else {
+        // 初期銘柄がない場合はフォームをリセット
+        setSearchQuery("")
+        setSelectedStock(null)
+        setNote("")
+      }
+      // 共通のリセット
+      setQuantity("")
+      setAveragePrice("")
+      setPurchaseDate(new Date().toISOString().split("T")[0])
+      setTargetPrice("")
+      setStopLossPrice("")
+      setAlertPrice("")
+      setSearchResults([])
+      setShowResults(false)
+      setError(null)
+    }
+  }, [isOpen, initialStock, initialNote])
+
   const handleSelectStock = (stock: SearchResult) => {
     // 検索タイムアウトをクリアして、再検索を防ぐ
     if (searchTimeoutRef.current) {
@@ -183,7 +215,7 @@ export default function AddStockDialog({
         return
       }
       if (!averagePrice || parseFloat(averagePrice) <= 0) {
-        setError("平均取得単価を入力してください")
+        setError("購入時単価を入力してください")
         return
       }
     }
@@ -203,19 +235,15 @@ export default function AddStockDialog({
         body.purchaseDate = purchaseDate
         if (note) body.note = note
 
-        // 価格から%を計算して渡す
-        const avgPrice = parseFloat(averagePrice)
-        if (targetPrice && avgPrice > 0) {
-          const targetVal = parseFloat(targetPrice)
-          body.targetReturnRate = Math.round(((targetVal - avgPrice) / avgPrice) * 100)
+        // 価格を直接渡す
+        if (targetPrice) {
+          body.targetPrice = parseFloat(targetPrice)
         }
-        if (stopLossPrice && avgPrice > 0) {
-          const stopVal = parseFloat(stopLossPrice)
-          body.stopLossRate = Math.round(((stopVal - avgPrice) / avgPrice) * 100)
+        if (stopLossPrice) {
+          body.stopLossPrice = parseFloat(stopLossPrice)
         }
       } else {
         if (alertPrice) body.alertPrice = parseFloat(alertPrice)
-        if (addedReason) body.addedReason = addedReason
         if (note) body.note = note
       }
 
@@ -244,7 +272,6 @@ export default function AddStockDialog({
       setTargetPrice("")
       setStopLossPrice("")
       setAlertPrice("")
-      setAddedReason("")
       setNote("")
     } catch (err: any) {
       console.error(err)
@@ -410,7 +437,12 @@ export default function AddStockDialog({
                   htmlFor="averagePrice"
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
-                  平均取得単価 <span className="text-red-500">*</span>
+                  購入時単価 <span className="text-red-500">*</span>
+                  {selectedStock?.latestPrice && (
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      （現在価格: ¥{selectedStock.latestPrice.toLocaleString()}）
+                    </span>
+                  )}
                 </label>
                 <input
                   type="number"
@@ -424,7 +456,7 @@ export default function AddStockDialog({
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  複数回に分けて購入した場合は、平均価格を入力してください
+                  1株あたりの購入価格を入力してください
                 </p>
               </div>
 
@@ -536,6 +568,11 @@ export default function AddStockDialog({
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
                   目標価格（任意）
+                  {selectedStock?.latestPrice && (
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      （現在価格: ¥{selectedStock.latestPrice.toLocaleString()}）
+                    </span>
+                  )}
                 </label>
                 <input
                   type="number"
@@ -554,23 +591,6 @@ export default function AddStockDialog({
 
               <div>
                 <label
-                  htmlFor="addedReason"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
-                >
-                  追加理由（任意）
-                </label>
-                <textarea
-                  id="addedReason"
-                  value={addedReason}
-                  onChange={(e) => setAddedReason(e.target.value)}
-                  placeholder="なぜこの銘柄が気になっているか記録できます"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-              </div>
-
-              <div>
-                <label
                   htmlFor="note"
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
@@ -580,7 +600,7 @@ export default function AddStockDialog({
                   id="note"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="その他のメモを記録できます"
+                  placeholder="気になっている理由やメモを記録できます"
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />

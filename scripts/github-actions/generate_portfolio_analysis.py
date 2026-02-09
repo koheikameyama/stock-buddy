@@ -40,6 +40,8 @@ def get_portfolio_stocks(conn):
                 ps.id,
                 ps."userId",
                 ps."stockId",
+                ps."targetPrice",
+                ps."stopLossPrice",
                 s."tickerCode",
                 s.name,
                 s.sector,
@@ -193,6 +195,30 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
     # 財務指標をフォーマット
     financial_metrics = format_financial_metrics(stock)
 
+    # 売却目標情報をフォーマット
+    target_info = ""
+    target_price_val = stock.get('targetPrice')
+    stop_loss_price_val = stock.get('stopLossPrice')
+    if target_price_val or stop_loss_price_val:
+        target_parts = []
+        if target_price_val:
+            target_price = float(target_price_val)
+            if current_price and average_price and target_price > average_price:
+                progress = (current_price - average_price) / (target_price - average_price) * 100
+                progress = max(0, min(100, progress))
+            else:
+                progress = 0
+            target_parts.append(f"利確目標: {target_price:,.0f}円（達成度: {progress:.0f}%）")
+        if stop_loss_price_val:
+            stop_price = float(stop_loss_price_val)
+            warning = " ⚠️損切ライン割れ" if current_price and current_price < stop_price else ""
+            target_parts.append(f"損切ライン: {stop_price:,.0f}円{warning}")
+        target_info = f"""
+
+【ユーザーの売却目標設定】
+{chr(10).join('- ' + p for p in target_parts)}
+※ ユーザーが設定した目標です。この目標に対する進捗も考慮してアドバイスしてください。"""
+
     # ニュース情報をフォーマット
     news_context = ""
     if related_news:
@@ -211,9 +237,9 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
 - ティッカーコード: {stock['tickerCode']}
 - セクター: {stock['sector'] or '不明'}
 - 保有数量: {quantity}株
-- 平均取得単価: {average_price}円
+- 購入時単価: {average_price}円
 - 現在価格: {current_price or '不明'}円
-- 損益: {f'{profit:,.0f}円 ({profit_percent:+.2f}%)' if profit is not None else '不明'}
+- 損益: {f'{profit:,.0f}円 ({profit_percent:+.2f}%)' if profit is not None else '不明'}{target_info}
 
 【財務指標（初心者向け解説）】
 {financial_metrics}
@@ -234,6 +260,7 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
 - 財務指標（会社の規模、配当、株価水準、評価スコア）を分析に活用してください
 - 提供されたニュース情報を参考にしてください
 - ニュースにない情報は推測や創作をしないでください
+- ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください
 - shortTerm: 「売り時」「保持」「買い増し時」のいずれかの判断を含める
 - mediumTerm: 今月の見通しと推奨行動を含める
 - longTerm: 今後3ヶ月の成長性と投資継続の判断を含める

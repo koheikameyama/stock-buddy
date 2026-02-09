@@ -39,6 +39,9 @@ INFO_BATCH_DELAY = 5     # 財務指標バッチ間の待機時間（秒）
 MAX_RETRIES = 3          # API rate limit時の最大リトライ回数
 RETRY_DELAYS = [5, 10, 20]  # リトライ間隔（秒）
 
+# DB制約
+MAX_PRICE_VALUE = 9_999_999_999.99  # DECIMAL(12, 2)の最大値
+
 
 def calculate_beginner_score(info: dict) -> int:
     """
@@ -178,12 +181,22 @@ def batch_download_prices(tickers):
                     prices = []
                     for date, row in ticker_df.iterrows():
                         try:
+                            open_price = float(row['Open'])
+                            high_price = float(row['High'])
+                            low_price = float(row['Low'])
+                            close_price = float(row['Close'])
+
+                            # DECIMAL(12, 2)の制約をチェック
+                            if any(p > MAX_PRICE_VALUE or p < 0 for p in [open_price, high_price, low_price, close_price]):
+                                print(f"    ⚠️  {ticker}: Skipping invalid price data (value out of range)")
+                                continue
+
                             prices.append({
                                 'date': date.date() if hasattr(date, 'date') else date,
-                                'open': float(row['Open']),
-                                'high': float(row['High']),
-                                'low': float(row['Low']),
-                                'close': float(row['Close']),
+                                'open': open_price,
+                                'high': high_price,
+                                'low': low_price,
+                                'close': close_price,
                                 'volume': int(row['Volume']),
                             })
                         except (ValueError, KeyError, TypeError):
@@ -225,11 +238,18 @@ def batch_insert_prices(price_data, ticker_to_stock_id):
     cur = conn.cursor()
 
     all_records = []
+    skipped_count = 0
     for ticker, prices in price_data.items():
         stock_id = ticker_to_stock_id.get(ticker)
         if not stock_id:
             continue
         for p in prices:
+            # 最終チェック: DECIMAL(12, 2)の制約
+            price_values = [p['open'], p['high'], p['low'], p['close']]
+            if any(v > MAX_PRICE_VALUE or v < 0 for v in price_values):
+                skipped_count += 1
+                continue
+
             all_records.append((
                 stock_id,
                 p['date'],
@@ -240,6 +260,9 @@ def batch_insert_prices(price_data, ticker_to_stock_id):
                 p['volume'],
                 p['close']  # adjustedClose
             ))
+
+    if skipped_count > 0:
+        print(f"  ⚠️  Skipped {skipped_count} records with invalid price values")
 
     if not all_records:
         cur.close()

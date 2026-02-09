@@ -26,8 +26,8 @@ export interface UserStockResponse {
   mediumTerm?: string | null
   longTerm?: string | null
   // 売却目標設定（Portfolio only）
-  targetReturnRate?: number | null
-  stopLossRate?: number | null
+  targetPrice?: number | null
+  stopLossPrice?: number | null
   // Transaction data
   transactions?: {
     id: string
@@ -63,8 +63,8 @@ interface CreateUserStockRequest {
   averagePurchasePrice?: number
   purchaseDate?: string
   // 売却目標設定（Portfolio only）
-  targetReturnRate?: number | null
-  stopLossRate?: number | null
+  targetPrice?: number | null
+  stopLossPrice?: number | null
   // Common fields
   note?: string
 }
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body: CreateUserStockRequest = await request.json()
-    const { tickerCode, type, addedReason, alertPrice, quantity, averagePurchasePrice, purchaseDate, note, targetReturnRate, stopLossRate } = body
+    const { tickerCode, type, addedReason, alertPrice, quantity, averagePurchasePrice, purchaseDate, note, targetPrice, stopLossPrice } = body
 
     // Validation
     if (!tickerCode) {
@@ -390,8 +390,8 @@ export async function POST(request: NextRequest) {
             userId,
             stockId: stock.id,
             note,
-            targetReturnRate: targetReturnRate ?? null,
-            stopLossRate: stopLossRate ?? null,
+            targetPrice: targetPrice ?? null,
+            stopLossPrice: stopLossPrice ?? null,
           },
           include: {
             stock: {
@@ -437,8 +437,8 @@ export async function POST(request: NextRequest) {
         shortTerm: result.portfolioStock.shortTerm,
         mediumTerm: result.portfolioStock.mediumTerm,
         longTerm: result.portfolioStock.longTerm,
-        targetReturnRate: result.portfolioStock.targetReturnRate,
-        stopLossRate: result.portfolioStock.stopLossRate,
+        targetPrice: result.portfolioStock.targetPrice ? Number(result.portfolioStock.targetPrice) : null,
+        stopLossPrice: result.portfolioStock.stopLossPrice ? Number(result.portfolioStock.stopLossPrice) : null,
         transactions: [{
           id: result.transaction.id,
           type: result.transaction.type,

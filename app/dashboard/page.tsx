@@ -56,8 +56,6 @@ export default async function DashboardPage() {
         investmentPeriod={user.settings?.investmentPeriod}
         riskTolerance={user.settings?.riskTolerance}
         investmentBudget={user.settings?.investmentBudget}
-        targetReturnRate={user.settings?.targetReturnRate}
-        stopLossRate={user.settings?.stopLossRate}
       />
       <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
