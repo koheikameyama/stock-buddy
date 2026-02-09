@@ -145,14 +145,30 @@ export default function AddStockDialog({
     }, 300) // 300msのデバウンス
   }, [searchQuery, selectedStock])
 
-  // 初期銘柄が指定されている場合、ダイアログを開いた時に設定
+  // ダイアログを開いた時にフォームをリセット、または初期値を設定
   useEffect(() => {
-    if (isOpen && initialStock) {
-      setSelectedStock(initialStock)
-      setSearchQuery(`${initialStock.tickerCode} - ${initialStock.name}`)
-      if (initialNote) {
-        setNote(initialNote)
+    if (isOpen) {
+      if (initialStock) {
+        // 初期銘柄が指定されている場合
+        setSelectedStock(initialStock)
+        setSearchQuery(`${initialStock.tickerCode} - ${initialStock.name}`)
+        setNote(initialNote || "")
+      } else {
+        // 初期銘柄がない場合はフォームをリセット
+        setSearchQuery("")
+        setSelectedStock(null)
+        setNote("")
       }
+      // 共通のリセット
+      setQuantity("")
+      setAveragePrice("")
+      setPurchaseDate(new Date().toISOString().split("T")[0])
+      setTargetPrice("")
+      setStopLossPrice("")
+      setAlertPrice("")
+      setSearchResults([])
+      setShowResults(false)
+      setError(null)
     }
   }, [isOpen, initialStock, initialNote])
 
