@@ -59,6 +59,7 @@ model User {
   watchlistStocks        WatchlistStock[]
   portfolioStocks        PortfolioStock[]
   transactions           Transaction[]
+  dailyRecommendations   UserDailyRecommendation[]
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
@@ -126,6 +127,7 @@ model Stock {
   portfolioStocks         PortfolioStock[]
   transactions            Transaction[]
   purchaseRecommendations PurchaseRecommendation[]
+  userDailyRecommendations UserDailyRecommendation[]
   createdAt               DateTime @default(now())
 
   @@index([tickerCode])
@@ -389,5 +391,22 @@ model PurchaseRecommendation {
 
   @@unique([stockId, date])
   @@index([date])
+  @@index([stockId])
+}
+
+// ユーザーごとのAIおすすめ銘柄（毎日バッチで生成）
+model UserDailyRecommendation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  stockId     String
+  stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  position    Int      // 表示順序（1, 2, 3）
+  reason      String   @db.Text // AIが生成した初心者向け理由
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, date, position])
+  @@index([userId, date(sort: Desc)])
   @@index([stockId])
 }
