@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import StockPrediction from "@/app/components/StockPrediction"
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation"
-import PortfolioAnalysis from "@/app/components/PortfolioAnalysis"
+import StockAnalysisCard from "@/app/components/StockAnalysisCard"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
 import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
@@ -357,16 +356,12 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </section>
             )}
 
-            {/* AI Sell/Hold Analysis Section */}
+            {/* AI Analysis Section */}
             <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
                 AI売買判断
               </h2>
-
-              <div className="space-y-4">
-                <PortfolioAnalysis stockId={stock.stockId} />
-                <StockPrediction stockId={stock.stockId} />
-              </div>
+              <StockAnalysisCard stockId={stock.stockId} />
             </section>
 
             {/* Chart Section */}
