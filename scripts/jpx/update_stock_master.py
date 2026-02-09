@@ -23,7 +23,10 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 from typing import List, Dict, Optional
-from cuid2 import cuid
+from cuid2 import Cuid
+
+# CUID生成器を初期化
+cuid_generator = Cuid()
 
 
 # 環境変数からDB接続URLを取得
@@ -149,7 +152,7 @@ def update_stock_master(stocks: List[Dict]) -> Dict[str, int]:
                     ''',
                     [
                         (
-                            cuid(),  # id - CUID生成（Prismaと互換性あり）
+                            cuid_generator.generate(),  # id - CUID生成（Prismaと互換性あり）
                             item[0],  # tickerCode
                             item[1],  # name
                             "東証プライム",  # market（デフォルト）
