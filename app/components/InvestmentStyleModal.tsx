@@ -9,8 +9,6 @@ interface InvestmentStyleModalProps {
   defaultPeriod?: string
   defaultRisk?: string
   defaultBudget?: number | null
-  defaultTargetReturnRate?: number | null
-  defaultStopLossRate?: number | null
 }
 
 const budgetOptions = [
@@ -21,36 +19,17 @@ const budgetOptions = [
   { value: 0, label: "未定", description: "あとで決める" },
 ]
 
-const targetReturnOptions = [
-  { value: 5, label: "+5%" },
-  { value: 10, label: "+10%" },
-  { value: 15, label: "+15%" },
-  { value: 20, label: "+20%" },
-  { value: 30, label: "+30%" },
-]
-
-const stopLossOptions = [
-  { value: -5, label: "-5%" },
-  { value: -10, label: "-10%" },
-  { value: -15, label: "-15%" },
-  { value: -20, label: "-20%" },
-]
-
 export default function InvestmentStyleModal({
   isOpen,
   onClose,
   defaultPeriod = "",
   defaultRisk = "",
   defaultBudget = null,
-  defaultTargetReturnRate = null,
-  defaultStopLossRate = null,
 }: InvestmentStyleModalProps) {
   const router = useRouter()
   const [investmentPeriod, setInvestmentPeriod] = useState<string>(defaultPeriod)
   const [riskTolerance, setRiskTolerance] = useState<string>(defaultRisk)
   const [investmentBudget, setInvestmentBudget] = useState<number | null>(defaultBudget)
-  const [targetReturnRate, setTargetReturnRate] = useState<number | null>(defaultTargetReturnRate)
-  const [stopLossRate, setStopLossRate] = useState<number | null>(defaultStopLossRate)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!isOpen) return null
@@ -71,8 +50,6 @@ export default function InvestmentStyleModal({
           investmentPeriod,
           riskTolerance,
           investmentBudget: investmentBudget && investmentBudget > 0 ? investmentBudget : null,
-          targetReturnRate,
-          stopLossRate,
         }),
       })
 
@@ -213,78 +190,6 @@ export default function InvestmentStyleModal({
                 <div className="text-[10px] sm:text-xs text-gray-500">{option.description}</div>
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* 売却目標（利確・損切り） */}
-        <div className="mb-4 sm:mb-6 bg-gray-50 rounded-xl p-3 sm:p-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
-            売却目標
-          </label>
-          <p className="text-xs text-gray-500 mb-2">
-            利確・損切りの目安（あとで変更可能）
-          </p>
-
-          <div className="space-y-2">
-            {/* 利確ライン */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm text-gray-600 w-14 sm:w-16 flex-shrink-0">📈 利確</span>
-              <div className="flex flex-wrap gap-1">
-                {targetReturnOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setTargetReturnRate(option.value)}
-                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded text-[10px] sm:text-xs font-semibold transition-all ${
-                      targetReturnRate === option.value
-                        ? "bg-green-500 text-white"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-green-300"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setTargetReturnRate(null)}
-                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded text-[10px] sm:text-xs font-semibold transition-all ${
-                    targetReturnRate === null
-                      ? "bg-gray-500 text-white"
-                      : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300"
-                  }`}
-                >
-                  未定
-                </button>
-              </div>
-            </div>
-
-            {/* 損切りライン */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm text-gray-600 w-14 sm:w-16 flex-shrink-0">📉 損切</span>
-              <div className="flex flex-wrap gap-1">
-                {stopLossOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setStopLossRate(option.value)}
-                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded text-[10px] sm:text-xs font-semibold transition-all ${
-                      stopLossRate === option.value
-                        ? "bg-red-500 text-white"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-red-300"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setStopLossRate(null)}
-                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded text-[10px] sm:text-xs font-semibold transition-all ${
-                    stopLossRate === null
-                      ? "bg-gray-500 text-white"
-                      : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300"
-                  }`}
-                >
-                  未定
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
