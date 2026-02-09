@@ -62,6 +62,9 @@ interface CreateUserStockRequest {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
+  // 売却目標設定（Portfolio only）
+  targetReturnRate?: number | null
+  stopLossRate?: number | null
   // Common fields
   note?: string
 }
@@ -226,7 +229,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body: CreateUserStockRequest = await request.json()
-    const { tickerCode, type, addedReason, alertPrice, quantity, averagePurchasePrice, purchaseDate, note } = body
+    const { tickerCode, type, addedReason, alertPrice, quantity, averagePurchasePrice, purchaseDate, note, targetReturnRate, stopLossRate } = body
 
     // Validation
     if (!tickerCode) {
@@ -387,6 +390,8 @@ export async function POST(request: NextRequest) {
             userId,
             stockId: stock.id,
             note,
+            targetReturnRate: targetReturnRate ?? null,
+            stopLossRate: stopLossRate ?? null,
           },
           include: {
             stock: {
@@ -432,6 +437,8 @@ export async function POST(request: NextRequest) {
         shortTerm: result.portfolioStock.shortTerm,
         mediumTerm: result.portfolioStock.mediumTerm,
         longTerm: result.portfolioStock.longTerm,
+        targetReturnRate: result.portfolioStock.targetReturnRate,
+        stopLossRate: result.portfolioStock.stopLossRate,
         transactions: [{
           id: result.transaction.id,
           type: result.transaction.type,
