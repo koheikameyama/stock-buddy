@@ -6,7 +6,7 @@ import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 function getGeminiClient() {
   return new GoogleGenAI({
-    apiKey: process.env.GOOGLE_AI_API_KEY,
+    apiKey: process.env.GEMINI_API_KEY,
   })
 }
 
