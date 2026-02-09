@@ -183,7 +183,7 @@ export default function AddStockDialog({
         return
       }
       if (!averagePrice || parseFloat(averagePrice) <= 0) {
-        setError("平均取得単価を入力してください")
+        setError("購入時単価を入力してください")
         return
       }
     }
@@ -203,15 +203,12 @@ export default function AddStockDialog({
         body.purchaseDate = purchaseDate
         if (note) body.note = note
 
-        // 価格から%を計算して渡す
-        const avgPrice = parseFloat(averagePrice)
-        if (targetPrice && avgPrice > 0) {
-          const targetVal = parseFloat(targetPrice)
-          body.targetReturnRate = Math.round(((targetVal - avgPrice) / avgPrice) * 100)
+        // 価格を直接渡す
+        if (targetPrice) {
+          body.targetPrice = parseFloat(targetPrice)
         }
-        if (stopLossPrice && avgPrice > 0) {
-          const stopVal = parseFloat(stopLossPrice)
-          body.stopLossRate = Math.round(((stopVal - avgPrice) / avgPrice) * 100)
+        if (stopLossPrice) {
+          body.stopLossPrice = parseFloat(stopLossPrice)
         }
       } else {
         if (alertPrice) body.alertPrice = parseFloat(alertPrice)
@@ -410,7 +407,7 @@ export default function AddStockDialog({
                   htmlFor="averagePrice"
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
-                  平均取得単価 <span className="text-red-500">*</span>
+                  購入時単価 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -424,7 +421,7 @@ export default function AddStockDialog({
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  複数回に分けて購入した場合は、平均価格を入力してください
+                  1株あたりの購入価格を入力してください
                 </p>
               </div>
 

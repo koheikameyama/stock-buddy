@@ -11,8 +11,8 @@ interface UpdateUserStockRequest {
   addedReason?: string
   alertPrice?: number
   // Portfolio fields - 売却目標設定
-  targetReturnRate?: number | null
-  stopLossRate?: number | null
+  targetPrice?: number | null
+  stopLossPrice?: number | null
   // Common
   note?: string
 }
@@ -297,20 +297,18 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
 
     return NextResponse.json(response)
   } else if (portfolioStock) {
-    // Validate target return rate
-    const validReturnRates = [5, 10, 15, 20, 30]
-    if (body.targetReturnRate !== undefined && body.targetReturnRate !== null && !validReturnRates.includes(body.targetReturnRate)) {
+    // Validate target price (must be positive if set)
+    if (body.targetPrice !== undefined && body.targetPrice !== null && body.targetPrice <= 0) {
       return NextResponse.json(
-        { error: "無効な目標利益率です" },
+        { error: "利確目標価格は0より大きい値を指定してください" },
         { status: 400 }
       )
     }
 
-    // Validate stop loss rate
-    const validStopLossRates = [-5, -10, -15, -20]
-    if (body.stopLossRate !== undefined && body.stopLossRate !== null && !validStopLossRates.includes(body.stopLossRate)) {
+    // Validate stop loss price (must be positive if set)
+    if (body.stopLossPrice !== undefined && body.stopLossPrice !== null && body.stopLossPrice <= 0) {
       return NextResponse.json(
-        { error: "無効な損切りラインです" },
+        { error: "損切り価格は0より大きい値を指定してください" },
         { status: 400 }
       )
     }
@@ -320,8 +318,8 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       where: { id },
       data: {
         note: body.note,
-        targetReturnRate: body.targetReturnRate,
-        stopLossRate: body.stopLossRate,
+        targetPrice: body.targetPrice,
+        stopLossPrice: body.stopLossPrice,
       },
       include: {
         stock: {
@@ -359,8 +357,8 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       shortTerm: updated.shortTerm,
       mediumTerm: updated.mediumTerm,
       longTerm: updated.longTerm,
-      targetReturnRate: updated.targetReturnRate,
-      stopLossRate: updated.stopLossRate,
+      targetPrice: updated.targetPrice ? Number(updated.targetPrice) : null,
+      stopLossPrice: updated.stopLossPrice ? Number(updated.stopLossPrice) : null,
       transactions: updated.transactions.map((t) => ({
         id: t.id,
         type: t.type,

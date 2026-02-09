@@ -318,9 +318,9 @@ model PortfolioStock {
   // オプション情報
   note String? @db.Text
 
-  // 売却目標設定（nullならUserSettingsのデフォルトを使用）
-  targetReturnRate Int? // 個別目標利益率（%）: 5, 10, 15, 20, 30
-  stopLossRate     Int? // 個別損切りライン（%）: -5, -10, -15, -20
+  // 売却目標設定（価格で保存）
+  targetPrice   Decimal? @db.Decimal(12, 2) // 利確目標価格
+  stopLossPrice Decimal? @db.Decimal(12, 2) // 損切り価格
 
   // AI分析結果（売買判断用）
   lastAnalysis DateTime?
