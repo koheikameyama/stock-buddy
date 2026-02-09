@@ -49,6 +49,10 @@ interface AddStockDialogProps {
   // 投資スタイルからのデフォルト設定
   defaultTargetReturnRate?: number | null
   defaultStopLossRate?: number | null
+  // 事前選択された銘柄（おすすめから追加する場合など）
+  initialStock?: SearchResult | null
+  // 初期メモ（おすすめ理由など）
+  initialNote?: string
 }
 
 export default function AddStockDialog({
@@ -58,6 +62,8 @@ export default function AddStockDialog({
   defaultType,
   defaultTargetReturnRate,
   defaultStopLossRate,
+  initialStock,
+  initialNote,
 }: AddStockDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
@@ -138,6 +144,17 @@ export default function AddStockDialog({
       }
     }, 300) // 300msのデバウンス
   }, [searchQuery, selectedStock])
+
+  // 初期銘柄が指定されている場合、ダイアログを開いた時に設定
+  useEffect(() => {
+    if (isOpen && initialStock) {
+      setSelectedStock(initialStock)
+      setSearchQuery(`${initialStock.tickerCode} - ${initialStock.name}`)
+      if (initialNote) {
+        setNote(initialNote)
+      }
+    }
+  }, [isOpen, initialStock, initialNote])
 
   const handleSelectStock = (stock: SearchResult) => {
     // 検索タイムアウトをクリアして、再検索を防ぐ
