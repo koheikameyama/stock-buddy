@@ -88,8 +88,9 @@ def update_stock_master(stocks: List[Dict]) -> Dict[str, int]:
         updated = 0
         errors = 0
 
-        # バッチ処理用データを準備
+        # バッチ処理用データを準備（重複除去）
         upsert_data = []
+        seen_tickers = set()
 
         for stock in stocks:
             ticker = stock.get('ticker')
@@ -102,6 +103,12 @@ def update_stock_master(stocks: List[Dict]) -> Dict[str, int]:
                 print(f"⚠️  Skipping invalid record: {stock}")
                 errors += 1
                 continue
+
+            # 重複チェック（同一バッチ内での重複を防ぐ）
+            if ticker in seen_tickers:
+                print(f"⚠️  Skipping duplicate ticker: {ticker}")
+                continue
+            seen_tickers.add(ticker)
 
             # listed_date を None または日付文字列に変換
             listed_date_value = None

@@ -226,6 +226,20 @@ def main():
     # データを統合
     all_stocks = new_listings + delisted_stocks
 
+    # 重複除去（tickerでユニーク化、最初に見つかったものを優先）
+    seen_tickers = set()
+    unique_stocks = []
+    for stock in all_stocks:
+        ticker = stock.get('ticker')
+        if ticker and ticker not in seen_tickers:
+            seen_tickers.add(ticker)
+            unique_stocks.append(stock)
+
+    if len(all_stocks) != len(unique_stocks):
+        print(f"ℹ️  Removed {len(all_stocks) - len(unique_stocks)} duplicates")
+
+    all_stocks = unique_stocks
+
     if not all_stocks:
         print("⚠️  No data retrieved. This might be due to:")
         print("   - JPX website structure has changed")
