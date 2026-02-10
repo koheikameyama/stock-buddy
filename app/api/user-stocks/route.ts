@@ -297,7 +297,17 @@ export async function POST(request: NextRequest) {
       }),
     ])
 
-    if (existingWatchlist || existingPortfolio) {
+    // ポートフォリオに追加しようとしている場合、既にポートフォリオにあればエラー
+    // ウォッチリストにある場合は、ポートフォリオへの移行として処理（後でウォッチリストから削除）
+    if (type === "portfolio" && existingPortfolio) {
+      return NextResponse.json(
+        { error: "この銘柄は既にポートフォリオに登録されています" },
+        { status: 400 }
+      )
+    }
+
+    // ウォッチリストに追加しようとしている場合、既にどちらかにあればエラー
+    if (type === "watchlist" && (existingWatchlist || existingPortfolio)) {
       return NextResponse.json(
         { error: "この銘柄は既に登録されています" },
         { status: 400 }
@@ -310,13 +320,25 @@ export async function POST(request: NextRequest) {
       prisma.portfolioStock.count({ where: { userId } }),
     ])
 
-    const totalStocks = watchlistCount + portfolioCount
+    let totalStocks = watchlistCount + portfolioCount
+
+    // ウォッチリストからポートフォリオへの移行の場合、削除分を考慮
+    if (type === "portfolio" && existingWatchlist) {
+      totalStocks -= 1
+    }
 
     if (totalStocks >= MAX_STOCKS) {
       return NextResponse.json(
         { error: `最大${MAX_STOCKS}銘柄まで登録できます` },
         { status: 400 }
       )
+    }
+
+    // ウォッチリストからポートフォリオへの移行の場合、ウォッチリストから削除
+    if (type === "portfolio" && existingWatchlist) {
+      await prisma.watchlistStock.delete({
+        where: { id: existingWatchlist.id },
+      })
     }
 
     // Create based on type
