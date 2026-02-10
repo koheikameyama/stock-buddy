@@ -60,6 +60,7 @@ model User {
   portfolioStocks        PortfolioStock[]
   transactions           Transaction[]
   dailyRecommendations   UserDailyRecommendation[]
+  passedStockTrackings   PassedStockTracking[]
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
@@ -129,6 +130,7 @@ model Stock {
   transactions            Transaction[]
   purchaseRecommendations PurchaseRecommendation[]
   userDailyRecommendations UserDailyRecommendation[]
+  passedStockTrackings    PassedStockTracking[]
   createdAt               DateTime @default(now())
 
   @@index([tickerCode])
@@ -378,6 +380,24 @@ model PurchaseRecommendation {
   reason  String @db.Text
   caution String @db.Text
 
+  // A. 買い時判断
+  shouldBuyToday       Boolean?              // 今日買うべき？
+  idealEntryPrice      Decimal? @db.Decimal(12, 2) // 理想の買い値
+  priceGap             Decimal? @db.Decimal(12, 2) // 現在価格との差（マイナス=割安）
+  buyTimingExplanation String?  @db.Text    // 買い時の説明
+
+  // B. 深掘り評価
+  positives            String?  @db.Text    // 良いところ（箇条書き）
+  concerns             String?  @db.Text    // 不安な点（箇条書き）
+  suitableFor          String?  @db.Text    // こんな人向け
+
+  // D. パーソナライズ（ユーザー設定に基づく評価）
+  userFitScore         Int?                 // おすすめ度 0-100
+  budgetFit            Boolean?             // 予算内で購入可能？
+  periodFit            Boolean?             // 投資期間にマッチ？
+  riskFit              Boolean?             // リスク許容度に合う？
+  personalizedReason   String?  @db.Text    // パーソナライズされた理由
+
   // 将来拡張用
   analysisData Json?
 
@@ -387,6 +407,38 @@ model PurchaseRecommendation {
   @@unique([stockId, date])
   @@index([date])
   @@index([stockId])
+}
+
+// C. 見送った銘柄の追跡
+model PassedStockTracking {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId       String
+  stock         Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  // 見送り時点の情報
+  passedAt      DateTime @default(now())     // 見送った日時
+  passedPrice   Decimal  @db.Decimal(12, 2)  // 見送り時の株価
+  passedReason  String?  @db.Text            // 見送り理由（ユーザー入力）
+  source        String   @default("watchlist") // "watchlist" | "featured" | "recommendation"
+
+  // 追跡結果（定期更新）
+  currentPrice       Decimal? @db.Decimal(12, 2)  // 現在の株価
+  priceChangePercent Decimal? @db.Decimal(6, 2)   // 株価変動率（%）
+  whatIfProfit       Decimal? @db.Decimal(15, 2)  // 「あの時買ってたら」の損益
+  whatIfQuantity     Int?                          // 仮定購入株数（予算から計算）
+  wasGoodDecision    Boolean?                      // 良い判断だったか？
+  feedbackNote       String?  @db.Text             // AI振り返りコメント
+  lastTrackedAt      DateTime?                     // 最終追跡日時
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, stockId, passedAt])
+  @@index([userId])
+  @@index([stockId])
+  @@index([passedAt(sort: Desc)])
 }
 
 // ユーザーごとのAIおすすめ銘柄（毎日バッチで生成）
