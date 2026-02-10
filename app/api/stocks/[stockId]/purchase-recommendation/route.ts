@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { auth } from "@/auth"
+import { OpenAI } from "openai"
+import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
+import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 
 dayjs.extend(utc)
+
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+}
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -81,6 +91,258 @@ export async function GET(
     console.error("Error fetching purchase recommendation:", error)
     return NextResponse.json(
       { error: "購入判断の取得に失敗しました" },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * POST /api/stocks/[stockId]/purchase-recommendation
+ * 銘柄の購入判断をオンデマンドで生成
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ stockId: string }> }
+) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { stockId } = await params
+
+  try {
+    // 銘柄情報を取得
+    const stock = await prisma.stock.findUnique({
+      where: { id: stockId },
+      select: {
+        id: true,
+        tickerCode: true,
+        name: true,
+        sector: true,
+        currentPrice: true,
+      },
+    })
+
+    if (!stock) {
+      return NextResponse.json(
+        { error: "銘柄が見つかりません" },
+        { status: 404 }
+      )
+    }
+
+    // 直近30日の価格データを取得
+    const prices = await prisma.stockPrice.findMany({
+      where: { stockId },
+      orderBy: { date: "desc" },
+      take: 30,
+      select: {
+        date: true,
+        open: true,
+        high: true,
+        low: true,
+        close: true,
+      },
+    })
+
+    if (prices.length === 0) {
+      return NextResponse.json(
+        { error: "価格データがありません" },
+        { status: 400 }
+      )
+    }
+
+    // ローソク足パターン分析
+    let patternContext = ""
+    if (prices.length >= 1) {
+      const latestCandle: CandlestickData = {
+        date: prices[0].date.toISOString(),
+        open: Number(prices[0].open),
+        high: Number(prices[0].high),
+        low: Number(prices[0].low),
+        close: Number(prices[0].close),
+      }
+      const pattern = analyzeSingleCandle(latestCandle)
+
+      // 直近5日のシグナルをカウント
+      let buySignals = 0
+      let sellSignals = 0
+      for (const price of prices.slice(0, 5)) {
+        const p = analyzeSingleCandle({
+          date: price.date.toISOString(),
+          open: Number(price.open),
+          high: Number(price.high),
+          low: Number(price.low),
+          close: Number(price.close),
+        })
+        if (p.strength >= 60) {
+          if (p.signal === "buy") buySignals++
+          else if (p.signal === "sell") sellSignals++
+        }
+      }
+
+      patternContext = `
+【ローソク足パターン分析】
+- 最新パターン: ${pattern.description}
+- シグナル: ${pattern.signal}
+- 強さ: ${pattern.strength}%
+- 直近5日の買いシグナル: ${buySignals}回
+- 直近5日の売りシグナル: ${sellSignals}回
+`
+    }
+
+    // 関連ニュースを取得
+    const tickerCode = stock.tickerCode.replace(".T", "")
+    const news = await getRelatedNews({
+      tickerCodes: [tickerCode],
+      sectors: stock.sector ? [stock.sector] : [],
+      limit: 5,
+      daysAgo: 7,
+    })
+    const newsContext = news.length > 0
+      ? `\n【最新のニュース情報】\n${formatNewsForPrompt(news)}`
+      : ""
+
+    // 既存の予測データを取得
+    const analysis = await prisma.stockAnalysis.findFirst({
+      where: { stockId },
+      orderBy: { analyzedAt: "desc" },
+    })
+
+    const predictionContext = analysis
+      ? `
+【予測情報】
+- 短期予測: ${analysis.advice || "不明"}
+- 中期予測: ${analysis.advice || "不明"}
+- 長期予測: ${analysis.advice || "不明"}
+`
+      : ""
+
+    // プロンプト構築
+    const currentPrice = stock.currentPrice ? Number(stock.currentPrice) : prices[0] ? Number(prices[0].close) : 0
+    const prompt = `あなたは投資初心者向けのAIコーチです。
+以下の銘柄について、購入判断をしてください。
+
+【銘柄情報】
+- 名前: ${stock.name}
+- ティッカーコード: ${stock.tickerCode}
+- セクター: ${stock.sector || "不明"}
+- 現在価格: ${currentPrice}円
+${predictionContext}
+【株価データ】
+直近30日の終値: ${prices.length}件のデータあり
+${patternContext}${newsContext}
+【回答形式】
+以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
+
+{
+  "recommendation": "buy" | "hold" | "pass",
+  "confidence": 0.0から1.0の数値（小数点2桁）,
+  "reason": "初心者に分かりやすい言葉で1-2文の理由（ニュース情報があれば参考にする）",
+  "recommendedQuantity": 100株単位の整数（buyの場合のみ、それ以外はnull）,
+  "recommendedPrice": 目安価格の整数（buyの場合のみ、それ以外はnull）,
+  "estimatedAmount": 必要金額の整数（buyの場合のみ、それ以外はnull）,
+  "caution": "注意点を1-2文"
+}
+
+【制約】
+- 提供されたニュース情報を参考にしてください
+- ニュースにない情報は推測や創作をしないでください
+- 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
+- 「成長性」「安定性」「割安」のような平易な言葉を使う
+- 理由と注意点は、中学生でも理解できる表現にする
+- recommendationが"buy"の場合のみ、recommendedQuantity、recommendedPrice、estimatedAmountを設定
+- recommendationが"hold"または"pass"の場合、これらはnullにする
+`
+
+    // OpenAI API呼び出し
+    const openai = getOpenAIClient()
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful investment coach for beginners. Always respond in JSON format.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    })
+
+    let content = response.choices[0].message.content?.trim() || "{}"
+
+    // マークダウンコードブロックを削除
+    if (content.startsWith("```json")) {
+      content = content.slice(7)
+    } else if (content.startsWith("```")) {
+      content = content.slice(3)
+    }
+    if (content.endsWith("```")) {
+      content = content.slice(0, -3)
+    }
+    content = content.trim()
+
+    // JSONパース
+    const result = JSON.parse(content)
+
+    // バリデーション
+    if (!["buy", "hold", "pass"].includes(result.recommendation)) {
+      throw new Error(`Invalid recommendation: ${result.recommendation}`)
+    }
+
+    // データベースに保存（upsert）
+    const today = dayjs.utc().startOf("day").toDate()
+
+    await prisma.purchaseRecommendation.upsert({
+      where: {
+        stockId_date: {
+          stockId,
+          date: today,
+        },
+      },
+      update: {
+        recommendation: result.recommendation,
+        confidence: result.confidence,
+        recommendedQuantity: result.recommendedQuantity || null,
+        recommendedPrice: result.recommendedPrice || null,
+        estimatedAmount: result.estimatedAmount || null,
+        reason: result.reason,
+        caution: result.caution,
+        updatedAt: new Date(),
+      },
+      create: {
+        stockId,
+        date: today,
+        recommendation: result.recommendation,
+        confidence: result.confidence,
+        recommendedQuantity: result.recommendedQuantity || null,
+        recommendedPrice: result.recommendedPrice || null,
+        estimatedAmount: result.estimatedAmount || null,
+        reason: result.reason,
+        caution: result.caution,
+      },
+    })
+
+    // レスポンス
+    return NextResponse.json({
+      stockId: stock.id,
+      stockName: stock.name,
+      tickerCode: stock.tickerCode,
+      currentPrice: currentPrice,
+      recommendation: result.recommendation,
+      confidence: result.confidence,
+      reason: result.reason,
+      recommendedQuantity: result.recommendedQuantity || null,
+      recommendedPrice: result.recommendedPrice || null,
+      estimatedAmount: result.estimatedAmount || null,
+      caution: result.caution,
+      analyzedAt: today.toISOString(),
+    })
+  } catch (error) {
+    console.error("Error generating purchase recommendation:", error)
+    return NextResponse.json(
+      { error: "購入判断の生成に失敗しました" },
       { status: 500 }
     )
   }
