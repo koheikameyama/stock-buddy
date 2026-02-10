@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import psycopg2
 import psycopg2.extras
 from openai import OpenAI
+import yfinance as yf
 
 # Add path to lib directory for news fetcher
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -142,31 +143,34 @@ def get_stock_prediction(conn, stock_id):
         cur.close()
 
 
-def get_recent_prices(conn, ticker_code):
-    """直近30日の株価データを取得（OHLC含む）"""
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
+def get_recent_prices(ticker_code):
+    """yfinanceから直近30日の株価データを取得（OHLC含む）"""
     try:
-        cur.execute("""
-            SELECT
-                date,
-                open,
-                high,
-                low,
-                close,
-                volume
-            FROM "StockPrice"
-            WHERE "stockId" = (
-                SELECT id FROM "Stock" WHERE "tickerCode" = %s
-            )
-            ORDER BY date DESC
-            LIMIT 30
-        """, (ticker_code,))
+        # ティッカーコードを正規化
+        code = ticker_code if ticker_code.endswith('.T') else ticker_code + '.T'
+        stock = yf.Ticker(code)
+        hist = stock.history(period="1mo")
 
-        prices = cur.fetchall()
+        if hist.empty:
+            return []
+
+        prices = []
+        for date, row in hist.iterrows():
+            prices.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'open': float(row['Open']),
+                'high': float(row['High']),
+                'low': float(row['Low']),
+                'close': float(row['Close']),
+                'volume': int(row['Volume']),
+            })
+
+        # 新しい順にソート
+        prices.reverse()
         return prices
-    finally:
-        cur.close()
+    except Exception as e:
+        print(f"Error fetching prices for {ticker_code}: {e}")
+        return []
 
 
 def analyze_candlestick_pattern(candle):
@@ -505,8 +509,8 @@ def main():
             # 予測データ取得
             prediction = get_stock_prediction(conn, stock['id'])
 
-            # 直近価格取得
-            recent_prices = get_recent_prices(conn, stock['tickerCode'])
+            # 直近価格取得（yfinanceから）
+            recent_prices = get_recent_prices(stock['tickerCode'])
 
             # ローソク足パターン分析
             pattern_analysis = get_pattern_analysis(recent_prices)

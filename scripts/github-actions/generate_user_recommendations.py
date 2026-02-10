@@ -11,12 +11,12 @@
 import os
 import sys
 import json
-import statistics
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import psycopg2
 import psycopg2.extras
 from openai import OpenAI
+import yfinance as yf
 
 # OpenAI クライアント初期化
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -68,7 +68,7 @@ def get_users_with_settings(conn) -> List[Dict]:
 
 
 def get_stocks_with_prices(conn) -> List[Dict]:
-    """全銘柄と直近の株価データを取得"""
+    """全銘柄とyfinanceからリアルタイム株価を取得"""
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute("""
@@ -84,22 +84,46 @@ def get_stocks_with_prices(conn) -> List[Dict]:
             ORDER BY s."beginnerScore" DESC
         """)
         stocks = cur.fetchall()
+        print(f"Found {len(stocks)} stocks from database")
 
-        # 各銘柄の直近7日分の株価を取得
+        if not stocks:
+            return []
+
+        # ティッカーコードを正規化（.Tサフィックス付与）
+        ticker_codes = []
+        for s in stocks:
+            code = s['tickerCode']
+            if not code.endswith('.T'):
+                code = code + '.T'
+            ticker_codes.append(code)
+
+        # yfinanceで一括取得（5日分）
+        print(f"Fetching prices for {len(ticker_codes)} stocks from yfinance...")
+        try:
+            df = yf.download(ticker_codes, period="5d", group_by="ticker", threads=True, progress=False)
+        except Exception as e:
+            print(f"Error downloading prices: {e}")
+            return []
+
+        if df.empty:
+            print("No price data returned from yfinance")
+            return []
+
+        is_multi = hasattr(df.columns, 'levels') and len(df.columns.levels) > 1
+
         stocks_with_prices = []
-        for stock in stocks:
-            cur.execute("""
-                SELECT date, close, volume
-                FROM "StockPrice"
-                WHERE "stockId" = %s
-                ORDER BY date DESC
-                LIMIT 7
-            """, (stock['id'],))
-            prices = cur.fetchall()
+        for stock, code in zip(stocks, ticker_codes):
+            try:
+                if is_multi:
+                    hist = df[code].dropna(how='all')
+                else:
+                    hist = df.dropna(how='all')
 
-            if len(prices) >= 2:
-                latest = float(prices[0]['close'])
-                week_ago = float(prices[-1]['close'])
+                if hist.empty or len(hist) == 0:
+                    continue
+
+                latest = float(hist.iloc[-1]['Close'])
+                week_ago = float(hist.iloc[0]['Close']) if len(hist) > 1 else latest
                 change_rate = ((latest - week_ago) / week_ago * 100) if week_ago > 0 else 0
 
                 stocks_with_prices.append({
@@ -107,6 +131,9 @@ def get_stocks_with_prices(conn) -> List[Dict]:
                     'latestPrice': latest,
                     'weekChangeRate': round(change_rate, 1),
                 })
+            except Exception as e:
+                # 個別銘柄のエラーはスキップ
+                continue
 
         print(f"Found {len(stocks_with_prices)} stocks with price data")
         return stocks_with_prices
