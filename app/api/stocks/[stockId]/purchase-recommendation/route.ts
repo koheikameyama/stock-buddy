@@ -5,6 +5,7 @@ import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
+import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 
@@ -212,6 +213,56 @@ export async function POST(
 `
     }
 
+    // テクニカル指標の計算（RSI/MACD）
+    let technicalContext = ""
+    if (prices.length >= 26) {
+      // RSI/MACD計算用に価格データを古い順に並べ替え
+      const pricesForCalc = [...prices].reverse().map(p => ({ close: p.close }))
+
+      const rsi = calculateRSI(pricesForCalc, 14)
+      const macd = calculateMACD(pricesForCalc)
+
+      // RSIの初心者向け解釈
+      let rsiInterpretation = ""
+      if (rsi !== null) {
+        if (rsi <= 30) {
+          rsiInterpretation = `${rsi.toFixed(1)}（売られすぎ → 反発の可能性あり）`
+        } else if (rsi <= 40) {
+          rsiInterpretation = `${rsi.toFixed(1)}（やや売られすぎ）`
+        } else if (rsi >= 70) {
+          rsiInterpretation = `${rsi.toFixed(1)}（買われすぎ → 下落の可能性あり）`
+        } else if (rsi >= 60) {
+          rsiInterpretation = `${rsi.toFixed(1)}（やや買われすぎ）`
+        } else {
+          rsiInterpretation = `${rsi.toFixed(1)}（通常範囲）`
+        }
+      }
+
+      // MACDの初心者向け解釈
+      let macdInterpretation = ""
+      if (macd.histogram !== null) {
+        if (macd.histogram > 1) {
+          macdInterpretation = "上昇トレンド（勢いあり）"
+        } else if (macd.histogram > 0) {
+          macdInterpretation = "やや上昇傾向"
+        } else if (macd.histogram < -1) {
+          macdInterpretation = "下落トレンド（勢いあり）"
+        } else if (macd.histogram < 0) {
+          macdInterpretation = "やや下落傾向"
+        } else {
+          macdInterpretation = "横ばい"
+        }
+      }
+
+      if (rsi !== null || macd.histogram !== null) {
+        technicalContext = `
+【テクニカル指標】
+${rsi !== null ? `- 売られすぎ/買われすぎ度合い: ${rsiInterpretation}` : ""}
+${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : ""}
+`
+      }
+    }
+
     // 関連ニュースを取得
     const tickerCode = stock.tickerCode.replace(".T", "")
     const news = await getRelatedNews({
@@ -274,7 +325,7 @@ export async function POST(
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${patternContext}${newsContext}
+${patternContext}${technicalContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 

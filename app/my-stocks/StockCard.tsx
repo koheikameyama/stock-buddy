@@ -90,23 +90,7 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     return displayMap[portfolioRecommendation]
   }
 
-  // Status Badge for portfolio
-  const getStatusBadge = () => {
-    if (!stock.simpleStatus || !stock.statusType) return null
-
-    const statusMap: Record<string, { bg: string; text: string }> = {
-      excellent: { bg: "bg-emerald-100", text: "text-emerald-800" },
-      good: { bg: "bg-green-100", text: "text-green-800" },
-      neutral: { bg: "bg-gray-100", text: "text-gray-800" },
-      caution: { bg: "bg-yellow-100", text: "text-yellow-800" },
-      warning: { bg: "bg-red-100", text: "text-red-800" },
-    }
-
-    return statusMap[stock.statusType] || statusMap.neutral
-  }
-
   const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAISellJudgment()
-  const statusBadge = isHolding ? getStatusBadge() : null
 
   const handleClick = () => {
     router.push(`/my-stocks/${stock.id}`)
@@ -127,17 +111,9 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     >
       {/* Stock Header */}
       <div className="mb-3 sm:mb-4">
-        <div className="flex items-center gap-2 sm:gap-3 mb-2">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-            {stock.stock.name}
-          </h3>
-          {/* Status Badge for Portfolio */}
-          {statusBadge && stock.simpleStatus && (
-            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge.bg} ${statusBadge.text}`}>
-              {stock.simpleStatus}
-            </span>
-          )}
-        </div>
+        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+          {stock.stock.name}
+        </h3>
         <p className="text-xs sm:text-sm text-gray-500">
           {stock.stock.tickerCode}
           {stock.stock.sector && ` • ${stock.stock.sector}`}

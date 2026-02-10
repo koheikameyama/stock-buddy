@@ -212,24 +212,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-              {stock.stock.name}
-            </h1>
-            {/* Status Badge for Portfolio */}
-            {isPortfolio && stock.simpleStatus && stock.statusType && (
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                stock.statusType === "excellent" ? "bg-emerald-100 text-emerald-800" :
-                stock.statusType === "good" ? "bg-green-100 text-green-800" :
-                stock.statusType === "neutral" ? "bg-gray-100 text-gray-800" :
-                stock.statusType === "caution" ? "bg-yellow-100 text-yellow-800" :
-                stock.statusType === "warning" ? "bg-red-100 text-red-800" :
-                "bg-gray-100 text-gray-800"
-              }`}>
-                {stock.simpleStatus}
-              </span>
-            )}
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {stock.stock.name}
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
             {stock.stock.tickerCode}
             {stock.stock.sector && ` • ${stock.stock.sector}`}
