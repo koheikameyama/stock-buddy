@@ -9,6 +9,8 @@
 #   - PRODUCTION_DATABASE_URL: 本番DBのURL（Railwayから取得）
 #   - LOCAL_DATABASE_URL: ローカルDBのURL（デフォルト: postgresql://kouheikameyama@localhost:5432/stock_buddy）
 #
+# ※ 株価データはリアルタイム取得に移行したため、Stockテーブルのみ同期
+#
 
 set -e  # エラーが発生したら停止
 
@@ -59,7 +61,6 @@ echo -e "${BLUE}💾 本番データをローカルにコピーします${NC}"
 
 # 3. 一時ファイル
 TMP_STOCKS="/tmp/stocks_dump.sql"
-TMP_PRICES="/tmp/stock_prices_dump.sql"
 
 echo -e "${BLUE}📦 本番DBからデータをエクスポート中...${NC}"
 
@@ -71,51 +72,34 @@ STOCK_COUNT=$(wc -l < "$TMP_STOCKS.csv")
 STOCK_COUNT=$((STOCK_COUNT - 1))  # ヘッダー行を除く
 echo -e "${GREEN}    ✓ ${STOCK_COUNT}件の銘柄データを取得${NC}"
 
-# 5. 本番DBからStockPriceテーブルをエクスポート
-echo "  - StockPriceテーブル"
-psql "$PRODUCTION_DATABASE_URL" -c "\COPY (SELECT * FROM \"StockPrice\") TO STDOUT CSV HEADER" > "$TMP_PRICES.csv"
-
-PRICE_COUNT=$(wc -l < "$TMP_PRICES.csv")
-PRICE_COUNT=$((PRICE_COUNT - 1))  # ヘッダー行を除く
-echo -e "${GREEN}    ✓ ${PRICE_COUNT}件の株価データを取得${NC}"
-
 echo ""
 echo -e "${BLUE}📥 ローカルDBにインポート中...${NC}"
 
-# 6. ローカルDBの既存データを削除（常に上書き）
+# 5. ローカルDBの既存データを削除（常に上書き）
 EXISTING_STOCKS=$(psql "$LOCAL_DATABASE_URL" -t -c "SELECT COUNT(*) FROM \"Stock\"" | xargs)
-EXISTING_PRICES=$(psql "$LOCAL_DATABASE_URL" -t -c "SELECT COUNT(*) FROM \"StockPrice\"" | xargs)
 
-if [ "$EXISTING_STOCKS" -gt 0 ] || [ "$EXISTING_PRICES" -gt 0 ]; then
+if [ "$EXISTING_STOCKS" -gt 0 ]; then
   echo -e "${YELLOW}  既存データを削除中...${NC}"
   echo "    - Stock: ${EXISTING_STOCKS}件"
-  echo "    - StockPrice: ${EXISTING_PRICES}件"
-  psql "$LOCAL_DATABASE_URL" -c "TRUNCATE \"StockPrice\", \"Stock\" CASCADE;" > /dev/null
+  psql "$LOCAL_DATABASE_URL" -c "TRUNCATE \"Stock\" CASCADE;" > /dev/null
   echo -e "${GREEN}    ✓ 削除完了${NC}"
 fi
 
-# 7. Stockテーブルをインポート（カラム順序を明示的に指定）
+# 6. Stockテーブルをインポート（カラム順序を明示的に指定）
 echo "  - Stockテーブルをインポート中..."
 psql "$LOCAL_DATABASE_URL" -c "\COPY \"Stock\" (id, \"tickerCode\", name, market, sector, \"createdAt\", \"beginnerScore\", \"dividendScore\", \"dividendYield\", \"growthScore\", \"liquidityScore\", \"marketCap\", \"stabilityScore\") FROM '$TMP_STOCKS.csv' CSV HEADER" 2>&1 | grep -v "ERROR.*duplicate key" || true
 echo -e "${GREEN}    ✓ インポート完了${NC}"
 
-# 8. StockPriceテーブルをインポート
-echo "  - StockPriceテーブルをインポート中..."
-psql "$LOCAL_DATABASE_URL" -c "\COPY \"StockPrice\" FROM '$TMP_PRICES.csv' CSV HEADER" 2>&1 | grep -v "ERROR.*duplicate key" || true
-echo -e "${GREEN}    ✓ インポート完了${NC}"
-
-# 9. 結果確認
+# 7. 結果確認
 echo ""
 echo -e "${BLUE}📊 同期結果${NC}"
 
 FINAL_STOCKS=$(psql "$LOCAL_DATABASE_URL" -t -c "SELECT COUNT(*) FROM \"Stock\"" | xargs)
-FINAL_PRICES=$(psql "$LOCAL_DATABASE_URL" -t -c "SELECT COUNT(*) FROM \"StockPrice\"" | xargs)
 
 echo "  - Stock: ${FINAL_STOCKS}件"
-echo "  - StockPrice: ${FINAL_PRICES}件"
 
-# 10. 一時ファイル削除
-rm -f "$TMP_STOCKS.csv" "$TMP_PRICES.csv"
+# 8. 一時ファイル削除
+rm -f "$TMP_STOCKS.csv"
 
 echo ""
 echo -e "${GREEN}✨ 同期完了！${NC}"

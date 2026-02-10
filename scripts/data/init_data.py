@@ -2,9 +2,11 @@
 """
 初期データ投入スクリプト（並列版・最適化）
 
-日経225全銘柄をDBに登録し、過去2年分の株価データを取得する。
+日経225全銘柄をDBに登録する。
 - yfinanceからのデータ取得を並列化
 - DBアクセスを最小化（バッチINSERT）
+
+※ 株価データはリアルタイム取得に移行したため、StockPriceテーブルは使用しない
 """
 
 import yfinance as yf
@@ -52,7 +54,7 @@ def get_nikkei225_stocks():
 
 def fetch_stock_data(stock_info):
     """
-    yfinanceから1銘柄のデータを取得（DB操作なし）
+    yfinanceから1銘柄の基本情報を取得（DB操作なし）
     """
     global success_count, error_count
 
@@ -77,31 +79,9 @@ def fetch_stock_data(stock_info):
         if dividend_yield:
             dividend_yield_pct = dividend_yield * 100
 
-        # 過去2年分の株価データ取得
-        hist = stock.history(period="2y")
-
-        if hist.empty:
-            print(f"[{ticker}] ⚠️  No historical data available")
-            with counter_lock:
-                error_count += 1
-            return None
-
-        # 株価データをリスト化
-        price_data = []
-        for date, row in hist.iterrows():
-            price_data.append({
-                'date': date.date(),
-                'open': float(row['Open']),
-                'high': float(row['High']),
-                'low': float(row['Low']),
-                'close': float(row['Close']),
-                'volume': int(row['Volume']),
-                'adjusted_close': float(row['Close'])
-            })
-
         market_cap_str = f"{market_cap_oku:.0f}" if market_cap_oku else "0"
         dividend_str = f"{dividend_yield_pct:.2f}" if dividend_yield_pct else "0"
-        print(f"[{ticker}] ✓ Fetched {len(price_data)} records (時価総額: {market_cap_str}億円, 配当: {dividend_str}%)")
+        print(f"[{ticker}] ✓ Fetched (時価総額: {market_cap_str}億円, 配当: {dividend_str}%)")
 
         with counter_lock:
             success_count += 1
@@ -113,7 +93,6 @@ def fetch_stock_data(stock_info):
             'sector': sector,
             'market_cap': market_cap_oku,
             'dividend_yield': dividend_yield_pct,
-            'prices': price_data
         }
 
     except Exception as e:
@@ -135,7 +114,7 @@ def bulk_insert_to_db(stock_data_list):
     cur = conn.cursor()
 
     try:
-        # 1. 銘柄マスタを一括UPSERT
+        # 銘柄マスタを一括UPSERT
         print("Upserting stock master data...")
         stock_master_data = []
         for data in stock_data_list:
@@ -163,54 +142,6 @@ def bulk_insert_to_db(stock_data_list):
             page_size=100
         )
         print(f"  ✓ Upserted {len(stock_master_data)} stocks")
-
-        # 2. 銘柄IDをマッピング（ticker -> stock_id）
-        print("Fetching stock IDs...")
-        cur.execute('SELECT id, "tickerCode" FROM "Stock"')
-        ticker_to_id = {row[1]: row[0] for row in cur.fetchall()}
-        print(f"  ✓ Loaded {len(ticker_to_id)} stock IDs")
-
-        # 3. 株価データを一括INSERT
-        print("Inserting stock prices...")
-        all_price_data = []
-        for data in stock_data_list:
-            stock_id = ticker_to_id.get(data['ticker'])
-            if not stock_id:
-                continue
-
-            for price in data['prices']:
-                all_price_data.append((
-                    stock_id,
-                    price['date'],
-                    price['open'],
-                    price['high'],
-                    price['low'],
-                    price['close'],
-                    price['volume'],
-                    price['adjusted_close']
-                ))
-
-        # バッチサイズ1000でINSERT
-        batch_size = 1000
-        inserted_count = 0
-        for i in range(0, len(all_price_data), batch_size):
-            batch = all_price_data[i:i+batch_size]
-            psycopg2.extras.execute_values(
-                cur,
-                """
-                INSERT INTO "StockPrice"
-                (id, "stockId", date, open, high, low, close, volume, "adjustedClose", "createdAt")
-                VALUES %s
-                ON CONFLICT ("stockId", date) DO NOTHING
-                """,
-                batch,
-                template="(gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, NOW())",
-                page_size=batch_size
-            )
-            inserted_count += len(batch)
-            print(f"  Progress: {inserted_count}/{len(all_price_data)} records...")
-
-        print(f"  ✓ Processed {len(all_price_data)} price records")
 
         conn.commit()
         print("✓ All data committed to database")
