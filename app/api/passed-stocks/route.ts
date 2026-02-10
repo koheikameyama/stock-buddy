@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-
-dayjs.extend(utc)
+import { MAX_PASSED_STOCKS_RETRIEVE, DEFAULT_INVESTMENT_BUDGET } from "@/lib/constants"
 
 /**
  * GET /api/passed-stocks
@@ -33,7 +30,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { passedAt: "desc" },
-      take: 20, // 最大20件
+      take: MAX_PASSED_STOCKS_RETRIEVE,
     })
 
     // レスポンス整形
@@ -140,7 +137,7 @@ export async function POST(request: NextRequest) {
       select: { investmentBudget: true },
     })
 
-    const budget = userSettings?.investmentBudget || 100000
+    const budget = userSettings?.investmentBudget || DEFAULT_INVESTMENT_BUDGET
     const passedPrice = Number(stock.currentPrice)
     const whatIfQuantity = Math.floor(budget / passedPrice / 100) * 100 || 100
 

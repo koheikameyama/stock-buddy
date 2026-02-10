@@ -4,10 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { searchAndAddStock } from "@/lib/stock-fetcher"
 import { Decimal } from "@prisma/client/runtime/library"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-
-// Constants
-const MAX_WATCHLIST_STOCKS = 5
-const MAX_PORTFOLIO_STOCKS = 5
+import { MAX_WATCHLIST_STOCKS, MAX_PORTFOLIO_STOCKS } from "@/lib/constants"
 
 // Types
 export interface UserStockResponse {
