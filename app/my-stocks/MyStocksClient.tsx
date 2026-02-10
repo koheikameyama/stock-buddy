@@ -308,7 +308,7 @@ export default function MyStocksClient() {
             </div>
             <button
               onClick={handleAddStock}
-              disabled={userStocks.length >= MAX_USER_STOCKS}
+              disabled={displayStocks.length >= MAX_USER_STOCKS}
               className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <svg
