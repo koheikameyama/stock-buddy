@@ -2,8 +2,10 @@ name: Featured Stocks Generation
 
 on:
   schedule:
-    # 毎日3回実行: 9:00, 15:00, 22:00 JST (0:00, 6:00, 13:00 UTC)
-    - cron: '0 0,6,13 * * *'
+    # 取引時間に合わせて3回実行
+    - cron: '0 0 * * *'   # 9:00 JST - 前場開始
+    - cron: '30 3 * * *'  # 12:30 JST - 後場開始
+    - cron: '30 6 * * *'  # 15:30 JST - 取引終了
   workflow_dispatch: # 手動実行も可能
 
 concurrency:
