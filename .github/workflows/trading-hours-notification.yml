@@ -1,0 +1,69 @@
+name: Trading Hours Notification
+
+on:
+  schedule:
+    # 9:00 JST (0:00 UTC) - 取引開始通知
+    - cron: '0 0 * * 1-5'
+    # 15:00 JST (6:00 UTC) - 取引終了通知
+    - cron: '0 6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      notification_type:
+        description: '通知タイプ'
+        required: true
+        default: 'open'
+        type: choice
+        options:
+          - open
+          - close
+
+jobs:
+  send-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Determine notification type
+        id: notification
+        run: |
+          HOUR=$(TZ=Asia/Tokyo date +%H)
+          if [ "${{ github.event.inputs.notification_type }}" = "close" ]; then
+            echo "type=close" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.notification_type }}" = "open" ]; then
+            echo "type=open" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" -lt 12 ]; then
+            echo "type=open" >> $GITHUB_OUTPUT
+          else
+            echo "type=close" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send market open notification
+        if: steps.notification.outputs.type == 'open'
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notification.py \
+            --title "東京証券取引所が開場しました" \
+            --body "本日の取引が始まりました。ポートフォリオをチェックしましょう。" \
+            --url "/dashboard"
+
+      - name: Send market close notification
+        if: steps.notification.outputs.type == 'close'
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/github-actions/send_push_notification.py \
+            --title "本日の取引が終了しました" \
+            --body "お疲れ様でした。本日のポートフォリオを確認しましょう。" \
+            --url "/dashboard"
