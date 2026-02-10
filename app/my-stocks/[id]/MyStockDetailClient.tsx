@@ -7,6 +7,7 @@ import StockAnalysisCard from "@/app/components/StockAnalysisCard"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
 import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
+import RelatedNews from "@/app/components/RelatedNews"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 import AddStockDialog from "../AddStockDialog"
@@ -456,6 +457,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               <StockAnalysisCard stockId={stock.stockId} />
             </section>
 
+            {/* Related News Section */}
+            <RelatedNews stockId={stock.stockId} />
+
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />
 
@@ -540,6 +544,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
               <PurchaseRecommendation stockId={stock.stockId} />
             </section>
+
+            {/* Related News Section */}
+            <RelatedNews stockId={stock.stockId} />
 
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />
