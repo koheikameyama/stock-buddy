@@ -39,40 +39,71 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
   const [prediction, setPrediction] = useState<PredictionData | null>(null)
   const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [noData, setNoData] = useState(false)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // 両方のAPIを並列で取得
-        const [predictionRes, portfolioRes] = await Promise.all([
-          fetch(`/api/stocks/${stockId}/analysis`),
-          fetch(`/api/stocks/${stockId}/portfolio-analysis`),
-        ])
+  async function fetchData() {
+    setLoading(true)
+    setError("")
+    try {
+      // 両方のAPIを並列で取得
+      const [predictionRes, portfolioRes] = await Promise.all([
+        fetch(`/api/stocks/${stockId}/analysis`),
+        fetch(`/api/stocks/${stockId}/portfolio-analysis`),
+      ])
 
-        // 価格帯予測データ
-        if (predictionRes.ok) {
-          const data = await predictionRes.json()
-          setPrediction(data)
-        }
-
-        // テキスト分析データ
-        if (portfolioRes.ok) {
-          const data = await portfolioRes.json()
-          setPortfolioAnalysis(data)
-        }
-
-        // 両方とも取得できなかった場合
-        if (!predictionRes.ok && !portfolioRes.ok) {
-          setError("分析データがまだありません")
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "エラーが発生しました")
-      } finally {
-        setLoading(false)
+      // 価格帯予測データ
+      if (predictionRes.ok) {
+        const data = await predictionRes.json()
+        setPrediction(data)
       }
-    }
 
+      // テキスト分析データ
+      if (portfolioRes.ok) {
+        const data = await portfolioRes.json()
+        setPortfolioAnalysis(data)
+        setNoData(false)
+      } else if (portfolioRes.status === 404) {
+        setNoData(true)
+      }
+
+      // 両方とも取得できなかった場合
+      if (!predictionRes.ok && !portfolioRes.ok) {
+        setNoData(true)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function generateAnalysis() {
+    setGenerating(true)
+    setError("")
+    try {
+      const response = await fetch(`/api/stocks/${stockId}/portfolio-analysis`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        const errData = await response.json()
+        throw new Error(errData.error || "分析の生成に失敗しました")
+      }
+
+      const result = await response.json()
+      setPortfolioAnalysis(result)
+      setNoData(false)
+    } catch (err) {
+      console.error("Error generating portfolio analysis:", err)
+      setError(err instanceof Error ? err.message : "分析の生成に失敗しました")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  useEffect(() => {
     fetchData()
   }, [stockId])
 
@@ -147,10 +178,32 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
     )
   }
 
-  if (error && !prediction && !portfolioAnalysis) {
+  if ((noData || error) && !prediction && !portfolioAnalysis) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <p className="text-gray-500 text-center">{error}</p>
+      <div className="bg-gray-50 rounded-lg p-6 text-center">
+        <div className="text-4xl mb-3">📊</div>
+        <p className="text-sm text-gray-600 mb-4">
+          {error || "売買分析はまだ生成されていません"}
+        </p>
+        <button
+          onClick={generateAnalysis}
+          disabled={generating}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+        >
+          {generating ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              分析中...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              今すぐ分析する
+            </>
+          )}
+        </button>
       </div>
     )
   }
