@@ -13,6 +13,10 @@ interface UserStock {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
+  // 感情コーチング・ステータス
+  emotionalCoaching?: string | null
+  simpleStatus?: string | null
+  statusType?: string | null
   // Common fields
   note?: string | null
   stock: {
@@ -91,7 +95,23 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     return displayMap[portfolioRecommendation]
   }
 
+  // Status Badge for portfolio
+  const getStatusBadge = () => {
+    if (!stock.simpleStatus || !stock.statusType) return null
+
+    const statusMap: Record<string, { bg: string; text: string }> = {
+      excellent: { bg: "bg-emerald-100", text: "text-emerald-800" },
+      good: { bg: "bg-green-100", text: "text-green-800" },
+      neutral: { bg: "bg-gray-100", text: "text-gray-800" },
+      caution: { bg: "bg-yellow-100", text: "text-yellow-800" },
+      warning: { bg: "bg-red-100", text: "text-red-800" },
+    }
+
+    return statusMap[stock.statusType] || statusMap.neutral
+  }
+
   const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAISellJudgment()
+  const statusBadge = isHolding ? getStatusBadge() : null
 
   const handleClick = () => {
     router.push(`/my-stocks/${stock.id}`)
@@ -116,6 +136,12 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
           <h3 className="text-lg sm:text-xl font-bold text-gray-900">
             {stock.stock.name}
           </h3>
+          {/* Status Badge for Portfolio */}
+          {statusBadge && stock.simpleStatus && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge.bg} ${statusBadge.text}`}>
+              {stock.simpleStatus}
+            </span>
+          )}
         </div>
         <p className="text-xs sm:text-sm text-gray-500">
           {stock.stock.tickerCode}
@@ -183,6 +209,12 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                     </p>
                   </div>
                 </div>
+                {/* Emotional Coaching Message */}
+                {stock.emotionalCoaching && (
+                  <p className="mt-2 text-xs sm:text-sm text-gray-600 border-t border-gray-200 pt-2">
+                    {stock.emotionalCoaching}
+                  </p>
+                )}
               </div>
             )}
 

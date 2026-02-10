@@ -50,6 +50,11 @@ export async function GET(
         mediumTerm: true,
         longTerm: true,
         lastAnalysis: true,
+        emotionalCoaching: true,
+        simpleStatus: true,
+        statusType: true,
+        suggestedSellPrice: true,
+        sellCondition: true,
       },
     })
 
@@ -72,6 +77,11 @@ export async function GET(
           longTerm: null,
           lastAnalysis: null,
           isToday: false,
+          emotionalCoaching: null,
+          simpleStatus: null,
+          statusType: null,
+          suggestedSellPrice: null,
+          sellCondition: null,
         },
         { status: 200 }
       )
@@ -88,6 +98,11 @@ export async function GET(
       longTerm: portfolioStock.longTerm,
       lastAnalysis: portfolioStock.lastAnalysis.toISOString(),
       isToday,
+      emotionalCoaching: portfolioStock.emotionalCoaching,
+      simpleStatus: portfolioStock.simpleStatus,
+      statusType: portfolioStock.statusType,
+      suggestedSellPrice: portfolioStock.suggestedSellPrice ? Number(portfolioStock.suggestedSellPrice) : null,
+      sellCondition: portfolioStock.sellCondition,
     }
 
     return NextResponse.json(response, { status: 200 })
@@ -269,7 +284,7 @@ export async function POST(
 
     // プロンプト構築
     const prompt = `あなたは投資初心者向けのAIコーチです。
-以下の保有銘柄について、売買判断をしてください。
+以下の保有銘柄について、売買判断と感情コーチングを提供してください。
 
 【銘柄情報】
 - 名前: ${stock.name}
@@ -290,9 +305,14 @@ ${newsContext}
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
-  "shortTerm": "短期予測（今週）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）",
-  "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）",
-  "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）"
+  "shortTerm": "短期予測（今週）の分析結果を初心者に分かりやすく2-3文で",
+  "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で",
+  "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で",
+  "suggestedSellPrice": 具体的な売却目標価格（数値のみ、円単位）,
+  "sellCondition": "売却の条件や考え方（例：「+10%で半分利確、決算発表後に全売却検討」）",
+  "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
+  "simpleStatus": "現状を一言で表すステータス（好調/順調/様子見/注意/要確認のいずれか）",
+  "statusType": "ステータスの種類（excellent/good/neutral/caution/warningのいずれか）"
 }
 
 【判断の指針】
@@ -300,9 +320,27 @@ ${newsContext}
 - 提供されたニュース情報を参考にしてください
 - ニュースにない情報は推測や創作をしないでください
 - ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください
+
+【売買判断の指針】
 - shortTerm: 「売り時」「保持」「買い増し時」のいずれかの判断を含める
 - mediumTerm: 今月の見通しと推奨行動を含める
 - longTerm: 今後3ヶ月の成長性と投資継続の判断を含める
+- suggestedSellPrice: 現在の株価、財務指標、損益状況を考慮した具体的な売却目標価格を提案
+- sellCondition: 「○○円で売る」だけでなく「なぜその価格か」「どんな条件で判断すべきか」を含める
+
+【感情コーチングの指針】
+- 損益がマイナスの場合: 「株価は上下するもの」「長期で見れば」など安心感を与える
+- 損益がプラスの場合: 「利確も検討しましょう」「欲張りすぎないことも大切」など冷静さを促す
+- 横ばいの場合: 「焦らず見守りましょう」など落ち着きを与える
+
+【ステータスの指針】
+- 好調（excellent）: 利益率 +10%以上
+- 順調（good）: 利益率 0%〜+10%
+- 様子見（neutral）: 利益率 -5%〜0%
+- 注意（caution）: 利益率 -10%〜-5%
+- 要確認（warning）: 利益率 -10%以下
+
+【表現の指針】
 - 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
 - 「成長性」「安定性」「割安」「割高」のような平易な言葉を使う
 - 中学生でも理解できる表現にする
@@ -341,7 +379,7 @@ ${newsContext}
     const result = JSON.parse(content)
 
     // バリデーション
-    const requiredFields = ["shortTerm", "mediumTerm", "longTerm"]
+    const requiredFields = ["shortTerm", "mediumTerm", "longTerm", "emotionalCoaching", "simpleStatus", "statusType"]
     for (const field of requiredFields) {
       if (!result[field]) {
         throw new Error(`Missing required field: ${field}`)
@@ -357,6 +395,11 @@ ${newsContext}
         shortTerm: result.shortTerm,
         mediumTerm: result.mediumTerm,
         longTerm: result.longTerm,
+        emotionalCoaching: result.emotionalCoaching,
+        simpleStatus: result.simpleStatus,
+        statusType: result.statusType,
+        suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
+        sellCondition: result.sellCondition || null,
         lastAnalysis: now,
         updatedAt: now,
       },
@@ -367,6 +410,11 @@ ${newsContext}
       shortTerm: result.shortTerm,
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
+      emotionalCoaching: result.emotionalCoaching,
+      simpleStatus: result.simpleStatus,
+      statusType: result.statusType,
+      suggestedSellPrice: result.suggestedSellPrice || null,
+      sellCondition: result.sellCondition || null,
       lastAnalysis: now.toISOString(),
       isToday: true,
     })

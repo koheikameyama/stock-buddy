@@ -308,6 +308,15 @@ model PortfolioStock {
   mediumTerm   String?   @db.Text
   longTerm     String?   @db.Text
 
+  // 感情コーチング・ステータス
+  emotionalCoaching  String?  @db.Text  // 感情コーチングメッセージ
+  simpleStatus       String?            // 一言ステータス（順調/注意/好調など）
+  statusType         String?            // good/caution/excellent/neutral/warning
+
+  // 売却提案
+  suggestedSellPrice Decimal? @db.Decimal(12, 2) // 提案売却価格
+  sellCondition      String?  @db.Text           // 売却条件
+
   // 取引履歴
   transactions Transaction[]
 
