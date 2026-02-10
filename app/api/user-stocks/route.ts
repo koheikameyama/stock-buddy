@@ -6,7 +6,8 @@ import { Decimal } from "@prisma/client/runtime/library"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 // Constants
-const MAX_STOCKS = 5
+const MAX_WATCHLIST_STOCKS = 5
+const MAX_PORTFOLIO_STOCKS = 5
 
 // Types
 export interface UserStockResponse {
@@ -323,24 +324,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check limit (combined watchlist + portfolio)
-    const [watchlistCount, portfolioCount] = await Promise.all([
-      prisma.watchlistStock.count({ where: { userId } }),
-      prisma.portfolioStock.count({ where: { userId } }),
-    ])
-
-    let totalStocks = watchlistCount + portfolioCount
-
-    // ウォッチリストからポートフォリオへの移行の場合、削除分を考慮
-    if (type === "portfolio" && existingWatchlist) {
-      totalStocks -= 1
-    }
-
-    if (totalStocks >= MAX_STOCKS) {
-      return NextResponse.json(
-        { error: `最大${MAX_STOCKS}銘柄まで登録できます` },
-        { status: 400 }
-      )
+    // Check limit (separate limits for watchlist and portfolio)
+    if (type === "watchlist") {
+      const watchlistCount = await prisma.watchlistStock.count({ where: { userId } })
+      if (watchlistCount >= MAX_WATCHLIST_STOCKS) {
+        return NextResponse.json(
+          { error: `ウォッチリストは最大${MAX_WATCHLIST_STOCKS}銘柄まで登録できます` },
+          { status: 400 }
+        )
+      }
+    } else {
+      // portfolio の場合
+      const portfolioCount = await prisma.portfolioStock.count({ where: { userId } })
+      // ウォッチリストからポートフォリオへの移行の場合は新規追加ではないのでチェック不要
+      if (!existingWatchlist && portfolioCount >= MAX_PORTFOLIO_STOCKS) {
+        return NextResponse.json(
+          { error: `ポートフォリオは最大${MAX_PORTFOLIO_STOCKS}銘柄まで登録できます` },
+          { status: 400 }
+        )
+      }
     }
 
     // ウォッチリストからポートフォリオへの移行の場合、ウォッチリストから削除

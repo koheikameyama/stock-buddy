@@ -286,7 +286,20 @@ ${newsContext}
   "sellCondition": "売却の条件や考え方（例：「+10%で半分利確、決算発表後に全売却検討」）",
   "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
   "simpleStatus": "現状を一言で表すステータス（好調/順調/様子見/注意/要確認のいずれか）",
-  "statusType": "ステータスの種類（excellent/good/neutral/caution/warningのいずれか）"
+  "statusType": "ステータスの種類（excellent/good/neutral/caution/warningのいずれか）",
+
+  "shortTermTrend": "up" | "neutral" | "down",
+  "shortTermPriceLow": 短期予測の下限価格（数値のみ）,
+  "shortTermPriceHigh": 短期予測の上限価格（数値のみ）,
+  "midTermTrend": "up" | "neutral" | "down",
+  "midTermPriceLow": 中期予測の下限価格（数値のみ）,
+  "midTermPriceHigh": 中期予測の上限価格（数値のみ）,
+  "longTermTrend": "up" | "neutral" | "down",
+  "longTermPriceLow": 長期予測の下限価格（数値のみ）,
+  "longTermPriceHigh": 長期予測の上限価格（数値のみ）,
+  "recommendation": "buy" | "hold" | "sell",
+  "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で）",
+  "confidence": 0.0〜1.0の信頼度
 }
 
 【判断の指針】
@@ -353,31 +366,59 @@ ${newsContext}
     const result = JSON.parse(content)
 
     // バリデーション
-    const requiredFields = ["shortTerm", "mediumTerm", "longTerm", "emotionalCoaching", "simpleStatus", "statusType"]
+    const requiredFields = ["shortTerm", "mediumTerm", "longTerm", "emotionalCoaching", "simpleStatus", "statusType", "recommendation"]
     for (const field of requiredFields) {
       if (!result[field]) {
         throw new Error(`Missing required field: ${field}`)
       }
     }
 
+    // recommendationのバリデーション
+    if (!["buy", "hold", "sell"].includes(result.recommendation)) {
+      result.recommendation = "hold" // デフォルト値
+    }
+
     // データベースに保存
     const now = dayjs.utc().toDate()
 
-    await prisma.portfolioStock.update({
-      where: { id: portfolioStock.id },
-      data: {
-        shortTerm: result.shortTerm,
-        mediumTerm: result.mediumTerm,
-        longTerm: result.longTerm,
-        emotionalCoaching: result.emotionalCoaching,
-        simpleStatus: result.simpleStatus,
-        statusType: result.statusType,
-        suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
-        sellCondition: result.sellCondition || null,
-        lastAnalysis: now,
-        updatedAt: now,
-      },
-    })
+    // PortfolioStockとStockAnalysisを同時に更新
+    await prisma.$transaction([
+      // PortfolioStockの更新
+      prisma.portfolioStock.update({
+        where: { id: portfolioStock.id },
+        data: {
+          shortTerm: result.shortTerm,
+          mediumTerm: result.mediumTerm,
+          longTerm: result.longTerm,
+          emotionalCoaching: result.emotionalCoaching,
+          simpleStatus: result.simpleStatus,
+          statusType: result.statusType,
+          suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
+          sellCondition: result.sellCondition || null,
+          lastAnalysis: now,
+          updatedAt: now,
+        },
+      }),
+      // StockAnalysisの作成（カード一覧でのrecommendation表示用）
+      prisma.stockAnalysis.create({
+        data: {
+          stockId,
+          shortTermTrend: result.shortTermTrend || "neutral",
+          shortTermPriceLow: result.shortTermPriceLow || currentPrice || 0,
+          shortTermPriceHigh: result.shortTermPriceHigh || currentPrice || 0,
+          midTermTrend: result.midTermTrend || "neutral",
+          midTermPriceLow: result.midTermPriceLow || currentPrice || 0,
+          midTermPriceHigh: result.midTermPriceHigh || currentPrice || 0,
+          longTermTrend: result.longTermTrend || "neutral",
+          longTermPriceLow: result.longTermPriceLow || currentPrice || 0,
+          longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
+          recommendation: result.recommendation,
+          advice: result.advice || result.emotionalCoaching || "",
+          confidence: result.confidence || 0.7,
+          analyzedAt: now,
+        },
+      }),
+    ])
 
     // レスポンス
     return NextResponse.json({

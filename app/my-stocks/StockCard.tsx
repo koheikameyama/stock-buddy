@@ -111,9 +111,16 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     >
       {/* Stock Header */}
       <div className="mb-3 sm:mb-4">
-        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
-          {stock.stock.name}
-        </h3>
+        <div className="flex items-center gap-2 sm:gap-3 mb-2">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+            {stock.stock.name}
+          </h3>
+          {aiJudgment && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
+              {aiJudgment.text}
+            </span>
+          )}
+        </div>
         <p className="text-xs sm:text-sm text-gray-500">
           {stock.stock.tickerCode}
           {stock.stock.sector && ` • ${stock.stock.sector}`}
@@ -186,18 +193,6 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                     {stock.emotionalCoaching}
                   </p>
                 )}
-              </div>
-            )}
-
-            {/* AI Sell Judgment for Portfolio */}
-            {aiJudgment && (
-              <div className={`rounded-lg p-3 sm:p-4 ${aiJudgment.bg}`}>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🤖</span>
-                  <span className={`text-sm sm:text-base font-semibold ${aiJudgment.color}`}>
-                    {aiJudgment.text}
-                  </span>
-                </div>
               </div>
             )}
 
