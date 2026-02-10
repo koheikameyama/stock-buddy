@@ -33,6 +33,13 @@ interface Stock {
   purchaseDate?: string
   targetPrice?: number | null
   stopLossPrice?: number | null
+  // 感情コーチング・ステータス
+  emotionalCoaching?: string | null
+  simpleStatus?: string | null
+  statusType?: string | null
+  // 売却提案
+  suggestedSellPrice?: number | null
+  sellCondition?: string | null
   transactions?: Transaction[]
   addedReason?: string | null
   alertPrice?: number | null
@@ -179,9 +186,24 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            {stock.stock.name}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              {stock.stock.name}
+            </h1>
+            {/* Status Badge for Portfolio */}
+            {isPortfolio && stock.simpleStatus && stock.statusType && (
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                stock.statusType === "excellent" ? "bg-emerald-100 text-emerald-800" :
+                stock.statusType === "good" ? "bg-green-100 text-green-800" :
+                stock.statusType === "neutral" ? "bg-gray-100 text-gray-800" :
+                stock.statusType === "caution" ? "bg-yellow-100 text-yellow-800" :
+                stock.statusType === "warning" ? "bg-red-100 text-red-800" :
+                "bg-gray-100 text-gray-800"
+              }`}>
+                {stock.simpleStatus}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             {stock.stock.tickerCode}
             {stock.stock.sector && ` • ${stock.stock.sector}`}
@@ -294,6 +316,12 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                         </p>
                       </div>
                     </div>
+                    {/* Emotional Coaching Message */}
+                    {stock.emotionalCoaching && (
+                      <p className="mt-3 text-sm text-gray-700 border-t border-gray-200 pt-3">
+                        {stock.emotionalCoaching}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -403,6 +431,48 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 </div>
               )}
             </section>
+
+            {/* AI Sell Suggestion Section */}
+            {(stock.suggestedSellPrice || stock.sellCondition) && (
+              <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-xl">🤖</span>
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                    AIからの売却提案
+                  </h2>
+                </div>
+
+                <div className="space-y-4">
+                  {stock.suggestedSellPrice && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-blue-800">提案売却価格</span>
+                        <span className="text-lg font-bold text-blue-700">
+                          ¥{stock.suggestedSellPrice.toLocaleString()}
+                        </span>
+                      </div>
+                      {averagePrice > 0 && (
+                        <div className="text-xs text-blue-600">
+                          取得単価から {((stock.suggestedSellPrice - averagePrice) / averagePrice * 100) >= 0 ? "+" : ""}
+                          {((stock.suggestedSellPrice - averagePrice) / averagePrice * 100).toFixed(1)}%
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {stock.sellCondition && (
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-xs font-semibold text-gray-600 block mb-2">売却の条件・考え方</span>
+                      <p className="text-sm text-gray-800">{stock.sellCondition}</p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-500">
+                    ※ 証券アプリで逆指値を設定することで、自動的に売却できます
+                  </p>
+                </div>
+              </section>
+            )}
 
             {/* Transaction History Section */}
             {stock.transactions && stock.transactions.length > 0 && (

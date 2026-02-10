@@ -30,6 +30,13 @@ export interface UserStockResponse {
   // 売却目標設定（Portfolio only）
   targetPrice?: number | null
   stopLossPrice?: number | null
+  // 感情コーチング・ステータス（Portfolio only）
+  emotionalCoaching?: string | null
+  simpleStatus?: string | null
+  statusType?: string | null
+  // 売却提案（Portfolio only）
+  suggestedSellPrice?: number | null
+  sellCondition?: string | null
   // Transaction data
   transactions?: {
     id: string
@@ -189,6 +196,13 @@ export async function GET(request: NextRequest) {
         mediumTerm: ps.mediumTerm,
         longTerm: ps.longTerm,
         recommendation,
+        // 感情コーチング・ステータス
+        emotionalCoaching: ps.emotionalCoaching,
+        simpleStatus: ps.simpleStatus,
+        statusType: ps.statusType,
+        // 売却提案
+        suggestedSellPrice: ps.suggestedSellPrice ? Number(ps.suggestedSellPrice) : null,
+        sellCondition: ps.sellCondition,
         transactions: ps.transactions.map((t: any) => ({
           id: t.id,
           type: t.type,

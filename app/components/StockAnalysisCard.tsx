@@ -33,6 +33,12 @@ interface PortfolioAnalysisData {
   mediumTerm: string | null
   longTerm: string | null
   lastAnalysis: string | null
+  // 新しいフィールド
+  emotionalCoaching: string | null
+  simpleStatus: string | null
+  statusType: string | null
+  suggestedSellPrice: number | null
+  sellCondition: string | null
 }
 
 export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
