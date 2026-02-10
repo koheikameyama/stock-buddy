@@ -3,7 +3,6 @@
 古いデータを定期削除するスクリプト
 
 削除対象:
-- StockPrice: 1週間より古いデータ
 - StockAnalysis: 1週間より古いデータ
 
 週1回（日曜日）に実行を想定
@@ -36,26 +35,8 @@ def cleanup_old_data():
 
         total_deleted = 0
 
-        # 1. StockPrice（1週間より古いデータ）
-        print("\n[1/2] Cleaning up StockPrice...")
-        cur.execute(
-            'SELECT COUNT(*) FROM "StockPrice" WHERE date < %s',
-            (one_week_ago.date(),)
-        )
-        count_before = cur.fetchone()[0]
-        print(f"  Records to delete: {count_before}")
-
-        if count_before > 0:
-            cur.execute(
-                'DELETE FROM "StockPrice" WHERE date < %s',
-                (one_week_ago.date(),)
-            )
-            deleted = cur.rowcount
-            total_deleted += deleted
-            print(f"  Deleted: {deleted} records")
-
-        # 2. StockAnalysis（1週間より古いデータ）
-        print("\n[2/2] Cleaning up StockAnalysis...")
+        # StockAnalysis（1週間より古いデータ）
+        print("\n[1/1] Cleaning up StockAnalysis...")
         cur.execute(
             'SELECT COUNT(*) FROM "StockAnalysis" WHERE "analyzedAt" < %s',
             (one_week_ago,)

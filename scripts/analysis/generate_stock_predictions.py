@@ -14,6 +14,7 @@ import psycopg2.extras
 from openai import OpenAI
 from datetime import datetime
 import statistics
+import yfinance as yf
 
 # Add news fetcher module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -47,55 +48,64 @@ def calculate_volatility(prices):
     return statistics.stdev(prices)
 
 
-def get_baseline_data(cur, stock_id):
-    """ルールベースで基礎データを計算"""
+def get_baseline_data(ticker_code):
+    """yfinanceからルールベースで基礎データを計算"""
+    try:
+        # ティッカーコードを正規化
+        code = ticker_code if ticker_code.endswith('.T') else ticker_code + '.T'
+        stock = yf.Ticker(code)
+        hist = stock.history(period="3mo")
 
-    # 過去90日分の価格データを取得（OHLC含む）
-    cur.execute(
-        """
-        SELECT open, high, low, close, date
-        FROM "StockPrice"
-        WHERE "stockId" = %s
-        ORDER BY date DESC
-        LIMIT 90
-    """,
-        (stock_id,),
-    )
+        if hist.empty:
+            return None
 
-    price_history = cur.fetchall()
+        # OHLCデータを取得（新しい順）
+        price_history = []
+        for date, row in hist.iterrows():
+            price_history.append((
+                float(row['Open']),
+                float(row['High']),
+                float(row['Low']),
+                float(row['Close']),
+                date.strftime('%Y-%m-%d'),
+            ))
+        price_history.reverse()
 
-    if not price_history:
+        if not price_history:
+            return None
+
+        current_price = price_history[0][3]  # close is index 3
+        week_ago = price_history[5][3] if len(price_history) > 5 else None
+        month_ago = price_history[20][3] if len(price_history) > 20 else None
+        three_months_ago = (
+            price_history[60][3] if len(price_history) > 60 else None
+        )
+
+        # トレンド計算
+        weekly_trend = calculate_trend(current_price, week_ago)
+        monthly_trend = calculate_trend(current_price, month_ago)
+        quarterly_trend = calculate_trend(current_price, three_months_ago)
+
+        # ボラティリティ計算（直近30日）
+        prices = [p[3] for p in price_history[:30]]  # close is index 3
+        volatility = calculate_volatility(prices)
+
+        # ローソク足パターン分析
+        candlestick_pattern = analyze_candlestick(price_history[0]) if price_history else None
+        recent_patterns = get_recent_pattern_summary(price_history[:5]) if len(price_history) >= 5 else None
+
+        return {
+            "current_price": current_price,
+            "weekly_trend": weekly_trend,
+            "monthly_trend": monthly_trend,
+            "quarterly_trend": quarterly_trend,
+            "volatility": volatility,
+            "candlestick_pattern": candlestick_pattern,
+            "recent_patterns": recent_patterns,
+        }
+    except Exception as e:
+        print(f"Error fetching baseline data for {ticker_code}: {e}")
         return None
-
-    current_price = float(price_history[0][3])  # close is index 3
-    week_ago = float(price_history[5][3]) if len(price_history) > 5 else None
-    month_ago = float(price_history[20][3]) if len(price_history) > 20 else None
-    three_months_ago = (
-        float(price_history[60][3]) if len(price_history) > 60 else None
-    )
-
-    # トレンド計算
-    weekly_trend = calculate_trend(current_price, week_ago)
-    monthly_trend = calculate_trend(current_price, month_ago)
-    quarterly_trend = calculate_trend(current_price, three_months_ago)
-
-    # ボラティリティ計算（直近30日）
-    prices = [float(p[3]) for p in price_history[:30]]  # close is index 3
-    volatility = calculate_volatility(prices)
-
-    # ローソク足パターン分析
-    candlestick_pattern = analyze_candlestick(price_history[0]) if price_history else None
-    recent_patterns = get_recent_pattern_summary(price_history[:5]) if len(price_history) >= 5 else None
-
-    return {
-        "current_price": current_price,
-        "weekly_trend": weekly_trend,
-        "monthly_trend": monthly_trend,
-        "quarterly_trend": quarterly_trend,
-        "volatility": volatility,
-        "candlestick_pattern": candlestick_pattern,
-        "recent_patterns": recent_patterns,
-    }
 
 
 def analyze_candlestick(candle):
@@ -384,8 +394,8 @@ def main():
 
                 print(f"  📰 Found {len(stock_news)} news for this stock")
 
-                # 1. 基礎データ計算
-                baseline = get_baseline_data(cur, stock_dict["id"])
+                # 1. 基礎データ計算（yfinanceから）
+                baseline = get_baseline_data(stock_dict["ticker_code"])
 
                 if not baseline:
                     print(f"  ⚠️  No price data available, skipping...")

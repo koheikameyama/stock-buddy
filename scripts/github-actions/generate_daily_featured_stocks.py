@@ -15,8 +15,9 @@ import sys
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timezone
-from typing import List, Dict, Optional
+from typing import List, Dict
 import statistics
+import yfinance as yf
 
 # データベース接続
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -26,7 +27,7 @@ if not DATABASE_URL:
 
 
 def get_stocks_with_prices():
-    """全銘柄と過去30日分の株価データを取得"""
+    """全銘柄とyfinanceから過去30日分の株価データを取得"""
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -46,27 +47,58 @@ def get_stocks_with_prices():
         stocks = cur.fetchall()
         print(f"Found {len(stocks)} stocks in master")
 
-        # 各銘柄の株価データを取得
+        if not stocks:
+            return []
+
+        # ティッカーコードを正規化
+        ticker_codes = []
+        for s in stocks:
+            code = s['tickerCode']
+            if not code.endswith('.T'):
+                code = code + '.T'
+            ticker_codes.append(code)
+
+        # yfinanceで一括取得（30日分）
+        print(f"Fetching prices for {len(ticker_codes)} stocks from yfinance...")
+        try:
+            df = yf.download(ticker_codes, period="1mo", group_by="ticker", threads=True, progress=False)
+        except Exception as e:
+            print(f"Error downloading prices: {e}")
+            return []
+
+        if df.empty:
+            print("No price data returned from yfinance")
+            return []
+
+        is_multi = hasattr(df.columns, 'levels') and len(df.columns.levels) > 1
+
         stocks_with_prices = []
-        for stock in stocks:
-            cur.execute("""
-                SELECT
-                    date,
-                    close,
-                    volume
-                FROM "StockPrice"
-                WHERE "stockId" = %s
-                ORDER BY date DESC
-                LIMIT 30
-            """, (stock['id'],))
+        for stock, code in zip(stocks, ticker_codes):
+            try:
+                if is_multi:
+                    hist = df[code].dropna(how='all')
+                else:
+                    hist = df.dropna(how='all')
 
-            prices = cur.fetchall()
+                if hist.empty or len(hist) < 7:
+                    continue
 
-            if len(prices) >= 7:  # 最低7日分のデータが必要
+                # 株価データを辞書リストに変換（新しい順）
+                prices = []
+                for date, row in hist.iterrows():
+                    prices.append({
+                        'date': date.strftime('%Y-%m-%d'),
+                        'close': float(row['Close']),
+                        'volume': int(row['Volume']),
+                    })
+                prices.reverse()
+
                 stocks_with_prices.append({
                     **stock,
                     'prices': prices
                 })
+            except Exception:
+                continue
 
         print(f"Found {len(stocks_with_prices)} stocks with sufficient price data")
         return stocks_with_prices
