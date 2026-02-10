@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { GoogleGenAI } from "@google/genai"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 function getGeminiClient() {
   return new GoogleGenAI({
@@ -104,14 +105,21 @@ export async function POST(request: NextRequest) {
       }),
     ])
 
+    // リアルタイム価格を取得
+    const allTickerCodes = [
+      ...portfolioStocks.map((ps) => ps.stock.tickerCode),
+      ...watchlistStocks.map((ws) => ws.stock.tickerCode),
+    ]
+    const uniqueTickerCodes = Array.from(new Set(allTickerCodes))
+    const realtimePrices = await fetchStockPrices(uniqueTickerCodes)
+    const priceMap = new Map(realtimePrices.map((p) => [p.tickerCode.replace(".T", ""), p.currentPrice]))
+
     // ポートフォリオ情報を整形
     const portfolioInfo = portfolioStocks
       .map((ps) => {
-        const currentPrice = ps.stock.prices[0]?.close
-          ? Number(ps.stock.prices[0].close)
-          : ps.stock.currentPrice
-          ? Number(ps.stock.currentPrice)
-          : 0
+        const tickerKey = ps.stock.tickerCode.replace(".T", "")
+        const currentPrice = priceMap.get(tickerKey)
+          ?? (ps.stock.currentPrice ? Number(ps.stock.currentPrice) : 0)
         // Calculate from transactions
         const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
           ps.transactions
@@ -145,11 +153,9 @@ export async function POST(request: NextRequest) {
     // ウォッチリスト情報を整形
     const watchlistInfo = watchlistStocks
       .map((ws) => {
-        const currentPrice = ws.stock.prices[0]?.close
-          ? Number(ws.stock.prices[0].close)
-          : ws.stock.currentPrice
-          ? Number(ws.stock.currentPrice)
-          : 0
+        const tickerKey = ws.stock.tickerCode.replace(".T", "")
+        const currentPrice = priceMap.get(tickerKey)
+          ?? (ws.stock.currentPrice ? Number(ws.stock.currentPrice) : 0)
 
         return `- ${ws.stock.name}（${ws.stock.tickerCode}）
   現在価格: ${currentPrice.toLocaleString()}円${
