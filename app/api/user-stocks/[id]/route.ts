@@ -9,10 +9,6 @@ interface UpdateUserStockRequest {
   type?: "watchlist" | "portfolio"
   // Watchlist fields
   addedReason?: string
-  alertPrice?: number
-  // Portfolio fields - 売却目標設定
-  targetPrice?: number | null
-  stopLossPrice?: number | null
   // Common
   note?: string
 }
@@ -208,7 +204,6 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       stockId: newWatchlistStock.stockId,
       type: "watchlist",
       addedReason: newWatchlistStock.addedReason,
-      alertPrice: newWatchlistStock.alertPrice ? Number(newWatchlistStock.alertPrice) : null,
       note: newWatchlistStock.note,
       stock: {
         id: newWatchlistStock.stock.id,
@@ -258,7 +253,6 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       where: { id },
       data: {
         addedReason: body.addedReason,
-        alertPrice: body.alertPrice,
         note: body.note,
       },
       include: {
@@ -281,7 +275,6 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       stockId: updated.stockId,
       type: "watchlist",
       addedReason: updated.addedReason,
-      alertPrice: updated.alertPrice ? Number(updated.alertPrice) : null,
       note: updated.note,
       stock: {
         id: updated.stock.id,
@@ -297,29 +290,11 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
 
     return NextResponse.json(response)
   } else if (portfolioStock) {
-    // Validate target price (must be positive if set)
-    if (body.targetPrice !== undefined && body.targetPrice !== null && body.targetPrice <= 0) {
-      return NextResponse.json(
-        { error: "利確目標価格は0より大きい値を指定してください" },
-        { status: 400 }
-      )
-    }
-
-    // Validate stop loss price (must be positive if set)
-    if (body.stopLossPrice !== undefined && body.stopLossPrice !== null && body.stopLossPrice <= 0) {
-      return NextResponse.json(
-        { error: "損切り価格は0より大きい値を指定してください" },
-        { status: 400 }
-      )
-    }
-
     // Update portfolio
     const updated = await prisma.portfolioStock.update({
       where: { id },
       data: {
         note: body.note,
-        targetPrice: body.targetPrice,
-        stopLossPrice: body.stopLossPrice,
       },
       include: {
         stock: {
@@ -357,8 +332,6 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       shortTerm: updated.shortTerm,
       mediumTerm: updated.mediumTerm,
       longTerm: updated.longTerm,
-      targetPrice: updated.targetPrice ? Number(updated.targetPrice) : null,
-      stopLossPrice: updated.stopLossPrice ? Number(updated.stopLossPrice) : null,
       transactions: updated.transactions.map((t) => ({
         id: t.id,
         type: t.type,

@@ -16,7 +16,6 @@ export interface UserStockResponse {
   type: "watchlist" | "portfolio"
   // Watchlist fields
   addedReason?: string | null
-  alertPrice?: number | null
   // Portfolio fields (calculated from transactions)
   quantity?: number
   averagePurchasePrice?: number
@@ -27,9 +26,6 @@ export interface UserStockResponse {
   longTerm?: string | null
   // AI推奨（StockAnalysisから取得）
   recommendation?: "buy" | "sell" | "hold" | null
-  // 売却目標設定（Portfolio only）
-  targetPrice?: number | null
-  stopLossPrice?: number | null
   // 感情コーチング・ステータス（Portfolio only）
   emotionalCoaching?: string | null
   simpleStatus?: string | null
@@ -66,14 +62,10 @@ interface CreateUserStockRequest {
   type: "watchlist" | "portfolio"
   // Watchlist fields
   addedReason?: string
-  alertPrice?: number
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
-  // 売却目標設定（Portfolio only）
-  targetPrice?: number | null
-  stopLossPrice?: number | null
   // Common fields
   note?: string
 }
@@ -157,7 +149,6 @@ export async function GET(request: NextRequest) {
       stockId: ws.stockId,
       type: "watchlist" as const,
       addedReason: ws.addedReason,
-      alertPrice: ws.alertPrice ? Number(ws.alertPrice) : null,
       note: ws.note,
       stock: {
         id: ws.stock.id,
@@ -245,7 +236,7 @@ export async function GET(request: NextRequest) {
  * Body:
  * - tickerCode: string (required)
  * - type: "watchlist" | "portfolio" (required)
- * - watchlist: addedReason?, alertPrice?, note?
+ * - watchlist: addedReason?, note?
  * - portfolio: quantity, averagePurchasePrice, purchaseDate?, note?
  */
 export async function POST(request: NextRequest) {
@@ -258,7 +249,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body: CreateUserStockRequest = await request.json()
-    const { tickerCode, type, addedReason, alertPrice, quantity, averagePurchasePrice, purchaseDate, note, targetPrice, stopLossPrice } = body
+    const { tickerCode, type, addedReason, quantity, averagePurchasePrice, purchaseDate, note } = body
 
     // Validation
     if (!tickerCode) {
@@ -377,7 +368,6 @@ export async function POST(request: NextRequest) {
           userId,
           stockId: stock.id,
           addedReason,
-          alertPrice,
           note,
         },
         include: {
@@ -400,7 +390,6 @@ export async function POST(request: NextRequest) {
         stockId: watchlistStock.stockId,
         type: "watchlist",
         addedReason: watchlistStock.addedReason,
-        alertPrice: watchlistStock.alertPrice ? Number(watchlistStock.alertPrice) : null,
         note: watchlistStock.note,
         stock: {
           id: watchlistStock.stock.id,
@@ -441,8 +430,6 @@ export async function POST(request: NextRequest) {
             userId,
             stockId: stock.id,
             note,
-            targetPrice: targetPrice ?? null,
-            stopLossPrice: stopLossPrice ?? null,
           },
           include: {
             stock: {
@@ -488,8 +475,6 @@ export async function POST(request: NextRequest) {
         shortTerm: result.portfolioStock.shortTerm,
         mediumTerm: result.portfolioStock.mediumTerm,
         longTerm: result.portfolioStock.longTerm,
-        targetPrice: result.portfolioStock.targetPrice ? Number(result.portfolioStock.targetPrice) : null,
-        stopLossPrice: result.portfolioStock.stopLossPrice ? Number(result.portfolioStock.stopLossPrice) : null,
         transactions: [{
           id: result.transaction.id,
           type: result.transaction.type,

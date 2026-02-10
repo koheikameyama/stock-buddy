@@ -277,7 +277,6 @@ model WatchlistStock {
 
   // ウォッチリスト固有の情報
   addedReason String?  @db.Text
-  alertPrice  Decimal? @db.Decimal(12, 2)
   note        String?  @db.Text
 
   createdAt DateTime @default(now())
@@ -299,10 +298,6 @@ model PortfolioStock {
 
   // オプション情報
   note String? @db.Text
-
-  // 売却目標設定（価格で保存）
-  targetPrice   Decimal? @db.Decimal(12, 2) // 利確目標価格
-  stopLossPrice Decimal? @db.Decimal(12, 2) // 損切り価格
 
   // AI分析結果（売買判断用）
   lastAnalysis DateTime?

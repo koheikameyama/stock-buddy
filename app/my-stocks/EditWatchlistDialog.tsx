@@ -8,8 +8,6 @@ interface EditWatchlistDialogProps {
   onSuccess: () => void
   stockId: string
   stockName: string
-  currentPrice: number
-  alertPrice: number | null | undefined
   addedReason: string | null | undefined
   note: string | null | undefined
 }
@@ -20,14 +18,9 @@ export default function EditWatchlistDialog({
   onSuccess,
   stockId,
   stockName,
-  currentPrice,
-  alertPrice: initialAlertPrice,
   addedReason: initialAddedReason,
   note: initialNote,
 }: EditWatchlistDialogProps) {
-  const [alertPrice, setAlertPrice] = useState(
-    initialAlertPrice?.toString() || ""
-  )
   const [addedReason, setAddedReason] = useState(initialAddedReason || "")
   const [note, setNote] = useState(initialNote || "")
   const [loading, setLoading] = useState(false)
@@ -36,12 +29,11 @@ export default function EditWatchlistDialog({
   // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
-      setAlertPrice(initialAlertPrice?.toString() || "")
       setAddedReason(initialAddedReason || "")
       setNote(initialNote || "")
       setError(null)
     }
-  }, [isOpen, initialAlertPrice, initialAddedReason, initialNote])
+  }, [isOpen, initialAddedReason, initialNote])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,17 +41,7 @@ export default function EditWatchlistDialog({
     setLoading(true)
 
     try {
-      const body: { alertPrice?: number | null; addedReason?: string | null; note?: string | null } = {}
-
-      if (alertPrice) {
-        const ap = parseFloat(alertPrice)
-        if (ap <= 0) {
-          throw new Error("購入検討価格は0より大きい値を指定してください")
-        }
-        body.alertPrice = ap
-      } else {
-        body.alertPrice = null
-      }
+      const body: { addedReason?: string | null; note?: string | null } = {}
 
       body.addedReason = addedReason || null
       body.note = note || null
@@ -92,11 +74,6 @@ export default function EditWatchlistDialog({
 
   if (!isOpen) return null
 
-  // Calculate percentage difference from current price
-  const alertPricePercent = alertPrice && currentPrice > 0
-    ? ((parseFloat(alertPrice) - currentPrice) / currentPrice * 100)
-    : null
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
@@ -127,9 +104,6 @@ export default function EditWatchlistDialog({
         {/* Stock Info */}
         <div className="mb-6 p-4 bg-yellow-50 rounded-lg">
           <h3 className="font-bold text-gray-900">{stockName}</h3>
-          <div className="text-sm text-gray-600 mt-1">
-            現在価格: ¥{currentPrice.toLocaleString()}
-          </div>
         </div>
 
         {error && (
@@ -139,34 +113,6 @@ export default function EditWatchlistDialog({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Alert Price */}
-          <div>
-            <label
-              htmlFor="alertPrice"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
-              購入検討価格（円）
-            </label>
-            <input
-              type="number"
-              id="alertPrice"
-              value={alertPrice}
-              onChange={(e) => setAlertPrice(e.target.value)}
-              min="0"
-              step="1"
-              placeholder="例: 1500"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-            />
-            {alertPricePercent !== null && (
-              <p className="text-xs text-gray-500 mt-1">
-                現在価格から {alertPricePercent >= 0 ? "+" : ""}{alertPricePercent.toFixed(1)}%
-              </p>
-            )}
-            <p className="text-xs text-gray-400 mt-1">
-              この価格に達したら購入を検討するラインです
-            </p>
-          </div>
-
           {/* Added Reason */}
           <div>
             <label

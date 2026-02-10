@@ -199,32 +199,6 @@ export async function POST(
       ? `\n【最新のニュース情報】\n${formatNewsForPrompt(news)}`
       : ""
 
-    // 売却目標情報
-    let targetInfo = ""
-    const targetPrice = portfolioStock.targetPrice
-      ? Number(portfolioStock.targetPrice)
-      : null
-    const stopLossPrice = portfolioStock.stopLossPrice
-      ? Number(portfolioStock.stopLossPrice)
-      : null
-
-    if (targetPrice || stopLossPrice) {
-      const parts: string[] = []
-      if (targetPrice && currentPrice && averagePrice) {
-        const progress = targetPrice > averagePrice
-          ? Math.max(0, Math.min(100, ((currentPrice - averagePrice) / (targetPrice - averagePrice)) * 100))
-          : 0
-        parts.push(`利確目標: ${targetPrice.toLocaleString()}円（達成度: ${progress.toFixed(0)}%）`)
-      }
-      if (stopLossPrice) {
-        const warning = currentPrice && currentPrice < stopLossPrice ? " ⚠️損切ライン割れ" : ""
-        parts.push(`損切ライン: ${stopLossPrice.toLocaleString()}円${warning}`)
-      }
-      if (parts.length > 0) {
-        targetInfo = `\n\n【ユーザーの売却目標設定】\n${parts.map(p => `- ${p}`).join("\n")}\n※ ユーザーが設定した目標です。この目標に対する進捗も考慮してアドバイスしてください。`
-      }
-    }
-
     // 財務指標のフォーマット
     const stock = portfolioStock.stock
     const metrics: string[] = []
@@ -293,7 +267,7 @@ export async function POST(
 - 保有数量: ${quantity}株
 - 購入時単価: ${averagePrice.toFixed(0)}円
 - 現在価格: ${currentPrice ? currentPrice.toLocaleString() : "不明"}円
-- 損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}${targetInfo}
+- 損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}
 
 【財務指標（初心者向け解説）】
 ${financialMetrics}

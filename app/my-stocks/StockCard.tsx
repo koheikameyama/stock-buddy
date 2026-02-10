@@ -8,7 +8,6 @@ interface UserStock {
   type: "watchlist" | "portfolio"
   // Watchlist fields
   addedReason?: string | null
-  alertPrice?: number | null
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number

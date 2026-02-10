@@ -86,9 +86,6 @@ export default async function MyStockDetailPage({
     quantity: calculatedQuantity,
     averagePurchasePrice: calculatedAveragePrice,
     purchaseDate: calculatedPurchaseDate,
-    // 売却目標設定
-    targetPrice: portfolioStock?.targetPrice ? Number(portfolioStock.targetPrice) : null,
-    stopLossPrice: portfolioStock?.stopLossPrice ? Number(portfolioStock.stopLossPrice) : null,
     transactions: portfolioStock?.transactions.map((t) => ({
       id: t.id,
       type: t.type,
@@ -100,7 +97,6 @@ export default async function MyStockDetailPage({
     })),
     // Watchlist fields
     addedReason: watchlistStock?.addedReason,
-    alertPrice: watchlistStock?.alertPrice ? Number(watchlistStock.alertPrice) : null,
     note: watchlistStock?.note || portfolioStock?.note,
     // Stock info
     stock: {

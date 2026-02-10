@@ -9,7 +9,6 @@ interface UserStock {
   type: "watchlist" | "portfolio"
   // Watchlist fields
   addedReason?: string | null
-  alertPrice?: number | null
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number
@@ -46,9 +45,6 @@ interface AddStockDialogProps {
   onClose: () => void
   onSuccess: (stock: UserStock) => void
   defaultType: "portfolio" | "watchlist"
-  // 投資スタイルからのデフォルト設定
-  defaultTargetReturnRate?: number | null
-  defaultStopLossRate?: number | null
   // 事前選択された銘柄（おすすめから追加する場合など）
   initialStock?: SearchResult | null
   // 初期メモ（おすすめ理由など）
@@ -60,8 +56,6 @@ export default function AddStockDialog({
   onClose,
   onSuccess,
   defaultType,
-  defaultTargetReturnRate,
-  defaultStopLossRate,
   initialStock,
   initialNote,
 }: AddStockDialogProps) {
@@ -76,12 +70,6 @@ export default function AddStockDialog({
   const [purchaseDate, setPurchaseDate] = useState(
     new Date().toISOString().split("T")[0]
   )
-  // 売却目標設定（価格で入力）
-  const [targetPrice, setTargetPrice] = useState("")
-  const [stopLossPrice, setStopLossPrice] = useState("")
-
-  // Watchlist fields
-  const [alertPrice, setAlertPrice] = useState("")
 
   // Common field
   const [note, setNote] = useState("")
@@ -90,26 +78,6 @@ export default function AddStockDialog({
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  // 平均取得単価が変更されたら、投資スタイルの%からデフォルト価格を計算
-  // targetPrice/stopLossPriceを依存に入れると無限ループになるため除外
-  useEffect(() => {
-    const price = parseFloat(averagePrice)
-    if (!price || price <= 0) return
-
-    // 利確目標のデフォルト計算
-    if (defaultTargetReturnRate && !targetPrice) {
-      const defaultTarget = Math.round(price * (1 + defaultTargetReturnRate / 100))
-      setTargetPrice(defaultTarget.toString())
-    }
-
-    // 損切りのデフォルト計算
-    if (defaultStopLossRate && !stopLossPrice) {
-      const defaultStop = Math.round(price * (1 + defaultStopLossRate / 100))
-      setStopLossPrice(defaultStop.toString())
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [averagePrice, defaultTargetReturnRate, defaultStopLossRate])
 
   // 検索機能
   useEffect(() => {
@@ -163,9 +131,6 @@ export default function AddStockDialog({
       setQuantity("")
       setAveragePrice("")
       setPurchaseDate(new Date().toISOString().split("T")[0])
-      setTargetPrice("")
-      setStopLossPrice("")
-      setAlertPrice("")
       setSearchResults([])
       setShowResults(false)
       setError(null)
@@ -234,16 +199,7 @@ export default function AddStockDialog({
         body.averagePurchasePrice = parseFloat(averagePrice)
         body.purchaseDate = purchaseDate
         if (note) body.note = note
-
-        // 価格を直接渡す
-        if (targetPrice) {
-          body.targetPrice = parseFloat(targetPrice)
-        }
-        if (stopLossPrice) {
-          body.stopLossPrice = parseFloat(stopLossPrice)
-        }
       } else {
-        if (alertPrice) body.alertPrice = parseFloat(alertPrice)
         if (note) body.note = note
       }
 
@@ -269,9 +225,6 @@ export default function AddStockDialog({
       setQuantity("")
       setAveragePrice("")
       setPurchaseDate(new Date().toISOString().split("T")[0])
-      setTargetPrice("")
-      setStopLossPrice("")
-      setAlertPrice("")
       setNote("")
     } catch (err: any) {
       console.error(err)
@@ -477,62 +430,6 @@ export default function AddStockDialog({
                 />
               </div>
 
-              {/* 売却目標設定 */}
-              <div className="bg-gray-50 rounded-lg p-4 mt-4">
-                <div className="text-sm font-semibold text-gray-700 mb-3">
-                  売却目標（任意）
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="targetPrice" className="block text-xs text-gray-600 mb-1">
-                      利確価格
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">¥</span>
-                      <input
-                        type="number"
-                        id="targetPrice"
-                        value={targetPrice}
-                        onChange={(e) => setTargetPrice(e.target.value)}
-                        min="0"
-                        placeholder={averagePrice ? `例: ${Math.round(parseFloat(averagePrice) * 1.1)}` : "例: 2750"}
-                        className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                    {averagePrice && targetPrice && (
-                      <div className="text-xs text-green-600 mt-1">
-                        +{Math.round(((parseFloat(targetPrice) - parseFloat(averagePrice)) / parseFloat(averagePrice)) * 100)}%
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="stopLossPrice" className="block text-xs text-gray-600 mb-1">
-                      損切価格
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">¥</span>
-                      <input
-                        type="number"
-                        id="stopLossPrice"
-                        value={stopLossPrice}
-                        onChange={(e) => setStopLossPrice(e.target.value)}
-                        min="0"
-                        placeholder={averagePrice ? `例: ${Math.round(parseFloat(averagePrice) * 0.9)}` : "例: 2250"}
-                        className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                    {averagePrice && stopLossPrice && (
-                      <div className="text-xs text-red-600 mt-1">
-                        {Math.round(((parseFloat(stopLossPrice) - parseFloat(averagePrice)) / parseFloat(averagePrice)) * 100)}%
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  売却タイミングの目安として利確・損切りの価格を設定できます
-                </p>
-              </div>
-
               <div>
                 <label
                   htmlFor="note"
@@ -562,33 +459,6 @@ export default function AddStockDialog({
                 }
               }}
             >
-              <div>
-                <label
-                  htmlFor="alertPrice"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
-                >
-                  目標価格（任意）
-                  {selectedStock?.latestPrice && (
-                    <span className="ml-2 text-xs font-normal text-gray-500">
-                      （現在価格: ¥{selectedStock.latestPrice.toLocaleString()}）
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="number"
-                  id="alertPrice"
-                  value={alertPrice}
-                  onChange={(e) => setAlertPrice(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  placeholder="例: 2000"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  この価格になったら購入を検討したい金額を入力
-                </p>
-              </div>
-
               <div>
                 <label
                   htmlFor="note"

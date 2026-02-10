@@ -9,7 +9,6 @@ import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
-import EditTargetPriceDialog from "../EditTargetPriceDialog"
 import EditWatchlistDialog from "../EditWatchlistDialog"
 import AddStockDialog from "../AddStockDialog"
 import { useChatContext } from "@/app/contexts/ChatContext"
@@ -31,8 +30,6 @@ interface Stock {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
-  targetPrice?: number | null
-  stopLossPrice?: number | null
   // 感情コーチング・ステータス
   emotionalCoaching?: string | null
   simpleStatus?: string | null
@@ -42,7 +39,6 @@ interface Stock {
   sellCondition?: string | null
   transactions?: Transaction[]
   addedReason?: string | null
-  alertPrice?: number | null
   note?: string | null
   stock: {
     id: string
@@ -76,7 +72,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [showTransactionDialog, setShowTransactionDialog] = useState(false)
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
-  const [showTargetPriceDialog, setShowTargetPriceDialog] = useState(false)
   const [showWatchlistDialog, setShowWatchlistDialog] = useState(false)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [passingStock, setPassingStock] = useState(false)
@@ -104,8 +99,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
       averagePurchasePrice: isPortfolio ? averagePrice : undefined,
       profit: isPortfolio ? profit : undefined,
       profitPercent: isPortfolio ? profitPercent : undefined,
-      targetPrice: isPortfolio ? stock.targetPrice : undefined,
-      stopLossPrice: isPortfolio ? stock.stopLossPrice : undefined,
     })
 
     // Clear context when leaving the page
@@ -364,111 +357,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
             </section>
 
-            {/* Target Price Section */}
-            <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                  売却目標
-                </h2>
-                <button
-                  onClick={() => setShowTargetPriceDialog(true)}
-                  className="px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center gap-1"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  編集
-                </button>
-              </div>
-
-              {stock.targetPrice || stock.stopLossPrice ? (
-                <div className="space-y-4">
-                  {/* Target Price */}
-                  {stock.targetPrice && (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-green-800">利確目標</span>
-                        <span className="text-lg font-bold text-green-700">
-                          ¥{stock.targetPrice.toLocaleString()}
-                        </span>
-                      </div>
-                      {averagePrice > 0 && (
-                        <>
-                          <div className="text-xs text-green-600 mb-2">
-                            取得単価から +{((stock.targetPrice - averagePrice) / averagePrice * 100).toFixed(1)}%
-                          </div>
-                          {/* Progress bar */}
-                          <div className="w-full bg-green-200 rounded-full h-2">
-                            <div
-                              className="bg-green-500 h-2 rounded-full transition-all"
-                              style={{
-                                width: `${Math.min(100, Math.max(0, (currentPrice - averagePrice) / (stock.targetPrice - averagePrice) * 100))}%`,
-                              }}
-                            />
-                          </div>
-                          <div className="text-xs text-green-600 mt-1">
-                            達成度: {Math.min(100, Math.max(0, (currentPrice - averagePrice) / (stock.targetPrice - averagePrice) * 100)).toFixed(0)}%
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Stop Loss Price */}
-                  {stock.stopLossPrice && (
-                    <div className={`p-4 rounded-lg border ${
-                      currentPrice < stock.stopLossPrice
-                        ? "bg-red-100 border-red-300"
-                        : "bg-orange-50 border-orange-200"
-                    }`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-sm font-semibold ${
-                          currentPrice < stock.stopLossPrice ? "text-red-800" : "text-orange-800"
-                        }`}>
-                          損切りライン
-                          {currentPrice < stock.stopLossPrice && " (割れています)"}
-                        </span>
-                        <span className={`text-lg font-bold ${
-                          currentPrice < stock.stopLossPrice ? "text-red-700" : "text-orange-700"
-                        }`}>
-                          ¥{stock.stopLossPrice.toLocaleString()}
-                        </span>
-                      </div>
-                      {averagePrice > 0 && (
-                        <div className={`text-xs ${
-                          currentPrice < stock.stopLossPrice ? "text-red-600" : "text-orange-600"
-                        }`}>
-                          取得単価から {((stock.stopLossPrice - averagePrice) / averagePrice * 100).toFixed(1)}%
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-sm text-gray-500 mb-3">
-                    売却目標を設定すると、AIが目標達成度を考慮したアドバイスをします
-                  </p>
-                  <button
-                    onClick={() => setShowTargetPriceDialog(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
-                  >
-                    売却目標を設定する
-                  </button>
-                </div>
-              )}
-            </section>
-
             {/* AI Sell Suggestion Section */}
             {(stock.suggestedSellPrice || stock.sellCondition) && (
               <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
@@ -690,31 +578,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
 
               <div className="space-y-4">
-                {/* Alert Price */}
-                {stock.alertPrice ? (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold text-yellow-800">購入検討価格</span>
-                      <span className="text-lg font-bold text-yellow-700">
-                        ¥{stock.alertPrice.toLocaleString()}
-                      </span>
-                    </div>
-                    {currentPrice > 0 && (
-                      <div className="text-xs text-yellow-600">
-                        現在価格から {((stock.alertPrice - currentPrice) / currentPrice * 100) >= 0 ? "+" : ""}
-                        {((stock.alertPrice - currentPrice) / currentPrice * 100).toFixed(1)}%
-                        {stock.alertPrice >= currentPrice ? " (購入検討ライン)" : " (現在価格より下)"}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <p className="text-sm text-gray-500">
-                      購入検討価格が設定されていません
-                    </p>
-                  </div>
-                )}
-
                 {/* Added Reason */}
                 {stock.addedReason && (
                   <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
@@ -732,13 +595,13 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 )}
 
                 {/* Empty state */}
-                {!stock.alertPrice && !stock.addedReason && !stock.note && (
+                {!stock.addedReason && !stock.note && (
                   <div className="text-center py-4">
                     <button
                       onClick={() => setShowWatchlistDialog(true)}
                       className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors"
                     >
-                      購入検討価格や注目理由を設定する
+                      注目理由を設定する
                     </button>
                   </div>
                 )}
@@ -828,22 +691,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           transactionType={transactionType}
         />
 
-        {/* Edit Target Price Dialog */}
-        <EditTargetPriceDialog
-          isOpen={showTargetPriceDialog}
-          onClose={() => setShowTargetPriceDialog(false)}
-          onSuccess={() => {
-            setShowTargetPriceDialog(false)
-            router.refresh()
-          }}
-          stockId={stock.id}
-          stockName={stock.stock.name}
-          currentPrice={currentPrice}
-          averagePrice={averagePrice}
-          targetPrice={stock.targetPrice}
-          stopLossPrice={stock.stopLossPrice}
-        />
-
         {/* Edit Watchlist Dialog */}
         <EditWatchlistDialog
           isOpen={showWatchlistDialog}
@@ -854,8 +701,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           }}
           stockId={stock.id}
           stockName={stock.stock.name}
-          currentPrice={currentPrice}
-          alertPrice={stock.alertPrice}
           addedReason={stock.addedReason}
           note={stock.note}
         />

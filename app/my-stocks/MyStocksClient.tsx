@@ -13,7 +13,6 @@ interface UserStock {
   type: "watchlist" | "portfolio"
   // Watchlist fields
   addedReason?: string | null
-  alertPrice?: number | null
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number
@@ -56,11 +55,6 @@ interface PurchaseRecommendation {
   caution: string
 }
 
-interface UserSettings {
-  targetReturnRate: number | null
-  stopLossRate: number | null
-}
-
 const MAX_USER_STOCKS = 5
 
 export default function MyStocksClient() {
@@ -68,7 +62,6 @@ export default function MyStocksClient() {
   const [userStocks, setUserStocks] = useState<UserStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -79,30 +72,17 @@ export default function MyStocksClient() {
   // ウォッチリストからの購入用
   const [purchaseFromWatchlist, setPurchaseFromWatchlist] = useState<UserStock | null>(null)
 
-  // Fetch user stocks and settings
+  // Fetch user stocks
   useEffect(() => {
     async function fetchData() {
       try {
-        const [stocksResponse, settingsResponse] = await Promise.all([
-          fetch("/api/user-stocks?mode=all"),
-          fetch("/api/settings"),
-        ])
+        const stocksResponse = await fetch("/api/user-stocks?mode=all")
 
         if (!stocksResponse.ok) {
           throw new Error("Failed to fetch stocks")
         }
         const stocksData = await stocksResponse.json()
         setUserStocks(stocksData)
-
-        if (settingsResponse.ok) {
-          const settingsData = await settingsResponse.json()
-          if (settingsData.settings) {
-            setUserSettings({
-              targetReturnRate: settingsData.settings.targetReturnRate ?? null,
-              stopLossRate: settingsData.settings.stopLossRate ?? null,
-            })
-          }
-        }
       } catch (err) {
         console.error("Error fetching data:", err)
         setError("銘柄の取得に失敗しました")
@@ -375,8 +355,6 @@ export default function MyStocksClient() {
           setPurchaseFromWatchlist(null)
         }}
         defaultType={purchaseFromWatchlist ? "portfolio" : activeTab}
-        defaultTargetReturnRate={userSettings?.targetReturnRate}
-        defaultStopLossRate={userSettings?.stopLossRate}
         initialStock={purchaseFromWatchlist ? {
           id: purchaseFromWatchlist.stock.id,
           tickerCode: purchaseFromWatchlist.stock.tickerCode,
