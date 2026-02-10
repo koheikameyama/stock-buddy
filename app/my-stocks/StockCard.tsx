@@ -70,9 +70,9 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     if (!recommendation) return null
 
     const displayMap = {
-      buy: { text: "買い時です！", color: "text-green-700", bg: "bg-green-50" },
-      hold: { text: "様子を見ましょう", color: "text-blue-700", bg: "bg-blue-50" },
-      pass: { text: "今は見送り", color: "text-gray-700", bg: "bg-gray-50" },
+      buy: { text: "買い時", color: "text-green-700", bg: "bg-green-50" },
+      hold: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
+      pass: { text: "見送り", color: "text-gray-700", bg: "bg-gray-50" },
     }
 
     return displayMap[recommendation.recommendation]
