@@ -11,38 +11,61 @@ interface AnalysisData {
   mediumTerm: string | null
   longTerm: string | null
   lastAnalysis: string | null
+  isToday: boolean
 }
 
 export default function PortfolioAnalysis({ stockId }: PortfolioAnalysisProps) {
   const [data, setData] = useState<AnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchAnalysis() {
-      try {
-        const response = await fetch(`/api/stocks/${stockId}/portfolio-analysis`)
+  const fetchAnalysis = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/stocks/${stockId}/portfolio-analysis`)
 
-        if (response.status === 404) {
-          setError("分析はまだ生成されていません。明日以降に表示されます。")
-          return
-        }
-
-        if (!response.ok) {
-          throw new Error("分析の取得に失敗しました")
-        }
-
-        const result = await response.json()
-        setData(result)
-      } catch (err) {
-        console.error("Error fetching portfolio analysis:", err)
-        setError("分析の取得に失敗しました")
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error("分析の取得に失敗しました")
       }
-    }
 
+      const result = await response.json()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      console.error("Error fetching portfolio analysis:", err)
+      setError("分析の取得に失敗しました")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGenerate = async () => {
+    try {
+      setGenerating(true)
+      const response = await fetch(`/api/stocks/${stockId}/portfolio-analysis`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "分析の生成に失敗しました")
+      }
+
+      const result = await response.json()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      console.error("Error generating portfolio analysis:", err)
+      alert(err instanceof Error ? err.message : "分析の生成に失敗しました")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  useEffect(() => {
     fetchAnalysis()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockId])
 
   if (loading) {
@@ -56,12 +79,44 @@ export default function PortfolioAnalysis({ stockId }: PortfolioAnalysisProps) {
     )
   }
 
-  if (error || !data) {
+  if (error) {
     return (
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="bg-gray-50 rounded-lg p-6 text-center">
           <div className="text-4xl mb-3">📊</div>
-          <p className="text-sm text-gray-600">{error || "データがありません"}</p>
+          <p className="text-sm text-gray-600">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // データがない、または当日のデータでない場合は生成ボタンを表示
+  if (!data || !data.shortTerm || !data.isToday) {
+    return (
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+          <div className="text-4xl mb-3">📊</div>
+          <p className="text-sm text-amber-800 mb-4">
+            {data?.lastAnalysis
+              ? "これは昨日の分析です。最新の分析を生成しますか？"
+              : "まだAI分析がありません。今すぐ生成しますか？"}
+          </p>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg font-semibold text-sm hover:bg-amber-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {generating ? "生成中..." : "今日の分析を生成"}
+          </button>
+          {data?.lastAnalysis && (
+            <p className="text-xs text-gray-500 mt-3">
+              前回の分析: {new Date(data.lastAnalysis).toLocaleDateString("ja-JP", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+          )}
         </div>
       </div>
     )

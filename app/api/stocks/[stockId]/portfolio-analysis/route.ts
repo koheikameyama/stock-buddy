@@ -6,8 +6,10 @@ import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
 
 dayjs.extend(utc)
+dayjs.extend(timezone)
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -58,13 +60,26 @@ export async function GET(
       )
     }
 
+    // 日本時間で今日の00:00:00を取得
+    const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
+
     // 分析データがない場合
     if (!portfolioStock.lastAnalysis) {
       return NextResponse.json(
-        { error: "分析データがまだ生成されていません" },
-        { status: 404 }
+        {
+          shortTerm: null,
+          mediumTerm: null,
+          longTerm: null,
+          lastAnalysis: null,
+          isToday: false,
+        },
+        { status: 200 }
       )
     }
+
+    // lastAnalysisが日本時間で当日かどうかを判定
+    const lastAnalysisJST = dayjs(portfolioStock.lastAnalysis).tz("Asia/Tokyo").startOf("day")
+    const isToday = lastAnalysisJST.isSame(todayJST, "day")
 
     // レスポンス整形
     const response = {
@@ -72,6 +87,7 @@ export async function GET(
       mediumTerm: portfolioStock.mediumTerm,
       longTerm: portfolioStock.longTerm,
       lastAnalysis: portfolioStock.lastAnalysis.toISOString(),
+      isToday,
     }
 
     return NextResponse.json(response, { status: 200 })
@@ -352,6 +368,7 @@ ${newsContext}
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
       lastAnalysis: now.toISOString(),
+      isToday: true,
     })
   } catch (error) {
     console.error("Error generating portfolio analysis:", error)
