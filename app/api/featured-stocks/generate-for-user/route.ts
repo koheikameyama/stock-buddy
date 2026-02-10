@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
-import { Decimal } from "@prisma/client/runtime/library"
 
 dayjs.extend(utc)
 
@@ -13,9 +13,9 @@ interface StockWithPrices {
   name: string
   beginnerScore: number | null
   prices: {
-    date: Date
-    close: Decimal
-    volume: bigint
+    date: string
+    close: number
+    volume: number
   }[]
 }
 
@@ -86,9 +86,10 @@ export async function POST() {
 }
 
 /**
- * 全銘柄と過去30日分の株価データを取得
+ * 全銘柄と過去30日分の株価データを取得（yfinanceからリアルタイム取得）
  */
 async function getStocksWithPrices(): Promise<StockWithPrices[]> {
+  // beginnerScoreが高い上位50銘柄を取得（全銘柄だと時間がかかりすぎる）
   const stocks = await prisma.stock.findMany({
     where: {
       beginnerScore: { not: null },
@@ -98,20 +99,38 @@ async function getStocksWithPrices(): Promise<StockWithPrices[]> {
       tickerCode: true,
       name: true,
       beginnerScore: true,
-      prices: {
-        orderBy: { date: "desc" },
-        take: 30,
-        select: {
-          date: true,
-          close: true,
-          volume: true,
-        },
-      },
     },
+    orderBy: {
+      beginnerScore: "desc",
+    },
+    take: 50,
   })
 
-  // 最低7日分のデータがある銘柄のみ
-  return stocks.filter((s) => s.prices.length >= 7) as StockWithPrices[]
+  // 各銘柄のヒストリカルデータをyfinanceから取得
+  const stocksWithPrices: StockWithPrices[] = []
+
+  for (const stock of stocks) {
+    try {
+      const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m")
+
+      if (historicalPrices.length >= 7) {
+        // 新しい順に並べ替え
+        const sortedPrices = [...historicalPrices].reverse()
+        stocksWithPrices.push({
+          ...stock,
+          prices: sortedPrices.map((p) => ({
+            date: p.date,
+            close: p.close,
+            volume: p.volume,
+          })),
+        })
+      }
+    } catch (error) {
+      console.error(`Error fetching prices for ${stock.tickerCode}:`, error)
+    }
+  }
+
+  return stocksWithPrices
 }
 
 /**

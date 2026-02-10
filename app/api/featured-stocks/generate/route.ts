@@ -92,14 +92,6 @@ export async function POST(request: NextRequest) {
           in: tickerCodes,
         },
       },
-      include: {
-        prices: {
-          orderBy: {
-            date: "desc",
-          },
-          take: 1,
-        },
-      },
     })
 
     // 候補銘柄に関連するニュースを取得
@@ -144,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     // 銘柄を分析する関数
     const analyzeStock = async (stock: (typeof allStocks)[0]) => {
-      const latestPrice = stock.prices[0]?.close
+      const latestPrice = stock.currentPrice
 
       if (!latestPrice) {
         console.log(`⚠️  No price data for ${stock.tickerCode}, skipping`)

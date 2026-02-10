@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import { generatePatternsResponse } from "@/lib/candlestick-patterns"
-import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-
-dayjs.extend(utc)
 
 export async function GET(
   request: NextRequest,
@@ -20,44 +17,20 @@ export async function GET(
 
     const { stockId } = await params
     const { searchParams } = new URL(request.url)
-    const period = searchParams.get("period") || "1m" // 1m, 3m, 1y
+    const period = (searchParams.get("period") || "1m") as "1m" | "3m" | "1y"
 
-    // 期間に応じた開始日を計算
-    let startDate: Date
-    switch (period) {
-      case "1m":
-        startDate = dayjs.utc().subtract(1, "month").startOf("day").toDate()
-        break
-      case "3m":
-        startDate = dayjs.utc().subtract(3, "month").startOf("day").toDate()
-        break
-      case "1y":
-        startDate = dayjs.utc().subtract(1, "year").startOf("day").toDate()
-        break
-      default:
-        startDate = dayjs.utc().subtract(1, "month").startOf("day").toDate()
+    // stockIdからtickerCodeを取得
+    const stock = await prisma.stock.findUnique({
+      where: { id: stockId },
+      select: { tickerCode: true },
+    })
+
+    if (!stock) {
+      return NextResponse.json({ error: "銘柄が見つかりません" }, { status: 404 })
     }
 
-    // 履歴データを取得
-    const prices = await prisma.stockPrice.findMany({
-      where: {
-        stockId,
-        date: {
-          gte: startDate,
-        },
-      },
-      orderBy: {
-        date: "asc",
-      },
-      select: {
-        date: true,
-        open: true,
-        high: true,
-        low: true,
-        close: true,
-        volume: true,
-      },
-    })
+    // yfinanceからヒストリカルデータを取得
+    const prices = await fetchHistoricalPrices(stock.tickerCode, period)
 
     if (prices.length === 0) {
       return NextResponse.json({ error: "価格データがありません" }, { status: 404 })
@@ -153,7 +126,7 @@ export async function GET(
     }
 
     // 終値の配列を作成
-    const closes = prices.map(p => Number(p.close))
+    const closes = prices.map(p => p.close)
 
     // RSIとMACDを計算
     const rsiValues = calculateRSI(closes)
@@ -161,12 +134,12 @@ export async function GET(
 
     // レスポンスデータを整形
     const data = prices.map((price, index) => ({
-      date: dayjs(price.date).format("YYYY-MM-DD"),
-      open: Number(price.open),
-      high: Number(price.high),
-      low: Number(price.low),
-      close: Number(price.close),
-      volume: Number(price.volume),
+      date: price.date,
+      open: price.open,
+      high: price.high,
+      low: price.low,
+      close: price.close,
+      volume: price.volume,
       rsi: rsiValues[index],
       macd: macdData.macd[index],
       signal: macdData.signal[index],

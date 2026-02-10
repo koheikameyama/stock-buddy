@@ -74,14 +74,7 @@ export async function POST(request: NextRequest) {
       prisma.portfolioStock.findMany({
         where: { userId: session.user.id },
         include: {
-          stock: {
-            include: {
-              prices: {
-                orderBy: { date: "desc" },
-                take: 1,
-              },
-            },
-          },
+          stock: true,
           transactions: {
             orderBy: { transactionDate: "asc" },
           },
@@ -90,14 +83,7 @@ export async function POST(request: NextRequest) {
       prisma.watchlistStock.findMany({
         where: { userId: session.user.id },
         include: {
-          stock: {
-            include: {
-              prices: {
-                orderBy: { date: "desc" },
-                take: 1,
-              },
-            },
-          },
+          stock: true,
         },
       }),
       prisma.userSettings.findUnique({

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/auth"
 import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
+import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 
@@ -151,16 +152,9 @@ export async function POST(
       profitPercent = (profit / totalCost) * 100
     }
 
-    // 直近30日の価格データを取得
-    const prices = await prisma.stockPrice.findMany({
-      where: { stockId },
-      orderBy: { date: "desc" },
-      take: 30,
-      select: {
-        date: true,
-        close: true,
-      },
-    })
+    // 直近30日の価格データを取得（yfinanceからリアルタイム取得）
+    const historicalPrices = await fetchHistoricalPrices(portfolioStock.stock.tickerCode, "1m")
+    const prices = historicalPrices.slice(-30)
 
     // 関連ニュースを取得
     const tickerCode = portfolioStock.stock.tickerCode.replace(".T", "")
