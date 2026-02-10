@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import AddStockDialog from "../my-stocks/AddStockDialog"
 
 interface FeaturedStock {
   id: string
@@ -38,9 +37,7 @@ export default function FeaturedStocksByCategory({
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [date, setDate] = useState<string | null>(null)
-  // ウォッチリスト追加ダイアログ
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [selectedFeaturedStock, setSelectedFeaturedStock] = useState<FeaturedStock | null>(null)
+  const [addingStockId, setAddingStockId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchFeaturedStocks()
@@ -66,16 +63,32 @@ export default function FeaturedStocksByCategory({
     }
   }
 
-  const handleAddToWatchlist = (stock: FeaturedStock) => {
-    setSelectedFeaturedStock(stock)
-    setShowAddDialog(true)
-  }
+  const handleAddToWatchlist = async (stock: FeaturedStock) => {
+    setAddingStockId(stock.id)
+    try {
+      const response = await fetch("/api/user-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerCode: stock.stock.tickerCode,
+          type: "watchlist",
+        }),
+      })
 
-  const handleAddDialogSuccess = () => {
-    setShowAddDialog(false)
-    setSelectedFeaturedStock(null)
-    // リストを再取得して登録済み状態を更新
-    fetchFeaturedStocks()
+      if (!response.ok) {
+        const data = await response.json()
+        alert(data.error || "追加に失敗しました")
+        return
+      }
+
+      // リストを再取得して登録済み状態を更新
+      fetchFeaturedStocks()
+    } catch (error) {
+      console.error("Error adding to watchlist:", error)
+      alert("追加に失敗しました")
+    } finally {
+      setAddingStockId(null)
+    }
   }
 
   const hasAnyStocks = personalRecommendations.length > 0 || trendingStocks.length > 0
@@ -217,10 +230,10 @@ export default function FeaturedStocksByCategory({
 
         <button
           onClick={() => handleAddToWatchlist(stock)}
-          disabled={stock.isRegistered}
-          className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${stock.isRegistered ? "" : theme.button}`}
+          disabled={stock.isRegistered || addingStockId === stock.id}
+          className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${stock.isRegistered || addingStockId === stock.id ? "" : theme.button}`}
         >
-          {stock.isRegistered ? "登録済み" : "ウォッチリストに追加"}
+          {stock.isRegistered ? "登録済み" : addingStockId === stock.id ? "追加中..." : "ウォッチリストに追加"}
         </button>
       </div>
     )
@@ -282,28 +295,6 @@ export default function FeaturedStocksByCategory({
         </p>
       </div>
 
-      {/* ウォッチリスト追加ダイアログ */}
-      <AddStockDialog
-        isOpen={showAddDialog}
-        onClose={() => {
-          setShowAddDialog(false)
-          setSelectedFeaturedStock(null)
-        }}
-        onSuccess={handleAddDialogSuccess}
-        defaultType="watchlist"
-        initialStock={
-          selectedFeaturedStock
-            ? {
-                id: selectedFeaturedStock.stock.id,
-                tickerCode: selectedFeaturedStock.stock.tickerCode,
-                name: selectedFeaturedStock.stock.name,
-                market: "",
-                sector: selectedFeaturedStock.stock.sector,
-                latestPrice: selectedFeaturedStock.stock.currentPrice,
-              }
-            : null
-        }
-      />
     </div>
   )
 }
