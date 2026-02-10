@@ -19,6 +19,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Determine time context
+        id: time
+        run: |
+          HOUR=$(TZ=Asia/Tokyo date +%H)
+          if [ "$HOUR" -lt 10 ]; then
+            echo "context=morning" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" -lt 14 ]; then
+            echo "context=noon" >> $GITHUB_OUTPUT
+          else
+            echo "context=close" >> $GITHUB_OUTPUT
+          fi
+          echo "Time context: $(cat $GITHUB_OUTPUT)"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -46,6 +59,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TIME_CONTEXT: ${{ steps.time.outputs.context }}
         run: |
           python scripts/github-actions/generate_user_recommendations.py
 

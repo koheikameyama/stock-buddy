@@ -23,6 +23,25 @@ from lib.news_fetcher import get_related_news, format_news_for_prompt
 # OpenAI クライアント初期化
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# 時間帯コンテキスト
+TIME_CONTEXT = os.getenv("TIME_CONTEXT", "morning")
+
+# 時間帯別のプロンプト設定
+TIME_CONTEXT_PROMPTS = {
+    "morning": {
+        "intro": "今日の取引開始前の購入判断です。",
+        "focus": "今日の買いタイミングとチェックポイント",
+    },
+    "noon": {
+        "intro": "前場の取引を踏まえた購入判断です。",
+        "focus": "前場の動きを踏まえた後場の買いタイミング",
+    },
+    "close": {
+        "intro": "本日の取引終了後の振り返りと明日への展望です。",
+        "focus": "本日の値動きを踏まえた明日以降の買い時",
+    },
+}
+
 # データベース接続
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -178,8 +197,12 @@ def get_pattern_analysis(recent_prices):
     }
 
 
-def generate_recommendation(stock, prediction, recent_prices, related_news=None, pattern_analysis=None):
+def generate_recommendation(stock, prediction, recent_prices, related_news=None, pattern_analysis=None, time_context=None):
     """OpenAI APIを使って購入判断を生成"""
+
+    # 時間帯に応じたプロンプト設定を取得
+    context = time_context or TIME_CONTEXT
+    prompts = TIME_CONTEXT_PROMPTS.get(context, TIME_CONTEXT_PROMPTS["morning"])
 
     # ニュース情報をフォーマット
     news_context = ""
@@ -206,7 +229,8 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None,
 
     # プロンプト構築
     prompt = f"""あなたは投資初心者向けのAIコーチです。
-以下の銘柄について、購入判断をしてください。
+{prompts['intro']}
+以下の銘柄について、{prompts['focus']}を判断してください。
 
 【銘柄情報】
 - 名前: {stock['name']}
@@ -422,8 +446,8 @@ def main():
             if pattern_analysis:
                 print(f"Pattern analysis: {pattern_analysis['latest']['description']} ({pattern_analysis['latest']['signal']})")
 
-            # 購入判断生成（ニュース・パターン分析付き）
-            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news, pattern_analysis)
+            # 購入判断生成（ニュース・パターン分析付き、時間帯考慮）
+            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news, pattern_analysis, TIME_CONTEXT)
 
             if not recommendation:
                 print(f"❌ Failed to generate recommendation for {stock['name']}")

@@ -21,6 +21,25 @@ from openai import OpenAI
 # OpenAI クライアント初期化
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# 時間帯コンテキスト
+TIME_CONTEXT = os.getenv("TIME_CONTEXT", "morning")
+
+# 時間帯別のプロンプト設定
+TIME_CONTEXT_PROMPTS = {
+    "morning": {
+        "intro": "今日の取引開始前のおすすめです。",
+        "focus": "今日注目すべき銘柄",
+    },
+    "noon": {
+        "intro": "前場の動きを踏まえたおすすめです。",
+        "focus": "後場に注目したい銘柄",
+    },
+    "close": {
+        "intro": "本日の取引を踏まえた明日へのおすすめです。",
+        "focus": "明日以降に注目したい銘柄",
+    },
+}
+
 # データベース接続
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -115,8 +134,13 @@ def filter_stocks_by_budget(stocks: List[Dict], budget: Optional[int]) -> List[D
 def generate_recommendations_for_user(
     user: Dict,
     stocks: List[Dict],
+    time_context: str = None,
 ) -> Optional[List[Dict]]:
     """OpenAI APIでユーザーに合ったおすすめ3銘柄を生成"""
+
+    # 時間帯に応じたプロンプト設定を取得
+    context = time_context or TIME_CONTEXT
+    prompts = TIME_CONTEXT_PROMPTS.get(context, TIME_CONTEXT_PROMPTS["morning"])
 
     period_label = {
         'short': '短期（1年以内）',
@@ -142,7 +166,8 @@ def generate_recommendations_for_user(
     stocks_text = "\n".join(stock_summaries)
 
     prompt = f"""あなたは投資初心者を優しくサポートするAIコーチです。
-以下のユーザーの投資スタイルに合った銘柄を3つ選んでください。
+{prompts['intro']}
+以下のユーザーの投資スタイルに合った{prompts['focus']}を3つ選んでください。
 
 【ユーザーの投資スタイル】
 - 投資期間: {period_label}
@@ -299,8 +324,8 @@ def main():
                 error_count += 1
                 continue
 
-            # AI生成
-            recommendations = generate_recommendations_for_user(user, filtered)
+            # AI生成（時間帯考慮）
+            recommendations = generate_recommendations_for_user(user, filtered, TIME_CONTEXT)
 
             if not recommendations:
                 print("  Failed to generate recommendations.")

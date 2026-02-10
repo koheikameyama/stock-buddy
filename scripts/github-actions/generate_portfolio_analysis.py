@@ -23,6 +23,31 @@ from lib.news_fetcher import get_related_news, format_news_for_prompt
 # OpenAI クライアント初期化
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# 時間帯コンテキスト
+TIME_CONTEXT = os.getenv("TIME_CONTEXT", "morning")
+
+# 時間帯別のプロンプト設定
+TIME_CONTEXT_PROMPTS = {
+    "morning": {
+        "intro": "今日の取引開始前の分析です。",
+        "shortTerm": "今日の見通しとチェックポイントを初心者に分かりやすく2-3文で",
+        "mediumTerm": "今週の注目ポイントと目標を初心者に分かりやすく2-3文で",
+        "longTerm": "今後の成長シナリオを初心者に分かりやすく2-3文で",
+    },
+    "noon": {
+        "intro": "前場の取引を踏まえた分析です。",
+        "shortTerm": "前場の動きを踏まえた後場の注目点を初心者に分かりやすく2-3文で",
+        "mediumTerm": "今日の値動きを踏まえた今週の見通しを初心者に分かりやすく2-3文で",
+        "longTerm": "今後の成長シナリオを初心者に分かりやすく2-3文で",
+    },
+    "close": {
+        "intro": "本日の取引終了後の振り返りです。",
+        "shortTerm": "本日のまとめと明日への展望を初心者に分かりやすく2-3文で",
+        "mediumTerm": "今週の残りの見通しを初心者に分かりやすく2-3文で",
+        "longTerm": "今後の成長シナリオと来週以降の展望を初心者に分かりやすく2-3文で",
+    },
+}
+
 # データベース接続
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -183,8 +208,12 @@ def format_financial_metrics(stock):
     return "\n".join(metrics) if metrics else "財務データなし"
 
 
-def generate_portfolio_analysis(stock, recent_prices, related_news=None):
+def generate_portfolio_analysis(stock, recent_prices, related_news=None, time_context=None):
     """OpenAI APIを使ってポートフォリオ分析を生成"""
+
+    # 時間帯に応じたプロンプト設定を取得
+    context = time_context or TIME_CONTEXT
+    prompts = TIME_CONTEXT_PROMPTS.get(context, TIME_CONTEXT_PROMPTS["morning"])
 
     average_price = float(stock['averagePurchasePrice'])
     current_price = float(stock['currentPrice']) if stock['currentPrice'] else None
@@ -230,6 +259,7 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
 
     # プロンプト構築
     prompt = f"""あなたは投資初心者向けのAIコーチです。
+{prompts['intro']}
 以下の保有銘柄について、売買判断をしてください。
 
 【銘柄情報】
@@ -251,9 +281,9 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None):
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {{
-  "shortTerm": "短期予測（今週）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）",
-  "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）",
-  "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で（ニュース情報があれば参考にする）"
+  "shortTerm": "{prompts['shortTerm']}（ニュース情報があれば参考にする）",
+  "mediumTerm": "{prompts['mediumTerm']}（ニュース情報があれば参考にする）",
+  "longTerm": "{prompts['longTerm']}（ニュース情報があれば参考にする）"
 }}
 
 【判断の指針】
@@ -396,8 +426,8 @@ def main():
             # 直近価格取得
             recent_prices = get_recent_prices(conn, stock['tickerCode'])
 
-            # ポートフォリオ分析生成（ニュース付き）
-            analysis = generate_portfolio_analysis(stock, recent_prices, stock_news)
+            # ポートフォリオ分析生成（ニュース付き、時間帯考慮）
+            analysis = generate_portfolio_analysis(stock, recent_prices, stock_news, TIME_CONTEXT)
 
             if not analysis:
                 print(f"❌ Failed to generate analysis for {stock['name']}")
