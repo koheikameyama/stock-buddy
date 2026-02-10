@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -203,6 +204,35 @@ export async function GET() {
           currentPrice: t.stock.currentPrice
             ? Number(t.stock.currentPrice)
             : null,
+        },
+      }))
+    }
+
+    // 株価をリアルタイム取得
+    const allTickerCodes = [
+      ...personalRecommendations.map((r) => r.stock.tickerCode),
+      ...trendingStocks.map((t) => t.stock.tickerCode),
+    ]
+
+    if (allTickerCodes.length > 0) {
+      const prices = await fetchStockPrices(allTickerCodes)
+      const priceMap = new Map(
+        prices.map((p) => [p.tickerCode, p.currentPrice])
+      )
+
+      personalRecommendations = personalRecommendations.map((r) => ({
+        ...r,
+        stock: {
+          ...r.stock,
+          currentPrice: priceMap.get(r.stock.tickerCode) ?? r.stock.currentPrice,
+        },
+      }))
+
+      trendingStocks = trendingStocks.map((t) => ({
+        ...t,
+        stock: {
+          ...t.stock,
+          currentPrice: priceMap.get(t.stock.tickerCode) ?? t.stock.currentPrice,
         },
       }))
     }
