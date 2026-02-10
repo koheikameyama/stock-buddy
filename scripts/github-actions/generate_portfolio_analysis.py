@@ -55,6 +55,51 @@ if not DATABASE_URL:
     sys.exit(1)
 
 
+def get_user_settings(conn, user_id):
+    """ユーザーの投資スタイル設定を取得"""
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""
+            SELECT
+                "investmentPeriod",
+                "riskTolerance"
+            FROM "UserSettings"
+            WHERE "userId" = %s
+        """, (user_id,))
+        return cur.fetchone()
+    finally:
+        cur.close()
+
+
+def format_investment_style(settings):
+    """投資スタイルを文字列にフォーマット"""
+    if not settings:
+        return None
+
+    period_label = {
+        'short': '短期（1年以内）',
+        'medium': '中期（1〜3年）',
+        'long': '長期（3年以上）',
+    }.get(settings.get('investmentPeriod'), None)
+
+    risk_label = {
+        'low': '低い（安定重視）',
+        'medium': '普通（バランス）',
+        'high': '高い（成長重視）',
+    }.get(settings.get('riskTolerance'), None)
+
+    if not period_label and not risk_label:
+        return None
+
+    lines = []
+    if period_label:
+        lines.append(f"- 投資期間: {period_label}")
+    if risk_label:
+        lines.append(f"- リスク許容度: {risk_label}")
+
+    return "\n".join(lines)
+
+
 def get_portfolio_stocks(conn):
     """保有銘柄（PortfolioStock）を取得。Transactionテーブルから数量と平均取得単価を集計"""
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -208,12 +253,21 @@ def format_financial_metrics(stock):
     return "\n".join(metrics) if metrics else "財務データなし"
 
 
-def generate_portfolio_analysis(stock, recent_prices, related_news=None, time_context=None):
+def generate_portfolio_analysis(stock, recent_prices, related_news=None, time_context=None, investment_style=None):
     """OpenAI APIを使ってポートフォリオ分析を生成"""
 
     # 時間帯に応じたプロンプト設定を取得
     context = time_context or TIME_CONTEXT
     prompts = TIME_CONTEXT_PROMPTS.get(context, TIME_CONTEXT_PROMPTS["morning"])
+
+    # 投資スタイルをフォーマット
+    style_context = ""
+    if investment_style:
+        style_context = f"""
+
+【ユーザーの投資スタイル】
+{investment_style}
+※ ユーザーの投資スタイルに合わせたアドバイスをしてください。"""
 
     average_price = float(stock['averagePurchasePrice'])
     current_price = float(stock['currentPrice']) if stock['currentPrice'] else None
@@ -269,7 +323,7 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None, time_co
 - 保有数量: {quantity}株
 - 購入時単価: {average_price}円
 - 現在価格: {current_price or '不明'}円
-- 損益: {f'{profit:,.0f}円 ({profit_percent:+.2f}%)' if profit is not None else '不明'}{target_info}
+- 損益: {f'{profit:,.0f}円 ({profit_percent:+.2f}%)' if profit is not None else '不明'}{target_info}{style_context}
 
 【財務指標（初心者向け解説）】
 {financial_metrics}
@@ -405,6 +459,9 @@ def main():
         success_count = 0
         error_count = 0
 
+        # ユーザーの投資スタイルをキャッシュ
+        user_styles = {}
+
         for stock in stocks:
             print(f"\n--- Processing: {stock['name']} ({stock['tickerCode']}) ---")
 
@@ -412,6 +469,13 @@ def main():
             if not stock['quantity'] or stock['quantity'] <= 0:
                 print(f"⏭️  Skipping: No holdings (quantity: {stock['quantity']})")
                 continue
+
+            # ユーザーの投資スタイルを取得（キャッシュ）
+            user_id = stock['userId']
+            if user_id not in user_styles:
+                settings = get_user_settings(conn, user_id)
+                user_styles[user_id] = format_investment_style(settings)
+            investment_style = user_styles[user_id]
 
             # この銘柄に関連するニュースをフィルタリング
             stock_news = [
@@ -426,8 +490,8 @@ def main():
             # 直近価格取得
             recent_prices = get_recent_prices(conn, stock['tickerCode'])
 
-            # ポートフォリオ分析生成（ニュース付き、時間帯考慮）
-            analysis = generate_portfolio_analysis(stock, recent_prices, stock_news, TIME_CONTEXT)
+            # ポートフォリオ分析生成（ニュース付き、時間帯考慮、投資スタイル考慮）
+            analysis = generate_portfolio_analysis(stock, recent_prices, stock_news, TIME_CONTEXT, investment_style)
 
             if not analysis:
                 print(f"❌ Failed to generate analysis for {stock['name']}")
