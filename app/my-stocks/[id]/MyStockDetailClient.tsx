@@ -86,6 +86,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   // Set stock context for global chat
   useEffect(() => {
     setStockContext({
+      stockId: stock.stockId,
       tickerCode: stock.stock.tickerCode,
       name: stock.stock.name,
       sector: stock.stock.sector,

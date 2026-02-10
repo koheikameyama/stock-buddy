@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, ReactNode } from "react"
 
 interface StockContext {
+  stockId: string // DBのstock.id
   tickerCode: string
   name: string
   sector: string | null
