@@ -11,7 +11,6 @@ interface AnalysisData {
   mediumTerm: string | null
   longTerm: string | null
   lastAnalysis: string | null
-  isToday: boolean
 }
 
 export default function PortfolioAnalysis({ stockId }: PortfolioAnalysisProps) {
@@ -90,16 +89,14 @@ export default function PortfolioAnalysis({ stockId }: PortfolioAnalysisProps) {
     )
   }
 
-  // データがない、または当日のデータでない場合は生成ボタンを表示
-  if (!data || !data.shortTerm || !data.isToday) {
+  // データがない場合のみ生成ボタンを表示
+  if (!data || !data.shortTerm) {
     return (
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
           <div className="text-4xl mb-3">📊</div>
           <p className="text-sm text-amber-800 mb-4">
-            {data?.lastAnalysis
-              ? "これは昨日の分析です。最新の分析を生成しますか？"
-              : "まだAI分析がありません。今すぐ生成しますか？"}
+            まだAI分析がありません。今すぐ生成しますか？
           </p>
           <button
             onClick={handleGenerate}
@@ -108,15 +105,6 @@ export default function PortfolioAnalysis({ stockId }: PortfolioAnalysisProps) {
           >
             {generating ? "生成中..." : "今日の分析を生成"}
           </button>
-          {data?.lastAnalysis && (
-            <p className="text-xs text-gray-500 mt-3">
-              前回の分析: {new Date(data.lastAnalysis).toLocaleDateString("ja-JP", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
-          )}
         </div>
       </div>
     )

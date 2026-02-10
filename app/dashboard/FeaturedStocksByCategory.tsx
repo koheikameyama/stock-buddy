@@ -38,7 +38,6 @@ export default function FeaturedStocksByCategory({
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [date, setDate] = useState<string | null>(null)
-  const [isToday, setIsToday] = useState(true)
   // ウォッチリスト追加ダイアログ
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [selectedFeaturedStock, setSelectedFeaturedStock] = useState<FeaturedStock | null>(null)
@@ -57,7 +56,6 @@ export default function FeaturedStocksByCategory({
         setPersonalRecommendations(data.personalRecommendations || [])
         setTrendingStocks(data.trendingStocks || [])
         setDate(data.date || null)
-        setIsToday(data.isToday ?? true)
       } else {
         console.error("Error fetching featured stocks:", data.error)
       }
@@ -274,22 +272,6 @@ export default function FeaturedStocksByCategory({
               {trendingStocks.map((stock) => renderStockCard(stock, "purple"))}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* 当日データでない場合は生成ボタンを表示 */}
-      {!isToday && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-          <p className="text-sm text-amber-800 mb-3">
-            これは昨日のデータです。最新のおすすめを生成しますか？
-          </p>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg font-semibold text-sm hover:bg-amber-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {generating ? "生成中..." : "今日のおすすめを生成"}
-          </button>
         </div>
       )}
 
