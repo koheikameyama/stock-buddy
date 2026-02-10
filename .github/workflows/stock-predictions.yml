@@ -3,7 +3,7 @@ name: Daily Stock Predictions
 on:
   schedule:
     # 取引時間に合わせて3回実行
-    - cron: '0 0 * * *'   # 9:00 JST - 前場開始
+    - cron: '30 23 * * *' # 8:30 JST - 前場開始前
     - cron: '30 3 * * *'  # 12:30 JST - 後場開始
     - cron: '30 6 * * *'  # 15:30 JST - 取引終了
   workflow_dispatch: # 手動実行も可能
