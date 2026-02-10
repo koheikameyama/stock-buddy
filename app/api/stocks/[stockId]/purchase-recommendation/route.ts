@@ -84,6 +84,25 @@ export async function GET(
         ? Number(recommendation.estimatedAmount)
         : null,
       caution: recommendation.caution,
+      // A. 買い時判断
+      shouldBuyToday: recommendation.shouldBuyToday,
+      idealEntryPrice: recommendation.idealEntryPrice
+        ? Number(recommendation.idealEntryPrice)
+        : null,
+      priceGap: recommendation.priceGap
+        ? Number(recommendation.priceGap)
+        : null,
+      buyTimingExplanation: recommendation.buyTimingExplanation,
+      // B. 深掘り評価
+      positives: recommendation.positives,
+      concerns: recommendation.concerns,
+      suitableFor: recommendation.suitableFor,
+      // D. パーソナライズ
+      userFitScore: recommendation.userFitScore,
+      budgetFit: recommendation.budgetFit,
+      periodFit: recommendation.periodFit,
+      riskFit: recommendation.riskFit,
+      personalizedReason: recommendation.personalizedReason,
       analyzedAt: recommendation.date.toISOString(),
     }
 
@@ -111,19 +130,30 @@ export async function POST(
   }
 
   const { stockId } = await params
+  const userId = session.user.id
 
   try {
-    // 銘柄情報を取得
-    const stock = await prisma.stock.findUnique({
-      where: { id: stockId },
-      select: {
-        id: true,
-        tickerCode: true,
-        name: true,
-        sector: true,
-        currentPrice: true,
-      },
-    })
+    // 銘柄情報とユーザー設定を並行取得
+    const [stock, userSettings] = await Promise.all([
+      prisma.stock.findUnique({
+        where: { id: stockId },
+        select: {
+          id: true,
+          tickerCode: true,
+          name: true,
+          sector: true,
+          currentPrice: true,
+        },
+      }),
+      prisma.userSettings.findUnique({
+        where: { userId },
+        select: {
+          investmentPeriod: true,
+          riskTolerance: true,
+          investmentBudget: true,
+        },
+      }),
+    ])
 
     if (!stock) {
       return NextResponse.json(
@@ -211,15 +241,37 @@ export async function POST(
 
     // プロンプト構築
     const currentPrice = stock.currentPrice ? Number(stock.currentPrice) : prices[0] ? Number(prices[0].close) : 0
+
+    // ユーザー設定のコンテキスト
+    const periodMap: Record<string, string> = {
+      short: "短期（数週間〜数ヶ月）",
+      medium: "中期（半年〜1年）",
+      long: "長期（数年以上）",
+    }
+    const riskMap: Record<string, string> = {
+      low: "低リスク（安定重視）",
+      medium: "中リスク（バランス）",
+      high: "高リスク（積極的）",
+    }
+
+    const userContext = userSettings
+      ? `
+【ユーザーの投資設定】
+- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
+- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
+- 投資予算: ${userSettings.investmentBudget ? `${userSettings.investmentBudget.toLocaleString()}円` : "未設定"}
+`
+      : ""
+
     const prompt = `あなたは投資初心者向けのAIコーチです。
-以下の銘柄について、購入判断をしてください。
+以下の銘柄について、詳細な購入判断をしてください。
 
 【銘柄情報】
 - 名前: ${stock.name}
 - ティッカーコード: ${stock.tickerCode}
 - セクター: ${stock.sector || "不明"}
 - 現在価格: ${currentPrice}円
-${predictionContext}
+${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
 ${patternContext}${newsContext}
@@ -229,11 +281,29 @@ ${patternContext}${newsContext}
 {
   "recommendation": "buy" | "hold" | "pass",
   "confidence": 0.0から1.0の数値（小数点2桁）,
-  "reason": "初心者に分かりやすい言葉で1-2文の理由（ニュース情報があれば参考にする）",
+  "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "recommendedQuantity": 100株単位の整数（buyの場合のみ、それ以外はnull）,
   "recommendedPrice": 目安価格の整数（buyの場合のみ、それ以外はnull）,
   "estimatedAmount": 必要金額の整数（buyの場合のみ、それ以外はnull）,
-  "caution": "注意点を1-2文"
+  "caution": "注意点を1-2文",
+
+  // A. 買い時判断
+  "shouldBuyToday": true | false,
+  "idealEntryPrice": 理想の買い値（整数）,
+  "priceGap": 現在価格との差（マイナス=割安、プラス=割高）,
+  "buyTimingExplanation": "買い時の説明（例: あと50円下がったら最高の買い時です / 今が買い時です！）",
+
+  // B. 深掘り評価
+  "positives": "良いところを3つ、箇条書き（各項目は1行で簡潔に）",
+  "concerns": "不安な点を2-3つ、箇条書き（各項目は1行で簡潔に）",
+  "suitableFor": "こんな人におすすめ（1-2文で具体的に）",
+
+  // D. パーソナライズ（ユーザー設定がある場合）
+  "userFitScore": 0-100のおすすめ度,
+  "budgetFit": 予算内で購入可能か（true/false）,
+  "periodFit": 投資期間にマッチするか（true/false）,
+  "riskFit": リスク許容度に合うか（true/false）,
+  "personalizedReason": "このユーザーにとってのおすすめ理由（2-3文）"
 }
 
 【制約】
@@ -241,9 +311,10 @@ ${patternContext}${newsContext}
 - ニュースにない情報は推測や創作をしないでください
 - 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
 - 「成長性」「安定性」「割安」のような平易な言葉を使う
-- 理由と注意点は、中学生でも理解できる表現にする
-- recommendationが"buy"の場合のみ、recommendedQuantity、recommendedPrice、estimatedAmountを設定
-- recommendationが"hold"または"pass"の場合、これらはnullにする
+- すべての説明は中学生でも理解できる表現にする
+- positives、concernsは箇条書き形式（・で始める）
+- idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
+- ユーザー設定がない場合、パーソナライズ項目はnullにする
 `
 
     // OpenAI API呼び出し
@@ -300,6 +371,21 @@ ${patternContext}${newsContext}
         estimatedAmount: result.estimatedAmount || null,
         reason: result.reason,
         caution: result.caution,
+        // A. 買い時判断
+        shouldBuyToday: result.shouldBuyToday ?? null,
+        idealEntryPrice: result.idealEntryPrice || null,
+        priceGap: result.priceGap ?? null,
+        buyTimingExplanation: result.buyTimingExplanation || null,
+        // B. 深掘り評価
+        positives: result.positives || null,
+        concerns: result.concerns || null,
+        suitableFor: result.suitableFor || null,
+        // D. パーソナライズ
+        userFitScore: result.userFitScore ?? null,
+        budgetFit: result.budgetFit ?? null,
+        periodFit: result.periodFit ?? null,
+        riskFit: result.riskFit ?? null,
+        personalizedReason: result.personalizedReason || null,
         updatedAt: new Date(),
       },
       create: {
@@ -312,6 +398,21 @@ ${patternContext}${newsContext}
         estimatedAmount: result.estimatedAmount || null,
         reason: result.reason,
         caution: result.caution,
+        // A. 買い時判断
+        shouldBuyToday: result.shouldBuyToday ?? null,
+        idealEntryPrice: result.idealEntryPrice || null,
+        priceGap: result.priceGap ?? null,
+        buyTimingExplanation: result.buyTimingExplanation || null,
+        // B. 深掘り評価
+        positives: result.positives || null,
+        concerns: result.concerns || null,
+        suitableFor: result.suitableFor || null,
+        // D. パーソナライズ
+        userFitScore: result.userFitScore ?? null,
+        budgetFit: result.budgetFit ?? null,
+        periodFit: result.periodFit ?? null,
+        riskFit: result.riskFit ?? null,
+        personalizedReason: result.personalizedReason || null,
       },
     })
 
@@ -328,6 +429,21 @@ ${patternContext}${newsContext}
       recommendedPrice: result.recommendedPrice || null,
       estimatedAmount: result.estimatedAmount || null,
       caution: result.caution,
+      // A. 買い時判断
+      shouldBuyToday: result.shouldBuyToday ?? null,
+      idealEntryPrice: result.idealEntryPrice || null,
+      priceGap: result.priceGap ?? null,
+      buyTimingExplanation: result.buyTimingExplanation || null,
+      // B. 深掘り評価
+      positives: result.positives || null,
+      concerns: result.concerns || null,
+      suitableFor: result.suitableFor || null,
+      // D. パーソナライズ
+      userFitScore: result.userFitScore ?? null,
+      budgetFit: result.budgetFit ?? null,
+      periodFit: result.periodFit ?? null,
+      riskFit: result.riskFit ?? null,
+      personalizedReason: result.personalizedReason || null,
       analyzedAt: today.toISOString(),
     })
   } catch (error) {

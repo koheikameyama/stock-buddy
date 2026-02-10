@@ -79,6 +79,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [showTargetPriceDialog, setShowTargetPriceDialog] = useState(false)
   const [showWatchlistDialog, setShowWatchlistDialog] = useState(false)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
+  const [passingStock, setPassingStock] = useState(false)
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -136,6 +137,42 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
     fetchPrice()
   }, [stock.stock.tickerCode])
+
+  // 見送りとして記録
+  const handlePassStock = async () => {
+    const reason = prompt("見送る理由を入力してください（任意）")
+    if (reason === null) return // キャンセル
+
+    setPassingStock(true)
+    try {
+      const response = await fetch("/api/passed-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stockId: stock.stockId,
+          passedReason: reason || null,
+          source: "watchlist",
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "記録に失敗しました")
+      }
+
+      // 削除確認
+      if (confirm("見送りとして記録しました。ウォッチリストから削除しますか？")) {
+        await handleDelete()
+      } else {
+        alert("見送りとして記録しました。ダッシュボードで結果を追跡できます。")
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "記録に失敗しました")
+    } finally {
+      setPassingStock(false)
+    }
+  }
 
   const handleDelete = async () => {
     if (!confirm(`${stock.stock.name}を削除しますか？`)) {
@@ -570,12 +607,21 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                   現在の価格
                 </h2>
-                <button
-                  onClick={() => setShowPurchaseDialog(true)}
-                  className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
-                >
-                  +購入
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowPurchaseDialog(true)}
+                    className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+                  >
+                    +購入
+                  </button>
+                  <button
+                    onClick={handlePassStock}
+                    disabled={passingStock}
+                    className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                  >
+                    {passingStock ? "記録中..." : "興味なし"}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">

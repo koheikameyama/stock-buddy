@@ -2,6 +2,19 @@
 
 import { useEffect, useState } from "react"
 
+// Inline SVG icons
+const ChevronDownIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+)
+
+const ChevronUpIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+  </svg>
+)
+
 interface PurchaseRecommendationProps {
   stockId: string
 }
@@ -18,6 +31,21 @@ interface RecommendationData {
   recommendedPrice?: number | null
   estimatedAmount?: number | null
   caution: string
+  // A. 買い時判断
+  shouldBuyToday?: boolean | null
+  idealEntryPrice?: number | null
+  priceGap?: number | null
+  buyTimingExplanation?: string | null
+  // B. 深掘り評価
+  positives?: string | null
+  concerns?: string | null
+  suitableFor?: string | null
+  // D. パーソナライズ
+  userFitScore?: number | null
+  budgetFit?: boolean | null
+  periodFit?: boolean | null
+  riskFit?: boolean | null
+  personalizedReason?: string | null
   analyzedAt: string
 }
 
@@ -27,6 +55,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   const [generating, setGenerating] = useState(false)
   const [noData, setNoData] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showDetails, setShowDetails] = useState(false)
 
   async function fetchRecommendation() {
     setLoading(true)
@@ -139,6 +168,143 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 信頼度パーセンテージ
   const confidencePercent = Math.round(data.confidence * 100)
 
+  // 買い時判断セクション（A）
+  const BuyTimingSection = () => {
+    if (!data?.buyTimingExplanation) return null
+    return (
+      <div className="bg-white rounded-lg p-3 sm:p-4 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg">⏰</span>
+          <span className="text-sm font-semibold text-gray-800">買い時判断</span>
+          {data.shouldBuyToday !== null && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              data.shouldBuyToday
+                ? "bg-green-100 text-green-800"
+                : "bg-yellow-100 text-yellow-800"
+            }`}>
+              {data.shouldBuyToday ? "今日買うべき！" : "もう少し待とう"}
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-gray-700">{data.buyTimingExplanation}</p>
+        {data.idealEntryPrice && (
+          <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
+            <span>理想の買い値: <strong className="text-gray-900">{data.idealEntryPrice.toLocaleString()}円</strong></span>
+            {data.priceGap != null && (
+              <span className={data.priceGap < 0 ? "text-green-600" : "text-red-600"}>
+                （{data.priceGap < 0 ? "割安" : "割高"}: {Math.abs(data.priceGap).toLocaleString()}円）
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 深掘り評価セクション（B）
+  const DeepEvaluationSection = () => {
+    if (!data?.positives && !data?.concerns && !data?.suitableFor) return null
+    return (
+      <div className="mb-4">
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="w-full flex items-center justify-between bg-white rounded-lg p-3 hover:bg-gray-50 transition-colors"
+        >
+          <span className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <span className="text-lg">🔍</span>
+            この銘柄の詳細評価
+          </span>
+          {showDetails ? (
+            <ChevronUpIcon className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+          )}
+        </button>
+
+        {showDetails && (
+          <div className="mt-2 space-y-3">
+            {/* 良いところ */}
+            {data.positives && (
+              <div className="bg-green-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-green-700 mb-2">良いところ</p>
+                <div className="text-sm text-green-800 whitespace-pre-line">{data.positives}</div>
+              </div>
+            )}
+
+            {/* 不安な点 */}
+            {data.concerns && (
+              <div className="bg-yellow-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-yellow-700 mb-2">不安な点</p>
+                <div className="text-sm text-yellow-800 whitespace-pre-line">{data.concerns}</div>
+              </div>
+            )}
+
+            {/* こんな人向け */}
+            {data.suitableFor && (
+              <div className="bg-blue-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-blue-700 mb-2">こんな人におすすめ</p>
+                <p className="text-sm text-blue-800">{data.suitableFor}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // パーソナライズセクション（D）
+  const PersonalizedSection = () => {
+    if (data?.userFitScore == null && !data?.personalizedReason) return null
+    return (
+      <div className="bg-purple-50 rounded-lg p-3 sm:p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-semibold text-purple-800 flex items-center gap-2">
+            <span className="text-lg">🎯</span>
+            あなたへのおすすめ度
+          </span>
+          {data?.userFitScore != null && (
+            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+              data.userFitScore >= 70
+                ? "bg-green-100 text-green-800"
+                : data.userFitScore >= 40
+                ? "bg-yellow-100 text-yellow-800"
+                : "bg-gray-100 text-gray-800"
+            }`}>
+              {data.userFitScore}点
+            </span>
+          )}
+        </div>
+
+        {/* マッチ状態 */}
+        <div className="flex gap-2 mb-2">
+          {data.budgetFit !== null && (
+            <span className={`px-2 py-0.5 rounded text-xs ${
+              data.budgetFit ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+            }`}>
+              {data.budgetFit ? "予算内" : "予算オーバー"}
+            </span>
+          )}
+          {data.periodFit !== null && (
+            <span className={`px-2 py-0.5 rounded text-xs ${
+              data.periodFit ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+            }`}>
+              {data.periodFit ? "期間マッチ" : "期間ミスマッチ"}
+            </span>
+          )}
+          {data.riskFit !== null && (
+            <span className={`px-2 py-0.5 rounded text-xs ${
+              data.riskFit ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+            }`}>
+              {data.riskFit ? "リスク適合" : "リスク注意"}
+            </span>
+          )}
+        </div>
+
+        <p className="text-sm text-purple-700">{data.personalizedReason}</p>
+      </div>
+    )
+  }
+
   // 買い推奨
   if (data.recommendation === "buy") {
     return (
@@ -151,6 +317,12 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
           <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
 
+          {/* A. 買い時判断 */}
+          <BuyTimingSection />
+
+          {/* D. パーソナライズ */}
+          <PersonalizedSection />
+
           {data.recommendedQuantity && data.recommendedPrice && data.estimatedAmount && (
             <div className="bg-white rounded-lg p-3 sm:p-4 mb-4">
               <p className="text-xs text-gray-600 mb-2">📊 おすすめの買い方</p>
@@ -161,6 +333,9 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               </ul>
             </div>
           )}
+
+          {/* B. 深掘り評価 */}
+          <DeepEvaluationSection />
 
           <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
             <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
@@ -192,9 +367,18 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
           <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
 
+          {/* A. 買い時判断 */}
+          <BuyTimingSection />
+
+          {/* D. パーソナライズ */}
+          <PersonalizedSection />
+
           <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
             <p className="text-xs text-blue-800">💡 今は焦らず、タイミングを待ちましょう</p>
           </div>
+
+          {/* B. 深掘り評価 */}
+          <DeepEvaluationSection />
 
           <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
             <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
@@ -225,9 +409,18 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
         <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
 
+        {/* A. 買い時判断 */}
+        <BuyTimingSection />
+
+        {/* D. パーソナライズ */}
+        <PersonalizedSection />
+
         <div className="bg-gray-100 border-l-4 border-gray-400 p-3 mb-4">
           <p className="text-xs text-gray-700">💡 他の銘柄を検討してみましょう</p>
         </div>
+
+        {/* B. 深掘り評価 */}
+        <DeepEvaluationSection />
 
         <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
           <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
