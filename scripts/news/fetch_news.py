@@ -23,10 +23,45 @@ from typing import List, Dict, Set, Optional, Tuple
 from datetime import datetime, timedelta
 from openai import OpenAI
 
-# ニュースソースURL（Google News RSSを使用）
+# ニュースソースURL
 RSS_URLS = {
+    # Google News（総合）
     "google_news_stock": "https://news.google.com/rss/search?q=日本株+OR+東証+OR+株式市場+when:7d&hl=ja&gl=JP&ceid=JP:ja",
     "google_news_nikkei": "https://news.google.com/rss/search?q=site:nikkei.com+株+OR+銘柄+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    # Google News（決算・業績）
+    "google_news_earnings": "https://news.google.com/rss/search?q=決算+OR+業績+OR+増益+OR+減益+株+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    # Google News（セクター別）
+    "google_news_tech": "https://news.google.com/rss/search?q=半導体+OR+AI関連+OR+テック株+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    "google_news_auto": "https://news.google.com/rss/search?q=自動車+OR+EV+株+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    # Yahoo Finance Japan
+    "yahoo_finance_market": "https://news.yahoo.co.jp/rss/topics/business.xml",
+    "yahoo_finance_stock": "https://finance.yahoo.co.jp/rss/stock/domestic",
+    # Bloomberg Japan
+    "google_news_bloomberg": "https://news.google.com/rss/search?q=site:bloomberg.co.jp+株+OR+市場+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    # Reuters Japan
+    "google_news_reuters": "https://news.google.com/rss/search?q=site:jp.reuters.com+株+OR+市場+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    # 株探（Kabutan）
+    "google_news_kabutan": "https://news.google.com/rss/search?q=site:kabutan.jp+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    # みんかぶ（Minkabu）
+    "google_news_minkabu": "https://news.google.com/rss/search?q=site:minkabu.jp+株+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+    # 東洋経済
+    "google_news_toyokeizai": "https://news.google.com/rss/search?q=site:toyokeizai.net+株+OR+企業+when:7d&hl=ja&gl=JP&ceid=JP:ja",
+}
+
+# フィードごとのソース名マッピング
+FEED_SOURCE_MAP = {
+    "google_news_stock": "google_news",
+    "google_news_nikkei": "nikkei",
+    "google_news_earnings": "google_news",
+    "google_news_tech": "google_news",
+    "google_news_auto": "google_news",
+    "yahoo_finance_market": "yahoo_finance",
+    "yahoo_finance_stock": "yahoo_finance",
+    "google_news_bloomberg": "bloomberg",
+    "google_news_reuters": "reuters",
+    "google_news_kabutan": "kabutan",
+    "google_news_minkabu": "minkabu",
+    "google_news_toyokeizai": "toyokeizai",
 }
 
 # セクター分類キーワード
@@ -402,11 +437,12 @@ def main():
 
                 # 保存用データに追加
                 published_at = datetime(*entry["published_parsed"][:6]) if entry["published_parsed"] else datetime.now()
+                source_name = FEED_SOURCE_MAP.get(feed_name, "google_news")
                 news_to_save.append({
                     "title": entry["title"],
                     "content": entry["summary"],
                     "url": entry["link"],
-                    "source": "google_news",
+                    "source": source_name,
                     "sector": sector,
                     "sentiment": sentiment,
                     "published_at": published_at,
