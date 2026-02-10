@@ -74,6 +74,8 @@ export default function MyStocksClient() {
   const [selectedStock, setSelectedStock] = useState<UserStock | null>(null)
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
+  // ウォッチリストからの購入用
+  const [purchaseFromWatchlist, setPurchaseFromWatchlist] = useState<UserStock | null>(null)
 
   // Fetch user stocks and settings
   useEffect(() => {
@@ -189,6 +191,11 @@ export default function MyStocksClient() {
     setSelectedStock(stock)
     setTransactionType("sell")
     setShowTransactionDialog(true)
+  }
+
+  const handlePurchaseFromWatchlist = (stock: UserStock) => {
+    setPurchaseFromWatchlist(stock)
+    setShowAddDialog(true)
   }
 
   const handleStockAdded = (newStock: UserStock) => {
@@ -350,6 +357,7 @@ export default function MyStocksClient() {
                   } : undefined}
                   onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
                   onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
+                  onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
                 />
               ))}
             </div>
@@ -360,11 +368,26 @@ export default function MyStocksClient() {
       {/* Dialogs */}
       <AddStockDialog
         isOpen={showAddDialog}
-        onClose={() => setShowAddDialog(false)}
-        onSuccess={handleStockAdded}
-        defaultType={activeTab}
+        onClose={() => {
+          setShowAddDialog(false)
+          setPurchaseFromWatchlist(null)
+        }}
+        onSuccess={(newStock) => {
+          handleStockAdded(newStock)
+          setPurchaseFromWatchlist(null)
+        }}
+        defaultType={purchaseFromWatchlist ? "portfolio" : activeTab}
         defaultTargetReturnRate={userSettings?.targetReturnRate}
         defaultStopLossRate={userSettings?.stopLossRate}
+        initialStock={purchaseFromWatchlist ? {
+          id: purchaseFromWatchlist.stock.id,
+          tickerCode: purchaseFromWatchlist.stock.tickerCode,
+          name: purchaseFromWatchlist.stock.name,
+          market: purchaseFromWatchlist.stock.market,
+          sector: purchaseFromWatchlist.stock.sector,
+          latestPrice: purchaseFromWatchlist.stock.currentPrice,
+        } : null}
+        initialNote={purchaseFromWatchlist?.note || undefined}
       />
 
       <AdditionalPurchaseDialog
