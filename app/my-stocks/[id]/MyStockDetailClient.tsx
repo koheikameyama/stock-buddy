@@ -698,7 +698,10 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             averagePurchasePrice: stock.averagePurchasePrice,
             purchaseDate: stock.purchaseDate,
             note: stock.note,
-            stock: stock.stock,
+            stock: {
+              ...stock.stock,
+              currentPrice: price?.currentPrice ?? stock.stock.currentPrice,
+            },
             createdAt: "",
             updatedAt: "",
           }}

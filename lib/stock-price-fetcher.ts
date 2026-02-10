@@ -18,6 +18,15 @@ export interface StockPrice {
   low: number
 }
 
+export interface HistoricalPrice {
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
 /**
  * 株価を取得（yfinance経由）
  *
@@ -153,4 +162,112 @@ print(json.dumps(result))
   console.log("取得した株価データ:", validPrices.length)
 
   return validPrices
+}
+
+/**
+ * ヒストリカル株価データを取得（yfinance経由）
+ *
+ * @param tickerCode - ティッカーコード（.T サフィックスの有無は問わない）
+ * @param period - 期間（"1m", "3m", "1y"）
+ * @returns ヒストリカル株価データ配列
+ */
+export async function fetchHistoricalPrices(
+  tickerCode: string,
+  period: "1m" | "3m" | "1y" = "1m"
+): Promise<HistoricalPrice[]> {
+  const normalizedCode = normalizeTickerCode(tickerCode)
+
+  // periodをyfinanceのフォーマットに変換
+  const yfinancePeriod = period === "1y" ? "1y" : period === "3m" ? "3mo" : "1mo"
+
+  const pythonScript = `
+import os
+os.environ['TZ'] = 'Asia/Tokyo'
+
+import yfinance as yf
+import json
+import sys
+import math
+
+ticker_code = "${normalizedCode}"
+period = "${yfinancePeriod}"
+
+result = []
+try:
+    stock = yf.Ticker(ticker_code)
+    hist = stock.history(period=period)
+
+    if not hist.empty:
+        for date, row in hist.iterrows():
+            # NaN/Infをチェック
+            open_val = float(row['Open'])
+            high_val = float(row['High'])
+            low_val = float(row['Low'])
+            close_val = float(row['Close'])
+            volume_val = int(row['Volume'])
+
+            if any(math.isnan(v) or math.isinf(v) for v in [open_val, high_val, low_val, close_val]):
+                continue
+
+            result.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "open": round(open_val, 2),
+                "high": round(high_val, 2),
+                "low": round(low_val, 2),
+                "close": round(close_val, 2),
+                "volume": volume_val,
+            })
+except Exception as e:
+    print(f"Error: {str(e)}", file=sys.stderr)
+
+print(json.dumps(result))
+`
+
+  const pythonProcess = spawn("python3", ["-c", pythonScript], {
+    env: {
+      ...process.env,
+      TZ: "Asia/Tokyo",
+      PYTHONIOENCODING: "utf-8",
+    },
+  })
+
+  let stdout = ""
+  let stderr = ""
+
+  pythonProcess.stdout.on("data", (data) => {
+    stdout += data.toString()
+  })
+
+  pythonProcess.stderr.on("data", (data) => {
+    stderr += data.toString()
+  })
+
+  const prices = await new Promise<HistoricalPrice[]>((resolve) => {
+    pythonProcess.on("close", (code) => {
+      if (stderr) {
+        console.error("Python stderr:", stderr)
+      }
+
+      if (code !== 0) {
+        console.error(`Python process exited with code ${code}`)
+        resolve([])
+        return
+      }
+
+      try {
+        const result = JSON.parse(stdout)
+        resolve(result)
+      } catch {
+        console.error("Failed to parse Python output:", stdout)
+        resolve([])
+      }
+    })
+
+    pythonProcess.on("error", (error) => {
+      console.error("Failed to start Python process:", error)
+      resolve([])
+    })
+  })
+
+  return prices
 }

@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
+import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 
@@ -131,19 +132,9 @@ export async function POST(
       )
     }
 
-    // 直近30日の価格データを取得
-    const prices = await prisma.stockPrice.findMany({
-      where: { stockId },
-      orderBy: { date: "desc" },
-      take: 30,
-      select: {
-        date: true,
-        open: true,
-        high: true,
-        low: true,
-        close: true,
-      },
-    })
+    // 直近30日の価格データを取得（yfinanceからリアルタイム取得）
+    const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m")
+    const prices = historicalPrices.slice(-30).reverse() // 新しい順に
 
     if (prices.length === 0) {
       return NextResponse.json(
@@ -156,11 +147,11 @@ export async function POST(
     let patternContext = ""
     if (prices.length >= 1) {
       const latestCandle: CandlestickData = {
-        date: prices[0].date.toISOString(),
-        open: Number(prices[0].open),
-        high: Number(prices[0].high),
-        low: Number(prices[0].low),
-        close: Number(prices[0].close),
+        date: prices[0].date,
+        open: prices[0].open,
+        high: prices[0].high,
+        low: prices[0].low,
+        close: prices[0].close,
       }
       const pattern = analyzeSingleCandle(latestCandle)
 
@@ -169,11 +160,11 @@ export async function POST(
       let sellSignals = 0
       for (const price of prices.slice(0, 5)) {
         const p = analyzeSingleCandle({
-          date: price.date.toISOString(),
-          open: Number(price.open),
-          high: Number(price.high),
-          low: Number(price.low),
-          close: Number(price.close),
+          date: price.date,
+          open: price.open,
+          high: price.high,
+          low: price.low,
+          close: price.close,
         })
         if (p.strength >= 60) {
           if (p.signal === "buy") buySignals++

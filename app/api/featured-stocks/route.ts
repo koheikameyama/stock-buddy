@@ -77,14 +77,7 @@ export async function GET() {
           date: latestRec.date,
         },
         include: {
-          stock: {
-            include: {
-              prices: {
-                orderBy: { date: "desc" },
-                take: 1,
-              },
-            },
-          },
+          stock: true,
         },
         orderBy: { position: "asc" },
       })
@@ -101,8 +94,8 @@ export async function GET() {
           tickerCode: r.stock.tickerCode,
           name: r.stock.name,
           sector: r.stock.sector,
-          currentPrice: r.stock.prices[0]
-            ? Number(r.stock.prices[0].close)
+          currentPrice: r.stock.currentPrice
+            ? Number(r.stock.currentPrice)
             : null,
         },
       }))
@@ -138,14 +131,7 @@ export async function GET() {
           category: "trending",
         },
         include: {
-          stock: {
-            include: {
-              prices: {
-                orderBy: { date: "desc" },
-                take: 1,
-              },
-            },
-          },
+          stock: true,
         },
         orderBy: { position: "asc" },
         take: 3,
@@ -163,8 +149,8 @@ export async function GET() {
           tickerCode: t.stock.tickerCode,
           name: t.stock.name,
           sector: t.stock.sector,
-          currentPrice: t.stock.prices[0]
-            ? Number(t.stock.prices[0].close)
+          currentPrice: t.stock.currentPrice
+            ? Number(t.stock.currentPrice)
             : null,
         },
       }))

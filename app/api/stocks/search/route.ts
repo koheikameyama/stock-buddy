@@ -44,14 +44,8 @@ export async function GET(request: NextRequest) {
         name: true,
         market: true,
         sector: true,
-        prices: {
-          orderBy: { date: "desc" },
-          take: 1,
-          select: {
-            close: true,
-            date: true,
-          },
-        },
+        currentPrice: true,
+        financialDataUpdatedAt: true,
       },
       take: 20, // Limit results
     })
@@ -63,8 +57,8 @@ export async function GET(request: NextRequest) {
       name: stock.name,
       market: stock.market,
       sector: stock.sector,
-      latestPrice: stock.prices[0] ? Number(stock.prices[0].close) : null,
-      latestPriceDate: stock.prices[0]?.date.toISOString() || null,
+      latestPrice: stock.currentPrice ? Number(stock.currentPrice) : null,
+      latestPriceDate: stock.financialDataUpdatedAt?.toISOString() || null,
     }))
 
     // Sort results: prioritize exact ticker matches with .T

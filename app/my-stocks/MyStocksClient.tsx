@@ -383,7 +383,7 @@ export default function MyStocksClient() {
           name: purchaseFromWatchlist.stock.name,
           market: purchaseFromWatchlist.stock.market,
           sector: purchaseFromWatchlist.stock.sector,
-          latestPrice: purchaseFromWatchlist.stock.currentPrice,
+          latestPrice: prices[purchaseFromWatchlist.stock.tickerCode]?.currentPrice ?? purchaseFromWatchlist.stock.currentPrice,
         } : null}
         initialNote={purchaseFromWatchlist?.note || undefined}
       />
@@ -394,7 +394,13 @@ export default function MyStocksClient() {
           setShowTransactionDialog(false)
           setSelectedStock(null)
         }}
-        stock={selectedStock}
+        stock={selectedStock ? {
+          ...selectedStock,
+          stock: {
+            ...selectedStock.stock,
+            currentPrice: prices[selectedStock.stock.tickerCode]?.currentPrice ?? selectedStock.stock.currentPrice,
+          },
+        } : null}
         onSuccess={handleTransactionSuccess}
         transactionType={transactionType}
       />
