@@ -22,6 +22,8 @@ interface UserStock {
   shortTerm?: string | null
   mediumTerm?: string | null
   longTerm?: string | null
+  // AI推奨（StockAnalysisから取得）
+  recommendation?: "buy" | "sell" | "hold" | null
   // Common fields
   note?: string | null
   stock: {
@@ -350,6 +352,7 @@ export default function MyStocksClient() {
                   stock={stock}
                   price={prices[stock.stock.tickerCode]}
                   recommendation={recommendations[stock.stockId]}
+                  portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
                   portfolioAnalysis={stock.type === "portfolio" && stock.shortTerm ? {
                     shortTerm: stock.shortTerm,
                     mediumTerm: stock.mediumTerm ?? null,

@@ -52,13 +52,14 @@ interface StockCardProps {
   stock: UserStock
   price?: StockPrice
   recommendation?: PurchaseRecommendation
+  portfolioRecommendation?: "buy" | "sell" | "hold" | null
   portfolioAnalysis?: PortfolioAnalysis
   onAdditionalPurchase?: () => void
   onSell?: () => void
   onPurchase?: () => void
 }
 
-export default function StockCard({ stock, price, recommendation, portfolioAnalysis, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
+export default function StockCard({ stock, price, recommendation, portfolioRecommendation, portfolioAnalysis, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -85,8 +86,19 @@ export default function StockCard({ stock, price, recommendation, portfolioAnaly
     return displayMap[recommendation.recommendation]
   }
 
-  // AI Sell Judgment using portfolio analysis (for portfolio)
+  // AI Sell Judgment using StockAnalysis.recommendation (for portfolio)
   const getAISellJudgment = () => {
+    // StockAnalysis.recommendationを優先使用（詳細画面と一致させる）
+    if (portfolioRecommendation) {
+      const displayMap = {
+        buy: { text: "買い増し検討", color: "text-green-700", bg: "bg-green-50" },
+        sell: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
+        hold: { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" },
+      }
+      return displayMap[portfolioRecommendation]
+    }
+
+    // フォールバック: portfolioAnalysis.shortTermがある場合
     if (!portfolioAnalysis?.shortTerm) return null
 
     const text = portfolioAnalysis.shortTerm.toLowerCase()
