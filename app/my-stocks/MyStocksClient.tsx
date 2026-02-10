@@ -353,11 +353,6 @@ export default function MyStocksClient() {
                   price={prices[stock.stock.tickerCode]}
                   recommendation={recommendations[stock.stockId]}
                   portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
-                  portfolioAnalysis={stock.type === "portfolio" && stock.shortTerm ? {
-                    shortTerm: stock.shortTerm,
-                    mediumTerm: stock.mediumTerm ?? null,
-                    longTerm: stock.longTerm ?? null,
-                  } : undefined}
                   onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
                   onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
                   onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}

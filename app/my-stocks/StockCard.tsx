@@ -42,24 +42,17 @@ interface PurchaseRecommendation {
   caution: string
 }
 
-interface PortfolioAnalysis {
-  shortTerm: string | null
-  mediumTerm: string | null
-  longTerm: string | null
-}
-
 interface StockCardProps {
   stock: UserStock
   price?: StockPrice
   recommendation?: PurchaseRecommendation
   portfolioRecommendation?: "buy" | "sell" | "hold" | null
-  portfolioAnalysis?: PortfolioAnalysis
   onAdditionalPurchase?: () => void
   onSell?: () => void
   onPurchase?: () => void
 }
 
-export default function StockCard({ stock, price, recommendation, portfolioRecommendation, portfolioAnalysis, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
+export default function StockCard({ stock, price, recommendation, portfolioRecommendation, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -88,34 +81,14 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
 
   // AI Sell Judgment using StockAnalysis.recommendation (for portfolio)
   const getAISellJudgment = () => {
-    // StockAnalysis.recommendationを優先使用（詳細画面と一致させる）
-    if (portfolioRecommendation) {
-      const displayMap = {
-        buy: { text: "買い増し検討", color: "text-green-700", bg: "bg-green-50" },
-        sell: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
-        hold: { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" },
-      }
-      return displayMap[portfolioRecommendation]
-    }
+    if (!portfolioRecommendation) return null
 
-    // フォールバック: portfolioAnalysis.shortTermがある場合
-    if (!portfolioAnalysis?.shortTerm) return null
-
-    const text = portfolioAnalysis.shortTerm.toLowerCase()
-
-    // キーワードベースで判断を抽出
-    if (text.includes("売却") || text.includes("売り")) {
-      return { text: "売却検討", color: "text-red-700", bg: "bg-red-50" }
+    const displayMap = {
+      buy: { text: "買い増し検討", color: "text-green-700", bg: "bg-green-50" },
+      sell: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
+      hold: { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" },
     }
-    if (text.includes("買い増し")) {
-      return { text: "買い増し検討", color: "text-green-700", bg: "bg-green-50" }
-    }
-    if (text.includes("保有") || text.includes("ホールド") || text.includes("継続")) {
-      return { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" }
-    }
-
-    // デフォルトは保有継続
-    return { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" }
+    return displayMap[portfolioRecommendation]
   }
 
   const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAISellJudgment()
