@@ -11,6 +11,7 @@ import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 import EditTargetPriceDialog from "../EditTargetPriceDialog"
 import EditWatchlistDialog from "../EditWatchlistDialog"
+import AddStockDialog from "../AddStockDialog"
 import { useChatContext } from "@/app/contexts/ChatContext"
 
 interface Transaction {
@@ -70,6 +71,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [showTargetPriceDialog, setShowTargetPriceDialog] = useState(false)
   const [showWatchlistDialog, setShowWatchlistDialog] = useState(false)
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -480,6 +482,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />
 
+
             {/* Price History Section */}
             <PriceHistory stockId={stock.stockId} />
 
@@ -493,9 +496,17 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           <>
             {/* Current Price Section */}
             <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-                現在の価格
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                  現在の価格
+                </h2>
+                <button
+                  onClick={() => setShowPurchaseDialog(true)}
+                  className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+                >
+                  +購入
+                </button>
+              </div>
 
               <div className="space-y-4">
                 {loading ? (
@@ -630,6 +641,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             {/* Chart Section */}
             <StockChart stockId={stock.stockId} />
 
+
             {/* Price History Section */}
             <PriceHistory stockId={stock.stockId} />
 
@@ -727,6 +739,26 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           alertPrice={stock.alertPrice}
           addedReason={stock.addedReason}
           note={stock.note}
+        />
+
+        {/* Purchase Dialog for Watchlist */}
+        <AddStockDialog
+          isOpen={showPurchaseDialog}
+          onClose={() => setShowPurchaseDialog(false)}
+          onSuccess={() => {
+            setShowPurchaseDialog(false)
+            router.push("/my-stocks")
+          }}
+          defaultType="portfolio"
+          initialStock={{
+            id: stock.stock.id,
+            tickerCode: stock.stock.tickerCode,
+            name: stock.stock.name,
+            market: stock.stock.market,
+            sector: stock.stock.sector,
+            latestPrice: currentPrice || null,
+          }}
+          initialNote={stock.note || undefined}
         />
       </div>
     </main>
