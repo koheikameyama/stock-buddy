@@ -50,10 +50,10 @@ def calculate_volatility(prices):
 def get_baseline_data(cur, stock_id):
     """ルールベースで基礎データを計算"""
 
-    # 過去90日分の価格データを取得
+    # 過去90日分の価格データを取得（OHLC含む）
     cur.execute(
         """
-        SELECT close, date
+        SELECT open, high, low, close, date
         FROM "StockPrice"
         WHERE "stockId" = %s
         ORDER BY date DESC
@@ -67,11 +67,11 @@ def get_baseline_data(cur, stock_id):
     if not price_history:
         return None
 
-    current_price = float(price_history[0][0])
-    week_ago = float(price_history[5][0]) if len(price_history) > 5 else None
-    month_ago = float(price_history[20][0]) if len(price_history) > 20 else None
+    current_price = float(price_history[0][3])  # close is index 3
+    week_ago = float(price_history[5][3]) if len(price_history) > 5 else None
+    month_ago = float(price_history[20][3]) if len(price_history) > 20 else None
     three_months_ago = (
-        float(price_history[60][0]) if len(price_history) > 60 else None
+        float(price_history[60][3]) if len(price_history) > 60 else None
     )
 
     # トレンド計算
@@ -80,8 +80,12 @@ def get_baseline_data(cur, stock_id):
     quarterly_trend = calculate_trend(current_price, three_months_ago)
 
     # ボラティリティ計算（直近30日）
-    prices = [float(p[0]) for p in price_history[:30]]
+    prices = [float(p[3]) for p in price_history[:30]]  # close is index 3
     volatility = calculate_volatility(prices)
+
+    # ローソク足パターン分析
+    candlestick_pattern = analyze_candlestick(price_history[0]) if price_history else None
+    recent_patterns = get_recent_pattern_summary(price_history[:5]) if len(price_history) >= 5 else None
 
     return {
         "current_price": current_price,
@@ -89,6 +93,73 @@ def get_baseline_data(cur, stock_id):
         "monthly_trend": monthly_trend,
         "quarterly_trend": quarterly_trend,
         "volatility": volatility,
+        "candlestick_pattern": candlestick_pattern,
+        "recent_patterns": recent_patterns,
+    }
+
+
+def analyze_candlestick(candle):
+    """単一ローソク足パターンを分析"""
+    open_price = float(candle[0])
+    high = float(candle[1])
+    low = float(candle[2])
+    close = float(candle[3])
+
+    body = abs(close - open_price)
+    range_val = high - low
+
+    if range_val < 0.01:
+        return {"description": "様子見", "signal": "neutral", "strength": 30}
+
+    body_ratio = body / range_val if range_val > 0 else 0
+    is_large_body = body_ratio >= 0.6
+    is_small_body = body_ratio <= 0.2
+
+    upper_wick = high - max(open_price, close)
+    lower_wick = min(open_price, close) - low
+    has_long_upper = (upper_wick / range_val >= 0.3) if range_val > 0 else False
+    has_long_lower = (lower_wick / range_val >= 0.3) if range_val > 0 else False
+
+    is_up = close >= open_price
+
+    if is_up:
+        if is_large_body and not has_long_upper and not has_long_lower:
+            return {"description": "強い上昇", "signal": "buy", "strength": 80}
+        if has_long_lower and not has_long_upper:
+            return {"description": "底打ち反発", "signal": "buy", "strength": 75}
+        if has_long_upper and not has_long_lower:
+            return {"description": "押し目", "signal": "buy", "strength": 60}
+        if is_small_body:
+            return {"description": "じわじわ上昇", "signal": "buy", "strength": 50}
+        return {"description": "上昇", "signal": "buy", "strength": 55}
+    else:
+        if is_large_body and not has_long_upper and not has_long_lower:
+            return {"description": "強い下落", "signal": "sell", "strength": 80}
+        if has_long_upper and not has_long_lower:
+            return {"description": "戻り売り", "signal": "sell", "strength": 75}
+        if has_long_lower and not has_long_upper:
+            return {"description": "高値からの下落", "signal": "sell", "strength": 65}
+        if is_small_body:
+            return {"description": "下落の始まり", "signal": "sell", "strength": 50}
+        return {"description": "下落", "signal": "sell", "strength": 55}
+
+
+def get_recent_pattern_summary(price_history):
+    """直近数日のパターンサマリーを取得"""
+    buy_signals = 0
+    sell_signals = 0
+
+    for candle in price_history:
+        p = analyze_candlestick(candle)
+        if p['strength'] >= 60:
+            if p['signal'] == 'buy':
+                buy_signals += 1
+            elif p['signal'] == 'sell':
+                sell_signals += 1
+
+    return {
+        "buy_signals": buy_signals,
+        "sell_signals": sell_signals,
     }
 
 
@@ -105,6 +176,22 @@ def generate_ai_prediction(stock, baseline, scores, related_news=None):
 【最新のニュース情報】
 {format_news_for_prompt(related_news)}
 """
+
+    # ローソク足パターン情報
+    pattern_context = ""
+    candlestick = baseline.get('candlestick_pattern')
+    recent = baseline.get('recent_patterns')
+    if candlestick:
+        pattern_context = f"""
+
+【ローソク足パターン分析】
+- 最新パターン: {candlestick.get('description', '不明')}
+- シグナル: {candlestick.get('signal', 'neutral')}
+- 強さ: {candlestick.get('strength', 0)}%"""
+        if recent:
+            pattern_context += f"""
+- 直近5日の買いシグナル: {recent.get('buy_signals', 0)}回
+- 直近5日の売りシグナル: {recent.get('sell_signals', 0)}回"""
 
     prompt = f"""あなたは株式投資の初心者向けアドバイザーです。
 以下の銘柄について、今後の動向予測とアドバイスを生成してください。
@@ -127,7 +214,7 @@ def generate_ai_prediction(stock, baseline, scores, related_news=None):
 
 【ボラティリティ（価格変動幅）】
 {baseline['volatility']:.2f}円
-{news_context}
+{pattern_context}{news_context}
 ---
 
 以下の形式でJSON形式で回答してください：

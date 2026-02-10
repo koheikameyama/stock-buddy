@@ -1,0 +1,375 @@
+/**
+ * ローソク足パターン認識ロジック
+ *
+ * 初心者向けに専門用語を避け、平易な表現を使用
+ */
+
+export interface CandlestickData {
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
+export interface PatternResult {
+  pattern: string
+  signal: "buy" | "sell" | "neutral"
+  strength: number // 0-100
+  description: string
+  learnMore: string
+}
+
+export interface CombinedSignal {
+  signal: "buy" | "sell" | "neutral"
+  strength: number
+  reasons: string[]
+}
+
+export interface PatternsResponse {
+  latest: PatternResult | null
+  signals: Array<{
+    date: string
+    pattern: string
+    signal: "buy" | "sell" | "neutral"
+    price: number
+  }>
+  combined: CombinedSignal
+}
+
+/**
+ * 単一ローソク足のパターンを分析
+ */
+export function analyzeSingleCandle(candle: CandlestickData): PatternResult {
+  const body = Math.abs(candle.close - candle.open)
+  const range = candle.high - candle.low
+  const upperWick = candle.high - Math.max(candle.open, candle.close)
+  const lowerWick = Math.min(candle.open, candle.close) - candle.low
+  const isUp = candle.close >= candle.open
+
+  // レンジがほぼゼロの場合（横ばい）
+  if (range < 0.01) {
+    return {
+      pattern: "doji",
+      signal: "neutral",
+      strength: 30,
+      description: "様子見",
+      learnMore:
+        "始値と終値がほぼ同じで、相場が迷っている状態です。次の動きを見守りましょう。",
+    }
+  }
+
+  // 実体の大きさ判定
+  const bodyRatio = body / range
+  const isLargeBody = bodyRatio >= 0.6
+  const isSmallBody = bodyRatio <= 0.2
+
+  // ヒゲの判定
+  const hasLongUpperWick = upperWick / range >= 0.3
+  const hasLongLowerWick = lowerWick / range >= 0.3
+
+  // 陽線パターン（買いシグナル）
+  if (isUp) {
+    // 大陽線: 実体が大きく、ヒゲが短い
+    if (isLargeBody && !hasLongUpperWick && !hasLongLowerWick) {
+      return {
+        pattern: "bullish_strong",
+        signal: "buy",
+        strength: 80,
+        description: "強い上昇",
+        learnMore:
+          "大きく上がっています。買い手が優勢で、上昇が続く可能性が高いです。",
+      }
+    }
+
+    // 下ヒゲ陽線: 下ヒゲが長い陽線
+    if (hasLongLowerWick && !hasLongUpperWick) {
+      return {
+        pattern: "bullish_hammer",
+        signal: "buy",
+        strength: 75,
+        description: "底打ち反発",
+        learnMore:
+          "一度下がったものの、買い戻されて上昇しました。反発のサインです。",
+      }
+    }
+
+    // 上ヒゲ陽線: 上ヒゲが長い陽線
+    if (hasLongUpperWick && !hasLongLowerWick) {
+      return {
+        pattern: "bullish_shooting",
+        signal: "buy",
+        strength: 60,
+        description: "押し目",
+        learnMore:
+          "上昇後に少し戻しました。押し目買いのチャンスかもしれません。",
+      }
+    }
+
+    // 小陽線: 実体が小さい陽線
+    if (isSmallBody) {
+      return {
+        pattern: "bullish_small",
+        signal: "buy",
+        strength: 50,
+        description: "じわじわ上昇",
+        learnMore:
+          "少しずつ上がっています。上昇トレンドが続いている可能性があります。",
+      }
+    }
+
+    // 普通の陽線
+    return {
+      pattern: "bullish_normal",
+      signal: "buy",
+      strength: 55,
+      description: "上昇",
+      learnMore: "株価が上がりました。買い手がやや優勢です。",
+    }
+  }
+
+  // 陰線パターン（売りシグナル）
+  // 大陰線: 実体が大きく、ヒゲが短い
+  if (isLargeBody && !hasLongUpperWick && !hasLongLowerWick) {
+    return {
+      pattern: "bearish_strong",
+      signal: "sell",
+      strength: 80,
+      description: "強い下落",
+      learnMore:
+        "大きく下がっています。売り手が優勢で、下落が続く可能性があります。",
+    }
+  }
+
+  // 上ヒゲ陰線: 上ヒゲが長い陰線
+  if (hasLongUpperWick && !hasLongLowerWick) {
+    return {
+      pattern: "bearish_shooting",
+      signal: "sell",
+      strength: 75,
+      description: "戻り売り",
+      learnMore:
+        "一度上がったものの、売り戻されて下落しました。下落のサインです。",
+    }
+  }
+
+  // 下ヒゲ陰線: 下ヒゲが長い陰線
+  if (hasLongLowerWick && !hasLongUpperWick) {
+    return {
+      pattern: "bearish_hammer",
+      signal: "sell",
+      strength: 65,
+      description: "高値からの下落",
+      learnMore:
+        "下で買い支えられたものの、最終的には下がりました。弱気のサインです。",
+    }
+  }
+
+  // 小陰線: 実体が小さい陰線
+  if (isSmallBody) {
+    return {
+      pattern: "bearish_small",
+      signal: "sell",
+      strength: 50,
+      description: "下落の始まり",
+      learnMore:
+        "少し下がっています。下落トレンドの始まりかもしれません。注意が必要です。",
+    }
+  }
+
+  // 普通の陰線
+  return {
+    pattern: "bearish_normal",
+    signal: "sell",
+    strength: 55,
+    description: "下落",
+    learnMore: "株価が下がりました。売り手がやや優勢です。",
+  }
+}
+
+/**
+ * 複数ローソク足のパターンを分析し、シグナルリストを返す
+ */
+export function analyzePatterns(
+  candles: CandlestickData[],
+  maxSignals: number = 10
+): Array<{
+  date: string
+  pattern: string
+  signal: "buy" | "sell" | "neutral"
+  price: number
+  strength: number
+}> {
+  const signals: Array<{
+    date: string
+    pattern: string
+    signal: "buy" | "sell" | "neutral"
+    price: number
+    strength: number
+  }> = []
+
+  for (const candle of candles) {
+    const result = analyzeSingleCandle(candle)
+
+    // strength 60以上のシグナルのみ記録
+    if (result.strength >= 60) {
+      signals.push({
+        date: candle.date,
+        pattern: result.pattern,
+        signal: result.signal,
+        price: candle.close,
+        strength: result.strength,
+      })
+    }
+
+    if (signals.length >= maxSignals) break
+  }
+
+  return signals
+}
+
+/**
+ * RSI/MACDと組み合わせた総合シグナルを計算
+ */
+export function getCombinedSignal(
+  latestPattern: PatternResult | null,
+  rsi?: number | null,
+  macdHistogram?: number | null
+): CombinedSignal {
+  const reasons: string[] = []
+  let buyScore = 0
+  let sellScore = 0
+
+  // ローソク足パターンのシグナル
+  if (latestPattern) {
+    if (latestPattern.signal === "buy") {
+      buyScore += latestPattern.strength
+      reasons.push(latestPattern.description)
+    } else if (latestPattern.signal === "sell") {
+      sellScore += latestPattern.strength
+      reasons.push(latestPattern.description)
+    }
+  }
+
+  // RSIのシグナル
+  if (rsi !== undefined && rsi !== null) {
+    if (rsi <= 30) {
+      buyScore += 70
+      reasons.push("売られすぎ（RSI）")
+    } else if (rsi >= 70) {
+      sellScore += 70
+      reasons.push("買われすぎ（RSI）")
+    } else if (rsi <= 40) {
+      buyScore += 30
+    } else if (rsi >= 60) {
+      sellScore += 30
+    }
+  }
+
+  // MACDヒストグラムのシグナル
+  if (macdHistogram !== undefined && macdHistogram !== null) {
+    if (macdHistogram > 0) {
+      buyScore += 40
+      if (macdHistogram > 1) {
+        reasons.push("上昇トレンド（MACD）")
+      }
+    } else if (macdHistogram < 0) {
+      sellScore += 40
+      if (macdHistogram < -1) {
+        reasons.push("下落トレンド（MACD）")
+      }
+    }
+  }
+
+  // 総合判定
+  const totalScore = buyScore + sellScore
+  if (totalScore === 0) {
+    return {
+      signal: "neutral",
+      strength: 0,
+      reasons: ["データ不足"],
+    }
+  }
+
+  const diff = buyScore - sellScore
+
+  if (diff > 50) {
+    return {
+      signal: "buy",
+      strength: Math.min(100, Math.round((buyScore / totalScore) * 100)),
+      reasons,
+    }
+  } else if (diff < -50) {
+    return {
+      signal: "sell",
+      strength: Math.min(100, Math.round((sellScore / totalScore) * 100)),
+      reasons,
+    }
+  }
+
+  return {
+    signal: "neutral",
+    strength: 50,
+    reasons: reasons.length > 0 ? reasons : ["様子見"],
+  }
+}
+
+/**
+ * チャートデータからパターン分析結果を生成
+ */
+export function generatePatternsResponse(
+  chartData: Array<{
+    date: string
+    open: number
+    high: number
+    low: number
+    close: number
+    rsi: number | null
+    histogram: number | null
+  }>
+): PatternsResponse {
+  if (chartData.length === 0) {
+    return {
+      latest: null,
+      signals: [],
+      combined: {
+        signal: "neutral",
+        strength: 0,
+        reasons: ["データがありません"],
+      },
+    }
+  }
+
+  // 最新のローソク足パターンを分析
+  const latestCandle = chartData[chartData.length - 1]
+  const latestPattern = analyzeSingleCandle({
+    date: latestCandle.date,
+    open: latestCandle.open,
+    high: latestCandle.high,
+    low: latestCandle.low,
+    close: latestCandle.close,
+  })
+
+  // 過去のシグナルを分析（新しい順）
+  const candles: CandlestickData[] = chartData.map((d) => ({
+    date: d.date,
+    open: d.open,
+    high: d.high,
+    low: d.low,
+    close: d.close,
+  }))
+  const signals = analyzePatterns([...candles].reverse(), 10)
+
+  // RSI/MACDと組み合わせた総合シグナル
+  const combined = getCombinedSignal(
+    latestPattern,
+    latestCandle.rsi,
+    latestCandle.histogram
+  )
+
+  return {
+    latest: latestPattern,
+    signals,
+    combined,
+  }
+}

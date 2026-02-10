@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { generatePatternsResponse } from "@/lib/candlestick-patterns"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 
@@ -178,6 +179,9 @@ export async function GET(
     const latestSignal = macdData.signal[macdData.signal.length - 1]
     const latestHistogram = macdData.histogram[macdData.histogram.length - 1]
 
+    // ローソク足パターン分析
+    const patterns = generatePatternsResponse(data)
+
     return NextResponse.json({
       data,
       summary: {
@@ -189,6 +193,7 @@ export async function GET(
         startDate: data[0]?.date,
         endDate: data[data.length - 1]?.date,
       },
+      patterns,
     })
   } catch (error) {
     console.error("Historical prices error:", error)

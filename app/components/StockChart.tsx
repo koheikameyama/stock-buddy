@@ -37,6 +37,31 @@ interface Summary {
   endDate: string
 }
 
+interface PatternResult {
+  pattern: string
+  signal: "buy" | "sell" | "neutral"
+  strength: number
+  description: string
+  learnMore: string
+}
+
+interface CombinedSignal {
+  signal: "buy" | "sell" | "neutral"
+  strength: number
+  reasons: string[]
+}
+
+interface PatternsData {
+  latest: PatternResult | null
+  signals: Array<{
+    date: string
+    pattern: string
+    signal: "buy" | "sell" | "neutral"
+    price: number
+  }>
+  combined: CombinedSignal
+}
+
 interface StockChartProps {
   stockId: string
 }
@@ -46,10 +71,12 @@ type Period = "1m" | "3m" | "1y"
 export default function StockChart({ stockId }: StockChartProps) {
   const [data, setData] = useState<ChartData[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
+  const [patterns, setPatterns] = useState<PatternsData | null>(null)
   const [period, setPeriod] = useState<Period>("1m")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"price" | "rsi" | "macd">("price")
+  const [showLearning, setShowLearning] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -64,6 +91,7 @@ export default function StockChart({ stockId }: StockChartProps) {
         const result = await response.json()
         setData(result.data)
         setSummary(result.summary)
+        setPatterns(result.patterns || null)
       } catch (err) {
         console.error("Error fetching chart data:", err)
         setError(err instanceof Error ? err.message : "データの取得に失敗しました")
@@ -130,7 +158,25 @@ export default function StockChart({ stockId }: StockChartProps) {
     <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900">チャート</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">チャート</h2>
+          {/* Signal Badge */}
+          {patterns?.combined && (
+            <div
+              className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
+                patterns.combined.signal === "buy"
+                  ? "bg-green-100 text-green-700"
+                  : patterns.combined.signal === "sell"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {patterns.combined.signal === "buy" && "買いシグナル"}
+              {patterns.combined.signal === "sell" && "売りシグナル"}
+              {patterns.combined.signal === "neutral" && "様子見"}
+            </div>
+          )}
+        </div>
 
         {/* Period Selector */}
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
@@ -186,101 +232,201 @@ export default function StockChart({ stockId }: StockChartProps) {
 
       {/* Price Chart - Candlestick */}
       {activeTab === "price" && (
-        <div className="h-64 sm:h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={formatDate}
-                tick={{ fontSize: 11 }}
-                stroke="#9ca3af"
-              />
-              <YAxis
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                tick={{ fontSize: 11 }}
-                stroke="#9ca3af"
-                domain={["auto", "auto"]}
-                yAxisId="price"
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    const d = payload[0].payload
-                    const isUp = d.close >= d.open
+        <>
+          <div className="h-64 sm:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatDate}
+                  tick={{ fontSize: 11 }}
+                  stroke="#9ca3af"
+                />
+                <YAxis
+                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 11 }}
+                  stroke="#9ca3af"
+                  domain={["auto", "auto"]}
+                  yAxisId="price"
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload
+                      const isUp = d.close >= d.open
+                      // このデータポイントのシグナルを探す
+                      const signal = patterns?.signals.find((s) => s.date === d.date)
+                      return (
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                          <p className="font-medium text-gray-900 mb-1">{label}</p>
+                          <p className="text-gray-600">始値: {formatPrice(d.open)}</p>
+                          <p className="text-gray-600">高値: {formatPrice(d.high)}</p>
+                          <p className="text-gray-600">安値: {formatPrice(d.low)}</p>
+                          <p className={`font-medium ${isUp ? "text-green-600" : "text-red-600"}`}>
+                            終値: {formatPrice(d.close)}
+                          </p>
+                          {signal && (
+                            <p
+                              className={`mt-1 pt-1 border-t border-gray-100 font-medium ${
+                                signal.signal === "buy" ? "text-green-600" : "text-red-600"
+                              }`}
+                            >
+                              {signal.signal === "buy" ? "買いシグナル" : "売りシグナル"}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+                {/* 高値-安値のヒゲ線 */}
+                <Bar
+                  dataKey="high"
+                  yAxisId="price"
+                  shape={(props) => {
+                    const { x, width, payload } = props as { x: number; width: number; payload: ChartData }
+                    const yScale = props.background?.height
+                      ? (v: number) => {
+                          const domain = [
+                            Math.min(...data.map(d => d.low)),
+                            Math.max(...data.map(d => d.high))
+                          ]
+                          const range = props.background?.height || 200
+                          const padding = 20
+                          return padding + (range - 2 * padding) * (1 - (v - domain[0]) / (domain[1] - domain[0]))
+                        }
+                      : null
+
+                    if (!yScale) return null
+
+                    const isUp = payload.close >= payload.open
+                    const color = isUp ? "#22c55e" : "#ef4444"
+                    const centerX = x + width / 2
+
+                    // ヒゲ
+                    const highY = yScale(payload.high)
+                    const lowY = yScale(payload.low)
+
+                    // 実体
+                    const bodyTop = yScale(Math.max(payload.open, payload.close))
+                    const bodyBottom = yScale(Math.min(payload.open, payload.close))
+                    const bodyHeight = Math.max(bodyBottom - bodyTop, 1)
+
                     return (
-                      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
-                        <p className="font-medium text-gray-900 mb-1">{label}</p>
-                        <p className="text-gray-600">始値: {formatPrice(d.open)}</p>
-                        <p className="text-gray-600">高値: {formatPrice(d.high)}</p>
-                        <p className="text-gray-600">安値: {formatPrice(d.low)}</p>
-                        <p className={`font-medium ${isUp ? "text-green-600" : "text-red-600"}`}>
-                          終値: {formatPrice(d.close)}
-                        </p>
-                      </div>
+                      <g>
+                        <line
+                          x1={centerX}
+                          y1={highY}
+                          x2={centerX}
+                          y2={lowY}
+                          stroke={color}
+                          strokeWidth={1}
+                        />
+                        <rect
+                          x={x + 1}
+                          y={bodyTop}
+                          width={Math.max(width - 2, 3)}
+                          height={bodyHeight}
+                          fill={color}
+                          stroke={color}
+                        />
+                      </g>
                     )
-                  }
-                  return null
-                }}
-              />
-              {/* 高値-安値のヒゲ線 */}
-              <Bar
-                dataKey="high"
-                yAxisId="price"
-                shape={(props) => {
-                  const { x, width, payload } = props as { x: number; width: number; payload: ChartData }
-                  const yScale = props.background?.height
-                    ? (v: number) => {
-                        const domain = [
-                          Math.min(...data.map(d => d.low)),
-                          Math.max(...data.map(d => d.high))
-                        ]
-                        const range = props.background?.height || 200
-                        const padding = 20
-                        return padding + (range - 2 * padding) * (1 - (v - domain[0]) / (domain[1] - domain[0]))
-                      }
-                    : null
+                  }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
 
-                  if (!yScale) return null
+          {/* Pattern Summary */}
+          {patterns?.latest && (
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-gray-600">ローソク足パターン</span>
+                  <p
+                    className={`text-lg font-bold ${
+                      patterns.latest.signal === "buy"
+                        ? "text-green-600"
+                        : patterns.latest.signal === "sell"
+                          ? "text-red-600"
+                          : "text-gray-900"
+                    }`}
+                  >
+                    {patterns.latest.description}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-gray-500 block">強さ</span>
+                  <span className="text-lg font-medium text-gray-900">
+                    {patterns.latest.strength}%
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">{patterns.latest.learnMore}</p>
+              {patterns.combined.reasons.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <p className="text-xs text-gray-600">
+                    総合判断: {patterns.combined.reasons.join("、")}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
-                  const isUp = payload.close >= payload.open
-                  const color = isUp ? "#22c55e" : "#ef4444"
-                  const centerX = x + width / 2
+          <p className="text-xs text-gray-400 mt-2">
+            ※ シグナルは参考情報です。投資判断はご自身で行ってください。
+          </p>
 
-                  // ヒゲ
-                  const highY = yScale(payload.high)
-                  const lowY = yScale(payload.low)
+          {/* Learning Section Toggle */}
+          <button
+            onClick={() => setShowLearning(!showLearning)}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            <span>{showLearning ? "ローソク足の見方を閉じる" : "ローソク足の見方を見る"}</span>
+            <svg
+              className={`w-4 h-4 transition-transform ${showLearning ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
 
-                  // 実体
-                  const bodyTop = yScale(Math.max(payload.open, payload.close))
-                  const bodyBottom = yScale(Math.min(payload.open, payload.close))
-                  const bodyHeight = Math.max(bodyBottom - bodyTop, 1)
-
-                  return (
-                    <g>
-                      <line
-                        x1={centerX}
-                        y1={highY}
-                        x2={centerX}
-                        y2={lowY}
-                        stroke={color}
-                        strokeWidth={1}
-                      />
-                      <rect
-                        x={x + 1}
-                        y={bodyTop}
-                        width={Math.max(width - 2, 3)}
-                        height={bodyHeight}
-                        fill={color}
-                        stroke={color}
-                      />
-                    </g>
-                  )
-                }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+          {/* Learning Content */}
+          {showLearning && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-700 mb-3">
+                ローソク足は1日の株価の動きを表しています。
+                <span className="text-green-600 font-medium">緑色</span>は値上がり、
+                <span className="text-red-600 font-medium">赤色</span>は値下がりを意味します。
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-green-700">買いシグナル</p>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p>📈 強い上昇：上昇が続きやすい</p>
+                    <p>⬆️ 底打ち反発：反発のサイン</p>
+                    <p>↗️ 押し目：買いチャンスかも</p>
+                    <p>〰️ じわじわ上昇：上昇トレンド継続</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-red-700">売りシグナル</p>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p>📉 強い下落：下落が続きやすい</p>
+                    <p>⬇️ 戻り売り：下落のサイン</p>
+                    <p>↘️ 高値からの下落：弱気のサイン</p>
+                    <p>〰️ 下落の始まり：注意が必要</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* RSI Chart */}

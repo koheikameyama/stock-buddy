@@ -78,13 +78,16 @@ def get_stock_prediction(conn, stock_id):
 
 
 def get_recent_prices(conn, ticker_code):
-    """直近30日の株価データを取得"""
+    """直近30日の株価データを取得（OHLC含む）"""
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
         cur.execute("""
             SELECT
                 date,
+                open,
+                high,
+                low,
                 close,
                 volume
             FROM "StockPrice"
@@ -101,7 +104,81 @@ def get_recent_prices(conn, ticker_code):
         cur.close()
 
 
-def generate_recommendation(stock, prediction, recent_prices, related_news=None):
+def analyze_candlestick_pattern(candle):
+    """単一ローソク足パターンを分析"""
+    open_price = float(candle['open'])
+    high = float(candle['high'])
+    low = float(candle['low'])
+    close = float(candle['close'])
+
+    body = abs(close - open_price)
+    range_val = high - low
+
+    if range_val < 0.01:
+        return {"description": "様子見", "signal": "neutral", "strength": 30}
+
+    body_ratio = body / range_val if range_val > 0 else 0
+    is_large_body = body_ratio >= 0.6
+    is_small_body = body_ratio <= 0.2
+
+    upper_wick = high - max(open_price, close)
+    lower_wick = min(open_price, close) - low
+    has_long_upper = (upper_wick / range_val >= 0.3) if range_val > 0 else False
+    has_long_lower = (lower_wick / range_val >= 0.3) if range_val > 0 else False
+
+    is_up = close >= open_price
+
+    if is_up:
+        if is_large_body and not has_long_upper and not has_long_lower:
+            return {"description": "強い上昇", "signal": "buy", "strength": 80}
+        if has_long_lower and not has_long_upper:
+            return {"description": "底打ち反発", "signal": "buy", "strength": 75}
+        if has_long_upper and not has_long_lower:
+            return {"description": "押し目", "signal": "buy", "strength": 60}
+        if is_small_body:
+            return {"description": "じわじわ上昇", "signal": "buy", "strength": 50}
+        return {"description": "上昇", "signal": "buy", "strength": 55}
+    else:
+        if is_large_body and not has_long_upper and not has_long_lower:
+            return {"description": "強い下落", "signal": "sell", "strength": 80}
+        if has_long_upper and not has_long_lower:
+            return {"description": "戻り売り", "signal": "sell", "strength": 75}
+        if has_long_lower and not has_long_upper:
+            return {"description": "高値からの下落", "signal": "sell", "strength": 65}
+        if is_small_body:
+            return {"description": "下落の始まり", "signal": "sell", "strength": 50}
+        return {"description": "下落", "signal": "sell", "strength": 55}
+
+
+def get_pattern_analysis(recent_prices):
+    """直近のローソク足パターンを分析"""
+    if not recent_prices or len(recent_prices) < 1:
+        return None
+
+    # 最新のローソク足を分析
+    latest = recent_prices[0]
+    pattern = analyze_candlestick_pattern(latest)
+
+    # 直近5日のシグナルをカウント
+    buy_signals = 0
+    sell_signals = 0
+
+    for price in recent_prices[:5]:
+        p = analyze_candlestick_pattern(price)
+        if p['strength'] >= 60:
+            if p['signal'] == 'buy':
+                buy_signals += 1
+            elif p['signal'] == 'sell':
+                sell_signals += 1
+
+    return {
+        "latest": pattern,
+        "recent_buy_signals": buy_signals,
+        "recent_sell_signals": sell_signals,
+    }
+
+
+def generate_recommendation(stock, prediction, recent_prices, related_news=None, pattern_analysis=None):
     """OpenAI APIを使って購入判断を生成"""
 
     # ニュース情報をフォーマット
@@ -111,6 +188,20 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None)
 
 【最新のニュース情報】
 {format_news_for_prompt(related_news)}
+"""
+
+    # ローソク足パターン情報
+    pattern_context = ""
+    if pattern_analysis:
+        latest = pattern_analysis.get('latest', {})
+        pattern_context = f"""
+
+【ローソク足パターン分析】
+- 最新パターン: {latest.get('description', '不明')}
+- シグナル: {latest.get('signal', 'neutral')}
+- 強さ: {latest.get('strength', 0)}%
+- 直近5日の買いシグナル: {pattern_analysis.get('recent_buy_signals', 0)}回
+- 直近5日の売りシグナル: {pattern_analysis.get('recent_sell_signals', 0)}回
 """
 
     # プロンプト構築
@@ -130,7 +221,7 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None)
 
 【株価データ】
 直近30日の終値: {len(recent_prices)}件のデータあり
-{news_context}
+{pattern_context}{news_context}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -326,8 +417,13 @@ def main():
             # 直近価格取得
             recent_prices = get_recent_prices(conn, stock['tickerCode'])
 
-            # 購入判断生成（ニュース付き）
-            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news)
+            # ローソク足パターン分析
+            pattern_analysis = get_pattern_analysis(recent_prices)
+            if pattern_analysis:
+                print(f"Pattern analysis: {pattern_analysis['latest']['description']} ({pattern_analysis['latest']['signal']})")
+
+            # 購入判断生成（ニュース・パターン分析付き）
+            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news, pattern_analysis)
 
             if not recommendation:
                 print(f"❌ Failed to generate recommendation for {stock['name']}")
