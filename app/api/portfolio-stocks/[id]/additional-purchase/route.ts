@@ -120,14 +120,6 @@ export async function POST(
       },
     })
 
-    // メモがあれば更新
-    if (note) {
-      await prisma.portfolioStock.update({
-        where: { id },
-        data: { note },
-      })
-    }
-
     // 更新後のデータを取得（Transactionを含む）
     const result = await prisma.portfolioStock.findUnique({
       where: { id },
@@ -161,7 +153,6 @@ export async function POST(
       quantity: totalQuantity,
       averagePurchasePrice: averagePurchasePrice.toNumber(),
       purchaseDate: firstPurchaseDate.toISOString(),
-      note: result.note,
       lastAnalysis: result.lastAnalysis?.toISOString() || null,
       shortTerm: result.shortTerm,
       mediumTerm: result.mediumTerm,

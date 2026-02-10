@@ -117,9 +117,8 @@ export async function createPortfolioStock(params: {
   quantity: number
   price: number
   purchaseDate?: Date
-  note?: string
 }): Promise<{ success: boolean; portfolioStockId?: string; error?: string }> {
-  const { userId, stockId, quantity, price, purchaseDate, note } = params
+  const { userId, stockId, quantity, price, purchaseDate } = params
   const transactionDate = purchaseDate || new Date()
 
   try {
@@ -129,7 +128,6 @@ export async function createPortfolioStock(params: {
         data: {
           userId,
           stockId,
-          note,
         },
       })
 
@@ -144,7 +142,6 @@ export async function createPortfolioStock(params: {
           price: new Decimal(price),
           totalAmount: new Decimal(quantity).times(price),
           transactionDate,
-          note,
         },
       })
 

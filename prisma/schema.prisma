@@ -275,10 +275,6 @@ model WatchlistStock {
   stockId     String
   stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
-  // ウォッチリスト固有の情報
-  addedReason String?  @db.Text
-  note        String?  @db.Text
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -295,9 +291,6 @@ model PortfolioStock {
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   stockId String
   stock   Stock  @relation(fields: [stockId], references: [id], onDelete: Cascade)
-
-  // オプション情報
-  note String? @db.Text
 
   // AI分析結果（売買判断用）
   lastAnalysis DateTime?

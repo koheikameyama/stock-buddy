@@ -7,10 +7,6 @@ import { UserStockResponse } from "../route"
 
 interface UpdateUserStockRequest {
   type?: "watchlist" | "portfolio"
-  // Watchlist fields
-  addedReason?: string
-  // Common
-  note?: string
 }
 
 interface ConvertRequest {
@@ -102,7 +98,6 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
         data: {
           userId,
           stockId: watchlistStock.stockId,
-          note: watchlistStock.note,
         },
         include: {
           stock: {
@@ -142,7 +137,6 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       quantity,
       averagePurchasePrice,
       purchaseDate: transactionDate.toISOString(),
-      note: result.portfolioStock.note,
       transactions: [{
         id: result.transaction.id,
         type: result.transaction.type,
@@ -182,7 +176,6 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       data: {
         userId,
         stockId: portfolioStock.stockId,
-        note: portfolioStock.note,
       },
       include: {
         stock: {
@@ -203,8 +196,6 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       userId: newWatchlistStock.userId,
       stockId: newWatchlistStock.stockId,
       type: "watchlist",
-      addedReason: newWatchlistStock.addedReason,
-      note: newWatchlistStock.note,
       stock: {
         id: newWatchlistStock.stock.id,
         tickerCode: newWatchlistStock.stock.tickerCode,
@@ -248,70 +239,28 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
   }
 
   if (watchlistStock) {
-    // Update watchlist
-    const updated = await prisma.watchlistStock.update({
-      where: { id },
-      data: {
-        addedReason: body.addedReason,
-        note: body.note,
-      },
-      include: {
-        stock: {
-          select: {
-            id: true,
-            tickerCode: true,
-            name: true,
-            sector: true,
-            market: true,
-            currentPrice: true,
-          },
-        },
-      },
-    })
-
+    // Watchlist has no editable fields now, just return current data
     const response: UserStockResponse = {
-      id: updated.id,
-      userId: updated.userId,
-      stockId: updated.stockId,
+      id: watchlistStock.id,
+      userId: watchlistStock.userId,
+      stockId: watchlistStock.stockId,
       type: "watchlist",
-      addedReason: updated.addedReason,
-      note: updated.note,
       stock: {
-        id: updated.stock.id,
-        tickerCode: updated.stock.tickerCode,
-        name: updated.stock.name,
-        sector: updated.stock.sector,
-        market: updated.stock.market,
-        currentPrice: updated.stock.currentPrice ? Number(updated.stock.currentPrice) : null,
+        id: watchlistStock.stock.id,
+        tickerCode: watchlistStock.stock.tickerCode,
+        name: watchlistStock.stock.name,
+        sector: watchlistStock.stock.sector,
+        market: watchlistStock.stock.market,
+        currentPrice: watchlistStock.stock.currentPrice ? Number(watchlistStock.stock.currentPrice) : null,
       },
-      createdAt: updated.createdAt.toISOString(),
-      updatedAt: updated.updatedAt.toISOString(),
+      createdAt: watchlistStock.createdAt.toISOString(),
+      updatedAt: watchlistStock.updatedAt.toISOString(),
     }
 
     return NextResponse.json(response)
   } else if (portfolioStock) {
-    // Update portfolio
-    const updated = await prisma.portfolioStock.update({
-      where: { id },
-      data: {
-        note: body.note,
-      },
-      include: {
-        stock: {
-          select: {
-            id: true,
-            tickerCode: true,
-            name: true,
-            sector: true,
-            market: true,
-            currentPrice: true,
-          },
-        },
-        transactions: {
-          orderBy: { transactionDate: "asc" },
-        },
-      },
-    })
+    // Portfolio has no editable fields now (transactions are updated separately)
+    const updated = portfolioStock
 
     // Calculate from transactions
     const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
@@ -341,7 +290,6 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
         transactionDate: t.transactionDate.toISOString(),
         note: t.note,
       })),
-      note: updated.note,
       stock: {
         id: updated.stock.id,
         tickerCode: updated.stock.tickerCode,

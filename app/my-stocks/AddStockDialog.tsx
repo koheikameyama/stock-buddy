@@ -7,8 +7,6 @@ interface UserStock {
   userId: string
   stockId: string
   type: "watchlist" | "portfolio"
-  // Watchlist fields
-  addedReason?: string | null
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number
@@ -17,8 +15,6 @@ interface UserStock {
   shortTerm?: string | null
   mediumTerm?: string | null
   longTerm?: string | null
-  // Common fields
-  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -47,8 +43,6 @@ interface AddStockDialogProps {
   defaultType: "portfolio" | "watchlist"
   // 事前選択された銘柄（おすすめから追加する場合など）
   initialStock?: SearchResult | null
-  // 初期メモ（おすすめ理由など）
-  initialNote?: string
 }
 
 export default function AddStockDialog({
@@ -57,7 +51,6 @@ export default function AddStockDialog({
   onSuccess,
   defaultType,
   initialStock,
-  initialNote,
 }: AddStockDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
@@ -70,9 +63,6 @@ export default function AddStockDialog({
   const [purchaseDate, setPurchaseDate] = useState(
     new Date().toISOString().split("T")[0]
   )
-
-  // Common field
-  const [note, setNote] = useState("")
 
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
@@ -120,12 +110,10 @@ export default function AddStockDialog({
         // 初期銘柄が指定されている場合
         setSelectedStock(initialStock)
         setSearchQuery(`${initialStock.tickerCode} - ${initialStock.name}`)
-        setNote(initialNote || "")
       } else {
         // 初期銘柄がない場合はフォームをリセット
         setSearchQuery("")
         setSelectedStock(null)
-        setNote("")
       }
       // 共通のリセット
       setQuantity("")
@@ -135,7 +123,7 @@ export default function AddStockDialog({
       setShowResults(false)
       setError(null)
     }
-  }, [isOpen, initialStock, initialNote])
+  }, [isOpen, initialStock])
 
   const handleSelectStock = (stock: SearchResult) => {
     // 検索タイムアウトをクリアして、再検索を防ぐ
@@ -198,9 +186,6 @@ export default function AddStockDialog({
         body.quantity = parseInt(quantity)
         body.averagePurchasePrice = parseFloat(averagePrice)
         body.purchaseDate = purchaseDate
-        if (note) body.note = note
-      } else {
-        if (note) body.note = note
       }
 
       const response = await fetch("/api/user-stocks", {
@@ -225,7 +210,6 @@ export default function AddStockDialog({
       setQuantity("")
       setAveragePrice("")
       setPurchaseDate(new Date().toISOString().split("T")[0])
-      setNote("")
     } catch (err: any) {
       console.error(err)
       setError(err.message || "銘柄の追加に失敗しました")
@@ -430,51 +414,6 @@ export default function AddStockDialog({
                 />
               </div>
 
-              <div>
-                <label
-                  htmlFor="note"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
-                >
-                  メモ（任意）
-                </label>
-                <textarea
-                  id="note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="購入理由や注意点などを記録できます"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Watchlist fields */}
-          {defaultType === "watchlist" && (
-            <div
-              onClick={() => {
-                // 他のフィールドをクリックしたら検索結果を閉じる
-                if (showResults) {
-                  setShowResults(false)
-                }
-              }}
-            >
-              <div>
-                <label
-                  htmlFor="note"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
-                >
-                  メモ（任意）
-                </label>
-                <textarea
-                  id="note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="気になっている理由やメモを記録できます"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-              </div>
             </div>
           )}
 

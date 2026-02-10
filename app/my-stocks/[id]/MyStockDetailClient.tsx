@@ -9,7 +9,6 @@ import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
-import EditWatchlistDialog from "../EditWatchlistDialog"
 import AddStockDialog from "../AddStockDialog"
 import { useChatContext } from "@/app/contexts/ChatContext"
 
@@ -38,8 +37,6 @@ interface Stock {
   suggestedSellPrice?: number | null
   sellCondition?: string | null
   transactions?: Transaction[]
-  addedReason?: string | null
-  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -72,7 +69,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [showTransactionDialog, setShowTransactionDialog] = useState(false)
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
-  const [showWatchlistDialog, setShowWatchlistDialog] = useState(false)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [passingStock, setPassingStock] = useState(false)
 
@@ -550,64 +546,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
             </section>
 
-            {/* Watchlist Settings Section */}
-            <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                  ウォッチリスト設定
-                </h2>
-                <button
-                  onClick={() => setShowWatchlistDialog(true)}
-                  className="px-3 py-1 text-xs font-medium text-yellow-600 hover:bg-yellow-50 rounded transition-colors flex items-center gap-1"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  編集
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Added Reason */}
-                {stock.addedReason && (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <span className="text-xs font-semibold text-gray-600 block mb-1">注目理由</span>
-                    <p className="text-sm text-gray-800">{stock.addedReason}</p>
-                  </div>
-                )}
-
-                {/* Note */}
-                {stock.note && (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <span className="text-xs font-semibold text-gray-600 block mb-1">メモ</span>
-                    <p className="text-sm text-gray-800">{stock.note}</p>
-                  </div>
-                )}
-
-                {/* Empty state */}
-                {!stock.addedReason && !stock.note && (
-                  <div className="text-center py-4">
-                    <button
-                      onClick={() => setShowWatchlistDialog(true)}
-                      className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors"
-                    >
-                      注目理由を設定する
-                    </button>
-                  </div>
-                )}
-              </div>
-            </section>
-
             {/* AI Purchase Recommendation Section */}
             <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
@@ -676,7 +614,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             quantity: stock.quantity,
             averagePurchasePrice: stock.averagePurchasePrice,
             purchaseDate: stock.purchaseDate,
-            note: stock.note,
             stock: {
               ...stock.stock,
               currentPrice: price?.currentPrice ?? stock.stock.currentPrice,
@@ -689,20 +626,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             router.refresh()
           }}
           transactionType={transactionType}
-        />
-
-        {/* Edit Watchlist Dialog */}
-        <EditWatchlistDialog
-          isOpen={showWatchlistDialog}
-          onClose={() => setShowWatchlistDialog(false)}
-          onSuccess={() => {
-            setShowWatchlistDialog(false)
-            router.refresh()
-          }}
-          stockId={stock.id}
-          stockName={stock.stock.name}
-          addedReason={stock.addedReason}
-          note={stock.note}
         />
 
         {/* Purchase Dialog for Watchlist */}
@@ -722,7 +645,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             sector: stock.stock.sector,
             latestPrice: currentPrice || null,
           }}
-          initialNote={stock.note || undefined}
         />
       </div>
     </main>

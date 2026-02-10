@@ -6,8 +6,6 @@ interface UserStock {
   id: string
   stockId: string
   type: "watchlist" | "portfolio"
-  // Watchlist fields
-  addedReason?: string | null
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number
@@ -16,8 +14,6 @@ interface UserStock {
   emotionalCoaching?: string | null
   simpleStatus?: string | null
   statusType?: string | null
-  // Common fields
-  note?: string | null
   stock: {
     id: string
     tickerCode: string

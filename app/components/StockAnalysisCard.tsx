@@ -69,7 +69,12 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
       if (portfolioRes.ok) {
         const data = await portfolioRes.json()
         setPortfolioAnalysis(data)
-        setNoData(false)
+        // lastAnalysisがnullの場合はデータがない（生成ボタンを表示）
+        if (!data.lastAnalysis) {
+          setNoData(true)
+        } else {
+          setNoData(false)
+        }
       } else if (portfolioRes.status === 404) {
         setNoData(true)
       }
@@ -184,7 +189,9 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
     )
   }
 
-  if ((noData || error) && !prediction && !portfolioAnalysis) {
+  // noDataはlastAnalysisがnullの場合にtrueになる
+  // predictionがない場合は生成ボタンを表示
+  if ((noData || error) && !prediction) {
     return (
       <div className="bg-gray-50 rounded-lg p-6 text-center">
         <div className="text-4xl mb-3">📊</div>

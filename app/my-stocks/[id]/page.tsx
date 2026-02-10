@@ -95,9 +95,6 @@ export default async function MyStockDetailPage({
       transactionDate: t.transactionDate.toISOString(),
       note: t.note,
     })),
-    // Watchlist fields
-    addedReason: watchlistStock?.addedReason,
-    note: watchlistStock?.note || portfolioStock?.note,
     // Stock info
     stock: {
       id: userStock.stock.id,

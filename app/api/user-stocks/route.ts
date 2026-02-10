@@ -14,8 +14,6 @@ export interface UserStockResponse {
   userId: string
   stockId: string
   type: "watchlist" | "portfolio"
-  // Watchlist fields
-  addedReason?: string | null
   // Portfolio fields (calculated from transactions)
   quantity?: number
   averagePurchasePrice?: number
@@ -43,8 +41,6 @@ export interface UserStockResponse {
     transactionDate: string
     note: string | null
   }[]
-  // Common fields
-  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -60,14 +56,10 @@ export interface UserStockResponse {
 interface CreateUserStockRequest {
   tickerCode: string
   type: "watchlist" | "portfolio"
-  // Watchlist fields
-  addedReason?: string
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
-  // Common fields
-  note?: string
 }
 
 /**
@@ -148,8 +140,6 @@ export async function GET(request: NextRequest) {
       userId: ws.userId,
       stockId: ws.stockId,
       type: "watchlist" as const,
-      addedReason: ws.addedReason,
-      note: ws.note,
       stock: {
         id: ws.stock.id,
         tickerCode: ws.stock.tickerCode,
@@ -203,7 +193,6 @@ export async function GET(request: NextRequest) {
           transactionDate: t.transactionDate.toISOString(),
           note: t.note,
         })),
-        note: ps.note,
         stock: {
           id: ps.stock.id,
           tickerCode: ps.stock.tickerCode,
@@ -249,7 +238,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body: CreateUserStockRequest = await request.json()
-    const { tickerCode, type, addedReason, quantity, averagePurchasePrice, purchaseDate, note } = body
+    const { tickerCode, type, quantity, averagePurchasePrice, purchaseDate } = body
 
     // Validation
     if (!tickerCode) {
@@ -367,8 +356,6 @@ export async function POST(request: NextRequest) {
         data: {
           userId,
           stockId: stock.id,
-          addedReason,
-          note,
         },
         include: {
           stock: {
@@ -389,8 +376,6 @@ export async function POST(request: NextRequest) {
         userId: watchlistStock.userId,
         stockId: watchlistStock.stockId,
         type: "watchlist",
-        addedReason: watchlistStock.addedReason,
-        note: watchlistStock.note,
         stock: {
           id: watchlistStock.stock.id,
           tickerCode: watchlistStock.stock.tickerCode,
@@ -429,7 +414,6 @@ export async function POST(request: NextRequest) {
           data: {
             userId,
             stockId: stock.id,
-            note,
           },
           include: {
             stock: {
@@ -456,7 +440,6 @@ export async function POST(request: NextRequest) {
             price: new Decimal(averagePurchasePrice),
             totalAmount: new Decimal(quantity).times(averagePurchasePrice),
             transactionDate,
-            note,
           },
         })
 
@@ -484,7 +467,6 @@ export async function POST(request: NextRequest) {
           transactionDate: result.transaction.transactionDate.toISOString(),
           note: result.transaction.note,
         }],
-        note: result.portfolioStock.note,
         stock: {
           id: result.portfolioStock.stock.id,
           tickerCode: result.portfolioStock.stock.tickerCode,

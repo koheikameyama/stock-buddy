@@ -11,8 +11,6 @@ interface UserStock {
   userId: string
   stockId: string
   type: "watchlist" | "portfolio"
-  // Watchlist fields
-  addedReason?: string | null
   // Portfolio fields
   quantity?: number
   averagePurchasePrice?: number
@@ -23,8 +21,6 @@ interface UserStock {
   longTerm?: string | null
   // AI推奨（StockAnalysisから取得）
   recommendation?: "buy" | "sell" | "hold" | null
-  // Common fields
-  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -363,7 +359,6 @@ export default function MyStocksClient() {
           sector: purchaseFromWatchlist.stock.sector,
           latestPrice: prices[purchaseFromWatchlist.stock.tickerCode]?.currentPrice ?? purchaseFromWatchlist.stock.currentPrice,
         } : null}
-        initialNote={purchaseFromWatchlist?.note || undefined}
       />
 
       <AdditionalPurchaseDialog

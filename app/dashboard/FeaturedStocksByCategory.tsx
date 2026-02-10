@@ -303,7 +303,6 @@ export default function FeaturedStocksByCategory({
               }
             : null
         }
-        initialNote={selectedFeaturedStock?.reason || undefined}
       />
     </div>
   )
