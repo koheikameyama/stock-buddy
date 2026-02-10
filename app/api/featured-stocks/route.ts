@@ -13,6 +13,7 @@ dayjs.extend(timezone)
  * 今日の注目銘柄を取得
  * - あなたへのおすすめ（3件）: UserDailyRecommendation（AIがユーザーごとに生成）
  * - みんなが注目（3件）: DailyFeaturedStock の trending カテゴリ
+ * - 当日データがなければ最新データを返し、isToday: false を返す
  */
 export async function GET() {
   try {
@@ -25,6 +26,10 @@ export async function GET() {
         { status: 401 }
       )
     }
+
+    // 日本時間で今日の00:00:00をUTCに変換
+    const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
+    const todayUTC = todayJST.utc().toDate()
 
     // ユーザーの銘柄IDを取得
     const [watchlist, portfolio] = await Promise.all([
@@ -60,28 +65,48 @@ export async function GET() {
     }[] = []
 
     let recommendationDate: Date | null = null
+    let isRecommendationToday = false
 
-    // 最新日付のおすすめを取得
-    const latestRec = await prisma.userDailyRecommendation.findFirst({
-      where: { userId },
-      select: { date: true },
-      orderBy: { date: "desc" },
+    // まず当日データを取得
+    let recs = await prisma.userDailyRecommendation.findMany({
+      where: {
+        userId,
+        date: todayUTC,
+      },
+      include: {
+        stock: true,
+      },
+      orderBy: { position: "asc" },
     })
 
-    if (latestRec) {
-      recommendationDate = latestRec.date
-
-      const recs = await prisma.userDailyRecommendation.findMany({
-        where: {
-          userId,
-          date: latestRec.date,
-        },
-        include: {
-          stock: true,
-        },
-        orderBy: { position: "asc" },
+    if (recs.length > 0) {
+      recommendationDate = todayUTC
+      isRecommendationToday = true
+    } else {
+      // 当日データがなければ最新データを取得
+      const latestRec = await prisma.userDailyRecommendation.findFirst({
+        where: { userId },
+        select: { date: true },
+        orderBy: { date: "desc" },
       })
 
+      if (latestRec) {
+        recs = await prisma.userDailyRecommendation.findMany({
+          where: {
+            userId,
+            date: latestRec.date,
+          },
+          include: {
+            stock: true,
+          },
+          orderBy: { position: "asc" },
+        })
+        recommendationDate = latestRec.date
+        isRecommendationToday = false
+      }
+    }
+
+    if (recs.length > 0) {
       personalRecommendations = recs.map((r) => ({
         id: r.id,
         stockId: r.stockId,
@@ -102,12 +127,6 @@ export async function GET() {
     }
 
     // --- みんなが注目（DailyFeaturedStock の trending） ---
-    const latestFeatured = await prisma.dailyFeaturedStock.findFirst({
-      where: { category: "trending" },
-      select: { date: true },
-      orderBy: { date: "desc" },
-    })
-
     let trendingStocks: {
       id: string
       stockId: string
@@ -124,19 +143,51 @@ export async function GET() {
       }
     }[] = []
 
-    if (latestFeatured) {
-      const trending = await prisma.dailyFeaturedStock.findMany({
-        where: {
-          date: latestFeatured.date,
-          category: "trending",
-        },
-        include: {
-          stock: true,
-        },
-        orderBy: { position: "asc" },
-        take: 3,
+    let trendingDate: Date | null = null
+    let isTrendingToday = false
+
+    // まず当日データを取得
+    let trending = await prisma.dailyFeaturedStock.findMany({
+      where: {
+        date: todayUTC,
+        category: "trending",
+      },
+      include: {
+        stock: true,
+      },
+      orderBy: { position: "asc" },
+      take: 3,
+    })
+
+    if (trending.length > 0) {
+      trendingDate = todayUTC
+      isTrendingToday = true
+    } else {
+      // 当日データがなければ最新データを取得
+      const latestFeatured = await prisma.dailyFeaturedStock.findFirst({
+        where: { category: "trending" },
+        select: { date: true },
+        orderBy: { date: "desc" },
       })
 
+      if (latestFeatured) {
+        trending = await prisma.dailyFeaturedStock.findMany({
+          where: {
+            date: latestFeatured.date,
+            category: "trending",
+          },
+          include: {
+            stock: true,
+          },
+          orderBy: { position: "asc" },
+          take: 3,
+        })
+        trendingDate = latestFeatured.date
+        isTrendingToday = false
+      }
+    }
+
+    if (trending.length > 0) {
       trendingStocks = trending.map((t) => ({
         id: t.id,
         stockId: t.stockId,
@@ -156,10 +207,14 @@ export async function GET() {
       }))
     }
 
+    // isTodayは両方のデータが当日かどうか（片方でも古ければfalse）
+    const isToday = isRecommendationToday && isTrendingToday
+
     return NextResponse.json({
       personalRecommendations,
       trendingStocks,
-      date: recommendationDate || latestFeatured?.date || null,
+      date: recommendationDate || trendingDate || null,
+      isToday,
     }, { status: 200 })
   } catch (error) {
     console.error("Error fetching featured stocks:", error)
