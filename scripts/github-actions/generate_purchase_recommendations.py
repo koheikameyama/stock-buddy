@@ -23,6 +23,25 @@ from lib.news_fetcher import get_related_news, format_news_for_prompt
 # OpenAI クライアント初期化
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# 時間帯コンテキスト
+TIME_CONTEXT = os.getenv("TIME_CONTEXT", "morning")
+
+# 時間帯別のプロンプト設定
+TIME_CONTEXT_PROMPTS = {
+    "morning": {
+        "intro": "今日の取引開始前の購入判断です。",
+        "focus": "今日の買いタイミングとチェックポイント",
+    },
+    "noon": {
+        "intro": "前場の取引を踏まえた購入判断です。",
+        "focus": "前場の動きを踏まえた後場の買いタイミング",
+    },
+    "close": {
+        "intro": "本日の取引終了後の振り返りと明日への展望です。",
+        "focus": "本日の値動きを踏まえた明日以降の買い時",
+    },
+}
+
 # データベース接続
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -30,22 +49,68 @@ if not DATABASE_URL:
     sys.exit(1)
 
 
+def get_user_settings(conn, user_id):
+    """ユーザーの投資スタイル設定を取得"""
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""
+            SELECT
+                "investmentPeriod",
+                "riskTolerance"
+            FROM "UserSettings"
+            WHERE "userId" = %s
+        """, (user_id,))
+        return cur.fetchone()
+    finally:
+        cur.close()
+
+
+def format_investment_style(settings):
+    """投資スタイルを文字列にフォーマット"""
+    if not settings:
+        return None
+
+    period_label = {
+        'short': '短期（1年以内）',
+        'medium': '中期（1〜3年）',
+        'long': '長期（3年以上）',
+    }.get(settings.get('investmentPeriod'), None)
+
+    risk_label = {
+        'low': '低い（安定重視）',
+        'medium': '普通（バランス）',
+        'high': '高い（成長重視）',
+    }.get(settings.get('riskTolerance'), None)
+
+    if not period_label and not risk_label:
+        return None
+
+    lines = []
+    if period_label:
+        lines.append(f"- 投資期間: {period_label}")
+    if risk_label:
+        lines.append(f"- リスク許容度: {risk_label}")
+
+    return "\n".join(lines)
+
+
 def get_watchlist_stocks(conn):
-    """ウォッチリスト（気になる銘柄）を取得"""
+    """ウォッチリスト（気になる銘柄）を取得（ユーザー情報付き）"""
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
-        # WatchlistStockから銘柄を取得（重複除去）
+        # WatchlistStockから銘柄を取得（ユーザー情報付き）
         cur.execute("""
-            SELECT DISTINCT
+            SELECT
                 s.id,
                 s."tickerCode",
                 s.name,
                 s.sector,
-                s."currentPrice"
+                s."currentPrice",
+                ws."userId"
             FROM "WatchlistStock" ws
             JOIN "Stock" s ON ws."stockId" = s.id
-            ORDER BY s.name
+            ORDER BY ws."userId", s.name
         """)
 
         stocks = cur.fetchall()
@@ -178,8 +243,21 @@ def get_pattern_analysis(recent_prices):
     }
 
 
-def generate_recommendation(stock, prediction, recent_prices, related_news=None, pattern_analysis=None):
+def generate_recommendation(stock, prediction, recent_prices, related_news=None, pattern_analysis=None, time_context=None, investment_style=None):
     """OpenAI APIを使って購入判断を生成"""
+
+    # 時間帯に応じたプロンプト設定を取得
+    context = time_context or TIME_CONTEXT
+    prompts = TIME_CONTEXT_PROMPTS.get(context, TIME_CONTEXT_PROMPTS["morning"])
+
+    # 投資スタイルをフォーマット
+    style_context = ""
+    if investment_style:
+        style_context = f"""
+
+【ユーザーの投資スタイル】
+{investment_style}
+※ ユーザーの投資スタイルに合わせた購入判断をしてください。"""
 
     # ニュース情報をフォーマット
     news_context = ""
@@ -206,7 +284,8 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None,
 
     # プロンプト構築
     prompt = f"""あなたは投資初心者向けのAIコーチです。
-以下の銘柄について、購入判断をしてください。
+{prompts['intro']}
+以下の銘柄について、{prompts['focus']}を判断してください。
 
 【銘柄情報】
 - 名前: {stock['name']}
@@ -221,7 +300,7 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None,
 
 【株価データ】
 直近30日の終値: {len(recent_prices)}件のデータあり
-{pattern_context}{news_context}
+{pattern_context}{news_context}{style_context}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -398,8 +477,20 @@ def main():
         success_count = 0
         error_count = 0
 
+        # ユーザーの投資スタイルをキャッシュ
+        user_styles = {}
+
         for stock in stocks:
             print(f"\n--- Processing: {stock['name']} ({stock['tickerCode']}) ---")
+
+            # ユーザーの投資スタイルを取得（キャッシュ）
+            user_id = stock.get('userId')
+            investment_style = None
+            if user_id:
+                if user_id not in user_styles:
+                    settings = get_user_settings(conn, user_id)
+                    user_styles[user_id] = format_investment_style(settings)
+                investment_style = user_styles[user_id]
 
             # この銘柄に関連するニュースをフィルタリング
             stock_news = [
@@ -422,8 +513,8 @@ def main():
             if pattern_analysis:
                 print(f"Pattern analysis: {pattern_analysis['latest']['description']} ({pattern_analysis['latest']['signal']})")
 
-            # 購入判断生成（ニュース・パターン分析付き）
-            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news, pattern_analysis)
+            # 購入判断生成（ニュース・パターン分析付き、時間帯考慮、投資スタイル考慮）
+            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news, pattern_analysis, TIME_CONTEXT, investment_style)
 
             if not recommendation:
                 print(f"❌ Failed to generate recommendation for {stock['name']}")
