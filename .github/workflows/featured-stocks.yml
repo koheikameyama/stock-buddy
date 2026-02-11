@@ -51,13 +51,6 @@ jobs:
         run: |
           python scripts/news/fetch_news.py
 
-      - name: Generate featured stocks
-        env:
-          APP_URL: ${{ secrets.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          python scripts/news/generate_featured_stocks.py
-
       - name: Generate user recommendations (AI)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

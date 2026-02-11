@@ -252,18 +252,6 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
           </>
         )}
 
-        {/* Watchlist Specific Info */}
-        {isWatchlist && aiJudgment && (
-          <div className={`rounded-lg p-3 sm:p-4 ${aiJudgment.bg}`}>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">💰</span>
-              <span className={`text-sm sm:text-base font-semibold ${aiJudgment.color}`}>
-                {aiJudgment.text}
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Purchase Button for Watchlist */}
         {isWatchlist && onPurchase && (
           <div className="flex gap-2">

@@ -123,7 +123,6 @@ model Stock {
 
   analyses                StockAnalysis[]
   featuredStocks          DailyFeaturedStock[]
-  featuredStocksPool      FeaturedStock[]
   watchlistStocks         WatchlistStock[]
   portfolioStocks         PortfolioStock[]
   transactions            Transaction[]
@@ -244,26 +243,6 @@ model StockRequest {
   @@index([status])
   @@index([tickerCode])
   @@index([createdAt(sort: Desc)])
-}
-
-// 注目銘柄プール（X連携で発見）
-model FeaturedStock {
-  id        String   @id @default(cuid())
-  stockId   String
-  stock     Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  date      DateTime @default(now())
-  category  String   // "surge" | "stable" | "trending"
-  reason    String?  @db.Text // AI分析結果
-  score     Float?
-  source    String   @default("manual") // "twitter" | "manual"
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([stockId, date])
-  @@index([date])
-  @@index([category])
-  @@index([stockId])
 }
 
 // ウォッチリスト（気になる銘柄）
