@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { GoogleGenAI } from "@google/genai"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { getRelatedNews, formatNewsForPrompt, formatNewsReferences, type RelatedNews } from "@/lib/news-rag"
 
 function getGeminiClient() {
   return new GoogleGenAI({
@@ -391,10 +392,30 @@ ${JSON.stringify(stockData, null, 2)}
 `
     }
 
+    // 銘柄コンテキストがある場合はDBのニュースデータを取得
+    // 一般的な質問の場合はGoogle Searchグラウンディングを使用
+    const isStockSpecificQuery = !!stockContext
+    let relatedNews: RelatedNews[] = []
+
+    if (isStockSpecificQuery) {
+      const tickerCode = stockContext.tickerCode.replace(".T", "")
+      relatedNews = await getRelatedNews({
+        tickerCodes: [tickerCode],
+        sectors: stockContext.sector ? [stockContext.sector] : [],
+        limit: 5,
+        daysAgo: 14,
+      })
+    }
+
+    // ニュース情報をプロンプト用にフォーマット
+    const newsSection = relatedNews.length > 0
+      ? `\n## この銘柄に関連する最新ニュース\n以下のニュースを踏まえて回答してください。\n${formatNewsForPrompt(relatedNews)}`
+      : ""
+
     // システムプロンプトを構築
     const systemPrompt = `あなたは投資初心者向けのAIコーチです。
 専門用語は使わず、中学生でも分かる言葉で説明してください。
-${stockContextInfo}
+${stockContextInfo}${newsSection}
 ## ユーザーの保有銘柄
 ${portfolioStocks.length > 0 ? portfolioInfo : "保有銘柄はありません"}
 
@@ -460,11 +481,13 @@ ${
       parts: [{ text: message }],
     })
 
+    // 銘柄固有の質問 → DBニュースを利用（グラウンディングなし）
+    // 一般的な質問 → Google Searchグラウンディングを利用
     const result = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents,
       config: {
-        tools: [{ googleSearch: {} }],
+        ...(isStockSpecificQuery ? {} : { tools: [{ googleSearch: {} }] }),
         temperature: 0.7,
         maxOutputTokens: 1500,
       },
@@ -474,9 +497,16 @@ ${
       result.text ||
       "申し訳ございません。回答を生成できませんでした。"
 
-    // グラウンディングソースを追加
-    const groundingMetadata = result.candidates?.[0]?.groundingMetadata
-    const response = aiResponse + formatGroundingSources(groundingMetadata)
+    // ソース情報を追加
+    // 銘柄固有 → DBニュースの参照を追加
+    // 一般的な質問 → グラウンディングソースを追加
+    let response: string
+    if (isStockSpecificQuery && relatedNews.length > 0) {
+      response = aiResponse + formatNewsReferences(relatedNews)
+    } else {
+      const groundingMetadata = result.candidates?.[0]?.groundingMetadata
+      response = aiResponse + formatGroundingSources(groundingMetadata)
+    }
 
     return NextResponse.json({
       response,
