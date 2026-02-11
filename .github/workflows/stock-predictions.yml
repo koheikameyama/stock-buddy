@@ -43,7 +43,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install psycopg2-binary openai requests
+          pip install psycopg2-binary openai requests yfinance
 
       - name: Generate stock predictions
         env:
