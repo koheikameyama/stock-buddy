@@ -13,7 +13,6 @@ interface StockSearchResult {
     name: string
     market: string
     sector: string | null
-    currentPrice: number | null
   }
   error?: string
 }
@@ -51,7 +50,6 @@ export async function searchAndAddStock(query: string): Promise<StockSearchResul
       where: { tickerCode: result.tickerCode },
       update: {
         name: result.name || result.tickerCode,
-        currentPrice: result.currentPrice,
         sector: result.sector,
       },
       create: {
@@ -59,7 +57,6 @@ export async function searchAndAddStock(query: string): Promise<StockSearchResul
         name: result.name || result.tickerCode,
         market: result.market || "TSE",
         sector: result.sector,
-        currentPrice: result.currentPrice,
         beginnerScore: 50, // デフォルトスコア
       },
     })
@@ -72,7 +69,6 @@ export async function searchAndAddStock(query: string): Promise<StockSearchResul
         name: stock.name,
         market: stock.market,
         sector: stock.sector,
-        currentPrice: stock.currentPrice ? Number(stock.currentPrice) : null,
       },
     }
   } catch (error) {

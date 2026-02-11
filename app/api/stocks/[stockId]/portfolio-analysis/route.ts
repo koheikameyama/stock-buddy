@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/auth"
 import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
-import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
+import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -169,9 +169,10 @@ export async function POST(
     }
 
     const averagePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0
-    const currentPrice = portfolioStock.stock.currentPrice
-      ? Number(portfolioStock.stock.currentPrice)
-      : null
+
+    // リアルタイム株価を取得
+    const realtimePrices = await fetchStockPrices([portfolioStock.stock.tickerCode])
+    const currentPrice = realtimePrices[0]?.currentPrice ?? null
 
     // 損益計算
     let profit: number | null = null

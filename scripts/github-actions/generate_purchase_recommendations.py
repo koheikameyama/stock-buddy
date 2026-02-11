@@ -107,7 +107,6 @@ def get_watchlist_stocks(conn):
                 s."tickerCode",
                 s.name,
                 s.sector,
-                s."currentPrice",
                 ws."userId"
             FROM "WatchlistStock" ws
             JOIN "Stock" s ON ws."stockId" = s.id
@@ -119,6 +118,20 @@ def get_watchlist_stocks(conn):
         return stocks
     finally:
         cur.close()
+
+
+def get_realtime_price(ticker_code):
+    """yfinanceからリアルタイム株価を取得"""
+    try:
+        code = ticker_code if ticker_code.endswith('.T') else ticker_code + '.T'
+        stock = yf.Ticker(code)
+        hist = stock.history(period="1d")
+        if not hist.empty:
+            return float(hist['Close'].iloc[-1])
+        return None
+    except Exception as e:
+        print(f"Error fetching realtime price for {ticker_code}: {e}")
+        return None
 
 
 def get_stock_prediction(conn, stock_id):
@@ -247,7 +260,7 @@ def get_pattern_analysis(recent_prices):
     }
 
 
-def generate_recommendation(stock, prediction, recent_prices, related_news=None, pattern_analysis=None, time_context=None, investment_style=None):
+def generate_recommendation(stock, prediction, recent_prices, related_news=None, pattern_analysis=None, time_context=None, investment_style=None, current_price=None):
     """OpenAI APIを使って購入判断を生成"""
 
     # 時間帯に応じたプロンプト設定を取得
@@ -295,7 +308,7 @@ def generate_recommendation(stock, prediction, recent_prices, related_news=None,
 - 名前: {stock['name']}
 - ティッカーコード: {stock['tickerCode']}
 - セクター: {stock['sector'] or '不明'}
-- 現在価格: {stock['currentPrice'] or '不明'}円
+- 現在価格: {current_price or '不明'}円
 
 【予測情報】
 - 短期予測: {prediction.get('shortTerm', '不明')}
@@ -512,13 +525,20 @@ def main():
             # 直近価格取得（yfinanceから）
             recent_prices = get_recent_prices(stock['tickerCode'])
 
+            # 現在価格を取得（直近価格データから、またはリアルタイム取得）
+            current_price = None
+            if recent_prices:
+                current_price = recent_prices[0]['close']
+            else:
+                current_price = get_realtime_price(stock['tickerCode'])
+
             # ローソク足パターン分析
             pattern_analysis = get_pattern_analysis(recent_prices)
             if pattern_analysis:
                 print(f"Pattern analysis: {pattern_analysis['latest']['description']} ({pattern_analysis['latest']['signal']})")
 
             # 購入判断生成（ニュース・パターン分析付き、時間帯考慮、投資スタイル考慮）
-            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news, pattern_analysis, TIME_CONTEXT, investment_style)
+            recommendation = generate_recommendation(stock, prediction, recent_prices, stock_news, pattern_analysis, TIME_CONTEXT, investment_style, current_price)
 
             if not recommendation:
                 print(f"❌ Failed to generate recommendation for {stock['name']}")

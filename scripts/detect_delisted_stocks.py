@@ -95,12 +95,12 @@ def main():
     cur = conn.cursor()
 
     try:
-        # currentPrice=nullの銘柄を取得
-        print(f"Fetching stocks with null currentPrice (limit: {args.limit})...")
+        # 全銘柄を取得（yfinanceでアクティブかどうかをチェック）
+        print(f"Fetching stocks to check (limit: {args.limit})...")
         cur.execute("""
             SELECT id, "tickerCode", name
             FROM "Stock"
-            WHERE "currentPrice" IS NULL
+            ORDER BY "updatedAt" ASC
             LIMIT %s
         """, (args.limit,))
 

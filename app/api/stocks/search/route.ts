@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 /**
  * Stock Search API
@@ -44,11 +45,14 @@ export async function GET(request: NextRequest) {
         name: true,
         market: true,
         sector: true,
-        currentPrice: true,
-        financialDataUpdatedAt: true,
       },
       take: 20, // Limit results
     })
+
+    // リアルタイム株価を取得
+    const tickerCodes = stocks.map((s) => s.tickerCode)
+    const prices = await fetchStockPrices(tickerCodes)
+    const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
 
     // Format response with latest price
     const formattedStocks = stocks.map((stock) => ({
@@ -57,8 +61,8 @@ export async function GET(request: NextRequest) {
       name: stock.name,
       market: stock.market,
       sector: stock.sector,
-      latestPrice: stock.currentPrice ? Number(stock.currentPrice) : null,
-      latestPriceDate: stock.financialDataUpdatedAt?.toISOString() || null,
+      latestPrice: priceMap.get(stock.tickerCode) ?? null,
+      latestPriceDate: null, // リアルタイム取得なので常に最新
     }))
 
     // Sort results: prioritize exact ticker matches with .T

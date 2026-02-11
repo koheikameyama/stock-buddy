@@ -120,9 +120,7 @@ export async function GET() {
           tickerCode: r.stock.tickerCode,
           name: r.stock.name,
           sector: r.stock.sector,
-          currentPrice: r.stock.currentPrice
-            ? Number(r.stock.currentPrice)
-            : null,
+          currentPrice: null, // リアルタイム取得で後から設定
         },
       }))
     }
@@ -201,9 +199,7 @@ export async function GET() {
           tickerCode: t.stock.tickerCode,
           name: t.stock.name,
           sector: t.stock.sector,
-          currentPrice: t.stock.currentPrice
-            ? Number(t.stock.currentPrice)
-            : null,
+          currentPrice: null, // リアルタイム取得で後から設定
         },
       }))
     }
@@ -224,7 +220,7 @@ export async function GET() {
         ...r,
         stock: {
           ...r.stock,
-          currentPrice: priceMap.get(r.stock.tickerCode) ?? r.stock.currentPrice,
+          currentPrice: priceMap.get(r.stock.tickerCode) ?? null,
         },
       }))
 
@@ -232,7 +228,7 @@ export async function GET() {
         ...t,
         stock: {
           ...t.stock,
-          currentPrice: priceMap.get(t.stock.tickerCode) ?? t.stock.currentPrice,
+          currentPrice: priceMap.get(t.stock.tickerCode) ?? null,
         },
       }))
     }

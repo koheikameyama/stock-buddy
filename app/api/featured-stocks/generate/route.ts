@@ -5,6 +5,7 @@ import { getRelatedNews } from "@/lib/news-rag"
 import dayjs from "dayjs"
 import pLimit from "p-limit"
 import { notifySlack } from "@/lib/slack"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -107,6 +108,10 @@ export async function POST(request: NextRequest) {
       daysAgo: 7,
     })
 
+    // リアルタイム株価を取得
+    const realtimePrices = await fetchStockPrices(candidateTickerCodes)
+    const priceMap = new Map(realtimePrices.map((p) => [p.tickerCode, p.currentPrice]))
+
     console.log(`📰 Found ${relatedNews.length} related news articles`)
     console.log(`🤖 Analyzing ${allStocks.length} stocks with OpenAI...`)
 
@@ -136,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     // 銘柄を分析する関数
     const analyzeStock = async (stock: (typeof allStocks)[0]) => {
-      const latestPrice = stock.currentPrice
+      const latestPrice = priceMap.get(stock.tickerCode)
 
       if (!latestPrice) {
         console.log(`⚠️  No price data for ${stock.tickerCode}, skipping`)

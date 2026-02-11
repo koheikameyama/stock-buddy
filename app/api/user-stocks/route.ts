@@ -5,6 +5,7 @@ import { searchAndAddStock } from "@/lib/stock-fetcher"
 import { Decimal } from "@prisma/client/runtime/library"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { MAX_WATCHLIST_STOCKS, MAX_PORTFOLIO_STOCKS } from "@/lib/constants"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 // Types
 export interface UserStockResponse {
@@ -94,7 +95,6 @@ export async function GET(request: NextRequest) {
               name: true,
               sector: true,
               market: true,
-              currentPrice: true,
             },
           },
         },
@@ -113,7 +113,6 @@ export async function GET(request: NextRequest) {
               name: true,
               sector: true,
               market: true,
-              currentPrice: true,
               // 最新のStockAnalysisからrecommendationを取得
               analyses: {
                 select: {
@@ -132,6 +131,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // リアルタイム株価を取得
+    const allTickerCodes = [
+      ...watchlistStocks.map((ws: any) => ws.stock.tickerCode),
+      ...portfolioStocks.map((ps: any) => ps.stock.tickerCode),
+    ]
+    const prices = await fetchStockPrices(allTickerCodes)
+    const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
+
     // Format response
     const watchlistResponse: UserStockResponse[] = watchlistStocks.map((ws) => ({
       id: ws.id,
@@ -144,7 +151,7 @@ export async function GET(request: NextRequest) {
         name: ws.stock.name,
         sector: ws.stock.sector,
         market: ws.stock.market,
-        currentPrice: ws.stock.currentPrice ? Number(ws.stock.currentPrice) : null,
+        currentPrice: priceMap.get(ws.stock.tickerCode) ?? null,
       },
       createdAt: ws.createdAt.toISOString(),
       updatedAt: ws.updatedAt.toISOString(),
@@ -197,7 +204,7 @@ export async function GET(request: NextRequest) {
           name: ps.stock.name,
           sector: ps.stock.sector,
           market: ps.stock.market,
-          currentPrice: ps.stock.currentPrice ? Number(ps.stock.currentPrice) : null,
+          currentPrice: priceMap.get(ps.stock.tickerCode) ?? null,
         },
         createdAt: ps.createdAt.toISOString(),
         updatedAt: ps.updatedAt.toISOString(),
@@ -364,11 +371,14 @@ export async function POST(request: NextRequest) {
               name: true,
               sector: true,
               market: true,
-              currentPrice: true,
             },
           },
         },
       })
+
+      // リアルタイム株価を取得
+      const prices = await fetchStockPrices([watchlistStock.stock.tickerCode])
+      const currentPrice = prices[0]?.currentPrice ?? null
 
       const response: UserStockResponse = {
         id: watchlistStock.id,
@@ -381,7 +391,7 @@ export async function POST(request: NextRequest) {
           name: watchlistStock.stock.name,
           sector: watchlistStock.stock.sector,
           market: watchlistStock.stock.market,
-          currentPrice: watchlistStock.stock.currentPrice ? Number(watchlistStock.stock.currentPrice) : null,
+          currentPrice,
         },
         createdAt: watchlistStock.createdAt.toISOString(),
         updatedAt: watchlistStock.updatedAt.toISOString(),
@@ -422,7 +432,6 @@ export async function POST(request: NextRequest) {
                 name: true,
                 sector: true,
                 market: true,
-                currentPrice: true,
               },
             },
           },
@@ -444,6 +453,10 @@ export async function POST(request: NextRequest) {
 
         return { portfolioStock, transaction }
       })
+
+      // リアルタイム株価を取得
+      const prices = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
+      const currentPrice = prices[0]?.currentPrice ?? null
 
       const response: UserStockResponse = {
         id: result.portfolioStock.id,
@@ -472,7 +485,7 @@ export async function POST(request: NextRequest) {
           name: result.portfolioStock.stock.name,
           sector: result.portfolioStock.stock.sector,
           market: result.portfolioStock.stock.market,
-          currentPrice: result.portfolioStock.stock.currentPrice ? Number(result.portfolioStock.stock.currentPrice) : null,
+          currentPrice,
         },
         createdAt: result.portfolioStock.createdAt.toISOString(),
         updatedAt: result.portfolioStock.updatedAt.toISOString(),

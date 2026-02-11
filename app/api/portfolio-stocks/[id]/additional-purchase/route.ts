@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 export async function POST(
   request: NextRequest,
@@ -144,6 +145,10 @@ export async function POST(
     const firstBuyTransaction = result.transactions.find((t) => t.type === "buy")
     const firstPurchaseDate = firstBuyTransaction?.transactionDate || result.createdAt
 
+    // リアルタイム株価を取得
+    const prices = await fetchStockPrices([result.stock.tickerCode])
+    const currentPrice = prices[0]?.currentPrice ?? null
+
     // レスポンス用のデータ整形
     const response = {
       id: result.id,
@@ -172,7 +177,7 @@ export async function POST(
         name: result.stock.name,
         sector: result.stock.sector,
         market: result.stock.market,
-        currentPrice: result.stock.currentPrice?.toNumber() || null,
+        currentPrice,
       },
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),

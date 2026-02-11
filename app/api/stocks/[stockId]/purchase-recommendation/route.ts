@@ -4,7 +4,7 @@ import { auth } from "@/auth"
 import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
-import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
+import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
@@ -35,7 +35,6 @@ export async function GET(
         id: true,
         tickerCode: true,
         name: true,
-        currentPrice: true,
       },
     })
 
@@ -68,12 +67,16 @@ export async function GET(
       )
     }
 
+    // リアルタイム株価を取得
+    const realtimePrices = await fetchStockPrices([stock.tickerCode])
+    const currentPrice = realtimePrices[0]?.currentPrice ?? null
+
     // レスポンス整形
     const response = {
       stockId: stock.id,
       stockName: stock.name,
       tickerCode: stock.tickerCode,
-      currentPrice: stock.currentPrice ? Number(stock.currentPrice) : null,
+      currentPrice,
       recommendation: recommendation.recommendation,
       confidence: recommendation.confidence,
       reason: recommendation.reason,
@@ -143,7 +146,6 @@ export async function POST(
           tickerCode: true,
           name: true,
           sector: true,
-          currentPrice: true,
         },
       }),
       prisma.userSettings.findUnique({
@@ -290,8 +292,9 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 `
       : ""
 
-    // プロンプト構築
-    const currentPrice = stock.currentPrice ? Number(stock.currentPrice) : prices[0] ? Number(prices[0].close) : 0
+    // リアルタイム株価を取得
+    const realtimePricesPost = await fetchStockPrices([stock.tickerCode])
+    const currentPrice = realtimePricesPost[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
 
     // ユーザー設定のコンテキスト
     const periodMap: Record<string, string> = {

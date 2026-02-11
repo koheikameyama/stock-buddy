@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 /**
  * GET /api/passed-stocks/[id]
@@ -31,7 +32,6 @@ export async function GET(
             tickerCode: true,
             name: true,
             sector: true,
-            currentPrice: true,
           },
         },
       },
@@ -44,9 +44,9 @@ export async function GET(
       )
     }
 
-    const currentPrice = passedStock.stock.currentPrice
-      ? Number(passedStock.stock.currentPrice)
-      : null
+    // リアルタイム株価を取得
+    const prices = await fetchStockPrices([passedStock.stock.tickerCode])
+    const currentPrice = prices[0]?.currentPrice ?? null
     const passedPrice = Number(passedStock.passedPrice)
 
     // 現在の価格変動を計算

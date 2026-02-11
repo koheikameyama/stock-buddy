@@ -104,8 +104,7 @@ export async function POST(request: NextRequest) {
     const portfolioInfo = portfolioStocks
       .map((ps) => {
         const tickerKey = ps.stock.tickerCode.replace(".T", "")
-        const currentPrice = priceMap.get(tickerKey)
-          ?? (ps.stock.currentPrice ? Number(ps.stock.currentPrice) : 0)
+        const currentPrice = priceMap.get(tickerKey) ?? 0
         // Calculate from transactions
         const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
           ps.transactions
@@ -128,8 +127,7 @@ export async function POST(request: NextRequest) {
     const watchlistInfo = watchlistStocks
       .map((ws) => {
         const tickerKey = ws.stock.tickerCode.replace(".T", "")
-        const currentPrice = priceMap.get(tickerKey)
-          ?? (ws.stock.currentPrice ? Number(ws.stock.currentPrice) : 0)
+        const currentPrice = priceMap.get(tickerKey) ?? 0
 
         return `- ${ws.stock.name}（${ws.stock.tickerCode}）
   現在価格: ${currentPrice.toLocaleString()}円`

@@ -116,7 +116,6 @@ def get_portfolio_stocks(conn):
                 s."tickerCode",
                 s.name,
                 s.sector,
-                s."currentPrice",
                 s."marketCap",
                 s."dividendYield",
                 s.pbr,
@@ -197,7 +196,7 @@ def calculate_profit_loss(average_price, current_price, quantity):
     return profit, profit_percent
 
 
-def format_financial_metrics(stock):
+def format_financial_metrics(stock, current_price=None):
     """財務指標を初心者向けにフォーマット"""
     metrics = []
 
@@ -233,12 +232,11 @@ def format_financial_metrics(stock):
         else:
             metrics.append(f"- 株価水準: やや割高")
 
-    # 52週高値/安値との比較
-    if stock.get('fiftyTwoWeekHigh') and stock.get('fiftyTwoWeekLow') and stock.get('currentPrice'):
+    # 52週高値/安値との比較（リアルタイム価格を使用）
+    if stock.get('fiftyTwoWeekHigh') and stock.get('fiftyTwoWeekLow') and current_price:
         high = float(stock['fiftyTwoWeekHigh'])
         low = float(stock['fiftyTwoWeekLow'])
-        current = float(stock['currentPrice'])
-        position = (current - low) / (high - low) * 100 if high != low else 50
+        position = (current_price - low) / (high - low) * 100 if high != low else 50
         metrics.append(f"- 1年間の値動き: 高値{high:.0f}円〜安値{low:.0f}円（現在は{position:.0f}%の位置）")
 
     # スコア
@@ -257,7 +255,7 @@ def format_financial_metrics(stock):
     return "\n".join(metrics) if metrics else "財務データなし"
 
 
-def generate_portfolio_analysis(stock, recent_prices, related_news=None, time_context=None, investment_style=None):
+def generate_portfolio_analysis(stock, recent_prices, current_price=None, related_news=None, time_context=None, investment_style=None):
     """OpenAI APIを使ってポートフォリオ分析を生成"""
 
     # 時間帯に応じたプロンプト設定を取得
@@ -274,13 +272,12 @@ def generate_portfolio_analysis(stock, recent_prices, related_news=None, time_co
 ※ ユーザーの投資スタイルに合わせたアドバイスをしてください。"""
 
     average_price = float(stock['averagePurchasePrice'])
-    current_price = float(stock['currentPrice']) if stock['currentPrice'] else None
     quantity = stock['quantity']
 
     profit, profit_percent = calculate_profit_loss(average_price, current_price, quantity)
 
-    # 財務指標をフォーマット
-    financial_metrics = format_financial_metrics(stock)
+    # 財務指標をフォーマット（リアルタイム価格を渡す）
+    financial_metrics = format_financial_metrics(stock, current_price)
 
     # 売却目標情報をフォーマット
     target_info = ""
@@ -494,8 +491,15 @@ def main():
             # 直近価格取得（yfinanceから）
             recent_prices = get_recent_prices(stock['tickerCode'])
 
+            # リアルタイム株価を取得（recent_pricesの最新データから）
+            current_price = recent_prices[0]['close'] if recent_prices else None
+            if current_price:
+                print(f"Current price: {current_price:,.0f}円")
+            else:
+                print("⚠️  No price data available")
+
             # ポートフォリオ分析生成（ニュース付き、時間帯考慮、投資スタイル考慮）
-            analysis = generate_portfolio_analysis(stock, recent_prices, stock_news, TIME_CONTEXT, investment_style)
+            analysis = generate_portfolio_analysis(stock, recent_prices, current_price, stock_news, TIME_CONTEXT, investment_style)
 
             if not analysis:
                 print(f"❌ Failed to generate analysis for {stock['name']}")

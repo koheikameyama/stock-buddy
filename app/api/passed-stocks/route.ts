@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { MAX_PASSED_STOCKS_RETRIEVE, DEFAULT_INVESTMENT_BUDGET } from "@/lib/constants"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 /**
  * GET /api/passed-stocks
@@ -25,7 +26,6 @@ export async function GET(request: NextRequest) {
             tickerCode: true,
             name: true,
             sector: true,
-            currentPrice: true,
           },
         },
       },
@@ -33,9 +33,14 @@ export async function GET(request: NextRequest) {
       take: MAX_PASSED_STOCKS_RETRIEVE,
     })
 
+    // リアルタイム株価を取得
+    const tickerCodes = passedStocks.map((ps) => ps.stock.tickerCode)
+    const prices = await fetchStockPrices(tickerCodes)
+    const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
+
     // レスポンス整形
     const response = passedStocks.map((ps) => {
-      const currentPrice = ps.stock.currentPrice ? Number(ps.stock.currentPrice) : null
+      const currentPrice = priceMap.get(ps.stock.tickerCode) ?? null
       const passedPrice = Number(ps.passedPrice)
 
       // 現在の価格変動を計算
@@ -113,7 +118,7 @@ export async function POST(request: NextRequest) {
         id: true,
         tickerCode: true,
         name: true,
-        currentPrice: true,
+        sector: true,
       },
     })
 
@@ -124,9 +129,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!stock.currentPrice) {
+    // リアルタイム株価を取得
+    const prices = await fetchStockPrices([stock.tickerCode])
+    const currentPrice = prices[0]?.currentPrice
+
+    if (!currentPrice) {
       return NextResponse.json(
-        { error: "株価データがありません" },
+        { error: "株価データを取得できませんでした" },
         { status: 400 }
       )
     }
@@ -138,7 +147,7 @@ export async function POST(request: NextRequest) {
     })
 
     const budget = userSettings?.investmentBudget || DEFAULT_INVESTMENT_BUDGET
-    const passedPrice = Number(stock.currentPrice)
+    const passedPrice = currentPrice
     const whatIfQuantity = Math.floor(budget / passedPrice / 100) * 100 || 100
 
     // 見送り記録を作成
@@ -146,10 +155,10 @@ export async function POST(request: NextRequest) {
       data: {
         userId,
         stockId,
-        passedPrice: stock.currentPrice,
+        passedPrice,
         passedReason: passedReason || null,
         source: source || "watchlist",
-        currentPrice: stock.currentPrice,
+        currentPrice: passedPrice,
         priceChangePercent: 0,
         whatIfProfit: 0,
         whatIfQuantity,
@@ -162,7 +171,6 @@ export async function POST(request: NextRequest) {
             tickerCode: true,
             name: true,
             sector: true,
-            currentPrice: true,
           },
         },
       },
@@ -176,9 +184,7 @@ export async function POST(request: NextRequest) {
         tickerCode: passedStock.stock.tickerCode,
         name: passedStock.stock.name,
         sector: passedStock.stock.sector,
-        currentPrice: passedStock.stock.currentPrice
-          ? Number(passedStock.stock.currentPrice)
-          : null,
+        currentPrice: passedPrice,
       },
       passedAt: passedStock.passedAt.toISOString(),
       passedPrice: Number(passedStock.passedPrice),

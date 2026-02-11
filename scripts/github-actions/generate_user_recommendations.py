@@ -77,8 +77,7 @@ def get_stocks_with_prices(conn) -> List[Dict]:
                 s."tickerCode",
                 s.name,
                 s.sector,
-                s."beginnerScore",
-                s."currentPrice"
+                s."beginnerScore"
             FROM "Stock" s
             WHERE s."beginnerScore" IS NOT NULL
             ORDER BY s."beginnerScore" DESC
@@ -148,10 +147,9 @@ def filter_stocks_by_budget(stocks: List[Dict], budget: Optional[int]) -> List[D
 
     filtered = []
     for stock in stocks:
-        price = stock.get('latestPrice') or (float(stock['currentPrice']) if stock.get('currentPrice') else None)
+        price = stock.get('latestPrice')
         if price is None:
-            filtered.append(stock)  # 価格不明は含める
-            continue
+            continue  # 価格不明はスキップ
         if price * 100 <= budget:
             filtered.append(stock)
 

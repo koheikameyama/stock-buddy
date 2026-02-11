@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { UserStockResponse } from "../route"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 interface UpdateUserStockRequest {
   type?: "watchlist" | "portfolio"
@@ -107,7 +108,6 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
               name: true,
               sector: true,
               market: true,
-              currentPrice: true,
             },
           },
         },
@@ -128,6 +128,10 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
 
       return { portfolioStock: newPortfolioStock, transaction }
     })
+
+    // リアルタイム株価を取得
+    const prices = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
+    const currentPrice = prices[0]?.currentPrice ?? null
 
     const response: UserStockResponse = {
       id: result.portfolioStock.id,
@@ -152,9 +156,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
         name: result.portfolioStock.stock.name,
         sector: result.portfolioStock.stock.sector,
         market: result.portfolioStock.stock.market,
-        currentPrice: result.portfolioStock.stock.currentPrice
-          ? Number(result.portfolioStock.stock.currentPrice)
-          : null,
+        currentPrice,
       },
       createdAt: result.portfolioStock.createdAt.toISOString(),
       updatedAt: result.portfolioStock.updatedAt.toISOString(),
@@ -185,11 +187,14 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
             name: true,
             sector: true,
             market: true,
-            currentPrice: true,
           },
         },
       },
     })
+
+    // リアルタイム株価を取得
+    const watchlistPrices = await fetchStockPrices([newWatchlistStock.stock.tickerCode])
+    const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null
 
     const response: UserStockResponse = {
       id: newWatchlistStock.id,
@@ -202,9 +207,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
         name: newWatchlistStock.stock.name,
         sector: newWatchlistStock.stock.sector,
         market: newWatchlistStock.stock.market,
-        currentPrice: newWatchlistStock.stock.currentPrice
-          ? Number(newWatchlistStock.stock.currentPrice)
-          : null,
+        currentPrice: watchlistCurrentPrice,
       },
       createdAt: newWatchlistStock.createdAt.toISOString(),
       updatedAt: newWatchlistStock.updatedAt.toISOString(),
@@ -239,6 +242,10 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
   }
 
   if (watchlistStock) {
+    // リアルタイム株価を取得
+    const watchlistPrices = await fetchStockPrices([watchlistStock.stock.tickerCode])
+    const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null
+
     // Watchlist has no editable fields now, just return current data
     const response: UserStockResponse = {
       id: watchlistStock.id,
@@ -251,7 +258,7 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
         name: watchlistStock.stock.name,
         sector: watchlistStock.stock.sector,
         market: watchlistStock.stock.market,
-        currentPrice: watchlistStock.stock.currentPrice ? Number(watchlistStock.stock.currentPrice) : null,
+        currentPrice: watchlistCurrentPrice,
       },
       createdAt: watchlistStock.createdAt.toISOString(),
       updatedAt: watchlistStock.updatedAt.toISOString(),
@@ -259,6 +266,10 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
 
     return NextResponse.json(response)
   } else if (portfolioStock) {
+    // リアルタイム株価を取得
+    const portfolioPrices = await fetchStockPrices([portfolioStock.stock.tickerCode])
+    const portfolioCurrentPrice = portfolioPrices[0]?.currentPrice ?? null
+
     // Portfolio has no editable fields now (transactions are updated separately)
     const updated = portfolioStock
 
@@ -296,7 +307,7 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
         name: updated.stock.name,
         sector: updated.stock.sector,
         market: updated.stock.market,
-        currentPrice: updated.stock.currentPrice ? Number(updated.stock.currentPrice) : null,
+        currentPrice: portfolioCurrentPrice,
       },
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),

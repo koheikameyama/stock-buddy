@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 export async function GET(
   request: NextRequest,
@@ -28,7 +29,6 @@ export async function GET(
           select: {
             tickerCode: true,
             name: true,
-            currentPrice: true,
           },
         },
       },
@@ -41,11 +41,15 @@ export async function GET(
       )
     }
 
+    // リアルタイム株価を取得
+    const prices = await fetchStockPrices([analysis.stock.tickerCode])
+    const currentPrice = prices[0]?.currentPrice ?? null
+
     return NextResponse.json({
       stockId: analysis.stockId,
       stockName: analysis.stock.name,
       tickerCode: analysis.stock.tickerCode,
-      currentPrice: analysis.stock.currentPrice,
+      currentPrice,
       shortTerm: {
         trend: analysis.shortTermTrend,
         priceLow: analysis.shortTermPriceLow,

@@ -50,7 +50,6 @@ export async function getUserPortfolioStocksWithCalculations(userId: string) {
           name: true,
           sector: true,
           market: true,
-          currentPrice: true,
         },
       },
       transactions: {
