@@ -111,8 +111,7 @@ def get_portfolio_stocks(conn):
                 ps.id,
                 ps."userId",
                 ps."stockId",
-                ps."targetPrice",
-                ps."stopLossPrice",
+                ps."suggestedSellPrice",
                 s."tickerCode",
                 s.name,
                 s.sector,
@@ -279,29 +278,21 @@ def generate_portfolio_analysis(stock, recent_prices, current_price=None, relate
     # 財務指標をフォーマット（リアルタイム価格を渡す）
     financial_metrics = format_financial_metrics(stock, current_price)
 
-    # 売却目標情報をフォーマット
+    # AI提案の売却価格情報をフォーマット
     target_info = ""
-    target_price_val = stock.get('targetPrice')
-    stop_loss_price_val = stock.get('stopLossPrice')
-    if target_price_val or stop_loss_price_val:
-        target_parts = []
-        if target_price_val:
-            target_price = float(target_price_val)
-            if current_price and average_price and target_price > average_price:
-                progress = (current_price - average_price) / (target_price - average_price) * 100
-                progress = max(0, min(100, progress))
-            else:
-                progress = 0
-            target_parts.append(f"利確目標: {target_price:,.0f}円（達成度: {progress:.0f}%）")
-        if stop_loss_price_val:
-            stop_price = float(stop_loss_price_val)
-            warning = " ⚠️損切ライン割れ" if current_price and current_price < stop_price else ""
-            target_parts.append(f"損切ライン: {stop_price:,.0f}円{warning}")
+    suggested_sell_price = stock.get('suggestedSellPrice')
+    if suggested_sell_price:
+        sell_price = float(suggested_sell_price)
+        if current_price and average_price and sell_price > average_price:
+            progress = (current_price - average_price) / (sell_price - average_price) * 100
+            progress = max(0, min(100, progress))
+        else:
+            progress = 0
         target_info = f"""
 
-【ユーザーの売却目標設定】
-{chr(10).join('- ' + p for p in target_parts)}
-※ ユーザーが設定した目標です。この目標に対する進捗も考慮してアドバイスしてください。"""
+【AI提案の売却目標】
+- 提案売却価格: {sell_price:,.0f}円（達成度: {progress:.0f}%）
+※ AIが分析した売却目標です。この目標に対する進捗も考慮してアドバイスしてください。"""
 
     # ニュース情報をフォーマット
     news_context = ""
