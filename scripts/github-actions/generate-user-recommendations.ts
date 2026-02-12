@@ -24,8 +24,6 @@ const SESSION = process.env.SESSION || "for_next_day"
 
 // 絞り込み設定
 const CONFIG = {
-  // 初心者スコアの最低値
-  MIN_BEGINNER_SCORE: 50,
   // 出来高の最低値（流動性フィルタ）
   MIN_VOLUME: 100000,
   // 各セクターからの最大銘柄数
@@ -53,7 +51,6 @@ interface StockWithPrice {
   tickerCode: string
   name: string
   sector: string | null
-  beginnerScore: number
   latestPrice: number
   weekChangeRate: number
   volume: number
@@ -90,18 +87,15 @@ async function getUsersWithSettings(): Promise<UserWithSettings[]> {
 async function getStocksWithPrices(): Promise<StockWithPrice[]> {
   // 銘柄マスタを取得
   const stocks = await prisma.stock.findMany({
-    where: { beginnerScore: { gte: CONFIG.MIN_BEGINNER_SCORE } },
-    orderBy: { beginnerScore: "desc" },
     select: {
       id: true,
       tickerCode: true,
       name: true,
       sector: true,
-      beginnerScore: true,
     },
   })
 
-  console.log(`Found ${stocks.length} stocks with beginnerScore >= ${CONFIG.MIN_BEGINNER_SCORE}`)
+  console.log(`Found ${stocks.length} stocks`)
   if (stocks.length === 0) return []
 
   const stocksWithPrices: StockWithPrice[] = []
@@ -140,7 +134,6 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
         tickerCode: stock.tickerCode,
         name: stock.name,
         sector: stock.sector,
-        beginnerScore: stock.beginnerScore!,
         latestPrice: latest,
         weekChangeRate: Math.round(changeRate * 10) / 10,
         volume,
@@ -196,7 +189,8 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
   const sectorCounts = new Map<string, number>()
   const diversifiedStocks: StockWithPrice[] = []
 
-  stocksWithPrices.sort((a, b) => b.beginnerScore - a.beginnerScore)
+  // 出来高順でソート（流動性が高い銘柄を優先）
+  stocksWithPrices.sort((a, b) => b.volume - a.volume)
 
   for (const stock of stocksWithPrices) {
     const sector = stock.sector || "その他"
@@ -243,7 +237,7 @@ async function generateRecommendationsForUser(
   const stockList = stocks.slice(0, CONFIG.MAX_STOCKS_FOR_AI)
   const stockSummaries = stockList.map(
     (s) =>
-      `- ${s.name}（${s.tickerCode}）: 株価${s.latestPrice.toLocaleString()}円, 1週間${s.weekChangeRate >= 0 ? "+" : ""}${s.weekChangeRate}%, スコア${s.beginnerScore}点, ${s.sector || "不明"}`
+      `- ${s.name}（${s.tickerCode}）: 株価${s.latestPrice.toLocaleString()}円, 1週間${s.weekChangeRate >= 0 ? "+" : ""}${s.weekChangeRate}%, ${s.sector || "不明"}`
   )
 
   const prompt = `あなたは投資初心者を優しくサポートするAIコーチです。
@@ -362,7 +356,6 @@ async function main(): Promise<void> {
   console.log(`Time: ${new Date().toISOString()}`)
   console.log(`Session: ${SESSION}`)
   console.log(`Config:`)
-  console.log(`  - MIN_BEGINNER_SCORE: ${CONFIG.MIN_BEGINNER_SCORE}`)
   console.log(`  - MIN_VOLUME: ${CONFIG.MIN_VOLUME.toLocaleString()}`)
   console.log(`  - MAX_PER_SECTOR: ${CONFIG.MAX_PER_SECTOR}`)
   console.log(`  - MIN_WEEK_CHANGE: ${CONFIG.MIN_WEEK_CHANGE}%`)
