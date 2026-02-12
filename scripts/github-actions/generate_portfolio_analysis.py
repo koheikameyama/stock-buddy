@@ -306,7 +306,7 @@ def generate_portfolio_analysis(stock, recent_prices, current_price=None, relate
     # プロンプト構築
     prompt = f"""あなたは投資初心者向けのAIコーチです。
 {prompts['intro']}
-以下の保有銘柄について、売買判断をしてください。
+以下の保有銘柄について、売買判断と感情コーチングを提供してください。
 
 【銘柄情報】
 - 名前: {stock['name']}
@@ -329,7 +329,12 @@ def generate_portfolio_analysis(stock, recent_prices, current_price=None, relate
 {{
   "shortTerm": "{prompts['shortTerm']}（ニュース情報があれば参考にする）",
   "mediumTerm": "{prompts['mediumTerm']}（ニュース情報があれば参考にする）",
-  "longTerm": "{prompts['longTerm']}（ニュース情報があれば参考にする）"
+  "longTerm": "{prompts['longTerm']}（ニュース情報があれば参考にする）",
+  "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
+  "simpleStatus": "現状を一言で表すステータス（好調/順調/様子見/注意/要確認のいずれか）",
+  "statusType": "ステータスの種類（excellent/good/neutral/caution/warningのいずれか）",
+  "suggestedSellPrice": "具体的な売却目標価格（数値のみ、円単位）",
+  "sellCondition": "売却の条件や考え方（例：「+10%で半分利確、決算発表後に全売却検討」）"
 }}
 
 【判断の指針】
@@ -340,10 +345,24 @@ def generate_portfolio_analysis(stock, recent_prices, current_price=None, relate
 - shortTerm: 「売り時」「保持」「買い増し時」のいずれかの判断を含める
 - mediumTerm: 今月の見通しと推奨行動を含める
 - longTerm: 今後3ヶ月の成長性と投資継続の判断を含める
+- suggestedSellPrice: 現在の株価、財務指標、損益状況を考慮した具体的な売却目標価格を提案
+- sellCondition: 「○○円で売る」だけでなく「なぜその価格か」「どんな条件で判断すべきか」を含める
 - 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
 - 「成長性」「安定性」「割安」「割高」のような平易な言葉を使う
 - 中学生でも理解できる表現にする
 - 損益状況と財務指標を考慮した実践的なアドバイスを含める
+
+【感情コーチングの指針】
+- 損益がマイナスの場合: 「株価は上下するもの」「長期で見れば」など安心感を与える
+- 損益がプラスの場合: 「利確も検討しましょう」「欲張りすぎないことも大切」など冷静さを促す
+- 横ばいの場合: 「焦らず見守りましょう」など落ち着きを与える
+
+【ステータスの指針】
+- 好調（excellent）: 利益率 +10%以上
+- 順調（good）: 利益率 0%〜+10%
+- 様子見（neutral）: 利益率 -5%〜0%
+- 注意（caution）: 利益率 -10%〜-5%
+- 要確認（warning）: 利益率 -10%以下
 """
 
     try:
@@ -363,10 +382,17 @@ def generate_portfolio_analysis(stock, recent_prices, current_price=None, relate
         result = json.loads(content)
 
         # バリデーション
-        required_fields = ["shortTerm", "mediumTerm", "longTerm"]
+        required_fields = ["shortTerm", "mediumTerm", "longTerm", "emotionalCoaching", "simpleStatus", "statusType"]
         for field in required_fields:
             if field not in result:
                 raise ValueError(f"Missing required field: {field}")
+
+        # suggestedSellPriceを数値に変換（文字列で返ってくる場合があるため）
+        if result.get("suggestedSellPrice"):
+            try:
+                result["suggestedSellPrice"] = float(str(result["suggestedSellPrice"]).replace(",", ""))
+            except (ValueError, TypeError):
+                result["suggestedSellPrice"] = None
 
         return result
     except json.JSONDecodeError as e:
@@ -392,6 +418,11 @@ def save_portfolio_analysis(conn, portfolio_stock_id, analysis_data):
                 "shortTerm" = %s,
                 "mediumTerm" = %s,
                 "longTerm" = %s,
+                "emotionalCoaching" = %s,
+                "simpleStatus" = %s,
+                "statusType" = %s,
+                "suggestedSellPrice" = %s,
+                "sellCondition" = %s,
                 "updatedAt" = NOW()
             WHERE id = %s
         """, (
@@ -399,6 +430,11 @@ def save_portfolio_analysis(conn, portfolio_stock_id, analysis_data):
             analysis_data["shortTerm"],
             analysis_data["mediumTerm"],
             analysis_data["longTerm"],
+            analysis_data["emotionalCoaching"],
+            analysis_data["simpleStatus"],
+            analysis_data["statusType"],
+            analysis_data.get("suggestedSellPrice"),
+            analysis_data.get("sellCondition"),
             portfolio_stock_id,
         ))
 
@@ -501,6 +537,8 @@ def main():
             print(f"Short-term: {analysis['shortTerm'][:50]}...")
             print(f"Medium-term: {analysis['mediumTerm'][:50]}...")
             print(f"Long-term: {analysis['longTerm'][:50]}...")
+            print(f"Status: {analysis['simpleStatus']} ({analysis['statusType']})")
+            print(f"Emotional coaching: {analysis['emotionalCoaching'][:50]}...")
 
             # データベース保存
             if save_portfolio_analysis(conn, stock['id'], analysis):
