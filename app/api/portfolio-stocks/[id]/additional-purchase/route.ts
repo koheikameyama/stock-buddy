@@ -35,7 +35,7 @@ export async function POST(
 
     // リクエストボディを取得
     const body = await request.json()
-    const { type = "buy", quantity, price, purchaseDate, note } = body
+    const { type = "buy", quantity, price, purchaseDate } = body
 
     // typeのバリデーション
     if (type !== "buy" && type !== "sell") {
@@ -117,7 +117,6 @@ export async function POST(
         price: new Decimal(price),
         totalAmount: new Decimal(quantity).times(price),
         transactionDate: new Date(purchaseDate),
-        note,
       },
     })
 
@@ -169,7 +168,6 @@ export async function POST(
         price: t.price.toNumber(),
         totalAmount: t.totalAmount.toNumber(),
         transactionDate: t.transactionDate.toISOString(),
-        note: t.note,
       })),
       stock: {
         id: result.stock.id,

@@ -9,7 +9,6 @@ interface Transaction {
   price: number
   totalAmount: number
   transactionDate: string
-  note: string | null
 }
 
 interface EditTransactionDialogProps {
@@ -32,7 +31,6 @@ export default function EditTransactionDialog({
   const [transactionDate, setTransactionDate] = useState(
     new Date(transaction.transactionDate).toISOString().split("T")[0]
   )
-  const [note, setNote] = useState(transaction.note || "")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,7 +41,6 @@ export default function EditTransactionDialog({
     setTransactionDate(
       new Date(transaction.transactionDate).toISOString().split("T")[0]
     )
-    setNote(transaction.note || "")
     setError(null)
   }, [transaction])
 
@@ -62,7 +59,6 @@ export default function EditTransactionDialog({
           quantity: parseInt(quantity),
           price: parseFloat(price),
           transactionDate: transactionDate,
-          note: note || null,
         }),
       })
 
@@ -215,24 +211,6 @@ export default function EditTransactionDialog({
               onChange={(e) => setTransactionDate(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
-            />
-          </div>
-
-          {/* Note */}
-          <div>
-            <label
-              htmlFor="note"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
-              メモ（オプション）
-            </label>
-            <input
-              type="text"
-              id="note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="メモを入力"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 

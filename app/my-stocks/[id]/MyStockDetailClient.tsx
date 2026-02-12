@@ -20,7 +20,6 @@ interface Transaction {
   price: number
   totalAmount: number
   transactionDate: string
-  note: string | null
 }
 
 interface Stock {
@@ -409,9 +408,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                           <p className="text-sm font-semibold text-gray-900">
                             {new Date(transaction.transactionDate).toLocaleDateString("ja-JP")}
                           </p>
-                          {transaction.note && (
-                            <p className="text-xs text-gray-500">{transaction.note}</p>
-                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

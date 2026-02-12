@@ -106,7 +106,6 @@ export async function GET() {
             price: t.price.toNumber(),
             totalAmount: t.totalAmount.toNumber(),
             transactionDate: t.transactionDate.toISOString(),
-            note: t.note,
           })),
         }
       })

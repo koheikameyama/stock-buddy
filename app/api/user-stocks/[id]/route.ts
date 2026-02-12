@@ -148,7 +148,6 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
         price: result.transaction.price.toNumber(),
         totalAmount: result.transaction.totalAmount.toNumber(),
         transactionDate: result.transaction.transactionDate.toISOString(),
-        note: result.transaction.note,
       }],
       stock: {
         id: result.portfolioStock.stock.id,
@@ -299,7 +298,6 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
         price: t.price.toNumber(),
         totalAmount: t.totalAmount.toNumber(),
         transactionDate: t.transactionDate.toISOString(),
-        note: t.note,
       })),
       stock: {
         id: updated.stock.id,

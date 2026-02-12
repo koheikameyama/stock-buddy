@@ -7,7 +7,6 @@ interface UpdateTransactionRequest {
   quantity?: number
   price?: number
   transactionDate?: string
-  note?: string | null
 }
 
 /**
@@ -26,7 +25,7 @@ export async function PATCH(
 
     const { id } = await params
     const body: UpdateTransactionRequest = await request.json()
-    const { quantity, price, transactionDate, note } = body
+    const { quantity, price, transactionDate } = body
 
     // Transactionを取得
     const transaction = await prisma.transaction.findUnique({
@@ -70,7 +69,6 @@ export async function PATCH(
       price?: Decimal
       totalAmount?: Decimal
       transactionDate?: Date
-      note?: string | null
     } = {}
 
     if (quantity !== undefined) {
@@ -90,10 +88,6 @@ export async function PATCH(
       updateData.transactionDate = new Date(transactionDate)
     }
 
-    if (note !== undefined) {
-      updateData.note = note
-    }
-
     // Transactionを更新
     const updatedTransaction = await prisma.transaction.update({
       where: { id },
@@ -107,7 +101,6 @@ export async function PATCH(
       price: updatedTransaction.price.toNumber(),
       totalAmount: updatedTransaction.totalAmount.toNumber(),
       transactionDate: updatedTransaction.transactionDate.toISOString(),
-      note: updatedTransaction.note,
     })
   } catch (error) {
     console.error("Transaction update error:", error)

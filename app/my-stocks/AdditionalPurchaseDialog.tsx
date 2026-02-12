@@ -10,7 +10,6 @@ interface UserStock {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
-  note?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -43,7 +42,6 @@ export default function AdditionalPurchaseDialog({
   const [transactionDate, setTransactionDate] = useState(
     new Date().toISOString().split("T")[0]
   )
-  const [note, setNote] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -55,7 +53,6 @@ export default function AdditionalPurchaseDialog({
       setQuantity("")
       setPrice("")
       setTransactionDate(new Date().toISOString().split("T")[0])
-      setNote("")
       setError(null)
     }
   }, [isOpen, transactionType])
@@ -94,7 +91,6 @@ export default function AdditionalPurchaseDialog({
         quantity: qty,
         price: parseFloat(price),
         purchaseDate: transactionDate,
-        note: note || undefined,
       }
 
       const response = await fetch(`/api/portfolio-stocks/${stock.id}/additional-purchase`, {
@@ -260,23 +256,6 @@ export default function AdditionalPurchaseDialog({
               onChange={(e) => setTransactionDate(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="note"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
-              メモ（任意）
-            </label>
-            <textarea
-              id="note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={isBuy ? "購入理由や注意点などを記録できます" : "売却理由などを記録できます"}
-              rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
           </div>
 

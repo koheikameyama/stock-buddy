@@ -98,7 +98,6 @@ export default async function MyStockDetailPage({
       price: Number(t.price),
       totalAmount: Number(t.totalAmount),
       transactionDate: t.transactionDate.toISOString(),
-      note: t.note,
     })),
     // Stock info
     stock: {

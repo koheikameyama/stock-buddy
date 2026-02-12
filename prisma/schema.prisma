@@ -313,9 +313,6 @@ model Transaction {
   totalAmount     Decimal  @db.Decimal(15, 2)
   transactionDate DateTime
 
-  // オプション
-  note String? @db.Text
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

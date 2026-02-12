@@ -38,7 +38,6 @@ export interface UserStockResponse {
     price: number
     totalAmount: number
     transactionDate: string
-    note: string | null
   }[]
   stock: {
     id: string
@@ -196,7 +195,6 @@ export async function GET(request: NextRequest) {
           price: t.price.toNumber(),
           totalAmount: t.totalAmount.toNumber(),
           transactionDate: t.transactionDate.toISOString(),
-          note: t.note,
         })),
         stock: {
           id: ps.stock.id,
@@ -230,8 +228,8 @@ export async function GET(request: NextRequest) {
  * Body:
  * - tickerCode: string (required)
  * - type: "watchlist" | "portfolio" (required)
- * - watchlist: addedReason?, note?
- * - portfolio: quantity, averagePurchasePrice, purchaseDate?, note?
+ * - watchlist: addedReason?
+ * - portfolio: quantity, averagePurchasePrice, purchaseDate?
  */
 export async function POST(request: NextRequest) {
   try {
@@ -481,7 +479,6 @@ export async function POST(request: NextRequest) {
           price: Decimal
           totalAmount: Decimal
           transactionDate: Date
-          note: string | null
         }
         allTransactions: {
           id: string
@@ -490,7 +487,6 @@ export async function POST(request: NextRequest) {
           price: Decimal
           totalAmount: Decimal
           transactionDate: Date
-          note: string | null
         }[]
       }
 
@@ -612,7 +608,6 @@ export async function POST(request: NextRequest) {
           transactionDate: t.transactionDate instanceof Date
             ? t.transactionDate.toISOString()
             : t.transactionDate,
-          note: t.note,
         })),
         stock: {
           id: result.portfolioStock.stock.id,
