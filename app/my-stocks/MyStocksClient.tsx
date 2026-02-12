@@ -610,7 +610,6 @@ export default function MyStocksClient() {
                 </div>
               ) : soldStocks.length === 0 ? (
                 <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📈</div>
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                     保有してた銘柄はありません
                   </h3>
@@ -664,7 +663,6 @@ export default function MyStocksClient() {
 
               {displayStocks.length === 0 ? (
                 <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📊</div>
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                     {activeTab === "portfolio" ? "保有銘柄がありません" : "気になる銘柄がありません"}
                   </h3>
