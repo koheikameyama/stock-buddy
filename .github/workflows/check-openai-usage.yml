@@ -18,15 +18,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
+          node-version: '20'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
+      - name: Install tsx
+        run: npm install -g tsx
 
       - name: Check OpenAI API usage and notify Slack
         env:
@@ -35,4 +33,4 @@ jobs:
           OPENAI_SLACK_WEBHOOK_URL: ${{ secrets.OPENAI_SLACK_WEBHOOK_URL }}
           MONTHLY_BUDGET_USD: ${{ secrets.MONTHLY_BUDGET_USD }}
         run: |
-          python scripts/github-actions/check_openai_usage.py
+          npx tsx scripts/github-actions/check-openai-usage.ts
