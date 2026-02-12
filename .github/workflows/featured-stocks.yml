@@ -55,13 +55,13 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install yfinance psycopg2-binary openai
+        run: pip install yfinance psycopg2-binary openai numpy
 
-      - name: Fetch stock prices
+      - name: Fetch stock prices (candidates only)
         if: steps.session.outputs.session != 'morning'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/github-actions/fetch_stock_prices.py
+        run: python scripts/github-actions/fetch_stock_prices.py --candidates-only
 
       - name: Generate user recommendations
         env:
