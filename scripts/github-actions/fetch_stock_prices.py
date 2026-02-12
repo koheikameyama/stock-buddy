@@ -47,7 +47,8 @@ def fetch_stocks(conn) -> list[dict]:
 def fetch_price_data(ticker_code: str) -> dict | None:
     """yfinanceで株価データを取得"""
     try:
-        symbol = f"{ticker_code}.T"
+        # 既に.Tサフィックスがある場合はそのまま使用
+        symbol = ticker_code if ticker_code.endswith(".T") else f"{ticker_code}.T"
         ticker = yf.Ticker(symbol)
 
         # 過去1ヶ月のデータを取得
