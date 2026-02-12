@@ -7,6 +7,7 @@
 import { exec } from "child_process"
 import { promisify } from "util"
 import path from "path"
+import fs from "fs"
 
 const execAsync = promisify(exec)
 
@@ -71,6 +72,15 @@ export async function fetchStockPrices(
     const scriptPath = getPythonScriptPath("fetch_stock_prices.py")
     const tickerArg = normalizedCodes.join(",")
 
+    // スクリプトの存在確認
+    if (!fs.existsSync(scriptPath)) {
+      console.error("Python script not found:", scriptPath)
+      console.error("Current working directory:", process.cwd())
+      return []
+    }
+
+    console.log("Executing Python script:", scriptPath)
+
     const { stdout, stderr } = await execAsync(
       `python3 "${scriptPath}" "${tickerArg}"`,
       { timeout: 60000 }
@@ -109,6 +119,13 @@ export async function fetchHistoricalPrices(
     const yfinancePeriod = period === "1m" ? "1mo" : period === "3m" ? "3mo" : "1y"
 
     const scriptPath = getPythonScriptPath("fetch_historical_prices.py")
+
+    // スクリプトの存在確認
+    if (!fs.existsSync(scriptPath)) {
+      console.error("Python script not found:", scriptPath)
+      console.error("Current working directory:", process.cwd())
+      return []
+    }
 
     const { stdout, stderr } = await execAsync(
       `python3 "${scriptPath}" "${normalizedCode}" "${yfinancePeriod}"`,
