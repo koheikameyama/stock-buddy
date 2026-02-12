@@ -33,8 +33,13 @@ export interface HistoricalPrice {
 
 /**
  * ティッカーコードを正規化（.T サフィックスを確実に付与）
+ * インデックス（^で始まる）はそのまま返す
  */
 function normalizeTickerCode(ticker: string): string {
+  // インデックス（^N225など）はそのまま返す
+  if (ticker.startsWith("^")) {
+    return ticker
+  }
   const code = ticker.replace(/\.T$/i, "")
   return `${code}.T`
 }

@@ -6,6 +6,7 @@ import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
+import NikkeiSummary from "./NikkeiSummary"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -156,6 +157,9 @@ export default async function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* 日経平均株価 */}
+          <NikkeiSummary />
 
           {/* マイ銘柄へのリンク */}
           <Link

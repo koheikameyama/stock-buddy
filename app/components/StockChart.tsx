@@ -62,6 +62,11 @@ interface PatternsData {
   combined: CombinedSignal
 }
 
+interface NikkeiHistoricalData {
+  date: string
+  close: number
+}
+
 interface StockChartProps {
   stockId: string
 }
@@ -77,6 +82,9 @@ export default function StockChart({ stockId }: StockChartProps) {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"price" | "rsi" | "macd">("price")
   const [showLearning, setShowLearning] = useState(false)
+  const [showNikkeiComparison, setShowNikkeiComparison] = useState(false)
+  const [nikkeiData, setNikkeiData] = useState<NikkeiHistoricalData[]>([])
+  const [nikkeiLoading, setNikkeiLoading] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -102,6 +110,48 @@ export default function StockChart({ stockId }: StockChartProps) {
 
     fetchData()
   }, [stockId, period])
+
+  // 日経平均データの取得
+  useEffect(() => {
+    if (!showNikkeiComparison) return
+
+    async function fetchNikkeiData() {
+      setNikkeiLoading(true)
+      try {
+        const response = await fetch(`/api/market/nikkei/historical?period=${period}`)
+        if (response.ok) {
+          const result = await response.json()
+          setNikkeiData(result.prices)
+        }
+      } catch (err) {
+        console.error("Error fetching Nikkei data:", err)
+      } finally {
+        setNikkeiLoading(false)
+      }
+    }
+
+    fetchNikkeiData()
+  }, [showNikkeiComparison, period])
+
+  // 騰落率ベースの比較データを計算
+  const comparisonData = showNikkeiComparison && data.length > 0 && nikkeiData.length > 0
+    ? data.map((d) => {
+        const stockBasePrice = data[0].close
+        const stockChangePercent = ((d.close - stockBasePrice) / stockBasePrice) * 100
+
+        const nikkeiPoint = nikkeiData.find((n) => n.date === d.date)
+        const nikkeiBasePrice = nikkeiData[0]?.close || 1
+        const nikkeiChangePercent = nikkeiPoint
+          ? ((nikkeiPoint.close - nikkeiBasePrice) / nikkeiBasePrice) * 100
+          : null
+
+        return {
+          ...d,
+          stockChangePercent,
+          nikkeiChangePercent,
+        }
+      })
+    : null
 
   const periodLabels: Record<Period, string> = {
     "1m": "1ヶ月",
@@ -233,6 +283,96 @@ export default function StockChart({ stockId }: StockChartProps) {
       {/* Price Chart - Candlestick */}
       {activeTab === "price" && (
         <>
+          {/* 日経平均比較トグル */}
+          <div className="flex items-center justify-end mb-3">
+            <button
+              onClick={() => setShowNikkeiComparison(!showNikkeiComparison)}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                showNikkeiComparison
+                  ? "bg-orange-100 text-orange-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <span className="w-3 h-3 rounded-full border-2 flex items-center justify-center" style={{
+                borderColor: showNikkeiComparison ? "#f97316" : "#9ca3af",
+              }}>
+                {showNikkeiComparison && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                )}
+              </span>
+              日経平均と比較
+              {nikkeiLoading && <span className="ml-1 animate-spin">⏳</span>}
+            </button>
+          </div>
+
+          {/* 比較チャート（騰落率ベース） */}
+          {showNikkeiComparison && comparisonData ? (
+            <div className="h-64 sm:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={comparisonData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatDate}
+                    tick={{ fontSize: 11 }}
+                    stroke="#9ca3af"
+                  />
+                  <YAxis
+                    tickFormatter={(v) => `${v > 0 ? "+" : ""}${v.toFixed(0)}%`}
+                    tick={{ fontSize: 11 }}
+                    stroke="#9ca3af"
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const stockChange = payload.find((p) => p.dataKey === "stockChangePercent")?.value as number
+                        const nikkeiChange = payload.find((p) => p.dataKey === "nikkeiChangePercent")?.value as number | null
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                            <p className="font-medium text-gray-900 mb-2">{label}</p>
+                            <p className="text-blue-600">
+                              この銘柄: {stockChange >= 0 ? "+" : ""}{stockChange?.toFixed(2)}%
+                            </p>
+                            {nikkeiChange !== null && (
+                              <p className="text-orange-600">
+                                日経平均: {nikkeiChange >= 0 ? "+" : ""}{nikkeiChange?.toFixed(2)}%
+                              </p>
+                            )}
+                            {nikkeiChange !== null && (
+                              <p className={`mt-1 pt-1 border-t border-gray-100 font-medium ${
+                                stockChange > nikkeiChange ? "text-green-600" : "text-red-600"
+                              }`}>
+                                差: {stockChange - nikkeiChange >= 0 ? "+" : ""}{(stockChange - nikkeiChange).toFixed(2)}%
+                              </p>
+                            )}
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                  <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                  <Line
+                    type="monotone"
+                    dataKey="stockChangePercent"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    dot={false}
+                    name="この銘柄"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="nikkeiChangePercent"
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    dot={false}
+                    name="日経平均"
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
           <div className="h-64 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
@@ -339,6 +479,21 @@ export default function StockChart({ stockId }: StockChartProps) {
               </ComposedChart>
             </ResponsiveContainer>
           </div>
+          )}
+
+          {/* 比較チャートの凡例 */}
+          {showNikkeiComparison && comparisonData && (
+            <div className="flex items-center justify-center gap-4 mt-2 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-0.5 bg-blue-600"></div>
+                <span className="text-gray-600">この銘柄</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-0.5 bg-orange-500"></div>
+                <span className="text-gray-600">日経平均</span>
+              </div>
+            </div>
+          )}
 
           {/* Pattern Summary */}
           {patterns?.latest && (

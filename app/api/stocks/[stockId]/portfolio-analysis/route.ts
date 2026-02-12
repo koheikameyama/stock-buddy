@@ -257,6 +257,32 @@ export async function POST(
 
     const financialMetrics = metrics.length > 0 ? metrics.join("\n") : "財務データなし"
 
+    // 日経平均の市場文脈を取得
+    let marketContext = ""
+    try {
+      const nikkeiPrices = await fetchStockPrices(["^N225"])
+      if (nikkeiPrices.length > 0) {
+        const nikkei = nikkeiPrices[0]
+
+        // 1週間の変動率を計算
+        const nikkeiHistorical = await fetchHistoricalPrices("^N225", "1m")
+        let weeklyChangePercent: number | null = null
+        if (nikkeiHistorical.length >= 5) {
+          const oneWeekAgo = nikkeiHistorical[Math.max(0, nikkeiHistorical.length - 6)]
+          weeklyChangePercent = ((nikkei.currentPrice - oneWeekAgo.close) / oneWeekAgo.close) * 100
+        }
+
+        marketContext = `
+
+【市場全体の状況】
+- 日経平均: ${Math.round(nikkei.currentPrice).toLocaleString()}円（前日比 ${nikkei.change >= 0 ? "+" : ""}${Math.round(nikkei.change).toLocaleString()}円、${nikkei.changePercent >= 0 ? "+" : ""}${nikkei.changePercent.toFixed(2)}%）
+${weeklyChangePercent !== null ? `- 直近1週間: ${weeklyChangePercent >= 0 ? "+" : ""}${weeklyChangePercent.toFixed(2)}%` : ""}
+※ 市場全体の動きと比較して、この銘柄がどう動いているかも考慮してアドバイスしてください。`
+      }
+    } catch (error) {
+      console.error("Error fetching Nikkei context:", error)
+    }
+
     // プロンプト構築
     const prompt = `あなたは投資初心者向けのAIコーチです。
 以下の保有銘柄について、売買判断と感情コーチングを提供してください。
@@ -275,7 +301,8 @@ ${financialMetrics}
 
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${newsContext}
+${newsContext}${marketContext}
+
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 

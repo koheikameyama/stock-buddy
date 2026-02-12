@@ -13,7 +13,7 @@ import OpenAI from "openai"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import { getRelatedNews, formatNewsForPrompt } from "../lib/news-fetcher"
-import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
+import { fetchHistoricalPrices, fetchStockPrices } from "../../lib/stock-price-fetcher"
 
 dayjs.extend(utc)
 
@@ -52,6 +52,44 @@ interface PriceData {
   date: string
   close: number
   volume: number
+}
+
+interface NikkeiContext {
+  currentPrice: number
+  previousClose: number
+  change: number
+  changePercent: number
+  weeklyChangePercent: number | null
+}
+
+async function getNikkeiContext(): Promise<NikkeiContext | null> {
+  try {
+    // 現在価格を取得
+    const prices = await fetchStockPrices(["^N225"])
+    if (prices.length === 0) return null
+
+    const nikkei = prices[0]
+
+    // 1週間の変動率を計算
+    const historicalData = await fetchHistoricalPrices("^N225", "1m")
+    let weeklyChangePercent: number | null = null
+
+    if (historicalData.length >= 5) {
+      const oneWeekAgo = historicalData[Math.max(0, historicalData.length - 6)]
+      weeklyChangePercent = ((nikkei.currentPrice - oneWeekAgo.close) / oneWeekAgo.close) * 100
+    }
+
+    return {
+      currentPrice: nikkei.currentPrice,
+      previousClose: nikkei.previousClose,
+      change: nikkei.change,
+      changePercent: nikkei.changePercent,
+      weeklyChangePercent,
+    }
+  } catch (error) {
+    console.error("Error fetching Nikkei context:", error)
+    return null
+  }
 }
 
 interface PortfolioStockWithDetails {
@@ -208,7 +246,8 @@ async function generatePortfolioAnalysis(
   recentPrices: PriceData[],
   currentPrice: number | null,
   relatedNews: Awaited<ReturnType<typeof getRelatedNews>>,
-  investmentStyle: string | null
+  investmentStyle: string | null,
+  nikkeiContext: NikkeiContext | null
 ): Promise<AnalysisResult | null> {
   const prompts = TIME_CONTEXT_PROMPTS[TIME_CONTEXT] || TIME_CONTEXT_PROMPTS.morning
 
@@ -248,6 +287,16 @@ ${formatNewsForPrompt(relatedNews)}
 `
       : ""
 
+  // 市場全体の文脈
+  const marketContext = nikkeiContext
+    ? `
+
+【市場全体の状況】
+- 日経平均: ${Math.round(nikkeiContext.currentPrice).toLocaleString()}円（前日比 ${nikkeiContext.change >= 0 ? "+" : ""}${Math.round(nikkeiContext.change).toLocaleString()}円、${nikkeiContext.changePercent >= 0 ? "+" : ""}${nikkeiContext.changePercent.toFixed(2)}%）
+${nikkeiContext.weeklyChangePercent !== null ? `- 直近1週間: ${nikkeiContext.weeklyChangePercent >= 0 ? "+" : ""}${nikkeiContext.weeklyChangePercent.toFixed(2)}%` : ""}
+※ 市場全体の動きと比較して、この銘柄がどう動いているかも考慮してアドバイスしてください。`
+    : ""
+
   const profitLabel =
     profit !== null && profitPercent !== null
       ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)`
@@ -271,7 +320,8 @@ ${financialMetrics}
 
 【株価データ】
 直近30日の終値: ${recentPrices.length}件のデータあり
-${newsContext}
+${newsContext}${marketContext}
+
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -429,6 +479,15 @@ async function main(): Promise<void> {
     const allNews = await getRelatedNews(prisma, tickerCodes, sectors, 20, 7)
     console.log(`Found ${allNews.length} related news articles`)
 
+    // 日経平均の市場文脈を取得（全銘柄で共通）
+    console.log("Fetching Nikkei 225 market context...")
+    const nikkeiContext = await getNikkeiContext()
+    if (nikkeiContext) {
+      console.log(`Nikkei 225: ${nikkeiContext.currentPrice.toLocaleString()} (${nikkeiContext.changePercent >= 0 ? "+" : ""}${nikkeiContext.changePercent.toFixed(2)}%)`)
+    } else {
+      console.log("Warning: Could not fetch Nikkei 225 context")
+    }
+
     let successCount = 0
     let errorCount = 0
 
@@ -503,7 +562,8 @@ async function main(): Promise<void> {
         recentPrices,
         currentPrice,
         stockNews,
-        investmentStyle
+        investmentStyle,
+        nikkeiContext
       )
 
       if (!analysis) {
