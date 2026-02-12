@@ -106,37 +106,36 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
 
   const stocksWithPrices: StockWithPrice[] = []
 
-  // 逐次処理（yfinanceのSQLiteクッキー競合を回避）
-  console.log(`Fetching prices for ${stocks.length} stocks (sequential)...`)
+  // 並列数制限付きキュー（yfinanceのSQLiteクッキー競合を回避しつつ高速化）
+  const CONCURRENCY = 5
+  const DELAY_BETWEEN_START = 100 // ms
 
-  for (let i = 0; i < stocks.length; i++) {
-    const stock = stocks[i]
+  console.log(`Fetching prices for ${stocks.length} stocks (concurrency: ${CONCURRENCY})...`)
 
-    if ((i + 1) % 20 === 0) {
-      console.log(`  Progress: ${i + 1}/${stocks.length}`)
-    }
+  let completed = 0
 
+  const processStock = async (stock: (typeof stocks)[0]): Promise<StockWithPrice | null> => {
     try {
       const historicalData = await fetchHistoricalPrices(stock.tickerCode, "1m")
 
-      if (!historicalData || historicalData.length < 2) continue
+      if (!historicalData || historicalData.length < 2) return null
 
       const sorted = [...historicalData].sort((a, b) => b.date.localeCompare(a.date))
 
       const latest = sorted[0]?.close
       const weekAgo = sorted.length >= 5 ? sorted[4]?.close : sorted[sorted.length - 1]?.close
-      if (!latest || !weekAgo) continue
+      if (!latest || !weekAgo) return null
 
       const changeRate = ((latest - weekAgo) / weekAgo) * 100
 
       // 下落トレンドフィルタ
-      if (changeRate < CONFIG.MIN_WEEK_CHANGE) continue
+      if (changeRate < CONFIG.MIN_WEEK_CHANGE) return null
 
       // 出来高フィルタ
       const volume = sorted[0]?.volume || 0
-      if (volume < CONFIG.MIN_VOLUME) continue
+      if (volume < CONFIG.MIN_VOLUME) return null
 
-      stocksWithPrices.push({
+      return {
         id: stock.id,
         tickerCode: stock.tickerCode,
         name: stock.name,
@@ -145,14 +144,47 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
         latestPrice: latest,
         weekChangeRate: Math.round(changeRate * 10) / 10,
         volume,
-      })
+      }
     } catch {
-      // エラーは無視して次へ
+      return null
+    } finally {
+      completed++
+      if (completed % 20 === 0) {
+        console.log(`  Progress: ${completed}/${stocks.length}`)
+      }
+    }
+  }
+
+  // 並列数制限付きで実行
+  const queue = [...stocks]
+  const running: Promise<void>[] = []
+
+  while (queue.length > 0 || running.length > 0) {
+    // 空きスロットがあればキューから取り出して実行
+    while (running.length < CONCURRENCY && queue.length > 0) {
+      const stock = queue.shift()!
+      const task = processStock(stock).then((result) => {
+        if (result) stocksWithPrices.push(result)
+      })
+      running.push(task)
+
+      // 次のリクエスト開始前に少し待機（競合回避）
+      if (queue.length > 0) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_START))
+      }
     }
 
-    // レート制限対策（10件ごとに少し待機）
-    if ((i + 1) % 10 === 0 && i + 1 < stocks.length) {
-      await new Promise((resolve) => setTimeout(resolve, 200))
+    // 1つ完了するまで待機
+    if (running.length > 0) {
+      await Promise.race(running)
+      // 完了したタスクを除去
+      const stillRunning: Promise<void>[] = []
+      for (const task of running) {
+        const isSettled = await Promise.race([task.then(() => true), Promise.resolve(false)])
+        if (!isSettled) stillRunning.push(task)
+      }
+      running.length = 0
+      running.push(...stillRunning)
     }
   }
 
