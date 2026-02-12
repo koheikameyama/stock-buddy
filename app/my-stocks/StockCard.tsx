@@ -123,16 +123,6 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               {aiJudgment.text}
             </span>
           )}
-          {analyzedAt && (() => {
-            const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
-            return (
-              <span className="text-xs text-gray-400 flex items-center gap-1">
-                <span className={colorClass}>{label}</span>
-                <span>|</span>
-                <span>{relative}</span>
-              </span>
-            )
-          })()}
         </div>
         <p className="text-xs sm:text-sm text-gray-500">
           {stock.stock.tickerCode}
@@ -206,6 +196,15 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                     {stock.emotionalCoaching}
                   </p>
                 )}
+                {/* Analysis Time for Portfolio */}
+                {analyzedAt && (() => {
+                  const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
+                  return (
+                    <p className="mt-2 text-xs text-gray-400 text-right border-t border-gray-200 pt-2">
+                      <span className={colorClass}>{label}</span> | {relative}
+                    </p>
+                  )
+                })()}
               </div>
             )}
 
@@ -263,6 +262,25 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               </div>
             )}
           </>
+        )}
+
+        {/* AI Analysis Reason for Watchlist */}
+        {isWatchlist && recommendation?.reason && (
+          <div className="bg-blue-50 rounded-lg p-3">
+            <p className="text-xs sm:text-sm text-gray-700">
+              <span className="font-semibold text-blue-700">💡 AI分析: </span>
+              {recommendation.reason}
+            </p>
+            {/* Analysis Time for Watchlist */}
+            {analyzedAt && (() => {
+              const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
+              return (
+                <p className="mt-2 text-xs text-gray-400 text-right border-t border-gray-200 pt-2">
+                  <span className={colorClass}>{label}</span> | {relative}
+                </p>
+              )
+            })()}
+          </div>
         )}
 
         {/* Purchase Button for Watchlist */}
