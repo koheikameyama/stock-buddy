@@ -493,7 +493,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                     disabled={passingStock}
                     className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                   >
-                    {passingStock ? "記録中..." : "興味なし"}
+                    {passingStock ? "記録中..." : "見送り"}
                   </button>
                 </div>
               </div>

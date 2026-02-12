@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
+import PassedStockCard from "./PassedStockCard"
 import AddStockDialog from "./AddStockDialog"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
 
@@ -51,6 +52,29 @@ interface PurchaseRecommendation {
   caution: string
 }
 
+interface PassedStock {
+  id: string
+  stockId: string
+  stock: {
+    id: string
+    tickerCode: string
+    name: string
+    sector: string | null
+  }
+  passedAt: string
+  passedPrice: number
+  passedReason: string | null
+  source: string
+  currentPrice: number | null
+  priceChangePercent: number | null
+  whatIfProfit: number | null
+  whatIfQuantity: number | null
+  wasGoodDecision: boolean | null
+  feedbackNote: string | null
+}
+
+type TabType = "portfolio" | "watchlist" | "passed"
+
 const MAX_USER_STOCKS = 5
 
 export default function MyStocksClient() {
@@ -64,9 +88,12 @@ export default function MyStocksClient() {
   const [showTransactionDialog, setShowTransactionDialog] = useState(false)
   const [selectedStock, setSelectedStock] = useState<UserStock | null>(null)
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
-  const [activeTab, setActiveTab] = useState<"portfolio" | "watchlist">("portfolio")
+  const [activeTab, setActiveTab] = useState<TabType>("portfolio")
   // ウォッチリストからの購入用
   const [purchaseFromWatchlist, setPurchaseFromWatchlist] = useState<UserStock | null>(null)
+  // 見送り銘柄用
+  const [passedStocks, setPassedStocks] = useState<PassedStock[]>([])
+  const [passedStocksLoading, setPassedStocksLoading] = useState(false)
 
   // Fetch user stocks
   useEffect(() => {
@@ -154,6 +181,39 @@ export default function MyStocksClient() {
       fetchRecommendations()
     }
   }, [userStocks])
+
+  // Fetch passed stocks when tab is switched
+  useEffect(() => {
+    async function fetchPassedStocks() {
+      if (activeTab !== "passed" || passedStocks.length > 0) return
+
+      setPassedStocksLoading(true)
+      try {
+        const response = await fetch("/api/passed-stocks")
+        if (!response.ok) throw new Error("Failed to fetch passed stocks")
+        const data = await response.json()
+        setPassedStocks(data)
+      } catch (err) {
+        console.error("Error fetching passed stocks:", err)
+      } finally {
+        setPassedStocksLoading(false)
+      }
+    }
+
+    fetchPassedStocks()
+  }, [activeTab, passedStocks.length])
+
+  const handleRemovePassedStock = async (id: string) => {
+    try {
+      const response = await fetch(`/api/passed-stocks/${id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) throw new Error("Failed to remove tracking")
+      setPassedStocks((prev) => prev.filter((ps) => ps.id !== id))
+    } catch (err) {
+      console.error("Error removing passed stock:", err)
+    }
+  }
 
   const handleAddStock = () => {
     setShowAddDialog(true)
@@ -272,69 +332,114 @@ export default function MyStocksClient() {
           >
             気になる銘柄 ({watchlistStocks.length})
           </button>
+          <button
+            onClick={() => setActiveTab("passed")}
+            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
+              activeTab === "passed"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            見送った銘柄 ({passedStocks.length})
+          </button>
         </div>
 
         {/* Stock List Section */}
         <section>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
-            <div>
-              <p className="text-xs sm:text-sm text-gray-500">
-                現在 {displayStocks.length}/{MAX_USER_STOCKS} 銘柄
-              </p>
-            </div>
-            <button
-              onClick={handleAddStock}
-              disabled={displayStocks.length >= MAX_USER_STOCKS}
-              className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <svg
-                className="w-4 h-4 sm:w-5 sm:h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              {activeTab === "portfolio" ? "保有銘柄を追加" : "気になる銘柄を追加"}
-            </button>
-          </div>
-
-          {displayStocks.length === 0 ? (
-            <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-              <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📊</div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                {activeTab === "portfolio" ? "保有銘柄がありません" : "気になる銘柄がありません"}
-              </h3>
-              <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-                銘柄を追加して投資を始めましょう
-              </p>
-              <button
-                onClick={handleAddStock}
-                className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
-              >
-                銘柄を追加する
-              </button>
-            </div>
+          {activeTab === "passed" ? (
+            // 見送った銘柄タブ
+            <>
+              {passedStocksLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
+                  <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
+                </div>
+              ) : passedStocks.length === 0 ? (
+                <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
+                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📊</div>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                    見送った銘柄はありません
+                  </h3>
+                  <p className="text-sm sm:text-base text-gray-600">
+                    気になる銘柄を見送ると、ここに表示されます
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:gap-6">
+                  {passedStocks.map((ps) => (
+                    <PassedStockCard
+                      key={ps.id}
+                      passedStock={ps}
+                      onRemove={handleRemovePassedStock}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="grid gap-3 sm:gap-6">
-              {displayStocks.map((stock) => (
-                <StockCard
-                  key={stock.id}
-                  stock={stock}
-                  price={prices[stock.stock.tickerCode]}
-                  recommendation={recommendations[stock.stockId]}
-                  portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
-                  onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
-                  onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
-                  onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
-                />
-              ))}
-            </div>
+            // 保有銘柄・気になる銘柄タブ
+            <>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    現在 {displayStocks.length}/{MAX_USER_STOCKS} 銘柄
+                  </p>
+                </div>
+                <button
+                  onClick={handleAddStock}
+                  disabled={displayStocks.length >= MAX_USER_STOCKS}
+                  className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4 sm:w-5 sm:h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  {activeTab === "portfolio" ? "保有銘柄を追加" : "気になる銘柄を追加"}
+                </button>
+              </div>
+
+              {displayStocks.length === 0 ? (
+                <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
+                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📊</div>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                    {activeTab === "portfolio" ? "保有銘柄がありません" : "気になる銘柄がありません"}
+                  </h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+                    銘柄を追加して投資を始めましょう
+                  </p>
+                  <button
+                    onClick={handleAddStock}
+                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    銘柄を追加する
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:gap-6">
+                  {displayStocks.map((stock) => (
+                    <StockCard
+                      key={stock.id}
+                      stock={stock}
+                      price={prices[stock.stock.tickerCode]}
+                      recommendation={recommendations[stock.stockId]}
+                      portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
+                      onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
+                      onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
+                      onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>
@@ -350,7 +455,7 @@ export default function MyStocksClient() {
           handleStockAdded(newStock)
           setPurchaseFromWatchlist(null)
         }}
-        defaultType={purchaseFromWatchlist ? "portfolio" : activeTab}
+        defaultType={purchaseFromWatchlist ? "portfolio" : activeTab === "passed" ? "portfolio" : activeTab}
         initialStock={purchaseFromWatchlist ? {
           id: purchaseFromWatchlist.stock.id,
           tickerCode: purchaseFromWatchlist.stock.tickerCode,
