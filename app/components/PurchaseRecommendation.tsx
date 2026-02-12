@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import AnalysisTimestamp from "./AnalysisTimestamp"
 
 // Inline SVG icons
 const ChevronDownIcon = ({ className }: { className?: string }) => (
@@ -341,7 +342,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-3">
             <div className="flex-1 bg-gray-200 rounded-full h-2">
               <div
                 className="bg-green-500 h-2 rounded-full transition-all duration-500"
@@ -349,6 +350,10 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               />
             </div>
             <span className="text-xs text-gray-600 whitespace-nowrap">信頼度 {confidencePercent}%</span>
+          </div>
+
+          <div className="text-center">
+            <AnalysisTimestamp dateString={data.analyzedAt} />
           </div>
         </div>
       </div>
@@ -384,7 +389,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-3">
             <div className="flex-1 bg-gray-200 rounded-full h-2">
               <div
                 className="bg-blue-500 h-2 rounded-full transition-all duration-500"
@@ -392,6 +397,10 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               />
             </div>
             <span className="text-xs text-gray-600 whitespace-nowrap">信頼度 {confidencePercent}%</span>
+          </div>
+
+          <div className="text-center">
+            <AnalysisTimestamp dateString={data.analyzedAt} />
           </div>
         </div>
       </div>
@@ -426,7 +435,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-3">
           <div className="flex-1 bg-gray-200 rounded-full h-2">
             <div
               className="bg-gray-500 h-2 rounded-full transition-all duration-500"
@@ -434,6 +443,10 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             />
           </div>
           <span className="text-xs text-gray-600 whitespace-nowrap">信頼度 {confidencePercent}%</span>
+        </div>
+
+        <div className="text-center">
+          <AnalysisTimestamp dateString={data.analyzedAt} />
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import AnalysisTimestamp from "./AnalysisTimestamp"
 
 interface StockPredictionProps {
   stockId: string
@@ -153,9 +154,7 @@ export default function StockPrediction({ stockId }: StockPredictionProps) {
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             🔮 今後の予測
           </h3>
-          <p className="text-xs text-gray-500 mt-1">
-            {new Date(prediction.analyzedAt).toLocaleDateString("ja-JP")} 分析
-          </p>
+          <AnalysisTimestamp dateString={prediction.analyzedAt} className="mt-1" />
         </div>
         {getRecommendationBadge(prediction.recommendation)}
       </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import AnalysisTimestamp from "./AnalysisTimestamp"
 
 interface StockAnalysisCardProps {
   stockId: string
@@ -321,13 +322,9 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
 
       {/* 分析日時 */}
       {analysisDate && (
-        <p className="text-xs text-gray-500 text-center">
-          分析日時: {new Date(analysisDate).toLocaleDateString("ja-JP", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
+        <div className="text-center">
+          <AnalysisTimestamp dateString={analysisDate} />
+        </div>
       )}
 
       <p className="text-xs text-gray-500 text-center">
