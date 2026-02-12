@@ -3,32 +3,46 @@
  * ユーザーごとのAIおすすめ銘柄生成スクリプト
  *
  * 各ユーザーの投資スタイル（期間・リスク許容度）と投資資金に基づき、
- * 予算内の銘柄をOpenAI APIに渡して、パーソナライズされたおすすめ3銘柄を生成する。
+ * APIから取得した株価データを使って、パーソナライズされたおすすめ3銘柄を生成する。
  *
- * 毎日朝のバッチで実行。
+ * 前場終了後（11:35 JST）と後場終了後（15:35 JST）に実行。
  */
 
 import { PrismaClient } from "@prisma/client"
 import OpenAI from "openai"
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
 import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
+
+dayjs.extend(utc)
 
 const prisma = new PrismaClient()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-// 時間帯コンテキスト
-const TIME_CONTEXT = process.env.TIME_CONTEXT || "morning"
+// 環境変数からセッションを取得
+const SESSION = process.env.SESSION || "afternoon"
+
+// 絞り込み設定
+const CONFIG = {
+  // 初心者スコアの最低値
+  MIN_BEGINNER_SCORE: 50,
+  // 出来高の最低値（流動性フィルタ）
+  MIN_VOLUME: 100000,
+  // 各セクターからの最大銘柄数
+  MAX_PER_SECTOR: 5,
+  // 週間下落率の足切りライン（%）
+  MIN_WEEK_CHANGE: -10,
+  // AIに渡す最大銘柄数
+  MAX_STOCKS_FOR_AI: 30,
+}
 
 // 時間帯別のプロンプト設定
-const TIME_CONTEXT_PROMPTS: Record<string, { intro: string; focus: string }> = {
+const SESSION_PROMPTS: Record<string, { intro: string; focus: string }> = {
   morning: {
-    intro: "今日の取引開始前のおすすめです。",
-    focus: "今日注目すべき銘柄",
-  },
-  noon: {
     intro: "前場の動きを踏まえたおすすめです。",
     focus: "後場に注目したい銘柄",
   },
-  close: {
+  afternoon: {
     intro: "本日の取引を踏まえた明日へのおすすめです。",
     focus: "明日以降に注目したい銘柄",
   },
@@ -42,6 +56,7 @@ interface StockWithPrice {
   beginnerScore: number
   latestPrice: number
   weekChangeRate: number
+  volume: number
 }
 
 interface UserWithSettings {
@@ -69,10 +84,13 @@ async function getUsersWithSettings(): Promise<UserWithSettings[]> {
   return userSettings
 }
 
+/**
+ * APIから株価データを取得し、絞り込みを行う
+ */
 async function getStocksWithPrices(): Promise<StockWithPrice[]> {
   // 銘柄マスタを取得
   const stocks = await prisma.stock.findMany({
-    where: { beginnerScore: { not: null } },
+    where: { beginnerScore: { gte: CONFIG.MIN_BEGINNER_SCORE } },
     orderBy: { beginnerScore: "desc" },
     select: {
       id: true,
@@ -82,12 +100,9 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
       beginnerScore: true,
     },
   })
-  console.log(`Found ${stocks.length} stocks from database`)
 
+  console.log(`Found ${stocks.length} stocks with beginnerScore >= ${CONFIG.MIN_BEGINNER_SCORE}`)
   if (stocks.length === 0) return []
-
-  // Stooq APIで株価を取得
-  console.log(`Fetching prices for ${stocks.length} stocks from Stooq API...`)
 
   const stocksWithPrices: StockWithPrice[] = []
 
@@ -95,16 +110,15 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
   const batchSize = 50
   for (let i = 0; i < stocks.length; i += batchSize) {
     const batchStocks = stocks.slice(i, i + batchSize)
+    console.log(`Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(stocks.length / batchSize)}...`)
 
     const results = await Promise.allSettled(
       batchStocks.map(async (stock) => {
         try {
-          // 1ヶ月分のデータを取得（5日分を確保するため）
           const historicalData = await fetchHistoricalPrices(stock.tickerCode, "1m")
 
           if (!historicalData || historicalData.length < 2) return null
 
-          // 新しい順にソート
           const sorted = [...historicalData].sort((a, b) => b.date.localeCompare(a.date))
 
           const latest = sorted[0]?.close
@@ -112,6 +126,13 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
           if (!latest || !weekAgo) return null
 
           const changeRate = ((latest - weekAgo) / weekAgo) * 100
+
+          // 下落トレンドフィルタ
+          if (changeRate < CONFIG.MIN_WEEK_CHANGE) return null
+
+          // 出来高フィルタ
+          const volume = sorted[0]?.volume || 0
+          if (volume < CONFIG.MIN_VOLUME) return null
 
           return {
             id: stock.id,
@@ -121,6 +142,7 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
             beginnerScore: stock.beginnerScore!,
             latestPrice: latest,
             weekChangeRate: Math.round(changeRate * 10) / 10,
+            volume,
           }
         } catch {
           return null
@@ -133,14 +155,39 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
         stocksWithPrices.push(result.value)
       }
     }
+
+    // レート制限対策
+    if (i + batchSize < stocks.length) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
   }
 
   console.log(`Found ${stocksWithPrices.length} stocks with price data`)
-  return stocksWithPrices
+
+  // セクター分散フィルタ
+  const sectorCounts = new Map<string, number>()
+  const diversifiedStocks: StockWithPrice[] = []
+
+  stocksWithPrices.sort((a, b) => b.beginnerScore - a.beginnerScore)
+
+  for (const stock of stocksWithPrices) {
+    const sector = stock.sector || "その他"
+    const count = sectorCounts.get(sector) || 0
+
+    if (count < CONFIG.MAX_PER_SECTOR) {
+      diversifiedStocks.push(stock)
+      sectorCounts.set(sector, count + 1)
+    }
+  }
+
+  console.log(`After sector diversification: ${diversifiedStocks.length} stocks`)
+
+  return diversifiedStocks
 }
 
 function filterStocksByBudget(stocks: StockWithPrice[], budget: number | null): StockWithPrice[] {
   if (!budget) return stocks
+  // 100株購入を前提
   return stocks.filter((s) => s.latestPrice * 100 <= budget)
 }
 
@@ -148,7 +195,7 @@ async function generateRecommendationsForUser(
   user: UserWithSettings,
   stocks: StockWithPrice[]
 ): Promise<Recommendation[] | null> {
-  const prompts = TIME_CONTEXT_PROMPTS[TIME_CONTEXT] || TIME_CONTEXT_PROMPTS.morning
+  const prompts = SESSION_PROMPTS[SESSION] || SESSION_PROMPTS.afternoon
 
   const periodLabel: Record<string, string> = {
     short: "短期（1年以内）",
@@ -165,7 +212,7 @@ async function generateRecommendationsForUser(
   const budgetLabel = user.investmentBudget ? `${user.investmentBudget.toLocaleString()}円` : "未設定"
 
   // 銘柄リスト（最大30件）
-  const stockList = stocks.slice(0, 30)
+  const stockList = stocks.slice(0, CONFIG.MAX_STOCKS_FOR_AI)
   const stockSummaries = stockList.map(
     (s) =>
       `- ${s.name}（${s.tickerCode}）: 株価${s.latestPrice.toLocaleString()}円, 1週間${s.weekChangeRate >= 0 ? "+" : ""}${s.weekChangeRate}%, スコア${s.beginnerScore}点, ${s.sector || "不明"}`
@@ -247,8 +294,7 @@ async function saveUserRecommendations(
   recommendations: Recommendation[],
   stockMap: Map<string, string>
 ): Promise<number> {
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
+  const today = dayjs.utc().startOf("day").toDate()
 
   // 既存データを削除
   await prisma.userDailyRecommendation.deleteMany({
@@ -286,7 +332,12 @@ async function main(): Promise<void> {
   console.log("User Daily Recommendation Generation (AI)")
   console.log("=".repeat(60))
   console.log(`Time: ${new Date().toISOString()}`)
-  console.log(`Time context: ${TIME_CONTEXT}`)
+  console.log(`Session: ${SESSION}`)
+  console.log(`Config:`)
+  console.log(`  - MIN_BEGINNER_SCORE: ${CONFIG.MIN_BEGINNER_SCORE}`)
+  console.log(`  - MIN_VOLUME: ${CONFIG.MIN_VOLUME.toLocaleString()}`)
+  console.log(`  - MAX_PER_SECTOR: ${CONFIG.MAX_PER_SECTOR}`)
+  console.log(`  - MIN_WEEK_CHANGE: ${CONFIG.MIN_WEEK_CHANGE}%`)
 
   if (!process.env.OPENAI_API_KEY) {
     console.error("Error: OPENAI_API_KEY environment variable not set")

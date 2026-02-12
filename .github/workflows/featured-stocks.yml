@@ -2,9 +2,20 @@ name: Featured Stocks Generation
 
 on:
   schedule:
-    # 朝1回のみ実行
-    - cron: '0 23 * * 0-4'   # 8:00 JST - 寄り前（月〜金）
-  workflow_dispatch: # 手動実行も可能
+    # 前場終了後（11:35 JST = 02:35 UTC）- 月〜金
+    - cron: '35 2 * * 1-5'
+    # 後場終了後（15:35 JST = 06:35 UTC）- 月〜金
+    - cron: '35 6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      session:
+        description: 'Session (morning/afternoon)'
+        required: true
+        default: 'afternoon'
+        type: choice
+        options:
+          - morning
+          - afternoon
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,22 +24,25 @@ concurrency:
 jobs:
   generate-featured-stocks:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Determine time context
-        id: time
+      - name: Determine session
+        id: session
         run: |
-          HOUR=$(TZ=Asia/Tokyo date +%H)
-          if [ "$HOUR" -lt 10 ]; then
-            echo "context=morning" >> $GITHUB_OUTPUT
-          elif [ "$HOUR" -lt 14 ]; then
-            echo "context=noon" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "session=${{ github.event.inputs.session }}" >> $GITHUB_OUTPUT
           else
-            echo "context=close" >> $GITHUB_OUTPUT
+            HOUR=$(TZ=Asia/Tokyo date +%H)
+            if [ "$HOUR" -lt 13 ]; then
+              echo "session=morning" >> $GITHUB_OUTPUT
+            else
+              echo "session=afternoon" >> $GITHUB_OUTPUT
+            fi
           fi
-          echo "Time context: $(cat $GITHUB_OUTPUT)"
+          echo "Session: $(cat $GITHUB_OUTPUT)"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -47,33 +61,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate user recommendations (AI)
+      - name: Generate user recommendations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TIME_CONTEXT: ${{ steps.time.outputs.context }}
-        run: |
-          npx tsx scripts/github-actions/generate-user-recommendations.ts
-
-      - name: Send push notification
-        if: success()
-        env:
-          APP_URL: ${{ secrets.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          npx tsx scripts/github-actions/send-push-notification.ts \
-            --title "今日の注目銘柄が更新されました" \
-            --body "ニュースから話題の銘柄を分析しました" \
-            --url "/dashboard"
+          SESSION: ${{ steps.session.outputs.session }}
+        run: npx tsx scripts/github-actions/generate-user-recommendations.ts
 
       - name: Notify Slack on success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ 注目銘柄の生成に成功しました"
-          SLACK_MESSAGE: |
-            ニュースから話題の銘柄を分析して注目銘柄を生成しました ✅
+          SLACK_TITLE: "✅ 注目銘柄の生成に成功しました（${{ steps.session.outputs.session }}）"
+          SLACK_MESSAGE: "ユーザーおすすめを更新しました"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -83,8 +84,6 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "❌ 注目銘柄の生成に失敗しました"
-          SLACK_MESSAGE: |
-            注目銘柄生成中にエラーが発生しました
-            詳細はGitHub Actionsログを確認してください
+          SLACK_MESSAGE: "おすすめ生成中にエラーが発生しました"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"
