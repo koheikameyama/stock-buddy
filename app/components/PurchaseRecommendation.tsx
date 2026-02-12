@@ -25,7 +25,7 @@ interface RecommendationData {
   stockName: string
   tickerCode: string
   currentPrice: number | null
-  recommendation: "buy" | "hold" | "pass"
+  recommendation: "buy" | "hold"
   confidence: number
   reason: string
   recommendedQuantity?: number | null

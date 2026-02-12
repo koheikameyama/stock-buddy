@@ -36,7 +36,7 @@ interface StockPrice {
 }
 
 interface PurchaseRecommendation {
-  recommendation: "buy" | "hold" | "pass"
+  recommendation: "buy" | "hold"
   confidence: number
   reason: string
   caution: string
@@ -75,7 +75,6 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     const displayMap = {
       buy: { text: "買い時", color: "text-green-700", bg: "bg-green-50" },
       hold: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-      pass: { text: "見送り", color: "text-gray-700", bg: "bg-gray-50" },
     }
 
     return displayMap[recommendation.recommendation]

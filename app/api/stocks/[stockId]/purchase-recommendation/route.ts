@@ -351,7 +351,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
-  "recommendation": "buy" | "hold" | "pass",
+  "recommendation": "buy" | "hold",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "recommendedQuantity": 100株単位の整数（buyの場合のみ、それ以外はnull）,
@@ -422,7 +422,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
     const result = JSON.parse(content)
 
     // バリデーション
-    if (!["buy", "hold", "pass"].includes(result.recommendation)) {
+    if (!["buy", "hold"].includes(result.recommendation)) {
       throw new Error(`Invalid recommendation: ${result.recommendation}`)
     }
 

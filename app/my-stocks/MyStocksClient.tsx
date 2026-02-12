@@ -49,7 +49,7 @@ interface StockPrice {
 }
 
 interface PurchaseRecommendation {
-  recommendation: "buy" | "hold" | "pass"
+  recommendation: "buy" | "hold"
   confidence: number
   reason: string
   caution: string
