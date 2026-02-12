@@ -32,9 +32,11 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@google/genai": "^1.40.0",
     "@prisma/client": "^6.19.2",
+    "@types/cheerio": "^0.22.35",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "cheerio": "^1.2.0",
     "dayjs": "^1.11.19",
     "next": "^15.1.7",
     "next-auth": "^5.0.0-beta.30",
@@ -47,6 +49,7 @@
     "rss-parser": "^3.13.0",
     "typescript": "^5",
     "web-push": "^3.6.7",
+    "xlsx": "^0.18.5",
     "yahoo-finance2": "^3.13.0"
   },
   "devDependencies": {

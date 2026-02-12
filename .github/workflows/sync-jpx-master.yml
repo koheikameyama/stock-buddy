@@ -18,19 +18,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          pip install pandas openpyxl xlrd psycopg2-binary requests
+        run: npm ci
 
       - name: Sync JPX stock master
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/jpx/sync_stock_master_from_jpx.py
+        run: npx tsx scripts/jpx/sync-stock-master-from-jpx.ts
 
       - name: Notify Slack on success
         if: success()
