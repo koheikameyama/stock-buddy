@@ -155,12 +155,12 @@ def upsert_stocks_to_db(conn, stocks: list[dict]) -> dict:
                 psycopg2.extras.execute_values(
                     cur,
                     """
-                    INSERT INTO "Stock" ("tickerCode", name, market, sector, "createdAt")
+                    INSERT INTO "Stock" (id, "tickerCode", name, market, sector, "createdAt")
                     VALUES %s
                     ON CONFLICT ("tickerCode") DO NOTHING
                     """,
-                    [(s["ticker"], s["name"], s["market"], s["sector"], "NOW()") for s in to_create],
-                    template="(%s, %s, %s, %s, NOW())",
+                    [(s["ticker"], s["name"], s["market"], s["sector"]) for s in to_create],
+                    template="(gen_random_uuid(), %s, %s, %s, %s, NOW())",
                     page_size=BATCH_SIZE,
                 )
                 added += len(to_create)
