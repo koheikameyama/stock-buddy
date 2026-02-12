@@ -5,7 +5,7 @@
  * 株価変動率、取引高、初心者スコアから機械的に銘柄を3カテゴリに分類：
  * - surge（短期急騰）: 7日間上昇率+5%以上
  * - stable（中長期安定）: 初心者スコア70点以上 & ボラティリティ15%以下
- * - trending（話題）: 取引高が過去30日平均の1.5倍以上
+ * - trending（話題）: 直近3日の取引高が4〜30日前平均の1.5倍以上
  *
  * 毎日朝7時（JST）に実行され、各カテゴリTop 3を選出（合計9銘柄）
  */
@@ -229,7 +229,7 @@ function calculateTrendingStocks(stocks: StockWithPrices[]): FeaturedStock[] {
    * trending（話題）銘柄を抽出
    *
    * 条件:
-   * - 7日間の平均取引高 > 過去30日間の平均取引高 × 1.5倍
+   * - 直近3日の平均取引高 > 4〜30日前の平均取引高 × 1.5倍
    * - 初心者スコア: 40点以上
    */
   const trendingCandidates: { stock: StockWithPrices; volumeRatio: number }[] = []
@@ -240,20 +240,20 @@ function calculateTrendingStocks(stocks: StockWithPrices[]): FeaturedStock[] {
     const prices = stock.prices
     if (prices.length < 30) continue
 
-    // 直近7日の平均取引高
-    const recentVolumes = prices.slice(0, 7).map((p) => p.volume).filter((v) => v > 0)
+    // 直近3日の平均取引高
+    const recentVolumes = prices.slice(0, 3).map((p) => p.volume).filter((v) => v > 0)
     if (recentVolumes.length === 0) continue
     const recentAvgVolume = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length
 
-    // 過去30日の平均取引高
-    const allVolumes = prices.map((p) => p.volume).filter((v) => v > 0)
-    if (allVolumes.length === 0) continue
-    const totalAvgVolume = allVolumes.reduce((a, b) => a + b, 0) / allVolumes.length
+    // 4〜30日前の平均取引高（重複を避ける）
+    const olderVolumes = prices.slice(3, 30).map((p) => p.volume).filter((v) => v > 0)
+    if (olderVolumes.length === 0) continue
+    const olderAvgVolume = olderVolumes.reduce((a, b) => a + b, 0) / olderVolumes.length
 
-    if (totalAvgVolume === 0) continue
+    if (olderAvgVolume === 0) continue
 
     // 取引高増加率
-    const volumeRatio = recentAvgVolume / totalAvgVolume
+    const volumeRatio = recentAvgVolume / olderAvgVolume
 
     if (volumeRatio >= 1.5) {
       trendingCandidates.push({
@@ -271,7 +271,7 @@ function calculateTrendingStocks(stocks: StockWithPrices[]): FeaturedStock[] {
 
   const results: FeaturedStock[] = topTrending.map((candidate, idx) => {
     const score = candidate.stock.beginnerScore
-    const reason = `最近取引が活発になっている注目銘柄です（取引高${candidate.volumeRatio.toFixed(1)}倍、スコア${score}点）`
+    const reason = `直近3日で取引が活発になっている注目銘柄です（取引高${candidate.volumeRatio.toFixed(1)}倍、スコア${score}点）`
 
     return {
       stockId: candidate.stock.id,
