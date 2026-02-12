@@ -1,58 +1,45 @@
-# ベースイメージ
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
-# 依存関係のインストール
+# Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl python3 py3-pip
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# 依存関係ファイルとPrisma schemaをコピー
+# Install dependencies
 COPY package.json package-lock.json* ./
-COPY prisma ./prisma
+RUN npm ci
 
-# 依存関係をインストール
-RUN npm ci --include=dev
-
-# ビルダー
+# Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 環境変数（ビルド時）
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Prisma Clientを生成してビルド
+# Generate Prisma Client
 RUN npx prisma generate
+
+# Build Next.js
 RUN npm run build
 
-# ランナー
+# Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Python3とyfinanceをインストール（タイムゾーンデータも含める）
-RUN apk add --no-cache python3 py3-pip tzdata && \
-    python3 -m pip install --break-system-packages yfinance pandas
-
-# タイムゾーン設定
-ENV TZ=Asia/Tokyo
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# publicディレクトリを作成
-RUN mkdir -p /app/public
+COPY --from=builder /app/public ./public
 
-# 必要なファイルをコピー
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
-COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
@@ -61,5 +48,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# マイグレーション実行後にサーバー起動
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
