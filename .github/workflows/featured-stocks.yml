@@ -66,6 +66,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SESSION: ${{ steps.session.outputs.session }}
+          NODE_OPTIONS: '--max-old-space-size=4096'
         run: npx tsx scripts/github-actions/generate-user-recommendations.ts
 
       - name: Notify Slack on success
