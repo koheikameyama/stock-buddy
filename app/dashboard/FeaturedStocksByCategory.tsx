@@ -44,6 +44,44 @@ export default function FeaturedStocksByCategory({
     fetchFeaturedStocks()
   }, [])
 
+  // 株価を非同期で取得
+  const fetchPrices = async (stocks: FeaturedStock[]) => {
+    if (stocks.length === 0) return
+
+    const tickerCodes = stocks.map((s) => s.stock.tickerCode)
+    try {
+      const response = await fetch(`/api/stocks/prices?tickers=${tickerCodes.join(",")}`)
+      if (!response.ok) return
+
+      const data = await response.json()
+      const priceMap = new Map<string, number>(
+        data.prices?.map((p: { tickerCode: string; currentPrice: number }) => [p.tickerCode, p.currentPrice]) || []
+      )
+
+      // 株価を更新
+      setPersonalRecommendations((prev) =>
+        prev.map((s) => ({
+          ...s,
+          stock: {
+            ...s.stock,
+            currentPrice: priceMap.get(s.stock.tickerCode) ?? s.stock.currentPrice,
+          },
+        }))
+      )
+      setTrendingStocks((prev) =>
+        prev.map((s) => ({
+          ...s,
+          stock: {
+            ...s.stock,
+            currentPrice: priceMap.get(s.stock.tickerCode) ?? s.stock.currentPrice,
+          },
+        }))
+      )
+    } catch (error) {
+      console.error("Error fetching prices:", error)
+    }
+  }
+
   const fetchFeaturedStocks = async () => {
     try {
       setLoading(true)
@@ -51,9 +89,15 @@ export default function FeaturedStocksByCategory({
       const data = await response.json()
 
       if (response.ok) {
-        setPersonalRecommendations(data.personalRecommendations || [])
-        setTrendingStocks(data.trendingStocks || [])
+        const personal = data.personalRecommendations || []
+        const trending = data.trendingStocks || []
+        setPersonalRecommendations(personal)
+        setTrendingStocks(trending)
         setDate(data.date || null)
+
+        // 株価を非同期で取得（表示後にバックグラウンドで）
+        const allStocks = [...personal, ...trending]
+        fetchPrices(allStocks)
       } else {
         console.error("Error fetching featured stocks:", data.error)
       }
@@ -62,6 +106,16 @@ export default function FeaturedStocksByCategory({
     } finally {
       setLoading(false)
     }
+  }
+
+  // 銘柄を登録済みに更新するヘルパー
+  const markAsRegistered = (stockId: string) => {
+    setPersonalRecommendations((prev) =>
+      prev.map((s) => (s.stockId === stockId ? { ...s, isRegistered: true } : s))
+    )
+    setTrendingStocks((prev) =>
+      prev.map((s) => (s.stockId === stockId ? { ...s, isRegistered: true } : s))
+    )
   }
 
   const handleAddToWatchlist = async (stock: FeaturedStock) => {
@@ -83,8 +137,8 @@ export default function FeaturedStocksByCategory({
         return
       }
 
-      // リストを再取得して登録済み状態を更新
-      fetchFeaturedStocks()
+      // ローカルstateを更新（再取得なし）
+      markAsRegistered(stock.stockId)
     } catch (error) {
       console.error("Error adding to watchlist:", error)
       alert("追加に失敗しました")
@@ -112,8 +166,8 @@ export default function FeaturedStocksByCategory({
         return
       }
 
-      // リストを再取得して登録済み状態を更新
-      fetchFeaturedStocks()
+      // ローカルstateを更新（再取得なし）
+      markAsRegistered(stock.stockId)
     } catch (error) {
       console.error("Error adding to tracked:", error)
       alert("追加に失敗しました")
@@ -237,11 +291,13 @@ export default function FeaturedStocksByCategory({
             </div>
           </div>
 
-          {stock.stock.currentPrice && (
-            <div className="text-base sm:text-lg font-bold text-gray-900 mt-1.5 sm:mt-2">
-              ¥{stock.stock.currentPrice.toLocaleString()}
-            </div>
-          )}
+          <div className="text-base sm:text-lg font-bold text-gray-900 mt-1.5 sm:mt-2">
+            {stock.stock.currentPrice != null ? (
+              `¥${stock.stock.currentPrice.toLocaleString()}`
+            ) : (
+              <span className="text-gray-400 text-sm">取得中...</span>
+            )}
+          </div>
 
           {stock.category && categoryBadges[stock.category] && (
             <div className="mt-1">
