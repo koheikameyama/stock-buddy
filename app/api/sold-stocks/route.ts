@@ -20,31 +20,44 @@ export async function GET() {
     }
 
     // ユーザーの全PortfolioStockを取得（Transactionを含む）
-    const portfolioStocks = await prisma.portfolioStock.findMany({
-      where: { userId: user.id },
-      include: {
-        stock: {
-          select: {
-            id: true,
-            tickerCode: true,
-            name: true,
-            sector: true,
-            market: true,
+    const [portfolioStocks, watchlistStocks] = await Promise.all([
+      prisma.portfolioStock.findMany({
+        where: { userId: user.id },
+        include: {
+          stock: {
+            select: {
+              id: true,
+              tickerCode: true,
+              name: true,
+              sector: true,
+              market: true,
+            },
+          },
+          transactions: {
+            orderBy: { transactionDate: "asc" },
           },
         },
-        transactions: {
-          orderBy: { transactionDate: "asc" },
-        },
-      },
-    })
+      }),
+      // ウォッチリストにある銘柄のstockIdを取得
+      prisma.watchlistStock.findMany({
+        where: { userId: user.id },
+        select: { stockId: true },
+      }),
+    ])
 
-    // 売却済み銘柄をフィルタリング
+    // ウォッチリストにある銘柄のIDセット
+    const watchlistStockIds = new Set(watchlistStocks.map((ws) => ws.stockId))
+
+    // 売却済み銘柄をフィルタリング（ウォッチリストにある銘柄は除外）
     const soldStocks = portfolioStocks
       .map((ps) => {
         const { quantity } = calculatePortfolioFromTransactions(ps.transactions)
 
         // 保有数が0の場合のみ対象
         if (quantity !== 0) return null
+
+        // ウォッチリストにある場合は除外
+        if (watchlistStockIds.has(ps.stockId)) return null
 
         // 取引履歴から情報を計算
         const buyTransactions = ps.transactions.filter((t) => t.type === "buy")

@@ -302,30 +302,59 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if stock already exists
-    const [existingWatchlist, existingPortfolio] = await Promise.all([
+    const [existingWatchlist, existingPortfolio, existingPassedStock] = await Promise.all([
       prisma.watchlistStock.findUnique({
         where: { userId_stockId: { userId, stockId: stock.id } },
       }),
       prisma.portfolioStock.findUnique({
         where: { userId_stockId: { userId, stockId: stock.id } },
+        include: {
+          transactions: {
+            orderBy: { transactionDate: "asc" },
+          },
+        },
+      }),
+      prisma.passedStockTracking.findFirst({
+        where: { userId, stockId: stock.id },
       }),
     ])
 
-    // ポートフォリオに追加しようとしている場合、既にポートフォリオにあればエラー
-    // ウォッチリストにある場合は、ポートフォリオへの移行として処理（後でウォッチリストから削除）
-    if (type === "portfolio" && existingPortfolio) {
-      return NextResponse.json(
-        { error: "この銘柄は既にポートフォリオに登録されています" },
-        { status: 400 }
-      )
+    // ポートフォリオの保有数を計算（保有してた銘柄かどうかの判定用）
+    let portfolioQuantity = 0
+    if (existingPortfolio) {
+      const { quantity } = calculatePortfolioFromTransactions(existingPortfolio.transactions)
+      portfolioQuantity = quantity
     }
 
-    // ウォッチリストに追加しようとしている場合、既にどちらかにあればエラー
-    if (type === "watchlist" && (existingWatchlist || existingPortfolio)) {
-      return NextResponse.json(
-        { error: "この銘柄は既に登録されています" },
-        { status: 400 }
-      )
+    // ポートフォリオに追加しようとしている場合
+    if (type === "portfolio" && existingPortfolio) {
+      // 保有数 > 0（現在保有中）ならエラー
+      if (portfolioQuantity > 0) {
+        return NextResponse.json(
+          { error: "この銘柄は既にポートフォリオに登録されています" },
+          { status: 400 }
+        )
+      }
+      // 保有数 === 0（保有してた銘柄）の場合は、再購入として処理を続行
+    }
+
+    // ウォッチリストに追加しようとしている場合
+    if (type === "watchlist") {
+      // 既にウォッチリストにある場合
+      if (existingWatchlist) {
+        return NextResponse.json(
+          { error: "この銘柄は既にウォッチリストに登録されています" },
+          { status: 400 }
+        )
+      }
+      // 保有数 > 0（現在保有中）の場合はエラー
+      if (existingPortfolio && portfolioQuantity > 0) {
+        return NextResponse.json(
+          { error: "すでに保有している銘柄です" },
+          { status: 400 }
+        )
+      }
+      // 保有数 === 0（保有してた銘柄）の場合は、WatchlistStock作成を続行
     }
 
     // Check limit (separate limits for watchlist and portfolio)
@@ -353,6 +382,13 @@ export async function POST(request: NextRequest) {
     if (type === "portfolio" && existingWatchlist) {
       await prisma.watchlistStock.delete({
         where: { id: existingWatchlist.id },
+      })
+    }
+
+    // 見送った銘柄から追加する場合、PassedStockTrackingから削除
+    if (existingPassedStock) {
+      await prisma.passedStockTracking.delete({
+        where: { id: existingPassedStock.id },
       })
     }
 
@@ -416,14 +452,66 @@ export async function POST(request: NextRequest) {
 
       const transactionDate = purchaseDate ? new Date(purchaseDate) : new Date()
 
-      // トランザクション内でポートフォリオと購入履歴を同時に作成
-      const result = await prisma.$transaction(async (tx) => {
-        // PortfolioStock を作成（quantity, averagePurchasePrice カラムなし）
-        const portfolioStock = await tx.portfolioStock.create({
+      // 保有してた銘柄の再購入か、新規追加かで処理を分岐
+      const isRepurchase = existingPortfolio && portfolioQuantity === 0
+
+      let result: {
+        portfolioStock: {
+          id: string
+          userId: string
+          stockId: string
+          lastAnalysis: Date | null
+          shortTerm: string | null
+          mediumTerm: string | null
+          longTerm: string | null
+          createdAt: Date
+          updatedAt: Date
+          stock: {
+            id: string
+            tickerCode: string
+            name: string
+            sector: string | null
+            market: string
+          }
+        }
+        transaction: {
+          id: string
+          type: string
+          quantity: number
+          price: Decimal
+          totalAmount: Decimal
+          transactionDate: Date
+          note: string | null
+        }
+        allTransactions: {
+          id: string
+          type: string
+          quantity: number
+          price: Decimal
+          totalAmount: Decimal
+          transactionDate: Date
+          note: string | null
+        }[]
+      }
+
+      if (isRepurchase) {
+        // 保有してた銘柄への再購入：既存PortfolioStockにトランザクションを追加
+        const transaction = await prisma.transaction.create({
           data: {
             userId,
             stockId: stock.id,
+            portfolioStockId: existingPortfolio.id,
+            type: "buy",
+            quantity,
+            price: new Decimal(averagePurchasePrice),
+            totalAmount: new Decimal(quantity).times(averagePurchasePrice),
+            transactionDate,
           },
+        })
+
+        // 更新されたPortfolioStockを取得
+        const portfolioStock = await prisma.portfolioStock.findUnique({
+          where: { id: existingPortfolio.id },
           include: {
             stock: {
               select: {
@@ -434,51 +522,98 @@ export async function POST(request: NextRequest) {
                 market: true,
               },
             },
+            transactions: {
+              orderBy: { transactionDate: "asc" },
+            },
           },
         })
 
-        // 購入履歴（トランザクション記録）を作成
-        const transaction = await tx.transaction.create({
-          data: {
-            userId,
-            stockId: stock.id,
-            portfolioStockId: portfolioStock.id,
-            type: "buy",
-            quantity,
-            price: new Decimal(averagePurchasePrice),
-            totalAmount: new Decimal(quantity).times(averagePurchasePrice),
-            transactionDate,
-          },
+        if (!portfolioStock) {
+          throw new Error("Failed to fetch portfolio stock after repurchase")
+        }
+
+        result = {
+          portfolioStock,
+          transaction,
+          allTransactions: portfolioStock.transactions,
+        }
+      } else {
+        // 新規追加：PortfolioStockと購入履歴を同時に作成
+        const txResult = await prisma.$transaction(async (tx) => {
+          const portfolioStock = await tx.portfolioStock.create({
+            data: {
+              userId,
+              stockId: stock.id,
+            },
+            include: {
+              stock: {
+                select: {
+                  id: true,
+                  tickerCode: true,
+                  name: true,
+                  sector: true,
+                  market: true,
+                },
+              },
+            },
+          })
+
+          const transaction = await tx.transaction.create({
+            data: {
+              userId,
+              stockId: stock.id,
+              portfolioStockId: portfolioStock.id,
+              type: "buy",
+              quantity,
+              price: new Decimal(averagePurchasePrice),
+              totalAmount: new Decimal(quantity).times(averagePurchasePrice),
+              transactionDate,
+            },
+          })
+
+          return { portfolioStock, transaction }
         })
 
-        return { portfolioStock, transaction }
-      })
+        result = {
+          ...txResult,
+          allTransactions: [txResult.transaction],
+        }
+      }
 
       // リアルタイム株価を取得
       const prices = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
       const currentPrice = prices[0]?.currentPrice ?? null
+
+      // 全トランザクションから保有数と平均取得単価を計算
+      const calculated = calculatePortfolioFromTransactions(result.allTransactions)
+      const firstBuyTx = result.allTransactions.find((t) => t.type === "buy")
+      const calculatedPurchaseDate = firstBuyTx?.transactionDate || result.portfolioStock.createdAt
 
       const response: UserStockResponse = {
         id: result.portfolioStock.id,
         userId: result.portfolioStock.userId,
         stockId: result.portfolioStock.stockId,
         type: "portfolio",
-        quantity,
-        averagePurchasePrice,
-        purchaseDate: transactionDate.toISOString(),
+        quantity: calculated.quantity,
+        averagePurchasePrice: calculated.averagePurchasePrice.toNumber(),
+        purchaseDate: calculatedPurchaseDate instanceof Date
+          ? calculatedPurchaseDate.toISOString()
+          : calculatedPurchaseDate,
         lastAnalysis: result.portfolioStock.lastAnalysis ? result.portfolioStock.lastAnalysis.toISOString() : null,
         shortTerm: result.portfolioStock.shortTerm,
         mediumTerm: result.portfolioStock.mediumTerm,
         longTerm: result.portfolioStock.longTerm,
-        transactions: [{
-          id: result.transaction.id,
-          type: result.transaction.type,
-          quantity: result.transaction.quantity,
-          price: result.transaction.price.toNumber(),
-          totalAmount: result.transaction.totalAmount.toNumber(),
-          transactionDate: result.transaction.transactionDate.toISOString(),
-          note: result.transaction.note,
-        }],
+        transactions: result.allTransactions.map((t) => ({
+          id: t.id,
+          type: t.type,
+          quantity: t.quantity,
+          price: t.price instanceof Decimal ? t.price.toNumber() : Number(t.price),
+          totalAmount: t.totalAmount instanceof Decimal ? t.totalAmount.toNumber() : Number(t.totalAmount),
+          transactionDate: t.transactionDate instanceof Date
+            ? t.transactionDate.toISOString()
+            : t.transactionDate,
+          note: t.note,
+        })),
         stock: {
           id: result.portfolioStock.stock.id,
           tickerCode: result.portfolioStock.stock.tickerCode,
