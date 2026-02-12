@@ -9,13 +9,13 @@ on:
   workflow_dispatch:
     inputs:
       session:
-        description: 'Session (morning/afternoon)'
+        description: 'Session (for_afternoon/for_next_day)'
         required: true
-        default: 'afternoon'
+        default: 'for_next_day'
         type: choice
         options:
-          - morning
-          - afternoon
+          - for_afternoon
+          - for_next_day
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -37,9 +37,9 @@ jobs:
           else
             HOUR=$(TZ=Asia/Tokyo date +%H)
             if [ "$HOUR" -lt 13 ]; then
-              echo "session=morning" >> $GITHUB_OUTPUT
+              echo "session=for_afternoon" >> $GITHUB_OUTPUT
             else
-              echo "session=afternoon" >> $GITHUB_OUTPUT
+              echo "session=for_next_day" >> $GITHUB_OUTPUT
             fi
           fi
           echo "Session: $(cat $GITHUB_OUTPUT)"

@@ -20,7 +20,7 @@ const prisma = new PrismaClient()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 // 環境変数からセッションを取得
-const SESSION = process.env.SESSION || "afternoon"
+const SESSION = process.env.SESSION || "for_next_day"
 
 // 絞り込み設定
 const CONFIG = {
@@ -38,11 +38,11 @@ const CONFIG = {
 
 // 時間帯別のプロンプト設定
 const SESSION_PROMPTS: Record<string, { intro: string; focus: string }> = {
-  morning: {
+  for_afternoon: {
     intro: "前場の動きを踏まえたおすすめです。",
     focus: "後場に注目したい銘柄",
   },
-  afternoon: {
+  for_next_day: {
     intro: "本日の取引を踏まえた明日へのおすすめです。",
     focus: "明日以降に注目したい銘柄",
   },
@@ -195,7 +195,7 @@ async function generateRecommendationsForUser(
   user: UserWithSettings,
   stocks: StockWithPrice[]
 ): Promise<Recommendation[] | null> {
-  const prompts = SESSION_PROMPTS[SESSION] || SESSION_PROMPTS.afternoon
+  const prompts = SESSION_PROMPTS[SESSION] || SESSION_PROMPTS.for_next_day
 
   const periodLabel: Record<string, string> = {
     short: "短期（1年以内）",
