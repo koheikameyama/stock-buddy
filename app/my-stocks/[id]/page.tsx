@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma"
 import Header from "@/app/components/Header"
 import MyStockDetailClient from "./MyStockDetailClient"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 export default async function MyStockDetailPage({
   params,
@@ -59,10 +58,6 @@ export default async function MyStockDetailPage({
     redirect("/my-stocks")
   }
 
-  // リアルタイム株価を取得
-  const prices = await fetchStockPrices([userStock.stock.tickerCode])
-  const currentPrice = prices[0]?.currentPrice ?? null
-
   // Calculate portfolio values from transactions
   let calculatedQuantity: number | undefined
   let calculatedAveragePrice: number | undefined
@@ -106,7 +101,7 @@ export default async function MyStockDetailPage({
       name: userStock.stock.name,
       sector: userStock.stock.sector,
       market: userStock.stock.market,
-      currentPrice,
+      currentPrice: null, // クライアント側で非同期取得
       fiftyTwoWeekHigh: userStock.stock.fiftyTwoWeekHigh
         ? Number(userStock.stock.fiftyTwoWeekHigh)
         : null,
