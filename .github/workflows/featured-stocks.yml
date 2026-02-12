@@ -30,6 +30,14 @@ jobs:
           fi
           echo "Time context: $(cat $GITHUB_OUTPUT)"
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install yfinance
+        run: pip install yfinance
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
