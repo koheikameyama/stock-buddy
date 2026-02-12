@@ -58,6 +58,7 @@ jobs:
         run: pip install yfinance psycopg2-binary openai
 
       - name: Fetch stock prices
+        if: steps.session.outputs.session != 'for_today'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/github-actions/fetch_stock_prices.py
