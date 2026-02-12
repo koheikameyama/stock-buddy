@@ -9,11 +9,10 @@
  */
 
 import { PrismaClient } from "@prisma/client"
-import YahooFinance from "yahoo-finance2"
 import OpenAI from "openai"
+import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 
 const prisma = new PrismaClient()
-const yahooFinance = new YahooFinance()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 // 時間帯コンテキスト
@@ -87,40 +86,39 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
 
   if (stocks.length === 0) return []
 
-  // ティッカーコードを正規化
-  const tickerCodes = stocks.map((s) => (s.tickerCode.endsWith(".T") ? s.tickerCode : `${s.tickerCode}.T`))
-
-  // yahoo-finance2で一括取得
-  console.log(`Fetching prices for ${tickerCodes.length} stocks from yahoo-finance2...`)
+  // Stooq APIで株価を取得
+  console.log(`Fetching prices for ${stocks.length} stocks from Stooq API...`)
 
   const stocksWithPrices: StockWithPrice[] = []
 
   // バッチ処理（並列で取得）
   const batchSize = 50
-  for (let i = 0; i < tickerCodes.length; i += batchSize) {
-    const batch = tickerCodes.slice(i, i + batchSize)
+  for (let i = 0; i < stocks.length; i += batchSize) {
     const batchStocks = stocks.slice(i, i + batchSize)
 
     const results = await Promise.allSettled(
-      batch.map(async (code, idx) => {
+      batchStocks.map(async (stock) => {
         try {
-          const result = await yahooFinance.chart(code, { period1: "5d" })
-          const quotes = result.quotes
+          // 1ヶ月分のデータを取得（5日分を確保するため）
+          const historicalData = await fetchHistoricalPrices(stock.tickerCode, "1m")
 
-          if (!quotes || quotes.length === 0) return null
+          if (!historicalData || historicalData.length < 2) return null
 
-          const latest = quotes[quotes.length - 1]?.close
-          const weekAgo = quotes[0]?.close
+          // 新しい順にソート
+          const sorted = [...historicalData].sort((a, b) => b.date.localeCompare(a.date))
+
+          const latest = sorted[0]?.close
+          const weekAgo = sorted.length >= 5 ? sorted[4]?.close : sorted[sorted.length - 1]?.close
           if (!latest || !weekAgo) return null
 
           const changeRate = ((latest - weekAgo) / weekAgo) * 100
 
           return {
-            id: batchStocks[idx].id,
-            tickerCode: batchStocks[idx].tickerCode,
-            name: batchStocks[idx].name,
-            sector: batchStocks[idx].sector,
-            beginnerScore: batchStocks[idx].beginnerScore!,
+            id: stock.id,
+            tickerCode: stock.tickerCode,
+            name: stock.name,
+            sector: stock.sector,
+            beginnerScore: stock.beginnerScore!,
             latestPrice: latest,
             weekChangeRate: Math.round(changeRate * 10) / 10,
           }

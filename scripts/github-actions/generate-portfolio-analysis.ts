@@ -9,16 +9,15 @@
  */
 
 import { PrismaClient, Prisma } from "@prisma/client"
-import YahooFinance from "yahoo-finance2"
 import OpenAI from "openai"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import { getRelatedNews, formatNewsForPrompt } from "../lib/news-fetcher"
+import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 
 dayjs.extend(utc)
 
 const prisma = new PrismaClient()
-const yahooFinance = new YahooFinance()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 // 時間帯コンテキスト
@@ -86,23 +85,21 @@ interface PortfolioStockWithDetails {
 
 async function getRecentPrices(tickerCode: string): Promise<PriceData[]> {
   try {
-    const code = tickerCode.endsWith(".T") ? tickerCode : `${tickerCode}.T`
-    const result = await yahooFinance.chart(code, { period1: "1mo" })
+    // Stooq APIから1ヶ月分のデータを取得
+    const historicalData = await fetchHistoricalPrices(tickerCode, "1m")
 
-    if (!result.quotes || result.quotes.length === 0) {
+    if (!historicalData || historicalData.length === 0) {
       return []
     }
 
-    const prices: PriceData[] = result.quotes
-      .filter((q) => q.close)
-      .map((q) => ({
-        date: dayjs(q.date).format("YYYY-MM-DD"),
-        close: q.close!,
-        volume: q.volume || 0,
-      }))
+    const prices: PriceData[] = historicalData.map((d) => ({
+      date: d.date,
+      close: d.close,
+      volume: d.volume,
+    }))
 
     // 新しい順にソート
-    return prices.reverse()
+    return prices.sort((a, b) => b.date.localeCompare(a.date))
   } catch (error) {
     console.log(`Error fetching prices for ${tickerCode}: ${error}`)
     return []

@@ -7,12 +7,11 @@
  */
 
 import { PrismaClient } from "@prisma/client"
-import YahooFinance from "yahoo-finance2"
 import OpenAI from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "../lib/news-fetcher"
+import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 
 const prisma = new PrismaClient()
-const yahooFinance = new YahooFinance()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 interface BaselineData {
@@ -124,23 +123,23 @@ function getRecentPatternSummary(priceHistory: PriceHistory[]): { buySignals: nu
 
 async function getBaselineData(tickerCode: string): Promise<BaselineData | null> {
   try {
-    const code = tickerCode.endsWith(".T") ? tickerCode : `${tickerCode}.T`
-    const result = await yahooFinance.chart(code, { period1: "3mo" })
+    // Stooq APIを使って3ヶ月分の株価データを取得
+    const historicalData = await fetchHistoricalPrices(tickerCode, "3m")
 
-    if (!result.quotes || result.quotes.length === 0) {
+    if (!historicalData || historicalData.length === 0) {
       return null
     }
 
-    const priceHistory: PriceHistory[] = result.quotes
-      .filter((q) => q.open && q.high && q.low && q.close)
-      .map((q) => ({
-        open: q.open!,
-        high: q.high!,
-        low: q.low!,
-        close: q.close!,
-        date: new Date(q.date!).toISOString().split("T")[0],
+    // 新しい順にソート
+    const priceHistory: PriceHistory[] = [...historicalData]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map((d) => ({
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+        date: d.date,
       }))
-      .reverse() // 新しい順
 
     if (priceHistory.length === 0) {
       return null

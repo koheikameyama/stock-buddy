@@ -8,10 +8,9 @@
  */
 
 import { PrismaClient } from "@prisma/client"
-import YahooFinance from "yahoo-finance2"
+import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 
 const prisma = new PrismaClient()
-const yahooFinance = new YahooFinance()
 
 interface DelistedStock {
   id: string
@@ -24,34 +23,27 @@ interface DelistedStock {
 
 async function checkIfDelisted(tickerCode: string): Promise<{ isDelisted: boolean; reason: string }> {
   try {
-    const quote = await yahooFinance.quote(tickerCode)
+    // Stooq APIから1ヶ月分のデータを取得
+    const historicalData = await fetchHistoricalPrices(tickerCode, "1m")
 
-    // quoteがない場合は上場廃止
-    if (!quote) {
-      return { isDelisted: true, reason: "No quote data" }
+    // データがない場合は上場廃止の可能性
+    if (!historicalData || historicalData.length === 0) {
+      return { isDelisted: true, reason: "No price data available" }
     }
 
-    // QuoteType=NONEは上場廃止
-    if ((quote as { quoteType?: string }).quoteType === "NONE") {
-      return { isDelisted: true, reason: "QuoteType=NONE" }
-    }
-
-    // symbolがない場合も上場廃止
-    if (!quote.symbol) {
-      return { isDelisted: true, reason: "No symbol in quote" }
-    }
-
-    // 現在価格がない場合は上場廃止の可能性
-    if (!quote.regularMarketPrice) {
-      return { isDelisted: true, reason: "No market price" }
+    // 直近の価格がない場合は上場廃止の可能性
+    const latestPrice = historicalData[historicalData.length - 1]?.close
+    if (!latestPrice) {
+      return { isDelisted: true, reason: "No recent price data" }
     }
 
     return { isDelisted: false, reason: "Active" }
   } catch (error) {
     const errorMsg = String(error)
-    if (errorMsg.toLowerCase().includes("possibly delisted") || errorMsg.toLowerCase().includes("not found")) {
+    if (errorMsg.toLowerCase().includes("delisted") || errorMsg.toLowerCase().includes("not found")) {
       return { isDelisted: true, reason: `Delisted: ${errorMsg}` }
     }
+    // APIエラーの場合は上場廃止とみなさない（一時的なエラーの可能性）
     return { isDelisted: false, reason: `Error: ${errorMsg}` }
   }
 }

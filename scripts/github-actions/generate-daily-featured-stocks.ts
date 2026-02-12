@@ -11,14 +11,13 @@
  */
 
 import { PrismaClient } from "@prisma/client"
-import YahooFinance from "yahoo-finance2"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
+import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 
 dayjs.extend(utc)
 
 const prisma = new PrismaClient()
-const yahooFinance = new YahooFinance()
 
 interface PriceData {
   date: string
@@ -58,44 +57,41 @@ async function getStocksWithPrices(): Promise<StockWithPrices[]> {
 
   if (stocks.length === 0) return []
 
-  // ティッカーコードを正規化
-  const tickerCodes = stocks.map((s) => (s.tickerCode.endsWith(".T") ? s.tickerCode : `${s.tickerCode}.T`))
-
-  // yahoo-finance2で一括取得
-  console.log(`Fetching prices for ${tickerCodes.length} stocks from yahoo-finance2...`)
+  // Stooq APIで株価を取得
+  console.log(`Fetching prices for ${stocks.length} stocks from Stooq API...`)
 
   const stocksWithPrices: StockWithPrices[] = []
 
   // バッチ処理
   const batchSize = 50
-  for (let i = 0; i < tickerCodes.length; i += batchSize) {
-    const batch = tickerCodes.slice(i, i + batchSize)
+  for (let i = 0; i < stocks.length; i += batchSize) {
     const batchStocks = stocks.slice(i, i + batchSize)
 
     const results = await Promise.allSettled(
-      batch.map(async (code, idx) => {
+      batchStocks.map(async (stock) => {
         try {
-          const result = await yahooFinance.chart(code, { period1: "1mo" })
-          const quotes = result.quotes
+          // 1ヶ月分のデータを取得
+          const historicalData = await fetchHistoricalPrices(stock.tickerCode, "1m")
 
-          if (!quotes || quotes.length < 7) return null
+          if (!historicalData || historicalData.length < 7) return null
 
-          const prices: PriceData[] = quotes
-            .filter((q) => q.close && q.volume)
-            .map((q) => ({
-              date: dayjs(q.date).format("YYYY-MM-DD"),
-              close: q.close!,
-              volume: q.volume!,
+          // 新しい順にソート
+          const prices: PriceData[] = historicalData
+            .filter((d) => d.close && d.volume)
+            .map((d) => ({
+              date: d.date,
+              close: d.close,
+              volume: d.volume,
             }))
-            .reverse() // 新しい順
+            .sort((a, b) => b.date.localeCompare(a.date))
 
           if (prices.length < 7) return null
 
           return {
-            id: batchStocks[idx].id,
-            tickerCode: batchStocks[idx].tickerCode,
-            name: batchStocks[idx].name,
-            beginnerScore: batchStocks[idx].beginnerScore!,
+            id: stock.id,
+            tickerCode: stock.tickerCode,
+            name: stock.name,
+            beginnerScore: stock.beginnerScore!,
             prices,
           }
         } catch {
