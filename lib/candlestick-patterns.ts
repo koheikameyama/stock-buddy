@@ -1,8 +1,11 @@
 /**
  * ローソク足パターン認識ロジック
  *
- * 初心者向けに専門用語を避け、平易な表現を使用
+ * 単一ローソク足のパターン分析と、テクニカル指標を組み合わせた総合シグナルを提供。
+ * 専門用語には解説を添え、学びながら使えるようにする。
  */
+
+import { ChartPatternResult, detectChartPatterns, PricePoint } from "./chart-patterns"
 
 export interface CandlestickData {
   date: string
@@ -35,6 +38,7 @@ export interface PatternsResponse {
     price: number
   }>
   combined: CombinedSignal
+  chartPatterns: ChartPatternResult[]
 }
 
 /**
@@ -229,12 +233,13 @@ export function analyzePatterns(
 }
 
 /**
- * RSI/MACDと組み合わせた総合シグナルを計算
+ * RSI/MACD/チャートパターンと組み合わせた総合シグナルを計算
  */
 export function getCombinedSignal(
   latestPattern: PatternResult | null,
   rsi?: number | null,
-  macdHistogram?: number | null
+  macdHistogram?: number | null,
+  chartPatterns?: ChartPatternResult[]
 ): CombinedSignal {
   const reasons: string[] = []
   let buyScore = 0
@@ -251,14 +256,28 @@ export function getCombinedSignal(
     }
   }
 
+  // チャートパターン（複数足フォーメーション）のシグナル
+  if (chartPatterns && chartPatterns.length > 0) {
+    for (const cp of chartPatterns) {
+      const weightedScore = Math.round(cp.strength * cp.confidence)
+      if (cp.signal === "buy") {
+        buyScore += weightedScore
+        reasons.push(`${cp.patternName}`)
+      } else if (cp.signal === "sell") {
+        sellScore += weightedScore
+        reasons.push(`${cp.patternName}`)
+      }
+    }
+  }
+
   // RSIのシグナル
   if (rsi !== undefined && rsi !== null) {
     if (rsi <= 30) {
       buyScore += 70
-      reasons.push("売られすぎ（RSI）")
+      reasons.push(`売られすぎ（RSI: ${rsi.toFixed(1)}）`)
     } else if (rsi >= 70) {
       sellScore += 70
-      reasons.push("買われすぎ（RSI）")
+      reasons.push(`買われすぎ（RSI: ${rsi.toFixed(1)}）`)
     } else if (rsi <= 40) {
       buyScore += 30
     } else if (rsi >= 60) {
@@ -337,6 +356,7 @@ export function generatePatternsResponse(
         strength: 0,
         reasons: ["データがありません"],
       },
+      chartPatterns: [],
     }
   }
 
@@ -360,16 +380,28 @@ export function generatePatternsResponse(
   }))
   const signals = analyzePatterns([...candles].reverse(), 10)
 
-  // RSI/MACDと組み合わせた総合シグナル
+  // チャートパターン（複数足フォーメーション）を検出
+  const pricePoints: PricePoint[] = chartData.map((d) => ({
+    date: d.date,
+    open: d.open,
+    high: d.high,
+    low: d.low,
+    close: d.close,
+  }))
+  const chartPatterns = detectChartPatterns(pricePoints)
+
+  // RSI/MACDとチャートパターンを組み合わせた総合シグナル
   const combined = getCombinedSignal(
     latestPattern,
     latestCandle.rsi,
-    latestCandle.histogram
+    latestCandle.histogram,
+    chartPatterns
   )
 
   return {
     latest: latestPattern,
     signals,
     combined,
+    chartPatterns,
   }
 }

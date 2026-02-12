@@ -1,0 +1,761 @@
+/**
+ * チャートパターン検出ライブラリ
+ *
+ * 複数のローソク足から形成されるチャートパターン（フォーメーション）を検出する。
+ * 画像参照の信頼度ランキングに基づき実装:
+ *
+ * 【買いシグナル（強い順）】
+ * ① 逆三尊（Inverse Head & Shoulders）
+ * ② ダブルボトム（Double Bottom）
+ * ③ 上昇フラッグ（Bull Flag）
+ * ④ 上昇トライアングル（Ascending Triangle）
+ * ⑤ トリプルボトム（Triple Bottom）
+ *
+ * 【売りシグナル（強い順）】
+ * ⑥ ダブルトップ（Double Top）
+ * ⑦ 三尊（Head & Shoulders）
+ * ⑧ 下降フラッグ（Bear Flag）
+ * ⑨ 下降トライアングル（Descending Triangle）
+ *
+ * 【中立シグナル】
+ * - ボックスレンジ（Box Range）
+ * - 三角保ち合い（Symmetrical Triangle）
+ */
+
+export interface PricePoint {
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume?: number
+}
+
+export interface ChartPatternResult {
+  pattern: string
+  patternName: string
+  signal: "buy" | "sell" | "neutral"
+  strength: number // 0-100
+  confidence: number // 0-1
+  description: string
+  explanation: string
+  startIndex: number
+  endIndex: number
+}
+
+/**
+ * ローカルの極値（高値・安値のピーク）を検出する
+ */
+function findLocalExtremes(
+  prices: PricePoint[],
+  windowSize: number = 3
+): { peaks: number[]; troughs: number[] } {
+  const peaks: number[] = []
+  const troughs: number[] = []
+
+  for (let i = windowSize; i < prices.length - windowSize; i++) {
+    let isPeak = true
+    let isTrough = true
+
+    for (let j = 1; j <= windowSize; j++) {
+      if (prices[i].high <= prices[i - j].high || prices[i].high <= prices[i + j].high) {
+        isPeak = false
+      }
+      if (prices[i].low >= prices[i - j].low || prices[i].low >= prices[i + j].low) {
+        isTrough = false
+      }
+    }
+
+    if (isPeak) peaks.push(i)
+    if (isTrough) troughs.push(i)
+  }
+
+  return { peaks, troughs }
+}
+
+/**
+ * 2つの価格が「ほぼ同じ水準」かを判定
+ */
+function isSimilarPrice(price1: number, price2: number, tolerance: number = 0.03): boolean {
+  const avg = (price1 + price2) / 2
+  return Math.abs(price1 - price2) / avg <= tolerance
+}
+
+/**
+ * トレンドの傾き（回帰直線）を計算
+ */
+function calculateSlope(values: number[]): number {
+  const n = values.length
+  if (n < 2) return 0
+
+  const xMean = (n - 1) / 2
+  const yMean = values.reduce((a, b) => a + b, 0) / n
+
+  let numerator = 0
+  let denominator = 0
+  for (let i = 0; i < n; i++) {
+    numerator += (i - xMean) * (values[i] - yMean)
+    denominator += (i - xMean) * (i - xMean)
+  }
+
+  return denominator === 0 ? 0 : numerator / denominator
+}
+
+/**
+ * ① 逆三尊（Inverse Head & Shoulders）- 最強の買いシグナル
+ *
+ * 3つの谷で構成され、真ん中の谷（ヘッド）が最も深い。
+ * 左右の谷（ショルダー）はほぼ同じ水準。
+ * ネックラインを上抜けると強い上昇シグナル。
+ */
+function detectInverseHeadAndShoulders(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  const { troughs, peaks } = findLocalExtremes(prices, 2)
+
+  if (troughs.length < 3 || peaks.length < 2) return null
+
+  // 連続する3つの谷を探す
+  for (let i = 0; i < troughs.length - 2; i++) {
+    const leftShoulder = troughs[i]
+    const head = troughs[i + 1]
+    const rightShoulder = troughs[i + 2]
+
+    // ヘッドが両ショルダーより深い
+    if (prices[head].low >= prices[leftShoulder].low) continue
+    if (prices[head].low >= prices[rightShoulder].low) continue
+
+    // 両ショルダーがほぼ同じ水準
+    if (!isSimilarPrice(prices[leftShoulder].low, prices[rightShoulder].low, 0.05)) continue
+
+    // ショルダー間のピークを見つける（ネックライン）
+    const necklinePeaks = peaks.filter(p => p > leftShoulder && p < rightShoulder)
+    if (necklinePeaks.length < 1) continue
+
+    const necklinePrice = Math.max(...necklinePeaks.map(p => prices[p].high))
+
+    // 最新の終値がネックラインを上抜けているか
+    const latestClose = prices[prices.length - 1].close
+    const breakout = latestClose > necklinePrice
+
+    const headDepth = (necklinePrice - prices[head].low) / necklinePrice
+
+    return {
+      pattern: "inverse_head_and_shoulders",
+      patternName: "逆三尊（ぎゃくさんぞん）",
+      signal: "buy",
+      strength: breakout ? 95 : 80,
+      confidence: breakout ? 0.85 : 0.65,
+      description: breakout
+        ? "逆三尊が完成し、ネックラインを上抜けました。強い上昇転換のサインです"
+        : "逆三尊が形成中です。ネックラインを超えれば上昇転換の可能性があります",
+      explanation:
+        `【逆三尊とは】3回底を打つパターンで、真ん中の底が一番深い形です。` +
+        `「もうこれ以上下がらない」という市場の意思が表れており、` +
+        `チャートパターンの中で最も信頼度の高い買いシグナルの一つです。` +
+        `谷の深さ: ${(headDepth * 100).toFixed(1)}%`,
+      startIndex: leftShoulder,
+      endIndex: rightShoulder,
+    }
+  }
+
+  return null
+}
+
+/**
+ * ② ダブルボトム（Double Bottom）- 強い買いシグナル
+ *
+ * 同じ水準の安値を2回つけてW字型を形成。
+ * ネックラインを上抜けると上昇トレンドへ転換。
+ */
+function detectDoubleBottom(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 10) return null
+
+  const { troughs, peaks } = findLocalExtremes(prices, 2)
+
+  if (troughs.length < 2 || peaks.length < 1) return null
+
+  for (let i = 0; i < troughs.length - 1; i++) {
+    const first = troughs[i]
+    const second = troughs[i + 1]
+
+    // 2つの谷の間にある程度の距離
+    if (second - first < 5) continue
+
+    // 2つの底がほぼ同じ水準
+    if (!isSimilarPrice(prices[first].low, prices[second].low, 0.04)) continue
+
+    // 間にピーク（ネックライン）がある
+    const middlePeaks = peaks.filter(p => p > first && p < second)
+    if (middlePeaks.length === 0) continue
+
+    const necklinePrice = Math.max(...middlePeaks.map(p => prices[p].high))
+    const bottomPrice = Math.min(prices[first].low, prices[second].low)
+
+    const latestClose = prices[prices.length - 1].close
+    const breakout = latestClose > necklinePrice
+
+    const patternHeight = (necklinePrice - bottomPrice) / bottomPrice
+
+    return {
+      pattern: "double_bottom",
+      patternName: "ダブルボトム",
+      signal: "buy",
+      strength: breakout ? 90 : 75,
+      confidence: breakout ? 0.80 : 0.60,
+      description: breakout
+        ? "ダブルボトムが完成しました。W字型の底打ちから上昇転換が期待できます"
+        : "ダブルボトムを形成中です。2回同じ水準で底を打ち、反発が期待できます",
+      explanation:
+        `【ダブルボトムとは】株価が同じ水準で2回底を打ち、W字型を形成するパターンです。` +
+        `「この価格まで下がると買いたい人が多い」ことを示しており、` +
+        `ネックライン（中間の高値: ${necklinePrice.toLocaleString()}円）を超えると本格的な上昇が始まりやすいです。` +
+        `パターンの高さ: ${(patternHeight * 100).toFixed(1)}%`,
+      startIndex: first,
+      endIndex: second,
+    }
+  }
+
+  return null
+}
+
+/**
+ * ③ 上昇フラッグ（Bull Flag）- 買いシグナル
+ *
+ * 急上昇の後、やや下向きの狭いレンジで推移する調整パターン。
+ * 調整後に再び上昇する可能性が高い。
+ */
+function detectBullFlag(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  // 前半: 急上昇（ポール）を探す
+  const poleEnd = Math.floor(prices.length * 0.5)
+  const poleStart = Math.max(0, poleEnd - 10)
+  const poleRise =
+    (prices[poleEnd].close - prices[poleStart].close) / prices[poleStart].close
+
+  // 最低5%の上昇が必要
+  if (poleRise < 0.05) return null
+
+  // 後半: フラッグ部分（やや下向きの狭いレンジ）
+  const flagPrices = prices.slice(poleEnd)
+  if (flagPrices.length < 5) return null
+
+  const flagCloses = flagPrices.map(p => p.close)
+  const flagSlope = calculateSlope(flagCloses)
+  const avgPrice = flagCloses.reduce((a, b) => a + b, 0) / flagCloses.length
+  const normalizedSlope = flagSlope / avgPrice
+
+  // フラッグは緩やかに下降（-3%〜0%の傾き）
+  if (normalizedSlope > 0.001 || normalizedSlope < -0.005) return null
+
+  // フラッグのレンジが狭い（ボラティリティが低い）
+  const flagHigh = Math.max(...flagPrices.map(p => p.high))
+  const flagLow = Math.min(...flagPrices.map(p => p.low))
+  const flagRange = (flagHigh - flagLow) / avgPrice
+
+  if (flagRange > 0.10) return null // レンジが10%以上なら違う
+
+  return {
+    pattern: "bull_flag",
+    patternName: "上昇フラッグ（ブルフラッグ）",
+    signal: "buy",
+    strength: 75,
+    confidence: 0.65,
+    description:
+      "上昇フラッグを形成中です。急上昇後の小休止で、再上昇の準備段階の可能性があります",
+    explanation:
+      `【上昇フラッグとは】株価が急に上がった後、少しだけ下がりながら横ばいになるパターンです。` +
+      `旗竿（急上昇）と旗（調整）に見えることからこの名前がつきました。` +
+      `「上昇の勢いは続いているが、一時的に休憩中」という状態です。` +
+      `旗竿の上昇: +${(poleRise * 100).toFixed(1)}%、調整レンジ: ${(flagRange * 100).toFixed(1)}%`,
+    startIndex: poleStart,
+    endIndex: prices.length - 1,
+  }
+}
+
+/**
+ * ④ 上昇トライアングル（Ascending Triangle）- 買いシグナル
+ *
+ * 高値がほぼ水平、安値が切り上がるパターン。
+ * 上値抵抗線を上抜けると上昇。
+ */
+function detectAscendingTriangle(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  const { peaks, troughs } = findLocalExtremes(prices, 2)
+
+  if (peaks.length < 2 || troughs.length < 2) return null
+
+  // 高値がほぼ水平か確認
+  const peakPrices = peaks.map(i => prices[i].high)
+  const peakSlope = calculateSlope(peakPrices)
+  const avgPeak = peakPrices.reduce((a, b) => a + b, 0) / peakPrices.length
+  const normalizedPeakSlope = Math.abs(peakSlope / avgPeak)
+
+  if (normalizedPeakSlope > 0.003) return null // 高値が水平でない
+
+  // 安値が切り上がっているか確認
+  const troughPrices = troughs.map(i => prices[i].low)
+  const troughSlope = calculateSlope(troughPrices)
+  const avgTrough = troughPrices.reduce((a, b) => a + b, 0) / troughPrices.length
+  const normalizedTroughSlope = troughSlope / avgTrough
+
+  if (normalizedTroughSlope <= 0.001) return null // 安値が切り上がっていない
+
+  const resistanceLevel = avgPeak
+  const latestClose = prices[prices.length - 1].close
+  const breakout = latestClose > resistanceLevel
+
+  return {
+    pattern: "ascending_triangle",
+    patternName: "上昇トライアングル（アセンディング・トライアングル）",
+    signal: "buy",
+    strength: breakout ? 85 : 70,
+    confidence: breakout ? 0.75 : 0.55,
+    description: breakout
+      ? "上昇トライアングルの上値抵抗線を突破しました。上昇の勢いが強まっています"
+      : "上昇トライアングルを形成中。安値が切り上がっており、上放れの可能性があります",
+    explanation:
+      `【上昇トライアングルとは】高値のラインはほぼ水平なのに、安値が徐々に切り上がっていくパターンです。` +
+      `三角形が徐々に狭まり、買い手の圧力が強まっていることを示します。` +
+      `上値の壁（${resistanceLevel.toLocaleString()}円付近）を超えると、一気に上昇することが多いです。`,
+    startIndex: Math.min(...peaks, ...troughs),
+    endIndex: Math.max(...peaks, ...troughs),
+  }
+}
+
+/**
+ * ⑤ トリプルボトム（Triple Bottom）- 買いシグナル
+ *
+ * 同じ水準で3回底を打つパターン。ダブルボトムより信頼度が高い。
+ */
+function detectTripleBottom(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 20) return null
+
+  const { troughs, peaks } = findLocalExtremes(prices, 2)
+
+  if (troughs.length < 3 || peaks.length < 2) return null
+
+  for (let i = 0; i < troughs.length - 2; i++) {
+    const t1 = troughs[i]
+    const t2 = troughs[i + 1]
+    const t3 = troughs[i + 2]
+
+    // 3つの底がほぼ同じ水準
+    const low1 = prices[t1].low
+    const low2 = prices[t2].low
+    const low3 = prices[t3].low
+
+    if (!isSimilarPrice(low1, low2, 0.04)) continue
+    if (!isSimilarPrice(low2, low3, 0.04)) continue
+    if (!isSimilarPrice(low1, low3, 0.04)) continue
+
+    // 間にピークがある
+    const middlePeaks = peaks.filter(p => p > t1 && p < t3)
+    if (middlePeaks.length < 2) continue
+
+    const necklinePrice = Math.max(...middlePeaks.map(p => prices[p].high))
+    const bottomPrice = Math.min(low1, low2, low3)
+    const latestClose = prices[prices.length - 1].close
+    const breakout = latestClose > necklinePrice
+
+    return {
+      pattern: "triple_bottom",
+      patternName: "トリプルボトム",
+      signal: "buy",
+      strength: breakout ? 88 : 72,
+      confidence: breakout ? 0.78 : 0.58,
+      description: breakout
+        ? "トリプルボトムが完成しました。3回同じ底で跳ね返され、強い買い転換です"
+        : "トリプルボトムを形成中。3回同じ水準で底を打っており、非常に強い下値支持があります",
+      explanation:
+        `【トリプルボトムとは】同じ価格帯で3回底を打つパターンです。` +
+        `ダブルボトムの「もう下がらない」というサインがさらに強力になった形です。` +
+        `底値: ${bottomPrice.toLocaleString()}円付近、` +
+        `ネックライン: ${necklinePrice.toLocaleString()}円`,
+      startIndex: t1,
+      endIndex: t3,
+    }
+  }
+
+  return null
+}
+
+/**
+ * ⑥ ダブルトップ（Double Top）- 強い売りシグナル
+ *
+ * 同じ水準の高値を2回つけてM字型を形成。
+ * ネックラインを下抜けると下落トレンドへ転換。
+ */
+function detectDoubleTop(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 10) return null
+
+  const { peaks, troughs } = findLocalExtremes(prices, 2)
+
+  if (peaks.length < 2 || troughs.length < 1) return null
+
+  for (let i = 0; i < peaks.length - 1; i++) {
+    const first = peaks[i]
+    const second = peaks[i + 1]
+
+    if (second - first < 5) continue
+
+    // 2つの高値がほぼ同じ水準
+    if (!isSimilarPrice(prices[first].high, prices[second].high, 0.04)) continue
+
+    // 間にトラフ（ネックライン）がある
+    const middleTroughs = troughs.filter(t => t > first && t < second)
+    if (middleTroughs.length === 0) continue
+
+    const necklinePrice = Math.min(...middleTroughs.map(t => prices[t].low))
+    const topPrice = Math.max(prices[first].high, prices[second].high)
+
+    const latestClose = prices[prices.length - 1].close
+    const breakdown = latestClose < necklinePrice
+
+    const patternHeight = (topPrice - necklinePrice) / topPrice
+
+    return {
+      pattern: "double_top",
+      patternName: "ダブルトップ",
+      signal: "sell",
+      strength: breakdown ? 90 : 75,
+      confidence: breakdown ? 0.80 : 0.60,
+      description: breakdown
+        ? "ダブルトップが完成しました。M字型の天井から下落転換が始まっています"
+        : "ダブルトップを形成中です。2回同じ高値で跳ね返されており、上値が重い状況です",
+      explanation:
+        `【ダブルトップとは】株価が同じ水準で2回天井を打ち、M字型を形成するパターンです。` +
+        `「この価格まで上がると売りたい人が多い」ことを示しており、` +
+        `ネックライン（中間の安値: ${necklinePrice.toLocaleString()}円）を割り込むと下落が加速しやすいです。` +
+        `パターンの高さ: ${(patternHeight * 100).toFixed(1)}%`,
+      startIndex: first,
+      endIndex: second,
+    }
+  }
+
+  return null
+}
+
+/**
+ * ⑦ 三尊（Head & Shoulders）- 売りシグナル
+ *
+ * 3つの山で構成され、真ん中の山（ヘッド）が最も高い。
+ * ネックラインを下抜けると強い下落シグナル。
+ */
+function detectHeadAndShoulders(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  const { peaks, troughs } = findLocalExtremes(prices, 2)
+
+  if (peaks.length < 3 || troughs.length < 2) return null
+
+  for (let i = 0; i < peaks.length - 2; i++) {
+    const leftShoulder = peaks[i]
+    const head = peaks[i + 1]
+    const rightShoulder = peaks[i + 2]
+
+    // ヘッドが両ショルダーより高い
+    if (prices[head].high <= prices[leftShoulder].high) continue
+    if (prices[head].high <= prices[rightShoulder].high) continue
+
+    // 両ショルダーがほぼ同じ水準
+    if (!isSimilarPrice(prices[leftShoulder].high, prices[rightShoulder].high, 0.05)) continue
+
+    // ショルダー間のトラフを見つける（ネックライン）
+    const necklineTroughs = troughs.filter(t => t > leftShoulder && t < rightShoulder)
+    if (necklineTroughs.length < 1) continue
+
+    const necklinePrice = Math.min(...necklineTroughs.map(t => prices[t].low))
+    const headHeight = (prices[head].high - necklinePrice) / prices[head].high
+
+    const latestClose = prices[prices.length - 1].close
+    const breakdown = latestClose < necklinePrice
+
+    return {
+      pattern: "head_and_shoulders",
+      patternName: "三尊（さんぞん）",
+      signal: "sell",
+      strength: breakdown ? 95 : 80,
+      confidence: breakdown ? 0.85 : 0.65,
+      description: breakdown
+        ? "三尊が完成し、ネックラインを下抜けました。強い下落転換のサインです"
+        : "三尊を形成中です。ネックラインを割り込むと本格的な下落の可能性があります",
+      explanation:
+        `【三尊とは】3回山を作り、真ん中の山が一番高い形（人の頭と両肩に見える）です。` +
+        `「上昇の勢いが弱まり、もう上がれない」ことを示す代表的な天井パターンです。` +
+        `逆三尊の逆で、最も信頼度の高い売りシグナルの一つです。` +
+        `ヘッドの高さ: ${(headHeight * 100).toFixed(1)}%`,
+      startIndex: leftShoulder,
+      endIndex: rightShoulder,
+    }
+  }
+
+  return null
+}
+
+/**
+ * ⑧ 下降フラッグ（Bear Flag）- 売りシグナル
+ *
+ * 急下落の後、やや上向きの狭いレンジで推移する調整パターン。
+ * 調整後に再び下落する可能性が高い。
+ */
+function detectBearFlag(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  const poleEnd = Math.floor(prices.length * 0.5)
+  const poleStart = Math.max(0, poleEnd - 10)
+  const poleDrop =
+    (prices[poleStart].close - prices[poleEnd].close) / prices[poleStart].close
+
+  // 最低5%の下落が必要
+  if (poleDrop < 0.05) return null
+
+  // フラッグ部分
+  const flagPrices = prices.slice(poleEnd)
+  if (flagPrices.length < 5) return null
+
+  const flagCloses = flagPrices.map(p => p.close)
+  const flagSlope = calculateSlope(flagCloses)
+  const avgPrice = flagCloses.reduce((a, b) => a + b, 0) / flagCloses.length
+  const normalizedSlope = flagSlope / avgPrice
+
+  // フラッグは緩やかに上昇（0%〜3%の傾き）
+  if (normalizedSlope < -0.001 || normalizedSlope > 0.005) return null
+
+  const flagHigh = Math.max(...flagPrices.map(p => p.high))
+  const flagLow = Math.min(...flagPrices.map(p => p.low))
+  const flagRange = (flagHigh - flagLow) / avgPrice
+
+  if (flagRange > 0.10) return null
+
+  return {
+    pattern: "bear_flag",
+    patternName: "下降フラッグ（ベアフラッグ）",
+    signal: "sell",
+    strength: 75,
+    confidence: 0.65,
+    description:
+      "下降フラッグを形成中です。急下落後の小反発で、再下落の準備段階の可能性があります",
+    explanation:
+      `【下降フラッグとは】株価が急に下がった後、少しだけ上がりながら横ばいになるパターンです。` +
+      `上昇フラッグの逆で、「下落の勢いは続いているが、一時的に反発中」という状態です。` +
+      `旗竿の下落: -${(poleDrop * 100).toFixed(1)}%、調整レンジ: ${(flagRange * 100).toFixed(1)}%`,
+    startIndex: poleStart,
+    endIndex: prices.length - 1,
+  }
+}
+
+/**
+ * ⑨ 下降トライアングル（Descending Triangle）- 売りシグナル
+ *
+ * 安値がほぼ水平、高値が切り下がるパターン。
+ * 下値支持線を下抜けると下落。
+ */
+function detectDescendingTriangle(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  const { peaks, troughs } = findLocalExtremes(prices, 2)
+
+  if (peaks.length < 2 || troughs.length < 2) return null
+
+  // 安値がほぼ水平か確認
+  const troughPrices = troughs.map(i => prices[i].low)
+  const troughSlope = calculateSlope(troughPrices)
+  const avgTrough = troughPrices.reduce((a, b) => a + b, 0) / troughPrices.length
+  const normalizedTroughSlope = Math.abs(troughSlope / avgTrough)
+
+  if (normalizedTroughSlope > 0.003) return null
+
+  // 高値が切り下がっているか確認
+  const peakPrices = peaks.map(i => prices[i].high)
+  const peakSlope = calculateSlope(peakPrices)
+  const avgPeak = peakPrices.reduce((a, b) => a + b, 0) / peakPrices.length
+  const normalizedPeakSlope = peakSlope / avgPeak
+
+  if (normalizedPeakSlope >= -0.001) return null
+
+  const supportLevel = avgTrough
+  const latestClose = prices[prices.length - 1].close
+  const breakdown = latestClose < supportLevel
+
+  return {
+    pattern: "descending_triangle",
+    patternName: "下降トライアングル（ディセンディング・トライアングル）",
+    signal: "sell",
+    strength: breakdown ? 85 : 70,
+    confidence: breakdown ? 0.75 : 0.55,
+    description: breakdown
+      ? "下降トライアングルの支持線を下抜けました。下落の勢いが強まっています"
+      : "下降トライアングルを形成中。高値が切り下がっており、下放れの可能性があります",
+    explanation:
+      `【下降トライアングルとは】安値のラインはほぼ水平なのに、高値が徐々に切り下がっていくパターンです。` +
+      `上昇トライアングルの逆で、売り手の圧力が強まっていることを示します。` +
+      `下値の壁（${supportLevel.toLocaleString()}円付近）を割り込むと、一気に下落することが多いです。`,
+    startIndex: Math.min(...peaks, ...troughs),
+    endIndex: Math.max(...peaks, ...troughs),
+  }
+}
+
+/**
+ * ボックスレンジ（Box Range）- 中立シグナル
+ *
+ * 一定の価格帯で上下を繰り返すパターン。
+ * どちらに抜けるかで次のトレンドが決まる。
+ */
+function detectBoxRange(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  const { peaks, troughs } = findLocalExtremes(prices, 2)
+
+  if (peaks.length < 2 || troughs.length < 2) return null
+
+  // 高値がほぼ水平
+  const peakPrices = peaks.map(i => prices[i].high)
+  const avgPeak = peakPrices.reduce((a, b) => a + b, 0) / peakPrices.length
+  const peakVariance = peakPrices.reduce((sum, p) => sum + Math.pow(p - avgPeak, 2), 0) / peakPrices.length
+  const peakStdDev = Math.sqrt(peakVariance) / avgPeak
+
+  // 安値がほぼ水平
+  const troughPrices = troughs.map(i => prices[i].low)
+  const avgTrough = troughPrices.reduce((a, b) => a + b, 0) / troughPrices.length
+  const troughVariance = troughPrices.reduce((sum, p) => sum + Math.pow(p - avgTrough, 2), 0) / troughPrices.length
+  const troughStdDev = Math.sqrt(troughVariance) / avgTrough
+
+  // 高値・安値の標準偏差が小さい（水平に近い）
+  if (peakStdDev > 0.03 || troughStdDev > 0.03) return null
+
+  // レンジの幅が適度（3%〜15%）
+  const rangeWidth = (avgPeak - avgTrough) / avgTrough
+  if (rangeWidth < 0.03 || rangeWidth > 0.15) return null
+
+  const latestClose = prices[prices.length - 1].close
+  const positionInRange = (latestClose - avgTrough) / (avgPeak - avgTrough)
+
+  return {
+    pattern: "box_range",
+    patternName: "ボックスレンジ",
+    signal: "neutral",
+    strength: 60,
+    confidence: 0.70,
+    description:
+      `ボックスレンジで推移中です。${avgTrough.toLocaleString()}円〜${avgPeak.toLocaleString()}円の間で動いています`,
+    explanation:
+      `【ボックスレンジとは】株価が一定の範囲内で上下を繰り返す「もみ合い」の状態です。` +
+      `この範囲を上に抜ければ上昇トレンド、下に抜ければ下落トレンドが始まりやすいです。` +
+      `レンジ幅: ${(rangeWidth * 100).toFixed(1)}%、` +
+      `現在位置: レンジの${(positionInRange * 100).toFixed(0)}%地点`,
+    startIndex: Math.min(...peaks, ...troughs),
+    endIndex: Math.max(...peaks, ...troughs),
+  }
+}
+
+/**
+ * 三角保ち合い（Symmetrical Triangle）- 中立シグナル
+ *
+ * 高値が切り下がり、安値が切り上がるパターン。
+ * 三角形が収束し、どちらかにブレイクする。
+ */
+function detectSymmetricalTriangle(prices: PricePoint[]): ChartPatternResult | null {
+  if (prices.length < 15) return null
+
+  const { peaks, troughs } = findLocalExtremes(prices, 2)
+
+  if (peaks.length < 2 || troughs.length < 2) return null
+
+  // 高値が切り下がっている
+  const peakPrices = peaks.map(i => prices[i].high)
+  const peakSlope = calculateSlope(peakPrices)
+  const avgPeak = peakPrices.reduce((a, b) => a + b, 0) / peakPrices.length
+  const normalizedPeakSlope = peakSlope / avgPeak
+
+  if (normalizedPeakSlope >= -0.0005) return null // 高値が切り下がっていない
+
+  // 安値が切り上がっている
+  const troughPrices = troughs.map(i => prices[i].low)
+  const troughSlope = calculateSlope(troughPrices)
+  const avgTrough = troughPrices.reduce((a, b) => a + b, 0) / troughPrices.length
+  const normalizedTroughSlope = troughSlope / avgTrough
+
+  if (normalizedTroughSlope <= 0.0005) return null // 安値が切り上がっていない
+
+  // 収束度合い
+  const latestRange = peakPrices[peakPrices.length - 1] - troughPrices[troughPrices.length - 1]
+  const initialRange = peakPrices[0] - troughPrices[0]
+  const convergenceRatio = latestRange / initialRange
+
+  return {
+    pattern: "symmetrical_triangle",
+    patternName: "三角保ち合い（シンメトリカル・トライアングル）",
+    signal: "neutral",
+    strength: 65,
+    confidence: 0.60,
+    description:
+      "三角保ち合いを形成中です。値幅が狭まっており、近いうちに大きく動く可能性があります",
+    explanation:
+      `【三角保ち合いとは】高値が切り下がり、安値が切り上がって三角形のように収束していくパターンです。` +
+      `売り手と買い手がせめぎ合い、やがてどちらかに大きく動きます。` +
+      `上に抜ければ買い、下に抜ければ売りのサインになります。` +
+      `収束度: ${((1 - convergenceRatio) * 100).toFixed(0)}%`,
+    startIndex: Math.min(...peaks, ...troughs),
+    endIndex: Math.max(...peaks, ...troughs),
+  }
+}
+
+/**
+ * すべてのチャートパターンを検出する（メインのエントリーポイント）
+ */
+export function detectChartPatterns(prices: PricePoint[]): ChartPatternResult[] {
+  if (prices.length < 10) return []
+
+  const detectors = [
+    detectInverseHeadAndShoulders,
+    detectDoubleBottom,
+    detectBullFlag,
+    detectAscendingTriangle,
+    detectTripleBottom,
+    detectDoubleTop,
+    detectHeadAndShoulders,
+    detectBearFlag,
+    detectDescendingTriangle,
+    detectBoxRange,
+    detectSymmetricalTriangle,
+  ]
+
+  const results: ChartPatternResult[] = []
+
+  for (const detector of detectors) {
+    const result = detector(prices)
+    if (result) {
+      results.push(result)
+    }
+  }
+
+  // 信頼度の高い順にソート
+  results.sort((a, b) => b.strength * b.confidence - a.strength * a.confidence)
+
+  return results
+}
+
+/**
+ * チャートパターンの結果をAIプロンプト向けのテキストに変換
+ */
+export function formatChartPatternsForPrompt(patterns: ChartPatternResult[]): string {
+  if (patterns.length === 0) {
+    return "チャートパターン: 特に検出されたパターンはありません"
+  }
+
+  const lines = ["【チャートパターン分析】"]
+
+  for (const p of patterns) {
+    const signalLabel =
+      p.signal === "buy" ? "買い" : p.signal === "sell" ? "売り" : "様子見"
+    lines.push(
+      `- ${p.patternName}: ${signalLabel}シグナル（強さ: ${p.strength}%、信頼度: ${(p.confidence * 100).toFixed(0)}%）`
+    )
+    lines.push(`  ${p.description}`)
+  }
+
+  return lines.join("\n")
+}
