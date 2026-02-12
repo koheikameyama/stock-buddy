@@ -172,11 +172,15 @@ export default function MyStocksClient() {
     fetchData()
   }, [])
 
-  // Fetch stock prices
+  // Fetch stock prices for user stocks
   useEffect(() => {
     async function fetchPrices() {
+      // ユーザー銘柄のティッカーコードを取得
+      const tickerCodes = userStocks.map((s) => s.stock.tickerCode)
+      if (tickerCodes.length === 0) return
+
       try {
-        const response = await fetch("/api/stocks/prices")
+        const response = await fetch(`/api/stocks/prices?tickers=${tickerCodes.join(",")}`)
         if (!response.ok) {
           throw new Error("Failed to fetch prices")
         }
@@ -185,7 +189,7 @@ export default function MyStocksClient() {
         data.prices.forEach((price: StockPrice) => {
           priceMap[price.tickerCode] = price
         })
-        setPrices(priceMap)
+        setPrices((prev) => ({ ...prev, ...priceMap }))
       } catch (err) {
         console.error("Error fetching prices:", err)
       }
@@ -198,6 +202,46 @@ export default function MyStocksClient() {
       return () => clearInterval(interval)
     }
   }, [userStocks])
+
+  // Fetch stock prices for tracked stocks
+  useEffect(() => {
+    async function fetchTrackedPrices() {
+      const tickerCodes = trackedStocks.map((s) => s.stock.tickerCode)
+      if (tickerCodes.length === 0) return
+
+      try {
+        const response = await fetch(`/api/stocks/prices?tickers=${tickerCodes.join(",")}`)
+        if (!response.ok) return
+
+        const data = await response.json()
+        const priceMap = new Map<string, StockPrice>(
+          data.prices?.map((p: StockPrice) => [p.tickerCode, p]) || []
+        )
+
+        // 追跡銘柄の株価を更新
+        setTrackedStocks((prev) =>
+          prev.map((ts) => {
+            const priceData = priceMap.get(ts.stock.tickerCode)
+            return priceData
+              ? {
+                  ...ts,
+                  currentPrice: priceData.currentPrice,
+                  change: priceData.change,
+                  changePercent: priceData.changePercent,
+                }
+              : ts
+          })
+        )
+      } catch (err) {
+        console.error("Error fetching tracked prices:", err)
+      }
+    }
+
+    if (trackedStocks.length > 0) {
+      fetchTrackedPrices()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackedStocks.length])
 
   // Fetch purchase recommendations for watchlist stocks
   useEffect(() => {

@@ -133,15 +133,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // リアルタイム株価を取得
-    const allTickerCodes = [
-      ...watchlistStocks.map((ws: any) => ws.stock.tickerCode),
-      ...portfolioStocks.map((ps: any) => ps.stock.tickerCode),
-    ]
-    const prices = await fetchStockPrices(allTickerCodes)
-    const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
-
-    // Format response
+    // Format response (株価はクライアント側で非同期取得)
     const watchlistResponse: UserStockResponse[] = watchlistStocks.map((ws) => ({
       id: ws.id,
       userId: ws.userId,
@@ -153,7 +145,7 @@ export async function GET(request: NextRequest) {
         name: ws.stock.name,
         sector: ws.stock.sector,
         market: ws.stock.market,
-        currentPrice: priceMap.get(ws.stock.tickerCode) ?? null,
+        currentPrice: null, // クライアント側で非同期取得
       },
       createdAt: ws.createdAt.toISOString(),
       updatedAt: ws.updatedAt.toISOString(),
@@ -207,7 +199,7 @@ export async function GET(request: NextRequest) {
           name: ps.stock.name,
           sector: ps.stock.sector,
           market: ps.stock.market,
-          currentPrice: priceMap.get(ps.stock.tickerCode) ?? null,
+          currentPrice: null, // クライアント側で非同期取得
         },
         createdAt: ps.createdAt.toISOString(),
         updatedAt: ps.updatedAt.toISOString(),

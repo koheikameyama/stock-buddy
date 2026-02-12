@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 const MAX_TRACKED_STOCKS = 10
 
@@ -34,30 +33,22 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     })
 
-    // リアルタイム株価を取得
-    const tickerCodes = trackedStocks.map((ts) => ts.stock.tickerCode)
-    const prices = tickerCodes.length > 0 ? await fetchStockPrices(tickerCodes) : []
-    const priceMap = new Map(prices.map((p) => [p.tickerCode, p]))
-
-    // レスポンス整形
-    const response = trackedStocks.map((ts) => {
-      const priceData = priceMap.get(ts.stock.tickerCode)
-      return {
-        id: ts.id,
-        stockId: ts.stockId,
-        stock: {
-          id: ts.stock.id,
-          tickerCode: ts.stock.tickerCode,
-          name: ts.stock.name,
-          sector: ts.stock.sector,
-          market: ts.stock.market,
-        },
-        currentPrice: priceData?.currentPrice ?? null,
-        change: priceData?.change ?? null,
-        changePercent: priceData?.changePercent ?? null,
-        createdAt: ts.createdAt.toISOString(),
-      }
-    })
+    // レスポンス整形（株価はクライアント側で非同期取得）
+    const response = trackedStocks.map((ts) => ({
+      id: ts.id,
+      stockId: ts.stockId,
+      stock: {
+        id: ts.stock.id,
+        tickerCode: ts.stock.tickerCode,
+        name: ts.stock.name,
+        sector: ts.stock.sector,
+        market: ts.stock.market,
+      },
+      currentPrice: null,
+      change: null,
+      changePercent: null,
+      createdAt: ts.createdAt.toISOString(),
+    }))
 
     return NextResponse.json(response)
   } catch (error) {
