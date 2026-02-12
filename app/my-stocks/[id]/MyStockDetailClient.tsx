@@ -70,7 +70,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [showTransactionDialog, setShowTransactionDialog] = useState(false)
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
-  const [passingStock, setPassingStock] = useState(false)
+  const [trackingStock, setTrackingStock] = useState(false)
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -128,39 +128,43 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
     fetchPrice()
   }, [stock.stock.tickerCode])
 
-  // 見送りとして記録
-  const handlePassStock = async () => {
-    const reason = prompt("見送る理由を入力してください（任意）")
-    if (reason === null) return // キャンセル
+  // 追跡に移動または削除
+  const handleTrackOrDelete = async () => {
+    const shouldTrack = confirm("この銘柄を追跡リストに移動しますか？\n\n「OK」→ 追跡リストへ移動\n「キャンセル」→ 削除")
 
-    setPassingStock(true)
-    try {
-      const response = await fetch("/api/passed-stocks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stockId: stock.stockId,
-          passedReason: reason || null,
-          source: "watchlist",
-        }),
-      })
+    if (shouldTrack) {
+      // 追跡リストに追加
+      setTrackingStock(true)
+      try {
+        const response = await fetch("/api/tracked-stocks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tickerCode: stock.stock.tickerCode,
+          }),
+        })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "記録に失敗しました")
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "追跡に失敗しました")
+        }
+
+        // ウォッチリストから削除
+        await fetch(`/api/user-stocks/${stock.id}`, {
+          method: "DELETE",
+        })
+
+        alert("追跡リストに移動しました")
+        router.push("/my-stocks")
+      } catch (err: any) {
+        console.error(err)
+        alert(err.message || "追跡に失敗しました")
+      } finally {
+        setTrackingStock(false)
       }
-
-      // 削除確認
-      if (confirm("見送りとして記録しました。ウォッチリストから削除しますか？")) {
-        await handleDelete()
-      } else {
-        alert("見送りとして記録しました。ダッシュボードで結果を追跡できます。")
-      }
-    } catch (err: any) {
-      console.error(err)
-      alert(err.message || "記録に失敗しました")
-    } finally {
-      setPassingStock(false)
+    } else {
+      // 削除
+      await handleDelete()
     }
   }
 
@@ -485,11 +489,11 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                     +購入
                   </button>
                   <button
-                    onClick={handlePassStock}
-                    disabled={passingStock}
+                    onClick={handleTrackOrDelete}
+                    disabled={trackingStock}
                     className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                   >
-                    {passingStock ? "記録中..." : "見送り"}
+                    {trackingStock ? "処理中..." : "追跡/削除"}
                   </button>
                 </div>
               </div>

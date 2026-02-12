@@ -258,7 +258,6 @@ export async function POST(request: NextRequest) {
         } else {
           switch (rec) {
             case "buy": return "買い時"
-            case "pass": return "見送り推奨"
             default: return "様子見"
           }
         }

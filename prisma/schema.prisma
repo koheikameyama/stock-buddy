@@ -60,7 +60,7 @@ model User {
   portfolioStocks        PortfolioStock[]
   transactions           Transaction[]
   dailyRecommendations   UserDailyRecommendation[]
-  passedStockTrackings   PassedStockTracking[]
+  trackedStocks          TrackedStock[]
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
@@ -128,7 +128,7 @@ model Stock {
   transactions            Transaction[]
   purchaseRecommendations PurchaseRecommendation[]
   userDailyRecommendations UserDailyRecommendation[]
-  passedStockTrackings    PassedStockTracking[]
+  trackedStocks           TrackedStock[]
   createdAt               DateTime @default(now())
 
   @@index([tickerCode])
@@ -372,36 +372,20 @@ model PurchaseRecommendation {
   @@index([stockId])
 }
 
-// C. 見送った銘柄の追跡
-model PassedStockTracking {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stockId       String
-  stock         Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-
-  // 見送り時点の情報
-  passedAt      DateTime @default(now())     // 見送った日時
-  passedPrice   Decimal  @db.Decimal(12, 2)  // 見送り時の株価
-  passedReason  String?  @db.Text            // 見送り理由（ユーザー入力）
-  source        String   @default("watchlist") // "watchlist" | "featured" | "recommendation"
-
-  // 追跡結果（定期更新）
-  currentPrice       Decimal? @db.Decimal(12, 2)  // 現在の株価
-  priceChangePercent Decimal? @db.Decimal(6, 2)   // 株価変動率（%）
-  whatIfProfit       Decimal? @db.Decimal(15, 2)  // 「あの時買ってたら」の損益
-  whatIfQuantity     Int?                          // 仮定購入株数（予算から計算）
-  wasGoodDecision    Boolean?                      // 良い判断だったか？
-  feedbackNote       String?  @db.Text             // AI振り返りコメント
-  lastTrackedAt      DateTime?                     // 最終追跡日時
+// 追跡銘柄（AI分析なしで株価だけ追いたい銘柄）
+model TrackedStock {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId String
+  stock   Stock  @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, stockId, passedAt])
+  @@unique([userId, stockId])
   @@index([userId])
   @@index([stockId])
-  @@index([passedAt(sort: Desc)])
 }
 
 // ユーザーごとのAIおすすめ銘柄（毎日バッチで生成）

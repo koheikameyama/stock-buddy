@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
-import PassedStockCard from "./PassedStockCard"
+import TrackedStockCard from "./TrackedStockCard"
 import SoldStockCard from "./SoldStockCard"
 import AddStockDialog from "./AddStockDialog"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
@@ -56,7 +56,7 @@ interface PurchaseRecommendation {
   analyzedAt?: string
 }
 
-interface PassedStock {
+interface TrackedStock {
   id: string
   stockId: string
   stock: {
@@ -64,17 +64,12 @@ interface PassedStock {
     tickerCode: string
     name: string
     sector: string | null
+    market: string
   }
-  passedAt: string
-  passedPrice: number
-  passedReason: string | null
-  source: string
   currentPrice: number | null
-  priceChangePercent: number | null
-  whatIfProfit: number | null
-  whatIfQuantity: number | null
-  wasGoodDecision: boolean | null
-  feedbackNote: string | null
+  change: number | null
+  changePercent: number | null
+  createdAt: string
 }
 
 interface SoldStock {
@@ -105,7 +100,7 @@ interface SoldStock {
   }[]
 }
 
-type TabType = "portfolio" | "watchlist" | "passed" | "sold"
+type TabType = "portfolio" | "watchlist" | "tracked" | "sold"
 
 const MAX_USER_STOCKS = 5
 
@@ -123,7 +118,7 @@ export default function MyStocksClient() {
   const [activeTab, setActiveTab] = useState<TabType>("portfolio")
   // ウォッチリストからの購入用
   const [purchaseFromWatchlist, setPurchaseFromWatchlist] = useState<UserStock | null>(null)
-  // 見送り・過去の保有銘柄からの移動用
+  // 追跡・過去の保有銘柄からの移動用
   const [stockToMove, setStockToMove] = useState<{
     stockId: string
     tickerCode: string
@@ -131,9 +126,9 @@ export default function MyStocksClient() {
     market?: string
     sector?: string | null
   } | null>(null)
-  // 見送り銘柄用
-  const [passedStocks, setPassedStocks] = useState<PassedStock[]>([])
-  const [passedStocksLoading, setPassedStocksLoading] = useState(false)
+  // 追跡銘柄用
+  const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([])
+  const [trackedStocksLoading, setTrackedStocksLoading] = useState(false)
   // 売却済み銘柄用
   const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
   const [soldStocksLoading, setSoldStocksLoading] = useState(false)
@@ -142,10 +137,10 @@ export default function MyStocksClient() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // 並列でユーザー銘柄、見送り銘柄、売却済み銘柄を取得
-        const [stocksResponse, passedResponse, soldResponse] = await Promise.all([
+        // 並列でユーザー銘柄、追跡銘柄、売却済み銘柄を取得
+        const [stocksResponse, trackedResponse, soldResponse] = await Promise.all([
           fetch("/api/user-stocks?mode=all"),
-          fetch("/api/passed-stocks"),
+          fetch("/api/tracked-stocks"),
           fetch("/api/sold-stocks"),
         ])
 
@@ -155,10 +150,10 @@ export default function MyStocksClient() {
         const stocksData = await stocksResponse.json()
         setUserStocks(stocksData)
 
-        // 見送り銘柄（エラーでも続行）
-        if (passedResponse.ok) {
-          const passedData = await passedResponse.json()
-          setPassedStocks(passedData)
+        // 追跡銘柄（エラーでも続行）
+        if (trackedResponse.ok) {
+          const trackedData = await trackedResponse.json()
+          setTrackedStocks(trackedData)
         }
 
         // 売却済み銘柄（エラーでも続行）
@@ -243,26 +238,26 @@ export default function MyStocksClient() {
     }
   }, [userStocks])
 
-  // Fetch passed stocks when tab is switched
+  // Fetch tracked stocks when tab is switched
   useEffect(() => {
-    async function fetchPassedStocks() {
-      if (activeTab !== "passed" || passedStocks.length > 0) return
+    async function fetchTrackedStocks() {
+      if (activeTab !== "tracked" || trackedStocks.length > 0) return
 
-      setPassedStocksLoading(true)
+      setTrackedStocksLoading(true)
       try {
-        const response = await fetch("/api/passed-stocks")
-        if (!response.ok) throw new Error("Failed to fetch passed stocks")
+        const response = await fetch("/api/tracked-stocks")
+        if (!response.ok) throw new Error("Failed to fetch tracked stocks")
         const data = await response.json()
-        setPassedStocks(data)
+        setTrackedStocks(data)
       } catch (err) {
-        console.error("Error fetching passed stocks:", err)
+        console.error("Error fetching tracked stocks:", err)
       } finally {
-        setPassedStocksLoading(false)
+        setTrackedStocksLoading(false)
       }
     }
 
-    fetchPassedStocks()
-  }, [activeTab, passedStocks.length])
+    fetchTrackedStocks()
+  }, [activeTab, trackedStocks.length])
 
   // Fetch sold stocks when tab is switched
   useEffect(() => {
@@ -285,20 +280,20 @@ export default function MyStocksClient() {
     fetchSoldStocks()
   }, [activeTab, soldStocks.length])
 
-  const handleRemovePassedStock = async (id: string) => {
+  const handleRemoveTrackedStock = async (id: string) => {
     try {
-      const response = await fetch(`/api/passed-stocks/${id}`, {
+      const response = await fetch(`/api/tracked-stocks/${id}`, {
         method: "DELETE",
       })
       if (!response.ok) throw new Error("Failed to remove tracking")
-      setPassedStocks((prev) => prev.filter((ps) => ps.id !== id))
+      setTrackedStocks((prev) => prev.filter((ts) => ts.id !== id))
     } catch (err) {
-      console.error("Error removing passed stock:", err)
+      console.error("Error removing tracked stock:", err)
     }
   }
 
-  // 見送り銘柄をウォッチリストに追加
-  const handlePassedToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
+  // 追跡銘柄をウォッチリストに追加
+  const handleTrackedToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
     try {
       const response = await fetch("/api/user-stocks", {
         method: "POST",
@@ -311,8 +306,8 @@ export default function MyStocksClient() {
       }
       const newStock = await response.json()
       setUserStocks((prev) => [...prev, newStock])
-      // 見送り銘柄リストから削除（APIが自動で削除するので、UIも更新）
-      setPassedStocks((prev) => prev.filter((ps) => ps.stockId !== stockId))
+      // 追跡銘柄リストから削除
+      setTrackedStocks((prev) => prev.filter((ts) => ts.stockId !== stockId))
       setActiveTab("watchlist")
     } catch (err) {
       console.error("Error adding to watchlist:", err)
@@ -320,9 +315,9 @@ export default function MyStocksClient() {
     }
   }
 
-  // 見送り銘柄をポートフォリオに追加（AddStockDialogを開く）
-  const handlePassedToPurchase = (stockId: string, tickerCode: string, name: string) => {
-    setStockToMove({ stockId, tickerCode, name })
+  // 追跡銘柄をポートフォリオに追加（AddStockDialogを開く）
+  const handleTrackedToPurchase = (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => {
+    setStockToMove({ stockId, tickerCode, name, market, sector })
     setShowAddDialog(true)
   }
 
@@ -472,14 +467,14 @@ export default function MyStocksClient() {
               気になる ({watchlistStocks.length})
             </button>
             <button
-              onClick={() => setActiveTab("passed")}
+              onClick={() => setActiveTab("tracked")}
               className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
-                activeTab === "passed"
+                activeTab === "tracked"
                   ? "border-b-2 border-blue-600 text-blue-600"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              見送り ({passedStocks.length})
+              追跡 ({trackedStocks.length})
             </button>
             <button
               onClick={() => setActiveTab("sold")}
@@ -498,33 +493,65 @@ export default function MyStocksClient() {
 
         {/* Stock List Section */}
         <section>
-          {activeTab === "passed" ? (
-            // 見送った銘柄タブ
+          {activeTab === "tracked" ? (
+            // 追跡銘柄タブ
             <>
-              {passedStocksLoading ? (
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    AI分析なしで株価を追跡
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddDialog(true)}
+                  className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4 sm:w-5 sm:h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  追跡銘柄を追加
+                </button>
+              </div>
+              {trackedStocksLoading ? (
                 <div className="text-center py-8">
                   <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
                   <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
                 </div>
-              ) : passedStocks.length === 0 ? (
+              ) : trackedStocks.length === 0 ? (
                 <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📊</div>
+                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">👁️</div>
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                    見送った銘柄はありません
+                    追跡中の銘柄はありません
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600">
-                    気になる銘柄を見送ると、ここに表示されます
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+                    AI分析なしで株価だけ追いたい銘柄を追加しましょう
                   </p>
+                  <button
+                    onClick={() => setShowAddDialog(true)}
+                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    銘柄を追加する
+                  </button>
                 </div>
               ) : (
                 <div className="grid gap-3 sm:gap-6">
-                  {passedStocks.map((ps) => (
-                    <PassedStockCard
-                      key={ps.id}
-                      passedStock={ps}
-                      onRemove={handleRemovePassedStock}
-                      onAddToWatchlist={handlePassedToWatchlist}
-                      onPurchase={handlePassedToPurchase}
+                  {trackedStocks.map((ts) => (
+                    <TrackedStockCard
+                      key={ts.id}
+                      trackedStock={ts}
+                      onRemove={handleRemoveTrackedStock}
+                      onMoveToWatchlist={handleTrackedToWatchlist}
+                      onPurchase={handleTrackedToPurchase}
                     />
                   ))}
                 </div>
@@ -639,16 +666,21 @@ export default function MyStocksClient() {
           setStockToMove(null)
         }}
         onSuccess={(newStock) => {
-          handleStockAdded(newStock)
+          // 追跡タブからの直接追加の場合
+          if (activeTab === "tracked" && !purchaseFromWatchlist && !stockToMove) {
+            setTrackedStocks((prev) => [...prev, newStock as unknown as TrackedStock])
+          } else {
+            handleStockAdded(newStock)
+          }
           setPurchaseFromWatchlist(null)
-          // 見送り銘柄からの移動の場合、見送り銘柄リストを更新
+          // 追跡銘柄からの移動の場合、追跡銘柄リストを更新
           if (stockToMove) {
-            setPassedStocks((prev) => prev.filter((ps) => ps.stockId !== stockToMove.stockId))
+            setTrackedStocks((prev) => prev.filter((ts) => ts.stockId !== stockToMove.stockId))
             setStockToMove(null)
             setActiveTab("portfolio")
           }
         }}
-        defaultType={(purchaseFromWatchlist || stockToMove) ? "portfolio" : (activeTab === "passed" || activeTab === "sold") ? "portfolio" : activeTab}
+        defaultType={(purchaseFromWatchlist || stockToMove) ? "portfolio" : activeTab === "tracked" ? "tracked" : activeTab === "sold" ? "portfolio" : activeTab}
         initialStock={purchaseFromWatchlist ? {
           id: purchaseFromWatchlist.stock.id,
           tickerCode: purchaseFromWatchlist.stock.tickerCode,

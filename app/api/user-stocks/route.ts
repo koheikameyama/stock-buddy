@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
           },
         },
       }),
-      prisma.passedStockTracking.findFirst({
+      prisma.trackedStock.findFirst({
         where: { userId, stockId: stock.id },
       }),
     ])
@@ -388,9 +388,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 見送った銘柄から追加する場合、PassedStockTrackingから削除
+    // 追跡銘柄から追加する場合、TrackedStockから削除
     if (existingPassedStock) {
-      await prisma.passedStockTracking.delete({
+      await prisma.trackedStock.delete({
         where: { id: existingPassedStock.id },
       })
     }

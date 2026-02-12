@@ -40,7 +40,7 @@ interface AddStockDialogProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (stock: UserStock) => void
-  defaultType: "portfolio" | "watchlist"
+  defaultType: "portfolio" | "watchlist" | "tracked"
   // 事前選択された銘柄（おすすめから追加する場合など）
   initialStock?: SearchResult | null
 }
@@ -176,32 +176,54 @@ export default function AddStockDialog({
     setLoading(true)
 
     try {
-      const body: any = {
-        tickerCode,
-        type: defaultType,
+      let newStock
+
+      if (defaultType === "tracked") {
+        // 追跡銘柄の場合は別APIを使用
+        const response = await fetch("/api/tracked-stocks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ tickerCode }),
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "銘柄の追加に失敗しました")
+        }
+
+        newStock = await response.json()
+      } else {
+        // ウォッチリスト・ポートフォリオの場合
+        const body: any = {
+          tickerCode,
+          type: defaultType,
+        }
+
+        // Add type-specific fields
+        if (defaultType === "portfolio") {
+          body.quantity = parseInt(quantity)
+          body.averagePurchasePrice = parseFloat(averagePrice)
+          body.purchaseDate = purchaseDate
+        }
+
+        const response = await fetch("/api/user-stocks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "銘柄の追加に失敗しました")
+        }
+
+        newStock = await response.json()
       }
 
-      // Add type-specific fields
-      if (defaultType === "portfolio") {
-        body.quantity = parseInt(quantity)
-        body.averagePurchasePrice = parseFloat(averagePrice)
-        body.purchaseDate = purchaseDate
-      }
-
-      const response = await fetch("/api/user-stocks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "銘柄の追加に失敗しました")
-      }
-
-      const newStock = await response.json()
       onSuccess(newStock)
 
       // Reset form
@@ -225,7 +247,7 @@ export default function AddStockDialog({
       <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            {defaultType === "portfolio" ? "保有銘柄を追加" : "気になる銘柄を追加"}
+            {defaultType === "portfolio" ? "保有銘柄を追加" : defaultType === "tracked" ? "追跡銘柄を追加" : "気になる銘柄を追加"}
           </h2>
           <button
             onClick={onClose}

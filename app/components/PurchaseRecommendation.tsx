@@ -360,60 +360,13 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     )
   }
 
-  // 様子見
-  if (data.recommendation === "hold") {
-    return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">⏳</span>
-            <h3 className="text-base sm:text-lg font-bold text-blue-800">もう少し様子を見ましょう</h3>
-          </div>
-
-          <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
-
-          {/* A. 買い時判断 */}
-          <BuyTimingSection />
-
-          {/* D. パーソナライズ */}
-          <PersonalizedSection />
-
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
-            <p className="text-xs text-blue-800">💡 今は焦らず、タイミングを待ちましょう</p>
-          </div>
-
-          {/* B. 深掘り評価 */}
-          <DeepEvaluationSection />
-
-          <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
-            <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
-          </div>
-
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${confidencePercent}%` }}
-              />
-            </div>
-            <span className="text-xs text-gray-600 whitespace-nowrap">信頼度 {confidencePercent}%</span>
-          </div>
-
-          <div className="text-center">
-            <AnalysisTimestamp dateString={data.analyzedAt} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // 見送り
+  // 様子見（holdまたはそれ以外のフォールバック）
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
-      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg shadow-md p-4 sm:p-6">
+      <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">🚫</span>
-          <h3 className="text-base sm:text-lg font-bold text-gray-800">今は見送りがおすすめです</h3>
+          <span className="text-2xl">⏳</span>
+          <h3 className="text-base sm:text-lg font-bold text-blue-800">もう少し様子を見ましょう</h3>
         </div>
 
         <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
@@ -424,8 +377,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         {/* D. パーソナライズ */}
         <PersonalizedSection />
 
-        <div className="bg-gray-100 border-l-4 border-gray-400 p-3 mb-4">
-          <p className="text-xs text-gray-700">💡 他の銘柄を検討してみましょう</p>
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
+          <p className="text-xs text-blue-800">💡 今は焦らず、タイミングを待ちましょう</p>
         </div>
 
         {/* B. 深掘り評価 */}
@@ -438,7 +391,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         <div className="flex items-center gap-2 mb-3">
           <div className="flex-1 bg-gray-200 rounded-full h-2">
             <div
-              className="bg-gray-500 h-2 rounded-full transition-all duration-500"
+              className="bg-blue-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${confidencePercent}%` }}
             />
           </div>
