@@ -20,7 +20,69 @@ from openai import OpenAI
 # 設定
 CONFIG = {
     "MAX_PER_SECTOR": 5,       # 各セクターからの最大銘柄数
-    "MAX_STOCKS_FOR_AI": 30,  # AIに渡す最大銘柄数
+    "MAX_STOCKS_FOR_AI": 30,   # AIに渡す最大銘柄数
+}
+
+# 投資スタイル別のスコア配分（period × risk）
+# 各指標の重み（合計100）
+SCORE_WEIGHTS = {
+    # 短期
+    ("short", "high"): {
+        "weekChangeRate": 40,  # モメンタム重視
+        "volumeRatio": 30,     # 注目度
+        "volatility": 20,      # 高ボラ歓迎
+        "marketCap": 10,
+    },
+    ("short", "medium"): {
+        "weekChangeRate": 35,
+        "volumeRatio": 25,
+        "volatility": 15,
+        "marketCap": 25,
+    },
+    ("short", "low"): {
+        "weekChangeRate": 25,
+        "volumeRatio": 20,
+        "volatility": 15,      # 低ボラ重視（反転）
+        "marketCap": 40,
+    },
+    # 中期
+    ("medium", "high"): {
+        "weekChangeRate": 30,
+        "volumeRatio": 25,
+        "volatility": 20,
+        "marketCap": 25,
+    },
+    ("medium", "medium"): {
+        "weekChangeRate": 25,
+        "volumeRatio": 25,
+        "volatility": 25,
+        "marketCap": 25,
+    },
+    ("medium", "low"): {
+        "weekChangeRate": 15,
+        "volumeRatio": 15,
+        "volatility": 30,      # 低ボラ重視（反転）
+        "marketCap": 40,
+    },
+    # 長期
+    ("long", "high"): {
+        "weekChangeRate": 20,
+        "volumeRatio": 20,
+        "volatility": 25,
+        "marketCap": 35,
+    },
+    ("long", "medium"): {
+        "weekChangeRate": 15,
+        "volumeRatio": 15,
+        "volatility": 30,      # 低ボラ重視（反転）
+        "marketCap": 40,
+    },
+    ("long", "low"): {
+        "weekChangeRate": 10,
+        "volumeRatio": 10,
+        "volatility": 35,      # 低ボラ最重視（反転）
+        "marketCap": 45,
+    },
 }
 
 # 時間帯別のプロンプト設定
@@ -89,15 +151,24 @@ def get_users_with_settings(conn) -> list[dict]:
 
 
 def get_stocks_with_prices(conn) -> list[dict]:
-    """DBから株価データを取得（Pythonスクリプトで事前に更新済み）"""
+    """DBから株価データを取得（スコアリング用の指標を含む）"""
     with conn.cursor() as cur:
         cur.execute('''
-            SELECT id, "tickerCode", name, sector, "latestPrice", "latestVolume", "weekChangeRate"
+            SELECT
+                id,
+                "tickerCode",
+                name,
+                sector,
+                "latestPrice",
+                "latestVolume",
+                "weekChangeRate",
+                "marketCap",
+                "volatility",
+                "volumeRatio",
+                "dividendYield"
             FROM "Stock"
             WHERE "priceUpdatedAt" IS NOT NULL
               AND "latestPrice" IS NOT NULL
-              AND "latestVolume" IS NOT NULL
-            ORDER BY "latestVolume" DESC
         ''')
         rows = cur.fetchall()
 
@@ -110,26 +181,106 @@ def get_stocks_with_prices(conn) -> list[dict]:
             "latestPrice": float(row[4]) if row[4] else 0,
             "volume": int(row[5]) if row[5] else 0,
             "weekChangeRate": float(row[6]) if row[6] else 0,
+            "marketCap": float(row[7]) if row[7] else 0,
+            "volatility": float(row[8]) if row[8] else None,
+            "volumeRatio": float(row[9]) if row[9] else None,
+            "dividendYield": float(row[10]) if row[10] else 0,
         }
         for row in rows
     ]
 
     print(f"Found {len(stocks)} stocks with price data")
+    return stocks
 
-    # セクター分散フィルタ
+
+def normalize_values(stocks: list[dict], key: str, reverse: bool = False) -> dict[str, float]:
+    """指標を0-100に正規化する"""
+    values = [(s["id"], s.get(key)) for s in stocks if s.get(key) is not None]
+    if not values:
+        return {}
+
+    vals = [v for _, v in values]
+    min_val, max_val = min(vals), max(vals)
+
+    if max_val == min_val:
+        return {stock_id: 50.0 for stock_id, _ in values}
+
+    normalized = {}
+    for stock_id, val in values:
+        score = (val - min_val) / (max_val - min_val) * 100
+        if reverse:
+            score = 100 - score
+        normalized[stock_id] = score
+
+    return normalized
+
+
+def calculate_stock_scores(
+    stocks: list[dict],
+    period: str | None,
+    risk: str | None
+) -> list[dict]:
+    """投資スタイルに基づいてスコアを計算"""
+    # デフォルトはバランス型
+    weights = SCORE_WEIGHTS.get(
+        (period or "medium", risk or "medium"),
+        SCORE_WEIGHTS[("medium", "medium")]
+    )
+
+    # 各指標を正規化
+    # volatilityは低リスク志向の場合は低い方が良いので反転
+    is_low_risk = risk == "low" or (risk == "medium" and period == "long")
+    normalized = {
+        "weekChangeRate": normalize_values(stocks, "weekChangeRate"),
+        "volumeRatio": normalize_values(stocks, "volumeRatio"),
+        "volatility": normalize_values(stocks, "volatility", reverse=is_low_risk),
+        "marketCap": normalize_values(stocks, "marketCap"),
+    }
+
+    # スコア計算
+    scored_stocks = []
+    for stock in stocks:
+        stock_id = stock["id"]
+        total_score = 0.0
+        score_breakdown = {}
+
+        for key, weight in weights.items():
+            val = normalized.get(key, {}).get(stock_id)
+            if val is not None:
+                component_score = val * (weight / 100)
+                total_score += component_score
+                score_breakdown[key] = round(component_score, 1)
+            else:
+                # 値がない場合は中間値を使用
+                component_score = 50 * (weight / 100)
+                total_score += component_score
+                score_breakdown[key] = round(component_score, 1)
+
+        scored_stocks.append({
+            **stock,
+            "score": round(total_score, 2),
+            "scoreBreakdown": score_breakdown,
+        })
+
+    # スコア順にソート
+    scored_stocks.sort(key=lambda x: x["score"], reverse=True)
+    return scored_stocks
+
+
+def apply_sector_diversification(stocks: list[dict]) -> list[dict]:
+    """セクター分散を適用（各セクターから最大N銘柄）"""
     sector_counts: dict[str, int] = {}
-    diversified_stocks = []
+    diversified = []
 
     for stock in stocks:
         sector = stock["sector"] or "その他"
         count = sector_counts.get(sector, 0)
 
         if count < CONFIG["MAX_PER_SECTOR"]:
-            diversified_stocks.append(stock)
+            diversified.append(stock)
             sector_counts[sector] = count + 1
 
-    print(f"After sector diversification: {len(diversified_stocks)} stocks")
-    return diversified_stocks
+    return diversified
 
 
 def filter_stocks_by_budget(stocks: list[dict], budget: int | None) -> list[dict]:
@@ -310,10 +461,12 @@ def main():
         error_count = 0
 
         for user in users:
+            period = user["investmentPeriod"]
+            risk = user["riskTolerance"]
             print(f"\n--- User: {user['userId']} (budget: {user['investmentBudget']}, "
-                  f"period: {user['investmentPeriod']}, risk: {user['riskTolerance']}) ---")
+                  f"period: {period}, risk: {risk}) ---")
 
-            # 予算でフィルタ
+            # 1. 予算でフィルタ
             filtered = filter_stocks_by_budget(all_stocks, user["investmentBudget"])
             print(f"  Stocks after budget filter: {len(filtered)}/{len(all_stocks)}")
 
@@ -322,9 +475,17 @@ def main():
                 error_count += 1
                 continue
 
+            # 2. 投資スタイルに基づいてスコア計算
+            scored = calculate_stock_scores(filtered, period, risk)
+            print(f"  Top 3 scores: {[(s['tickerCode'], s['score']) for s in scored[:3]]}")
+
+            # 3. セクター分散を適用
+            diversified = apply_sector_diversification(scored)
+            print(f"  After sector diversification: {len(diversified)} stocks")
+
             # AI生成
             recommendations = generate_recommendations_for_user(
-                openai_client, session, user, filtered
+                openai_client, session, user, diversified
             )
 
             if not recommendations:
