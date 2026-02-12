@@ -1,8 +1,10 @@
+import { Suspense } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import Header from "@/app/components/Header"
 import TrackedStockDetailClient from "./TrackedStockDetailClient"
+import { StockDetailSkeleton } from "@/components/skeletons"
 
 export default async function TrackedStockDetailPage({
   params,
@@ -16,8 +18,25 @@ export default async function TrackedStockDetailPage({
     redirect("/login")
   }
 
+  return (
+    <>
+      <Header />
+      <Suspense fallback={<StockDetailSkeleton />}>
+        <TrackedStockContent email={session.user.email} stockId={id} />
+      </Suspense>
+    </>
+  )
+}
+
+async function TrackedStockContent({
+  email,
+  stockId,
+}: {
+  email: string
+  stockId: string
+}) {
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+    where: { email },
     select: { id: true },
   })
 
@@ -28,7 +47,7 @@ export default async function TrackedStockDetailPage({
   // Fetch the tracked stock
   const trackedStock = await prisma.trackedStock.findFirst({
     where: {
-      id,
+      id: stockId,
       userId: user.id,
     },
     include: {
@@ -69,10 +88,5 @@ export default async function TrackedStockDetailPage({
     createdAt: trackedStock.createdAt.toISOString(),
   }
 
-  return (
-    <>
-      <Header />
-      <TrackedStockDetailClient stock={stockData} />
-    </>
-  )
+  return <TrackedStockDetailClient stock={stockData} />
 }

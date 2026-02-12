@@ -1,9 +1,11 @@
+import { Suspense } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import Header from "@/app/components/Header"
 import MyStockDetailClient from "./MyStockDetailClient"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { StockDetailSkeleton } from "@/components/skeletons"
 
 export default async function MyStockDetailPage({
   params,
@@ -17,8 +19,25 @@ export default async function MyStockDetailPage({
     redirect("/login")
   }
 
+  return (
+    <>
+      <Header />
+      <Suspense fallback={<StockDetailSkeleton />}>
+        <StockDetailContent email={session.user.email} stockId={id} />
+      </Suspense>
+    </>
+  )
+}
+
+async function StockDetailContent({
+  email,
+  stockId,
+}: {
+  email: string
+  stockId: string
+}) {
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+    where: { email },
     select: { id: true },
   })
 
@@ -27,30 +46,31 @@ export default async function MyStockDetailPage({
   }
 
   // Fetch the specific user stock (either portfolio or watchlist)
-  const portfolioStock = await prisma.portfolioStock.findFirst({
-    where: {
-      id,
-      userId: user.id,
-    },
-    include: {
-      stock: true,
-      transactions: {
-        orderBy: {
-          transactionDate: "desc",
+  const [portfolioStock, watchlistStock] = await Promise.all([
+    prisma.portfolioStock.findFirst({
+      where: {
+        id: stockId,
+        userId: user.id,
+      },
+      include: {
+        stock: true,
+        transactions: {
+          orderBy: {
+            transactionDate: "desc",
+          },
         },
       },
-    },
-  })
-
-  const watchlistStock = await prisma.watchlistStock.findFirst({
-    where: {
-      id,
-      userId: user.id,
-    },
-    include: {
-      stock: true,
-    },
-  })
+    }),
+    prisma.watchlistStock.findFirst({
+      where: {
+        id: stockId,
+        userId: user.id,
+      },
+      include: {
+        stock: true,
+      },
+    }),
+  ])
 
   const userStock = portfolioStock || watchlistStock
 
@@ -119,10 +139,5 @@ export default async function MyStockDetailPage({
     },
   }
 
-  return (
-    <>
-      <Header />
-      <MyStockDetailClient stock={stockData} />
-    </>
-  )
+  return <MyStockDetailClient stock={stockData} />
 }
