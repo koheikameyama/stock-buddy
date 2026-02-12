@@ -24,13 +24,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
+          node-version: '20'
 
-      - name: Install dependencies
-        run: pip install requests
+      - name: Install tsx
+        run: npm install -g tsx
 
       - name: Determine notification type
         id: notification
@@ -52,7 +52,7 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          python scripts/github-actions/send_push_notification.py \
+          npx tsx scripts/github-actions/send-push-notification.ts \
             --title "東京証券取引所が開場しました" \
             --body "本日の取引が始まりました。ポートフォリオをチェックしましょう。" \
             --url "/dashboard"
@@ -63,7 +63,7 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          python scripts/github-actions/send_push_notification.py \
+          npx tsx scripts/github-actions/send-push-notification.ts \
             --title "本日の取引が終了しました" \
             --body "お疲れ様でした。本日のポートフォリオを確認しましょう。" \
             --url "/dashboard"

@@ -35,9 +35,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           pip install psycopg2-binary openai requests
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install tsx
+        run: npm install -g tsx
 
       - name: Generate user recommendations (AI)
         env:
@@ -53,7 +61,7 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          python scripts/github-actions/send_push_notification.py \
+          npx tsx scripts/github-actions/send-push-notification.ts \
             --title "今日の注目銘柄が更新されました" \
             --body "ニュースから話題の銘柄を分析しました" \
             --url "/dashboard"
