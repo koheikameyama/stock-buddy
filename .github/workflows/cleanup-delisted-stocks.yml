@@ -24,24 +24,15 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install yfinance
-        run: pip install yfinance
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Install Python dependencies
+        run: pip install yfinance psycopg2-binary
 
       - name: Detect and delete delisted stocks
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           echo "Starting delisted stock cleanup..."
-          npx tsx scripts/github-actions/detect-delisted-stocks.ts --limit 100
+          python scripts/github-actions/detect_delisted_stocks.py --limit 100
           echo "Cleanup completed"
 
       - name: Notify Slack on success
