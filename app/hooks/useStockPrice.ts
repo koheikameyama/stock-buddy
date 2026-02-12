@@ -1,0 +1,50 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
+export interface StockPrice {
+  currentPrice: number
+  previousClose: number
+  change: number
+  changePercent: number
+}
+
+interface UseStockPriceResult {
+  price: StockPrice | null
+  loading: boolean
+  error: Error | null
+}
+
+export function useStockPrice(tickerCode: string): UseStockPriceResult {
+  const [price, setPrice] = useState<StockPrice | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    async function fetchPrice() {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await fetch("/api/stocks/prices")
+        if (!response.ok) throw new Error("Failed to fetch price")
+
+        const data = await response.json()
+        const priceData = data.prices.find(
+          (p: any) => p.tickerCode === tickerCode
+        )
+        if (priceData) {
+          setPrice(priceData)
+        }
+      } catch (err) {
+        console.error("Error fetching price:", err)
+        setError(err instanceof Error ? err : new Error("Unknown error"))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPrice()
+  }, [tickerCode])
+
+  return { price, loading, error }
+}

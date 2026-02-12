@@ -1,0 +1,75 @@
+"use client"
+
+import { ReactNode } from "react"
+
+interface StockPrice {
+  currentPrice: number
+  change: number
+  changePercent: number
+}
+
+interface CurrentPriceCardProps {
+  title?: string
+  price: StockPrice | null
+  loading: boolean
+  fiftyTwoWeekHigh?: number | null
+  fiftyTwoWeekLow?: number | null
+  actions?: ReactNode
+}
+
+export default function CurrentPriceCard({
+  title = "現在の価格",
+  price,
+  loading,
+  fiftyTwoWeekHigh,
+  fiftyTwoWeekLow,
+  actions,
+}: CurrentPriceCardProps) {
+  return (
+    <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+          {title}
+        </h2>
+        {actions && <div className="flex gap-2">{actions}</div>}
+      </div>
+
+      <div className="space-y-4">
+        {loading ? (
+          <p className="text-sm text-gray-400">読み込み中...</p>
+        ) : price ? (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">現在価格</span>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-900">
+                  ¥{price.currentPrice.toLocaleString()}
+                </p>
+                <p
+                  className={`text-sm font-semibold ${
+                    price.change >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {price.change >= 0 ? "+" : ""}
+                  {price.changePercent.toFixed(2)}%
+                </p>
+              </div>
+            </div>
+
+            {(fiftyTwoWeekHigh || fiftyTwoWeekLow) && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">52週高値 / 安値</span>
+                <span className="font-semibold text-gray-900">
+                  ¥{(fiftyTwoWeekHigh || 0).toLocaleString()} / ¥
+                  {(fiftyTwoWeekLow || 0).toLocaleString()}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-gray-400">価格情報なし</p>
+        )}
+      </div>
+    </section>
+  )
+}
