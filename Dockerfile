@@ -1,4 +1,5 @@
-FROM node:22-alpine AS base
+# Node 22 required for yahoo-finance2 v3.13.0
+FROM node:22.14-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
