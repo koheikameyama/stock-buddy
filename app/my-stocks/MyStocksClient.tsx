@@ -127,17 +127,34 @@ export default function MyStocksClient() {
   const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
   const [soldStocksLoading, setSoldStocksLoading] = useState(false)
 
-  // Fetch user stocks
+  // Fetch user stocks and counts
   useEffect(() => {
     async function fetchData() {
       try {
-        const stocksResponse = await fetch("/api/user-stocks?mode=all")
+        // 並列でユーザー銘柄、見送り銘柄、売却済み銘柄を取得
+        const [stocksResponse, passedResponse, soldResponse] = await Promise.all([
+          fetch("/api/user-stocks?mode=all"),
+          fetch("/api/passed-stocks"),
+          fetch("/api/sold-stocks"),
+        ])
 
         if (!stocksResponse.ok) {
           throw new Error("Failed to fetch stocks")
         }
         const stocksData = await stocksResponse.json()
         setUserStocks(stocksData)
+
+        // 見送り銘柄（エラーでも続行）
+        if (passedResponse.ok) {
+          const passedData = await passedResponse.json()
+          setPassedStocks(passedData)
+        }
+
+        // 売却済み銘柄（エラーでも続行）
+        if (soldResponse.ok) {
+          const soldData = await soldResponse.json()
+          setSoldStocks(soldData)
+        }
       } catch (err) {
         console.error("Error fetching data:", err)
         setError("銘柄の取得に失敗しました")
