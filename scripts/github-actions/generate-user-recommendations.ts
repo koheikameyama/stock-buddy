@@ -106,61 +106,57 @@ async function getStocksWithPrices(): Promise<StockWithPrice[]> {
 
   const stocksWithPrices: StockWithPrice[] = []
 
-  // バッチ処理（並列で取得）
-  const batchSize = 50
-  for (let i = 0; i < stocks.length; i += batchSize) {
-    const batchStocks = stocks.slice(i, i + batchSize)
-    console.log(`Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(stocks.length / batchSize)}...`)
+  // 逐次処理（yfinanceのSQLiteクッキー競合を回避）
+  console.log(`Fetching prices for ${stocks.length} stocks (sequential)...`)
 
-    const results = await Promise.allSettled(
-      batchStocks.map(async (stock) => {
-        try {
-          const historicalData = await fetchHistoricalPrices(stock.tickerCode, "1m")
+  for (let i = 0; i < stocks.length; i++) {
+    const stock = stocks[i]
 
-          if (!historicalData || historicalData.length < 2) return null
-
-          const sorted = [...historicalData].sort((a, b) => b.date.localeCompare(a.date))
-
-          const latest = sorted[0]?.close
-          const weekAgo = sorted.length >= 5 ? sorted[4]?.close : sorted[sorted.length - 1]?.close
-          if (!latest || !weekAgo) return null
-
-          const changeRate = ((latest - weekAgo) / weekAgo) * 100
-
-          // 下落トレンドフィルタ
-          if (changeRate < CONFIG.MIN_WEEK_CHANGE) return null
-
-          // 出来高フィルタ
-          const volume = sorted[0]?.volume || 0
-          if (volume < CONFIG.MIN_VOLUME) return null
-
-          return {
-            id: stock.id,
-            tickerCode: stock.tickerCode,
-            name: stock.name,
-            sector: stock.sector,
-            beginnerScore: stock.beginnerScore!,
-            latestPrice: latest,
-            weekChangeRate: Math.round(changeRate * 10) / 10,
-            volume,
-          }
-        } catch {
-          return null
-        }
-      })
-    )
-
-    for (const result of results) {
-      if (result.status === "fulfilled" && result.value) {
-        stocksWithPrices.push(result.value)
-      }
+    if ((i + 1) % 20 === 0) {
+      console.log(`  Progress: ${i + 1}/${stocks.length}`)
     }
 
-    // レート制限対策
-    if (i + batchSize < stocks.length) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const historicalData = await fetchHistoricalPrices(stock.tickerCode, "1m")
+
+      if (!historicalData || historicalData.length < 2) continue
+
+      const sorted = [...historicalData].sort((a, b) => b.date.localeCompare(a.date))
+
+      const latest = sorted[0]?.close
+      const weekAgo = sorted.length >= 5 ? sorted[4]?.close : sorted[sorted.length - 1]?.close
+      if (!latest || !weekAgo) continue
+
+      const changeRate = ((latest - weekAgo) / weekAgo) * 100
+
+      // 下落トレンドフィルタ
+      if (changeRate < CONFIG.MIN_WEEK_CHANGE) continue
+
+      // 出来高フィルタ
+      const volume = sorted[0]?.volume || 0
+      if (volume < CONFIG.MIN_VOLUME) continue
+
+      stocksWithPrices.push({
+        id: stock.id,
+        tickerCode: stock.tickerCode,
+        name: stock.name,
+        sector: stock.sector,
+        beginnerScore: stock.beginnerScore!,
+        latestPrice: latest,
+        weekChangeRate: Math.round(changeRate * 10) / 10,
+        volume,
+      })
+    } catch {
+      // エラーは無視して次へ
+    }
+
+    // レート制限対策（10件ごとに少し待機）
+    if ((i + 1) % 10 === 0 && i + 1 < stocks.length) {
+      await new Promise((resolve) => setTimeout(resolve, 200))
     }
   }
+
+  console.log(`  Completed: ${stocks.length} stocks processed`)
 
   console.log(`Found ${stocksWithPrices.length} stocks with price data`)
 
