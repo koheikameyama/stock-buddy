@@ -49,8 +49,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install yfinance
-        run: pip install yfinance
+      - name: Install Python dependencies
+        run: pip install yfinance psycopg2-binary
+
+      - name: Fetch stock prices (Python)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/github-actions/fetch_stock_prices.py
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -66,7 +71,6 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SESSION: ${{ steps.session.outputs.session }}
-          NODE_OPTIONS: '--max-old-space-size=4096'
         run: npx tsx scripts/github-actions/generate-user-recommendations.ts
 
       - name: Notify Slack on success

@@ -108,6 +108,12 @@ model Stock {
   fiftyTwoWeekHigh  Decimal?           @db.Decimal(12, 2) // 52週高値
   fiftyTwoWeekLow   Decimal?           @db.Decimal(12, 2) // 52週安値
 
+  // 最新株価データ（バッチ更新用）
+  latestPrice       Decimal?           @db.Decimal(12, 2) // 最新株価
+  latestVolume      BigInt?            // 最新出来高
+  weekChangeRate    Decimal?           @db.Decimal(8, 2)  // 週間変化率（%）
+  priceUpdatedAt    DateTime?          // 株価更新日時
+
   // 財務データの最終更新日時
   financialDataUpdatedAt DateTime?
 

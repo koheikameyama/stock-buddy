@@ -12,7 +12,6 @@ import { PrismaClient } from "@prisma/client"
 import OpenAI from "openai"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
-import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 
 dayjs.extend(utc)
 
@@ -24,12 +23,8 @@ const SESSION = process.env.SESSION || "for_next_day"
 
 // 絞り込み設定
 const CONFIG = {
-  // 出来高の最低値（流動性フィルタ）
-  MIN_VOLUME: 100000,
   // 各セクターからの最大銘柄数
   MAX_PER_SECTOR: 5,
-  // 週間下落率の足切りライン（%）
-  MIN_WEEK_CHANGE: -10,
   // AIに渡す最大銘柄数
   MAX_STOCKS_FOR_AI: 30,
 }
@@ -82,114 +77,39 @@ async function getUsersWithSettings(): Promise<UserWithSettings[]> {
 }
 
 /**
- * APIから株価データを取得し、絞り込みを行う
- * メモリ節約のためバッチ処理で実行
+ * DBから株価データを読み込む（Pythonスクリプトで事前に更新済み）
  */
 async function getStocksWithPrices(): Promise<StockWithPrice[]> {
-  // 銘柄マスタを取得
+  // DBから株価データを取得（priceUpdatedAtがあるもののみ）
   const stocks = await prisma.stock.findMany({
+    where: {
+      priceUpdatedAt: { not: null },
+      latestPrice: { not: null },
+      latestVolume: { not: null },
+    },
     select: {
       id: true,
       tickerCode: true,
       name: true,
       sector: true,
+      latestPrice: true,
+      latestVolume: true,
+      weekChangeRate: true,
+    },
+    orderBy: {
+      latestVolume: "desc",
     },
   })
 
-  console.log(`Found ${stocks.length} stocks`)
-  if (stocks.length === 0) return []
-
-  const stocksWithPrices: StockWithPrice[] = []
-
-  // バッチ設定（メモリ節約のため小さめのバッチで処理）
-  const BATCH_SIZE = 50
-  const CONCURRENCY = 3
-  const DELAY_BETWEEN_START = 150 // ms
-
-  console.log(`Fetching prices for ${stocks.length} stocks (batch: ${BATCH_SIZE}, concurrency: ${CONCURRENCY})...`)
-
-  let completed = 0
-
-  // バッチ処理
-  for (let batchStart = 0; batchStart < stocks.length; batchStart += BATCH_SIZE) {
-    const batch = stocks.slice(batchStart, batchStart + BATCH_SIZE)
-    const batchResults: StockWithPrice[] = []
-
-    // バッチ内の銘柄を並列処理
-    const queue = [...batch]
-    const running: Promise<void>[] = []
-
-    while (queue.length > 0 || running.length > 0) {
-      while (running.length < CONCURRENCY && queue.length > 0) {
-        const stock = queue.shift()!
-        const task = (async () => {
-          try {
-            const historicalData = await fetchHistoricalPrices(stock.tickerCode, "1m")
-
-            if (!historicalData || historicalData.length < 2) return
-
-            const sorted = [...historicalData].sort((a, b) => b.date.localeCompare(a.date))
-
-            const latest = sorted[0]?.close
-            const weekAgo = sorted.length >= 5 ? sorted[4]?.close : sorted[sorted.length - 1]?.close
-            if (!latest || !weekAgo) return
-
-            const changeRate = ((latest - weekAgo) / weekAgo) * 100
-
-            // 下落トレンドフィルタ
-            if (changeRate < CONFIG.MIN_WEEK_CHANGE) return
-
-            // 出来高フィルタ
-            const volume = sorted[0]?.volume || 0
-            if (volume < CONFIG.MIN_VOLUME) return
-
-            batchResults.push({
-              id: stock.id,
-              tickerCode: stock.tickerCode,
-              name: stock.name,
-              sector: stock.sector,
-              latestPrice: latest,
-              weekChangeRate: Math.round(changeRate * 10) / 10,
-              volume,
-            })
-          } catch {
-            // エラーは無視
-          } finally {
-            completed++
-          }
-        })()
-        running.push(task)
-
-        if (queue.length > 0) {
-          await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_START))
-        }
-      }
-
-      if (running.length > 0) {
-        await Promise.race(running)
-        const stillRunning: Promise<void>[] = []
-        for (const task of running) {
-          const isSettled = await Promise.race([task.then(() => true), Promise.resolve(false)])
-          if (!isSettled) stillRunning.push(task)
-        }
-        running.length = 0
-        running.push(...stillRunning)
-      }
-    }
-
-    // バッチ結果をマージ
-    stocksWithPrices.push(...batchResults)
-
-    // 進捗表示
-    console.log(`  Progress: ${Math.min(batchStart + BATCH_SIZE, stocks.length)}/${stocks.length} (found: ${stocksWithPrices.length})`)
-
-    // GCヒントのための小休止（次のバッチ前にメモリ解放を促す）
-    if (batchStart + BATCH_SIZE < stocks.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    }
-  }
-
-  console.log(`  Completed: ${stocks.length} stocks processed`)
+  const stocksWithPrices: StockWithPrice[] = stocks.map((s) => ({
+    id: s.id,
+    tickerCode: s.tickerCode,
+    name: s.name,
+    sector: s.sector,
+    latestPrice: Number(s.latestPrice),
+    weekChangeRate: Number(s.weekChangeRate || 0),
+    volume: Number(s.latestVolume),
+  }))
 
   console.log(`Found ${stocksWithPrices.length} stocks with price data`)
 
@@ -364,9 +284,8 @@ async function main(): Promise<void> {
   console.log(`Time: ${new Date().toISOString()}`)
   console.log(`Session: ${SESSION}`)
   console.log(`Config:`)
-  console.log(`  - MIN_VOLUME: ${CONFIG.MIN_VOLUME.toLocaleString()}`)
   console.log(`  - MAX_PER_SECTOR: ${CONFIG.MAX_PER_SECTOR}`)
-  console.log(`  - MIN_WEEK_CHANGE: ${CONFIG.MIN_WEEK_CHANGE}%`)
+  console.log(`  - MAX_STOCKS_FOR_AI: ${CONFIG.MAX_STOCKS_FOR_AI}`)
 
   if (!process.env.OPENAI_API_KEY) {
     console.error("Error: OPENAI_API_KEY environment variable not set")
