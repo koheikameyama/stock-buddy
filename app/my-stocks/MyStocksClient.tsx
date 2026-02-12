@@ -529,7 +529,6 @@ export default function MyStocksClient() {
                 </div>
               ) : trackedStocks.length === 0 ? (
                 <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">👁️</div>
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                     追跡中の銘柄はありません
                   </h3>

@@ -35,7 +35,6 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
   const router = useRouter()
   const { stock, currentPrice, changePercent } = trackedStock
   const [signal, setSignal] = useState<Signal | null>(null)
-  const [signalLoading, setSignalLoading] = useState(true)
 
   // Fetch signal asynchronously
   useEffect(() => {
@@ -52,8 +51,6 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
         }
       } catch (err) {
         console.error("Error fetching signal:", err)
-      } finally {
-        setSignalLoading(false)
       }
     }
 
@@ -121,12 +118,8 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
       </div>
 
       {/* Signal Badge */}
-      <div className="mb-4">
-        {signalLoading ? (
-          <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
-            シグナル取得中...
-          </span>
-        ) : signal ? (
+      {signal && (
+        <div className="mb-4">
           <span
             className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
               signal.signal === "buy"
@@ -140,8 +133,8 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
             {signal.signal === "sell" && "売りシグナル"}
             {signal.signal === "neutral" && "様子見"}
           </span>
-        ) : null}
-      </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
