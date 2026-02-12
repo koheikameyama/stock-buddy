@@ -11,7 +11,6 @@ interface StockWithPrices {
   id: string
   tickerCode: string
   name: string
-  beginnerScore: number | null
   prices: {
     date: string
     close: number
@@ -89,19 +88,15 @@ export async function POST() {
  * 全銘柄と過去30日分の株価データを取得（yfinanceからリアルタイム取得）
  */
 async function getStocksWithPrices(): Promise<StockWithPrices[]> {
-  // beginnerScoreが高い上位50銘柄を取得（全銘柄だと時間がかかりすぎる）
+  // 上位50銘柄を取得（全銘柄だと時間がかかりすぎる）
   const stocks = await prisma.stock.findMany({
-    where: {
-      beginnerScore: { not: null },
-    },
     select: {
       id: true,
       tickerCode: true,
       name: true,
-      beginnerScore: true,
     },
     orderBy: {
-      beginnerScore: "desc",
+      tickerCode: "asc",
     },
     take: 50,
   })
@@ -135,7 +130,7 @@ async function getStocksWithPrices(): Promise<StockWithPrices[]> {
 
 /**
  * surge（短期急騰）銘柄を抽出
- * 条件: 7日間の株価上昇率+5%以上、初心者スコア50点以上
+ * 条件: 7日間の株価上昇率+5%以上
  */
 function calculateSurgeStocks(
   stocks: StockWithPrices[]
@@ -143,7 +138,6 @@ function calculateSurgeStocks(
   const candidates: { stock: StockWithPrices; changeRate: number }[] = []
 
   for (const stock of stocks) {
-    if (!stock.beginnerScore || stock.beginnerScore < 50) continue
     if (stock.prices.length < 7) continue
 
     const latestPrice = Number(stock.prices[0].close)
@@ -162,17 +156,17 @@ function calculateSurgeStocks(
   candidates.sort((a, b) => b.changeRate - a.changeRate)
 
   // Top 3を選出
-  return candidates.slice(0, 3).map((c, idx) => ({
+  return candidates.slice(0, 3).map((c) => ({
     stockId: c.stock.id,
     category: "surge",
-    reason: `この1週間で株価が${c.changeRate.toFixed(1)}%上昇しています。初心者でも安心して投資できる銘柄です（スコア${c.stock.beginnerScore}点）`,
-    score: c.stock.beginnerScore!,
+    reason: `この1週間で株価が${c.changeRate.toFixed(1)}%上昇しています`,
+    score: Math.round(c.changeRate * 10), // 上昇率をスコアに変換
   }))
 }
 
 /**
  * stable（中長期安定）銘柄を抽出
- * 条件: 初心者スコア70点以上、30日間のボラティリティ15%以下
+ * 条件: 30日間のボラティリティ15%以下
  */
 function calculateStableStocks(
   stocks: StockWithPrices[]
@@ -180,7 +174,6 @@ function calculateStableStocks(
   const candidates: { stock: StockWithPrices; volatility: number }[] = []
 
   for (const stock of stocks) {
-    if (!stock.beginnerScore || stock.beginnerScore < 70) continue
     if (stock.prices.length < 30) continue
 
     // ボラティリティを計算
@@ -200,21 +193,21 @@ function calculateStableStocks(
     }
   }
 
-  // 初心者スコアが高い順にソート
-  candidates.sort((a, b) => b.stock.beginnerScore! - a.stock.beginnerScore!)
+  // ボラティリティが低い順にソート（安定している順）
+  candidates.sort((a, b) => a.volatility - b.volatility)
 
   // Top 3を選出
   return candidates.slice(0, 3).map((c) => ({
     stockId: c.stock.id,
     category: "stable",
-    reason: `安定した値動きで、初心者に最適な銘柄です（スコア${c.stock.beginnerScore}点、変動率${c.volatility.toFixed(1)}%）`,
-    score: c.stock.beginnerScore!,
+    reason: `安定した値動きで、初心者に最適な銘柄です（変動率${c.volatility.toFixed(1)}%）`,
+    score: Math.round(100 - c.volatility * 5), // 安定度をスコアに変換
   }))
 }
 
 /**
  * trending（話題）銘柄を抽出
- * 条件: 7日間の平均取引高 > 過去30日間の平均取引高 × 1.5倍、初心者スコア40点以上
+ * 条件: 7日間の平均取引高 > 過去30日間の平均取引高 × 1.5倍
  */
 function calculateTrendingStocks(
   stocks: StockWithPrices[]
@@ -222,7 +215,6 @@ function calculateTrendingStocks(
   const candidates: { stock: StockWithPrices; volumeRatio: number }[] = []
 
   for (const stock of stocks) {
-    if (!stock.beginnerScore || stock.beginnerScore < 40) continue
     if (stock.prices.length < 30) continue
 
     // 直近7日の平均取引高
@@ -262,8 +254,8 @@ function calculateTrendingStocks(
   return candidates.slice(0, 3).map((c) => ({
     stockId: c.stock.id,
     category: "trending",
-    reason: `最近取引が活発になっている注目銘柄です（取引高${c.volumeRatio.toFixed(1)}倍、スコア${c.stock.beginnerScore}点）`,
-    score: c.stock.beginnerScore!,
+    reason: `最近取引が活発になっている注目銘柄です（取引高${c.volumeRatio.toFixed(1)}倍）`,
+    score: Math.round(c.volumeRatio * 30), // 出来高比率をスコアに変換
   }))
 }
 

@@ -111,13 +111,6 @@ model Stock {
   // 財務データの最終更新日時
   financialDataUpdatedAt DateTime?
 
-  // 各種スコア（0-100）
-  beginnerScore     Int?               // 初心者おすすめ度（安定性・知名度・分かりやすさ）
-  growthScore       Int?               // 成長性スコア（値上がり期待）
-  dividendScore     Int?               // 高配当スコア（インカムゲイン重視）
-  stabilityScore    Int?               // 安定性スコア（低リスク・低変動）
-  liquidityScore    Int?               // 流動性スコア（売買のしやすさ）
-
   // IPO対応
   listedDate        DateTime?          // 上場日
 

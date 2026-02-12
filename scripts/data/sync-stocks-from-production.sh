@@ -66,7 +66,7 @@ echo -e "${BLUE}📦 本番DBからデータをエクスポート中...${NC}"
 
 # 4. 本番DBからStockテーブルをエクスポート（カラム順序を明示的に指定）
 echo "  - Stockテーブル"
-psql "$PRODUCTION_DATABASE_URL" -c "\COPY (SELECT id, \"tickerCode\", name, market, sector, \"createdAt\", \"beginnerScore\", \"dividendScore\", \"dividendYield\", \"growthScore\", \"liquidityScore\", \"marketCap\", \"stabilityScore\" FROM \"Stock\") TO STDOUT CSV HEADER" > "$TMP_STOCKS.csv"
+psql "$PRODUCTION_DATABASE_URL" -c "\COPY (SELECT id, \"tickerCode\", name, market, sector, \"createdAt\", \"dividendYield\", \"marketCap\" FROM \"Stock\") TO STDOUT CSV HEADER" > "$TMP_STOCKS.csv"
 
 STOCK_COUNT=$(wc -l < "$TMP_STOCKS.csv")
 STOCK_COUNT=$((STOCK_COUNT - 1))  # ヘッダー行を除く
@@ -87,7 +87,7 @@ fi
 
 # 6. Stockテーブルをインポート（カラム順序を明示的に指定）
 echo "  - Stockテーブルをインポート中..."
-psql "$LOCAL_DATABASE_URL" -c "\COPY \"Stock\" (id, \"tickerCode\", name, market, sector, \"createdAt\", \"beginnerScore\", \"dividendScore\", \"dividendYield\", \"growthScore\", \"liquidityScore\", \"marketCap\", \"stabilityScore\") FROM '$TMP_STOCKS.csv' CSV HEADER" 2>&1 | grep -v "ERROR.*duplicate key" || true
+psql "$LOCAL_DATABASE_URL" -c "\COPY \"Stock\" (id, \"tickerCode\", name, market, sector, \"createdAt\", \"dividendYield\", \"marketCap\") FROM '$TMP_STOCKS.csv' CSV HEADER" 2>&1 | grep -v "ERROR.*duplicate key" || true
 echo -e "${GREEN}    ✓ インポート完了${NC}"
 
 # 7. 結果確認

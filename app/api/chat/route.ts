@@ -150,10 +150,6 @@ export async function POST(request: NextRequest) {
             freeCF: true,
             fiftyTwoWeekHigh: true,
             fiftyTwoWeekLow: true,
-            beginnerScore: true,
-            growthScore: true,
-            dividendScore: true,
-            stabilityScore: true,
           },
         }),
         // 最新のAI分析
@@ -202,12 +198,6 @@ export async function POST(request: NextRequest) {
           フリーキャッシュフロー?: { 値: number; 評価: string }
           週52高値?: number
           週52安値?: number
-        }
-        スコア?: {
-          初心者おすすめ度?: number
-          成長性?: number
-          配当?: number
-          安定性?: number
         }
         AI売買分析?: {
           分析日: string
@@ -311,16 +301,6 @@ export async function POST(request: NextRequest) {
         }
         if (stockDetails.fiftyTwoWeekLow !== null) {
           stockData.財務指標.週52安値 = Number(stockDetails.fiftyTwoWeekLow)
-        }
-
-        // スコア
-        if (stockDetails.beginnerScore !== null || stockDetails.growthScore !== null ||
-            stockDetails.dividendScore !== null || stockDetails.stabilityScore !== null) {
-          stockData.スコア = {}
-          if (stockDetails.beginnerScore !== null) stockData.スコア.初心者おすすめ度 = stockDetails.beginnerScore
-          if (stockDetails.growthScore !== null) stockData.スコア.成長性 = stockDetails.growthScore
-          if (stockDetails.dividendScore !== null) stockData.スコア.配当 = stockDetails.dividendScore
-          if (stockDetails.stabilityScore !== null) stockData.スコア.安定性 = stockDetails.stabilityScore
         }
       }
 

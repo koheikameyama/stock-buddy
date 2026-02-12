@@ -57,7 +57,6 @@ export async function searchAndAddStock(query: string): Promise<StockSearchResul
         name: result.name || result.tickerCode,
         market: result.market || "TSE",
         sector: result.sector,
-        beginnerScore: 50, // デフォルトスコア
       },
     })
 

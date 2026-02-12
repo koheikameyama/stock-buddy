@@ -190,7 +190,6 @@ interface PredictionResult {
 async function generateAIPrediction(
   stock: { name: string; tickerCode: string; sector: string | null },
   baseline: BaselineData,
-  scores: { growth: number; stability: number; dividend: number },
   relatedNews: Awaited<ReturnType<typeof getRelatedNews>>
 ): Promise<PredictionResult> {
   const trendLabels: Record<string, string> = { up: "上昇", neutral: "横ばい", down: "下降" }
@@ -232,11 +231,6 @@ ${formatNewsForPrompt(relatedNews)}
 - 1週間: ${trendLabels[baseline.weeklyTrend]}
 - 1ヶ月: ${trendLabels[baseline.monthlyTrend]}
 - 3ヶ月: ${trendLabels[baseline.quarterlyTrend]}
-
-【スコア】
-- 成長性: ${scores.growth}/100
-- 安定性: ${scores.stability}/100
-- 配当性: ${scores.dividend}/100
 
 【ボラティリティ（価格変動幅）】
 ${baseline.volatility.toFixed(2)}円
@@ -318,9 +312,6 @@ async function main(): Promise<void> {
         tickerCode: true,
         name: true,
         sector: true,
-        growthScore: true,
-        stabilityScore: true,
-        dividendScore: true,
       },
     })
 
@@ -347,11 +338,6 @@ async function main(): Promise<void> {
     for (let i = 0; i < stocks.length; i++) {
       const stock = stocks[i]
 
-      const scores = {
-        growth: stock.growthScore || 50,
-        stability: stock.stabilityScore || 50,
-        dividend: stock.dividendScore || 50,
-      }
 
       try {
         console.log(`[${i + 1}/${total}] Processing ${stock.name} (${stock.tickerCode})...`)
@@ -378,7 +364,7 @@ async function main(): Promise<void> {
         }
 
         // 2. AI予測生成
-        const prediction = await generateAIPrediction(stock, baseline, scores, stockNews)
+        const prediction = await generateAIPrediction(stock, baseline, stockNews)
 
         // 3. データベースに保存
         await prisma.stockAnalysis.create({

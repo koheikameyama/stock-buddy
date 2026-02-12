@@ -2,9 +2,9 @@
 /**
  * DailyFeaturedStock自動生成スクリプト
  *
- * 株価変動率、取引高、初心者スコアから機械的に銘柄を3カテゴリに分類：
- * - surge（短期急騰）: 7日間上昇率+5%以上
- * - stable（中長期安定）: 初心者スコア70点以上 & ボラティリティ15%以下
+ * 株価変動率、取引高、時価総額から機械的に銘柄を3カテゴリに分類：
+ * - surge（短期急騰）: 7日間上昇率+5%以上、時価総額1000億円以上
+ * - stable（中長期安定）: 時価総額5000億円以上 & ボラティリティ15%以下
  * - trending（話題）: 直近3日の取引高が4〜30日前平均の1.5倍以上
  *
  * 毎日朝7時（JST）に実行され、各カテゴリTop 3を選出（合計9銘柄）
@@ -29,7 +29,7 @@ interface StockWithPrices {
   id: string
   tickerCode: string
   name: string
-  beginnerScore: number
+  marketCap: number // 時価総額（億円）
   prices: PriceData[]
 }
 
@@ -42,15 +42,15 @@ interface FeaturedStock {
 }
 
 async function getStocksWithPrices(): Promise<StockWithPrices[]> {
-  // 銘柄マスタを取得
+  // 銘柄マスタを取得（時価総額が設定されている銘柄のみ）
   const stocks = await prisma.stock.findMany({
-    where: { beginnerScore: { not: null } },
-    orderBy: { beginnerScore: "desc" },
+    where: { marketCap: { not: null } },
+    orderBy: { marketCap: "desc" },
     select: {
       id: true,
       tickerCode: true,
       name: true,
-      beginnerScore: true,
+      marketCap: true,
     },
   })
   console.log(`Found ${stocks.length} stocks in master`)
@@ -91,7 +91,7 @@ async function getStocksWithPrices(): Promise<StockWithPrices[]> {
             id: stock.id,
             tickerCode: stock.tickerCode,
             name: stock.name,
-            beginnerScore: stock.beginnerScore!,
+            marketCap: Number(stock.marketCap),
             prices,
           }
         } catch {
@@ -117,12 +117,13 @@ function calculateSurgeStocks(stocks: StockWithPrices[]): FeaturedStock[] {
    *
    * 条件:
    * - 7日間の株価上昇率: +5%以上
-   * - 初心者スコア: 50点以上
+   * - 時価総額: 1000億円以上
    */
   const surgeCandidates: { stock: StockWithPrices; changeRate: number; latestPrice: number }[] = []
 
   for (const stock of stocks) {
-    if (stock.beginnerScore < 50) continue
+    // 時価総額1000億円以上の銘柄のみ
+    if (stock.marketCap < 1000) continue
 
     const prices = stock.prices
     if (prices.length < 7) continue
@@ -151,15 +152,17 @@ function calculateSurgeStocks(stocks: StockWithPrices[]): FeaturedStock[] {
   const topSurge = surgeCandidates.slice(0, 3)
 
   const results: FeaturedStock[] = topSurge.map((candidate, idx) => {
-    const score = candidate.stock.beginnerScore
-    const reason = `この1週間で株価が${candidate.changeRate.toFixed(1)}%上昇しています。初心者でも安心して投資できる銘柄です（スコア${score}点）`
+    const marketCapLabel = candidate.stock.marketCap >= 10000
+      ? `${(candidate.stock.marketCap / 10000).toFixed(1)}兆円`
+      : `${candidate.stock.marketCap.toFixed(0)}億円`
+    const reason = `この1週間で株価が${candidate.changeRate.toFixed(1)}%上昇しています。時価総額${marketCapLabel}の安定した企業です`
 
     return {
       stockId: candidate.stock.id,
       category: "surge",
       categoryPosition: idx + 1,
       reason,
-      score,
+      score: Math.min(100, Math.floor(candidate.stock.marketCap / 100)), // 時価総額ベースのスコア
     }
   })
 
@@ -172,13 +175,14 @@ function calculateStableStocks(stocks: StockWithPrices[]): FeaturedStock[] {
    * stable（中長期安定）銘柄を抽出
    *
    * 条件:
-   * - 初心者スコア: 70点以上
+   * - 時価総額: 5000億円以上
    * - 30日間のボラティリティ: 15%以下
    */
   const stableCandidates: { stock: StockWithPrices; volatility: number }[] = []
 
   for (const stock of stocks) {
-    if (stock.beginnerScore < 70) continue
+    // 時価総額5000億円以上の大企業のみ
+    if (stock.marketCap < 5000) continue
 
     const prices = stock.prices
     if (prices.length < 30) continue
@@ -201,22 +205,24 @@ function calculateStableStocks(stocks: StockWithPrices[]): FeaturedStock[] {
     }
   }
 
-  // 初心者スコアが高い順にソート
-  stableCandidates.sort((a, b) => b.stock.beginnerScore - a.stock.beginnerScore)
+  // 時価総額が大きい順にソート
+  stableCandidates.sort((a, b) => b.stock.marketCap - a.stock.marketCap)
 
   // Top 3を選出
   const topStable = stableCandidates.slice(0, 3)
 
   const results: FeaturedStock[] = topStable.map((candidate, idx) => {
-    const score = candidate.stock.beginnerScore
-    const reason = `安定した値動きで、初心者に最適な銘柄です（スコア${score}点、変動率${candidate.volatility.toFixed(1)}%）`
+    const marketCapLabel = candidate.stock.marketCap >= 10000
+      ? `${(candidate.stock.marketCap / 10000).toFixed(1)}兆円`
+      : `${candidate.stock.marketCap.toFixed(0)}億円`
+    const reason = `安定した値動きで、初心者に最適な銘柄です（時価総額${marketCapLabel}、変動率${candidate.volatility.toFixed(1)}%）`
 
     return {
       stockId: candidate.stock.id,
       category: "stable",
       categoryPosition: idx + 1,
       reason,
-      score,
+      score: Math.min(100, Math.floor(candidate.stock.marketCap / 100)), // 時価総額ベースのスコア
     }
   })
 
@@ -230,12 +236,13 @@ function calculateTrendingStocks(stocks: StockWithPrices[]): FeaturedStock[] {
    *
    * 条件:
    * - 直近3日の平均取引高 > 4〜30日前の平均取引高 × 1.5倍
-   * - 初心者スコア: 40点以上
+   * - 時価総額: 500億円以上
    */
   const trendingCandidates: { stock: StockWithPrices; volumeRatio: number }[] = []
 
   for (const stock of stocks) {
-    if (stock.beginnerScore < 40) continue
+    // 時価総額500億円以上の銘柄のみ
+    if (stock.marketCap < 500) continue
 
     const prices = stock.prices
     if (prices.length < 30) continue
@@ -270,15 +277,17 @@ function calculateTrendingStocks(stocks: StockWithPrices[]): FeaturedStock[] {
   const topTrending = trendingCandidates.slice(0, 3)
 
   const results: FeaturedStock[] = topTrending.map((candidate, idx) => {
-    const score = candidate.stock.beginnerScore
-    const reason = `直近3日で取引が活発になっている注目銘柄です（取引高${candidate.volumeRatio.toFixed(1)}倍、スコア${score}点）`
+    const marketCapLabel = candidate.stock.marketCap >= 10000
+      ? `${(candidate.stock.marketCap / 10000).toFixed(1)}兆円`
+      : `${candidate.stock.marketCap.toFixed(0)}億円`
+    const reason = `直近3日で取引が活発になっている注目銘柄です（取引高${candidate.volumeRatio.toFixed(1)}倍、時価総額${marketCapLabel}）`
 
     return {
       stockId: candidate.stock.id,
       category: "trending",
       categoryPosition: idx + 1,
       reason,
-      score,
+      score: Math.min(100, Math.floor(candidate.stock.marketCap / 100)), // 時価総額ベースのスコア
     }
   })
 

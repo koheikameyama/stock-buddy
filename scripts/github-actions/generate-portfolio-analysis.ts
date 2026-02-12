@@ -108,10 +108,6 @@ interface PortfolioStockWithDetails {
     roe: Prisma.Decimal | null
     fiftyTwoWeekHigh: Prisma.Decimal | null
     fiftyTwoWeekLow: Prisma.Decimal | null
-    beginnerScore: number | null
-    growthScore: number | null
-    dividendScore: number | null
-    stabilityScore: number | null
   }
   transactions: {
     type: string
@@ -213,16 +209,6 @@ function formatFinancialMetrics(
     metrics.push(
       `- 1年間の値動き: 高値${high.toFixed(0)}円〜安値${low.toFixed(0)}円（現在は${position.toFixed(0)}%の位置）`
     )
-  }
-
-  // スコア
-  const scores: string[] = []
-  if (stock.beginnerScore) scores.push(`初心者向け${stock.beginnerScore}点`)
-  if (stock.growthScore) scores.push(`成長性${stock.growthScore}点`)
-  if (stock.stabilityScore) scores.push(`安定性${stock.stabilityScore}点`)
-  if (stock.dividendScore) scores.push(`配当${stock.dividendScore}点`)
-  if (scores.length > 0) {
-    metrics.push(`- 評価スコア（100点満点）: ${scores.join(", ")}`)
   }
 
   return metrics.length > 0 ? metrics.join("\n") : "財務データなし"
