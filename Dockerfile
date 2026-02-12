@@ -1,8 +1,8 @@
 # Node 22 required for yahoo-finance2 v3.13.0
 FROM node:22.14-alpine AS base
 
-# Install Python3 and pip for yfinance
-RUN apk add --no-cache python3 py3-pip
+# Install Python3, pip, and timezone data for yfinance
+RUN apk add --no-cache python3 py3-pip tzdata
 
 # Install dependencies only when needed
 FROM base AS deps
