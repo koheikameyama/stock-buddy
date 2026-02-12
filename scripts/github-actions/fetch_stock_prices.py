@@ -69,10 +69,33 @@ def fetch_price_data(ticker_code: str) -> dict | None:
         # 週間変化率
         change_rate = ((latest_price - week_ago_price) / week_ago_price) * 100
 
+        # ボラティリティ計算（30日間の標準偏差/平均）
+        volatility = None
+        if len(hist) >= 20:
+            close_prices = hist["Close"].values
+            avg_price = close_prices.mean()
+            if avg_price > 0:
+                std_dev = close_prices.std()
+                volatility = round((std_dev / avg_price) * 100, 2)
+
+        # 出来高比率（直近3日 vs 4-30日前）
+        volume_ratio = None
+        if len(hist) >= 10:
+            volumes = hist["Volume"].values
+            recent_volumes = volumes[-3:]  # 直近3日
+            older_volumes = volumes[:-3]    # それより前
+            if len(older_volumes) > 0:
+                recent_avg = recent_volumes.mean()
+                older_avg = older_volumes.mean()
+                if older_avg > 0:
+                    volume_ratio = round(recent_avg / older_avg, 2)
+
         return {
             "latestPrice": latest_price,
             "latestVolume": volume,
             "weekChangeRate": round(change_rate, 2),
+            "volatility": volatility,
+            "volumeRatio": volume_ratio,
         }
     except Exception:
         return None
@@ -86,7 +109,15 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
     with conn.cursor() as cur:
         now = datetime.utcnow()
         data = [
-            (u["latestPrice"], u["latestVolume"], u["weekChangeRate"], now, u["id"])
+            (
+                u["latestPrice"],
+                u["latestVolume"],
+                u["weekChangeRate"],
+                u.get("volatility"),
+                u.get("volumeRatio"),
+                now,
+                u["id"]
+            )
             for u in updates
         ]
         psycopg2.extras.execute_batch(
@@ -96,6 +127,8 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
             SET "latestPrice" = %s,
                 "latestVolume" = %s,
                 "weekChangeRate" = %s,
+                "volatility" = %s,
+                "volumeRatio" = %s,
                 "priceUpdatedAt" = %s
             WHERE id = %s
             ''',

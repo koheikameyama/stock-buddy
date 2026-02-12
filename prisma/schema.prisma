@@ -112,6 +112,8 @@ model Stock {
   latestPrice       Decimal?           @db.Decimal(12, 2) // 最新株価
   latestVolume      BigInt?            // 最新出来高
   weekChangeRate    Decimal?           @db.Decimal(8, 2)  // 週間変化率（%）
+  volatility        Decimal?           @db.Decimal(8, 2)  // 30日間ボラティリティ（%）
+  volumeRatio       Decimal?           @db.Decimal(8, 2)  // 出来高比率（直近3日/4-30日前）
   priceUpdatedAt    DateTime?          // 株価更新日時
 
   // 財務データの最終更新日時
