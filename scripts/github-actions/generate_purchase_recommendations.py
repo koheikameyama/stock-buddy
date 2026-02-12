@@ -114,7 +114,7 @@ def generate_recommendation(client: OpenAI, stock: dict, recent_prices: list[dic
 - 現在価格: {current_price or '不明'}円
 {pattern_context}
 【回答形式】JSON形式で回答してください。
-{{"recommendation": "buy" | "hold" | "pass", "confidence": 0.0-1.0, "reason": "理由1-2文", "recommendedQuantity": 100株単位（buyのみ）, "recommendedPrice": 目安価格（buyのみ）, "estimatedAmount": 必要金額（buyのみ）, "caution": "注意点1-2文"}}
+{{"recommendation": "buy" | "hold", "confidence": 0.0-1.0, "reason": "理由1-2文", "recommendedQuantity": 100株単位（buyのみ）, "recommendedPrice": 目安価格（buyのみ）, "estimatedAmount": 必要金額（buyのみ）, "caution": "注意点1-2文"}}
 
 【制約】専門用語は使わない。中学生でも理解できる表現にする。"""
 
