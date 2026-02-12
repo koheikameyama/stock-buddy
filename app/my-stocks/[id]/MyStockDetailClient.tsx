@@ -128,46 +128,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
     fetchPrice()
   }, [stock.stock.tickerCode])
 
-  // 追跡に移動または削除
-  const handleTrackOrDelete = async () => {
-    const shouldTrack = confirm("この銘柄を追跡リストに移動しますか？\n\n「OK」→ 追跡リストへ移動\n「キャンセル」→ 削除")
-
-    if (shouldTrack) {
-      // 追跡リストに追加
-      setTrackingStock(true)
-      try {
-        const response = await fetch("/api/tracked-stocks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tickerCode: stock.stock.tickerCode,
-          }),
-        })
-
-        if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || "追跡に失敗しました")
-        }
-
-        // ウォッチリストから削除
-        await fetch(`/api/user-stocks/${stock.id}`, {
-          method: "DELETE",
-        })
-
-        alert("追跡リストに移動しました")
-        router.push("/my-stocks")
-      } catch (err: any) {
-        console.error(err)
-        alert(err.message || "追跡に失敗しました")
-      } finally {
-        setTrackingStock(false)
-      }
-    } else {
-      // 削除
-      await handleDelete()
-    }
-  }
-
   const handleDelete = async () => {
     if (!confirm(`${stock.stock.name}を削除しますか？`)) {
       return
@@ -489,11 +449,30 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                     +購入
                   </button>
                   <button
-                    onClick={handleTrackOrDelete}
+                    onClick={async () => {
+                      setTrackingStock(true)
+                      try {
+                        const response = await fetch("/api/tracked-stocks", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ tickerCode: stock.stock.tickerCode }),
+                        })
+                        if (!response.ok) {
+                          const data = await response.json()
+                          throw new Error(data.error || "追跡に失敗しました")
+                        }
+                        await fetch(`/api/user-stocks/${stock.id}`, { method: "DELETE" })
+                        router.push("/my-stocks")
+                      } catch (err: any) {
+                        alert(err.message || "追跡に失敗しました")
+                      } finally {
+                        setTrackingStock(false)
+                      }
+                    }}
                     disabled={trackingStock}
-                    className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                    className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
                   >
-                    {trackingStock ? "処理中..." : "追跡/削除"}
+                    {trackingStock ? "処理中..." : "追跡へ移動"}
                   </button>
                 </div>
               </div>
