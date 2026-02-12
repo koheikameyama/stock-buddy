@@ -1,11 +1,11 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip"]
+nixPkgs = ["nodejs_22", "npm"]
 
 [phases.install]
-cmds = [
-  "python3 -m pip install --upgrade pip",
-  "python3 -m pip install yfinance pandas"
-]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
 
 [start]
-cmd = "npm run start"
+cmd = "npm run migrate:deploy && npm start"
