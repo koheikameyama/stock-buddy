@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 interface TrackedStock {
@@ -18,6 +19,11 @@ interface TrackedStock {
   createdAt: string
 }
 
+interface Signal {
+  signal: "buy" | "sell" | "neutral"
+  strength: number
+}
+
 interface TrackedStockCardProps {
   trackedStock: TrackedStock
   onRemove: (id: string) => void
@@ -27,7 +33,32 @@ interface TrackedStockCardProps {
 
 export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatchlist, onPurchase }: TrackedStockCardProps) {
   const router = useRouter()
-  const { stock, currentPrice, change, changePercent } = trackedStock
+  const { stock, currentPrice, changePercent } = trackedStock
+  const [signal, setSignal] = useState<Signal | null>(null)
+  const [signalLoading, setSignalLoading] = useState(true)
+
+  // Fetch signal asynchronously
+  useEffect(() => {
+    async function fetchSignal() {
+      try {
+        const response = await fetch(`/api/stocks/${trackedStock.stockId}/historical-prices?period=1m`)
+        if (!response.ok) return
+        const data = await response.json()
+        if (data.patterns?.combined) {
+          setSignal({
+            signal: data.patterns.combined.signal,
+            strength: data.patterns.combined.strength,
+          })
+        }
+      } catch (err) {
+        console.error("Error fetching signal:", err)
+      } finally {
+        setSignalLoading(false)
+      }
+    }
+
+    fetchSignal()
+  }, [trackedStock.stockId])
 
   const handleClick = () => {
     router.push(`/my-stocks/tracked/${trackedStock.id}`)
@@ -87,6 +118,29 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
         ) : (
           <span className="text-sm text-gray-400">価格取得中...</span>
         )}
+      </div>
+
+      {/* Signal Badge */}
+      <div className="mb-4">
+        {signalLoading ? (
+          <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+            シグナル取得中...
+          </span>
+        ) : signal ? (
+          <span
+            className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+              signal.signal === "buy"
+                ? "bg-green-100 text-green-700"
+                : signal.signal === "sell"
+                  ? "bg-red-100 text-red-700"
+                  : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {signal.signal === "buy" && "買いシグナル"}
+            {signal.signal === "sell" && "売りシグナル"}
+            {signal.signal === "neutral" && "様子見"}
+          </span>
+        ) : null}
       </div>
 
       {/* Actions */}
