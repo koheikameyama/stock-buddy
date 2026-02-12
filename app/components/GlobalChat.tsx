@@ -101,7 +101,7 @@ function SourcesAccordion({ sources }: { sources: ParsedSource[] }) {
 
 const DEFAULT_QUESTIONS = [
   "今日の注目点は？",
-  "ポートフォリオどう？",
+  "保有銘柄どう？",
   "何か気をつけることある？",
 ]
 
@@ -326,7 +326,7 @@ export default function GlobalChat() {
                   <>
                     <p className="mb-4">投資について何でも質問してください</p>
                     <p className="text-sm">
-                      あなたの保有銘柄やウォッチリストをもとにアドバイスします
+                      あなたの保有銘柄や気になる銘柄をもとにアドバイスします
                     </p>
                   </>
                 )}

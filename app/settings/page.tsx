@@ -255,7 +255,7 @@ export default function SettingsPage() {
               <ul className="space-y-2 text-sm sm:text-base text-gray-700">
                 <li className="flex items-start gap-2">
                   <span>•</span>
-                  <span><strong>7:00</strong> - ポートフォリオ分析</span>
+                  <span><strong>7:00</strong> - 保有銘柄分析</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span>•</span>

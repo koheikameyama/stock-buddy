@@ -174,7 +174,7 @@ export default function TrackedStockDetailClient({ stock }: { stock: TrackedStoc
                 disabled={movingToWatchlist}
                 className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
               >
-                {movingToWatchlist ? "移動中..." : "ウォッチリストへ"}
+                {movingToWatchlist ? "移動中..." : "気になるへ"}
               </button>
               <button
                 onClick={() => setShowPurchaseDialog(true)}
@@ -232,7 +232,7 @@ export default function TrackedStockDetailClient({ stock }: { stock: TrackedStoc
                 追跡モード
               </p>
               <p className="text-xs text-blue-700">
-                この銘柄はAI分析なしで株価を追跡しています。AI分析を利用するにはウォッチリストへ移動してください。
+                この銘柄はAI分析なしで株価を追跡しています。AI分析を利用するには「気になる」へ移動してください。
               </p>
             </div>
           </div>

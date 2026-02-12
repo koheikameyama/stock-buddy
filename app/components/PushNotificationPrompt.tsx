@@ -152,7 +152,7 @@ export default function PushNotificationPrompt() {
           <ul className="space-y-1.5 text-sm text-gray-700">
             <li className="flex items-start gap-2">
               <span className="text-blue-500">•</span>
-              <span><strong>7:00</strong> - ポートフォリオ分析</span>
+              <span><strong>7:00</strong> - 保有銘柄分析</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-500">•</span>

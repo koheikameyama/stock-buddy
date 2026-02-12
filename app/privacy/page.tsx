@@ -54,8 +54,8 @@ export default function PrivacyPolicyPage() {
             <li>氏名（Google認証経由）</li>
             <li>プロフィール画像（Google認証経由）</li>
             <li>投資設定情報（予算、投資期間、リスク許容度）</li>
-            <li>ポートフォリオ情報（保有銘柄、数量、取得単価）</li>
-            <li>ウォッチリスト情報</li>
+            <li>保有銘柄情報（銘柄、数量、取得単価）</li>
+            <li>気になる銘柄情報</li>
           </ul>
 
           <h3>1.2 自動的に収集される情報</h3>
@@ -73,7 +73,7 @@ export default function PrivacyPolicyPage() {
             <li>ユーザー認証</li>
             <li>AI分析による銘柄推奨</li>
             <li>パーソナライズされた投資アドバイス</li>
-            <li>ポートフォリオ管理機能の提供</li>
+            <li>保有銘柄管理機能の提供</li>
           </ul>
 
           <h3>2.2 サービス改善のため</h3>

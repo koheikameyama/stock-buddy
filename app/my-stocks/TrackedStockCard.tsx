@@ -142,7 +142,7 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
           onClick={() => onMoveToWatchlist(stock.id, stock.tickerCode, stock.name)}
           className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
         >
-          ウォッチリストへ
+          気になるへ
         </button>
         <button
           onClick={() => onPurchase(stock.id, stock.tickerCode, stock.name, stock.market, stock.sector)}
