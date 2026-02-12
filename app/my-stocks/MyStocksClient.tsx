@@ -364,47 +364,51 @@ export default function MyStocksClient() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200 mb-6">
-          <button
-            onClick={() => setActiveTab("portfolio")}
-            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
-              activeTab === "portfolio"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            保有銘柄 ({portfolioStocks.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("watchlist")}
-            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
-              activeTab === "watchlist"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            気になる銘柄 ({watchlistStocks.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("passed")}
-            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
-              activeTab === "passed"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            見送った銘柄 ({passedStocks.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("sold")}
-            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
-              activeTab === "sold"
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            保有してた銘柄 ({soldStocks.length})
-          </button>
+        <div className="relative mb-6">
+          <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-200 -mx-3 px-3 sm:mx-0 sm:px-0">
+            <button
+              onClick={() => setActiveTab("portfolio")}
+              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+                activeTab === "portfolio"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              保有中 ({portfolioStocks.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("watchlist")}
+              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+                activeTab === "watchlist"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              気になる ({watchlistStocks.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("passed")}
+              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+                activeTab === "passed"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              見送り ({passedStocks.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("sold")}
+              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+                activeTab === "sold"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              過去の保有 ({soldStocks.length})
+            </button>
+          </div>
+          {/* スクロール可能インジケーター（スマホのみ） */}
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-blue-50 to-transparent pointer-events-none sm:hidden" />
         </div>
 
         {/* Stock List Section */}
