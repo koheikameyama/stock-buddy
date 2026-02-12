@@ -24,9 +24,11 @@ interface PassedStock {
 interface PassedStockCardProps {
   passedStock: PassedStock
   onRemove: (id: string) => void
+  onAddToWatchlist?: (stockId: string, tickerCode: string, name: string) => void
+  onPurchase?: (stockId: string, tickerCode: string, name: string) => void
 }
 
-export default function PassedStockCard({ passedStock, onRemove }: PassedStockCardProps) {
+export default function PassedStockCard({ passedStock, onRemove, onAddToWatchlist, onPurchase }: PassedStockCardProps) {
   const priceChange = passedStock.priceChangePercent || 0
   const whatIfProfit = passedStock.whatIfProfit || 0
   const isPositive = priceChange >= 0
@@ -144,6 +146,28 @@ export default function PassedStockCard({ passedStock, onRemove }: PassedStockCa
             )}
           </p>
         </div>
+
+        {/* Action Buttons */}
+        {(onAddToWatchlist || onPurchase) && (
+          <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
+            {onAddToWatchlist && (
+              <button
+                onClick={() => onAddToWatchlist(passedStock.stockId, passedStock.stock.tickerCode, passedStock.stock.name)}
+                className="flex-1 px-3 py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              >
+                気になるに追加
+              </button>
+            )}
+            {onPurchase && (
+              <button
+                onClick={() => onPurchase(passedStock.stockId, passedStock.stock.tickerCode, passedStock.stock.name)}
+                className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                購入する
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

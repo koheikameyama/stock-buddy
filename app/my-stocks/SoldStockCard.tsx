@@ -30,9 +30,11 @@ interface SoldStock {
 
 interface SoldStockCardProps {
   soldStock: SoldStock
+  onAddToWatchlist?: (stockId: string, tickerCode: string, name: string) => void
+  onRepurchase?: (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => void
 }
 
-export default function SoldStockCard({ soldStock }: SoldStockCardProps) {
+export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchase }: SoldStockCardProps) {
   const isProfit = soldStock.totalProfit >= 0
 
   return (
@@ -117,6 +119,28 @@ export default function SoldStockCard({ soldStock }: SoldStockCardProps) {
           </div>
         </div>
       </div>
+
+      {/* Action Buttons */}
+      {(onAddToWatchlist || onRepurchase) && (
+        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
+          {onAddToWatchlist && (
+            <button
+              onClick={() => onAddToWatchlist(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name)}
+              className="flex-1 px-3 py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+            >
+              気になるに追加
+            </button>
+          )}
+          {onRepurchase && (
+            <button
+              onClick={() => onRepurchase(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name, soldStock.stock.market, soldStock.stock.sector)}
+              className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              再購入する
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

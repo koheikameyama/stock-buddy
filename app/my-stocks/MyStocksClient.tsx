@@ -120,6 +120,14 @@ export default function MyStocksClient() {
   const [activeTab, setActiveTab] = useState<TabType>("portfolio")
   // ウォッチリストからの購入用
   const [purchaseFromWatchlist, setPurchaseFromWatchlist] = useState<UserStock | null>(null)
+  // 見送り・過去の保有銘柄からの移動用
+  const [stockToMove, setStockToMove] = useState<{
+    stockId: string
+    tickerCode: string
+    name: string
+    market?: string
+    sector?: string | null
+  } | null>(null)
   // 見送り銘柄用
   const [passedStocks, setPassedStocks] = useState<PassedStock[]>([])
   const [passedStocksLoading, setPassedStocksLoading] = useState(false)
@@ -283,6 +291,62 @@ export default function MyStocksClient() {
     } catch (err) {
       console.error("Error removing passed stock:", err)
     }
+  }
+
+  // 見送り銘柄をウォッチリストに追加
+  const handlePassedToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
+    try {
+      const response = await fetch("/api/user-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickerCode, type: "watchlist" }),
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to add to watchlist")
+      }
+      const newStock = await response.json()
+      setUserStocks((prev) => [...prev, newStock])
+      // 見送り銘柄リストから削除（APIが自動で削除するので、UIも更新）
+      setPassedStocks((prev) => prev.filter((ps) => ps.stockId !== stockId))
+      setActiveTab("watchlist")
+    } catch (err) {
+      console.error("Error adding to watchlist:", err)
+      alert(err instanceof Error ? err.message : "追加に失敗しました")
+    }
+  }
+
+  // 見送り銘柄をポートフォリオに追加（AddStockDialogを開く）
+  const handlePassedToPurchase = (stockId: string, tickerCode: string, name: string) => {
+    setStockToMove({ stockId, tickerCode, name })
+    setShowAddDialog(true)
+  }
+
+  // 過去の保有銘柄をウォッチリストに追加
+  const handleSoldToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
+    try {
+      const response = await fetch("/api/user-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickerCode, type: "watchlist" }),
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to add to watchlist")
+      }
+      const newStock = await response.json()
+      setUserStocks((prev) => [...prev, newStock])
+      setActiveTab("watchlist")
+    } catch (err) {
+      console.error("Error adding to watchlist:", err)
+      alert(err instanceof Error ? err.message : "追加に失敗しました")
+    }
+  }
+
+  // 過去の保有銘柄を再購入（AddStockDialogを開く）
+  const handleSoldToRepurchase = (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => {
+    setStockToMove({ stockId, tickerCode, name, market, sector })
+    setShowAddDialog(true)
   }
 
   const handleAddStock = () => {
@@ -455,6 +519,8 @@ export default function MyStocksClient() {
                       key={ps.id}
                       passedStock={ps}
                       onRemove={handleRemovePassedStock}
+                      onAddToWatchlist={handlePassedToWatchlist}
+                      onPurchase={handlePassedToPurchase}
                     />
                   ))}
                 </div>
@@ -484,6 +550,8 @@ export default function MyStocksClient() {
                     <SoldStockCard
                       key={ss.id}
                       soldStock={ss}
+                      onAddToWatchlist={handleSoldToWatchlist}
+                      onRepurchase={handleSoldToRepurchase}
                     />
                   ))}
                 </div>
@@ -563,12 +631,19 @@ export default function MyStocksClient() {
         onClose={() => {
           setShowAddDialog(false)
           setPurchaseFromWatchlist(null)
+          setStockToMove(null)
         }}
         onSuccess={(newStock) => {
           handleStockAdded(newStock)
           setPurchaseFromWatchlist(null)
+          // 見送り銘柄からの移動の場合、見送り銘柄リストを更新
+          if (stockToMove) {
+            setPassedStocks((prev) => prev.filter((ps) => ps.stockId !== stockToMove.stockId))
+            setStockToMove(null)
+            setActiveTab("portfolio")
+          }
         }}
-        defaultType={purchaseFromWatchlist ? "portfolio" : (activeTab === "passed" || activeTab === "sold") ? "portfolio" : activeTab}
+        defaultType={(purchaseFromWatchlist || stockToMove) ? "portfolio" : (activeTab === "passed" || activeTab === "sold") ? "portfolio" : activeTab}
         initialStock={purchaseFromWatchlist ? {
           id: purchaseFromWatchlist.stock.id,
           tickerCode: purchaseFromWatchlist.stock.tickerCode,
@@ -576,6 +651,13 @@ export default function MyStocksClient() {
           market: purchaseFromWatchlist.stock.market,
           sector: purchaseFromWatchlist.stock.sector,
           latestPrice: prices[purchaseFromWatchlist.stock.tickerCode]?.currentPrice ?? purchaseFromWatchlist.stock.currentPrice,
+        } : stockToMove ? {
+          id: stockToMove.stockId,
+          tickerCode: stockToMove.tickerCode,
+          name: stockToMove.name,
+          market: stockToMove.market || "プライム",
+          sector: stockToMove.sector || null,
+          latestPrice: null,
         } : null}
       />
 
