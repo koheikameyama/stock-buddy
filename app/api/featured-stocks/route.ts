@@ -33,7 +33,7 @@ export async function GET() {
     const todayUTC = todayJST.utc().toDate()
 
     // ユーザーの銘柄IDを取得
-    const [watchlist, portfolio] = await Promise.all([
+    const [watchlist, portfolio, tracked] = await Promise.all([
       prisma.watchlistStock.findMany({
         where: { userId },
         select: { stockId: true },
@@ -42,11 +42,15 @@ export async function GET() {
         where: { userId },
         select: { stockId: true },
       }),
+      prisma.trackedStock.findMany({
+        where: { userId },
+        select: { stockId: true },
+      }),
     ])
     // 保有中 = ポートフォリオにある銘柄のみ
     const portfolioStockIds = portfolio.map((s) => s.stockId)
-    // 登録済み = ウォッチリストまたはポートフォリオにある銘柄
-    const registeredStockIds = [...watchlist, ...portfolio].map((s) => s.stockId)
+    // 登録済み = ウォッチリスト、ポートフォリオ、または追跡中にある銘柄
+    const registeredStockIds = [...watchlist, ...portfolio, ...tracked].map((s) => s.stockId)
 
     // --- あなたへのおすすめ（ユーザーごとのAI生成） ---
     let personalRecommendations: {
