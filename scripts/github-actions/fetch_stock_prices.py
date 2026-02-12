@@ -6,7 +6,7 @@ yf.download() バッチAPIを使用して一括取得し、Stockテーブルの�
 
 最適化ポイント:
 - yf.download() で一括取得（個別Ticker.history()の数十倍高速）
-- --candidates-only フラグでおすすめ候補銘柄のみに絞り込み可能
+- --user-stocks-only フラグでユーザー関連銘柄のみに絞り込み可能
 - バッチサイズごとに分割してメモリ効率化
 """
 
@@ -27,8 +27,6 @@ CONFIG = {
     "MIN_WEEK_CHANGE": -10,     # 週間下落率の下限（%）
     "DOWNLOAD_BATCH_SIZE": 500, # yf.download() 1回あたりの最大銘柄数
     "DB_BATCH_SIZE": 100,       # DB更新のバッチサイズ
-    # おすすめ候補のフィルタ閾値（generate_daily_featured_stocks.py の最低条件）
-    "MIN_MARKET_CAP_FOR_CANDIDATES": 500,  # 億円（trendingカテゴリの下限）
 }
 
 
@@ -41,27 +39,30 @@ def get_database_url() -> str:
     return url
 
 
-def fetch_stocks(conn, candidates_only: bool = False) -> list[dict]:
+def fetch_stocks(conn, user_stocks_only: bool = False) -> list[dict]:
     """DBから銘柄一覧を取得
 
-    candidates_only=True の場合、おすすめ候補になりうる銘柄のみ取得
-    （時価総額 >= MIN_MARKET_CAP_FOR_CANDIDATES、またはユーザーのポートフォリオ/ウォッチリストに含まれる銘柄）
+    user_stocks_only=True の場合、ユーザーに関連する銘柄のみ取得
+    （ポートフォリオ/ウォッチリスト/追跡中 + 今日のおすすめ/注目銘柄）
     """
     with conn.cursor() as cur:
-        if candidates_only:
+        if user_stocks_only:
             cur.execute('''
                 SELECT DISTINCT s.id, s."tickerCode"
                 FROM "Stock" s
-                WHERE s."marketCap" >= %s
-                   OR s.id IN (
-                       SELECT "stockId" FROM "PortfolioStock"
-                       UNION
-                       SELECT "stockId" FROM "WatchlistStock"
-                       UNION
-                       SELECT "stockId" FROM "TrackedStock"
-                   )
+                WHERE s.id IN (
+                    SELECT "stockId" FROM "PortfolioStock"
+                    UNION
+                    SELECT "stockId" FROM "WatchlistStock"
+                    UNION
+                    SELECT "stockId" FROM "TrackedStock"
+                    UNION
+                    SELECT "stockId" FROM "UserDailyRecommendation" WHERE date = CURRENT_DATE
+                    UNION
+                    SELECT "stockId" FROM "DailyFeaturedStock" WHERE date = CURRENT_DATE
+                )
                 ORDER BY s."tickerCode"
-            ''', (CONFIG["MIN_MARKET_CAP_FOR_CANDIDATES"],))
+            ''')
         else:
             cur.execute('''
                 SELECT id, "tickerCode"
@@ -215,23 +216,23 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
 def main():
     parser = argparse.ArgumentParser(description="Fetch stock prices")
     parser.add_argument(
-        "--candidates-only",
+        "--user-stocks-only",
         action="store_true",
-        help="おすすめ候補銘柄のみ取得（時価総額フィルタ + ユーザー保有/ウォッチリスト銘柄）",
+        help="ユーザー関連銘柄のみ取得（保有/ウォッチリスト/追跡中 + 今日のおすすめ/注目銘柄）",
     )
     args = parser.parse_args()
+
+    mode = "user-stocks-only" if args.user_stocks_only else "all stocks"
 
     print("=" * 60)
     print("Stock Price Fetcher (Batch Download)")
     print("=" * 60)
     print(f"Time: {datetime.now().isoformat()}")
-    print(f"Mode: {'candidates-only' if args.candidates_only else 'all stocks'}")
+    print(f"Mode: {mode}")
     print(f"Config:")
     print(f"  - MIN_VOLUME: {CONFIG['MIN_VOLUME']:,}")
     print(f"  - MIN_WEEK_CHANGE: {CONFIG['MIN_WEEK_CHANGE']}%")
     print(f"  - DOWNLOAD_BATCH_SIZE: {CONFIG['DOWNLOAD_BATCH_SIZE']}")
-    if args.candidates_only:
-        print(f"  - MIN_MARKET_CAP_FOR_CANDIDATES: {CONFIG['MIN_MARKET_CAP_FOR_CANDIDATES']}億円")
     print()
 
     # DB接続
@@ -240,7 +241,7 @@ def main():
 
     try:
         # 銘柄一覧を取得
-        stocks = fetch_stocks(conn, candidates_only=args.candidates_only)
+        stocks = fetch_stocks(conn, user_stocks_only=args.user_stocks_only)
         print(f"Found {len(stocks)} stocks to fetch")
 
         if not stocks:
