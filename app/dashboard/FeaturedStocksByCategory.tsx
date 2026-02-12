@@ -38,6 +38,7 @@ export default function FeaturedStocksByCategory({
   const [generating, setGenerating] = useState(false)
   const [date, setDate] = useState<string | null>(null)
   const [addingStockId, setAddingStockId] = useState<string | null>(null)
+  const [addingType, setAddingType] = useState<"watchlist" | "tracked" | null>(null)
 
   useEffect(() => {
     fetchFeaturedStocks()
@@ -65,6 +66,7 @@ export default function FeaturedStocksByCategory({
 
   const handleAddToWatchlist = async (stock: FeaturedStock) => {
     setAddingStockId(stock.id)
+    setAddingType("watchlist")
     try {
       const response = await fetch("/api/user-stocks", {
         method: "POST",
@@ -88,6 +90,36 @@ export default function FeaturedStocksByCategory({
       alert("追加に失敗しました")
     } finally {
       setAddingStockId(null)
+      setAddingType(null)
+    }
+  }
+
+  const handleAddToTracked = async (stock: FeaturedStock) => {
+    setAddingStockId(stock.id)
+    setAddingType("tracked")
+    try {
+      const response = await fetch("/api/tracked-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerCode: stock.stock.tickerCode,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        alert(data.error || "追加に失敗しました")
+        return
+      }
+
+      // リストを再取得して登録済み状態を更新
+      fetchFeaturedStocks()
+    } catch (error) {
+      console.error("Error adding to tracked:", error)
+      alert("追加に失敗しました")
+    } finally {
+      setAddingStockId(null)
+      setAddingType(null)
     }
   }
 
@@ -228,13 +260,28 @@ export default function FeaturedStocksByCategory({
           </div>
         )}
 
-        <button
-          onClick={() => handleAddToWatchlist(stock)}
-          disabled={stock.isRegistered || addingStockId === stock.id}
-          className={`w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${stock.isRegistered || addingStockId === stock.id ? "" : theme.button}`}
-        >
-          {stock.isRegistered ? "登録済み" : addingStockId === stock.id ? "追加中..." : "ウォッチリストに追加"}
-        </button>
+        {stock.isRegistered ? (
+          <div className="w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm text-center bg-gray-300 text-gray-500">
+            登録済み
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleAddToWatchlist(stock)}
+              disabled={addingStockId === stock.id}
+              className={`flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${addingStockId === stock.id ? "" : theme.button}`}
+            >
+              {addingStockId === stock.id && addingType === "watchlist" ? "追加中..." : "気になる"}
+            </button>
+            <button
+              onClick={() => handleAddToTracked(stock)}
+              disabled={addingStockId === stock.id}
+              className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+            >
+              {addingStockId === stock.id && addingType === "tracked" ? "追加中..." : "追跡"}
+            </button>
+          </div>
+        )}
       </div>
     )
   }
