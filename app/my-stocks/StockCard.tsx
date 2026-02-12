@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { formatAnalysisTime } from "@/lib/analysis-time"
 
 interface UserStock {
   id: string
@@ -46,12 +47,14 @@ interface StockCardProps {
   price?: StockPrice
   recommendation?: PurchaseRecommendation
   portfolioRecommendation?: "buy" | "sell" | "hold" | null
+  analyzedAt?: string | null
   onAdditionalPurchase?: () => void
   onSell?: () => void
   onPurchase?: () => void
 }
 
-export default function StockCard({ stock, price, recommendation, portfolioRecommendation, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
+
+export default function StockCard({ stock, price, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -120,6 +123,16 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               {aiJudgment.text}
             </span>
           )}
+          {analyzedAt && (() => {
+            const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
+            return (
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <span className={colorClass}>{label}</span>
+                <span>|</span>
+                <span>{relative}</span>
+              </span>
+            )
+          })()}
         </div>
         <p className="text-xs sm:text-sm text-gray-500">
           {stock.stock.tickerCode}

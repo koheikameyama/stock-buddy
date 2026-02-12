@@ -108,7 +108,7 @@ export async function GET(
       periodFit: recommendation.periodFit,
       riskFit: recommendation.riskFit,
       personalizedReason: recommendation.personalizedReason,
-      analyzedAt: recommendation.date.toISOString(),
+      analyzedAt: recommendation.updatedAt.toISOString(),
     }
 
     return NextResponse.json(response, { status: 200 })

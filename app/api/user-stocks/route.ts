@@ -23,6 +23,8 @@ export interface UserStockResponse {
   longTerm?: string | null
   // AI推奨（StockAnalysisから取得）
   recommendation?: "buy" | "sell" | "hold" | null
+  // 分析日時（StockAnalysisから取得）
+  analyzedAt?: string | null
   // 感情コーチング・ステータス（Portfolio only）
   emotionalCoaching?: string | null
   simpleStatus?: string | null
@@ -112,10 +114,11 @@ export async function GET(request: NextRequest) {
               name: true,
               sector: true,
               market: true,
-              // 最新のStockAnalysisからrecommendationを取得
+              // 最新のStockAnalysisからrecommendationとanalyzedAtを取得
               analyses: {
                 select: {
                   recommendation: true,
+                  analyzedAt: true,
                 },
                 orderBy: { analyzedAt: "desc" },
                 take: 1,
@@ -164,9 +167,10 @@ export async function GET(request: NextRequest) {
       const firstBuyTransaction = ps.transactions.find((t: any) => t.type === "buy")
       const purchaseDate = firstBuyTransaction?.transactionDate || ps.createdAt
 
-      // 最新のStockAnalysisからrecommendationを取得
+      // 最新のStockAnalysisからrecommendationとanalyzedAtを取得
       const latestAnalysis = ps.stock.analyses?.[0]
       const recommendation = latestAnalysis?.recommendation as "buy" | "sell" | "hold" | null
+      const analyzedAt = latestAnalysis?.analyzedAt ? latestAnalysis.analyzedAt.toISOString() : null
 
       return {
         id: ps.id,
@@ -181,6 +185,7 @@ export async function GET(request: NextRequest) {
         mediumTerm: ps.mediumTerm,
         longTerm: ps.longTerm,
         recommendation,
+        analyzedAt,
         // 感情コーチング・ステータス
         emotionalCoaching: ps.emotionalCoaching,
         simpleStatus: ps.simpleStatus,

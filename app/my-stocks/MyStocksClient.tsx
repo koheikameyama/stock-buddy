@@ -23,6 +23,8 @@ interface UserStock {
   longTerm?: string | null
   // AI推奨（StockAnalysisから取得）
   recommendation?: "buy" | "sell" | "hold" | null
+  // 分析日時（StockAnalysisから取得）
+  analyzedAt?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -51,6 +53,7 @@ interface PurchaseRecommendation {
   confidence: number
   reason: string
   caution: string
+  analyzedAt?: string
 }
 
 interface PassedStock {
@@ -225,6 +228,7 @@ export default function MyStocksClient() {
               confidence: result.value.data.confidence,
               reason: result.value.data.reason,
               caution: result.value.data.caution,
+              analyzedAt: result.value.data.analyzedAt,
             }
           }
         })
@@ -613,6 +617,7 @@ export default function MyStocksClient() {
                       price={prices[stock.stock.tickerCode]}
                       recommendation={recommendations[stock.stockId]}
                       portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
+                      analyzedAt={stock.type === "watchlist" ? recommendations[stock.stockId]?.analyzedAt : stock.analyzedAt}
                       onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
                       onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
                       onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
