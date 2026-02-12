@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import StockCard from "./StockCard"
 import PassedStockCard from "./PassedStockCard"
+import SoldStockCard from "./SoldStockCard"
 import AddStockDialog from "./AddStockDialog"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
 
@@ -73,7 +74,35 @@ interface PassedStock {
   feedbackNote: string | null
 }
 
-type TabType = "portfolio" | "watchlist" | "passed"
+interface SoldStock {
+  id: string
+  stockId: string
+  stock: {
+    id: string
+    tickerCode: string
+    name: string
+    sector: string | null
+    market: string
+  }
+  firstPurchaseDate: string
+  lastSellDate: string
+  totalBuyQuantity: number
+  totalBuyAmount: number
+  totalSellAmount: number
+  totalProfit: number
+  profitPercent: number
+  transactions: {
+    id: string
+    type: string
+    quantity: number
+    price: number
+    totalAmount: number
+    transactionDate: string
+    note: string | null
+  }[]
+}
+
+type TabType = "portfolio" | "watchlist" | "passed" | "sold"
 
 const MAX_USER_STOCKS = 5
 
@@ -94,6 +123,9 @@ export default function MyStocksClient() {
   // 見送り銘柄用
   const [passedStocks, setPassedStocks] = useState<PassedStock[]>([])
   const [passedStocksLoading, setPassedStocksLoading] = useState(false)
+  // 売却済み銘柄用
+  const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
+  const [soldStocksLoading, setSoldStocksLoading] = useState(false)
 
   // Fetch user stocks
   useEffect(() => {
@@ -202,6 +234,27 @@ export default function MyStocksClient() {
 
     fetchPassedStocks()
   }, [activeTab, passedStocks.length])
+
+  // Fetch sold stocks when tab is switched
+  useEffect(() => {
+    async function fetchSoldStocks() {
+      if (activeTab !== "sold" || soldStocks.length > 0) return
+
+      setSoldStocksLoading(true)
+      try {
+        const response = await fetch("/api/sold-stocks")
+        if (!response.ok) throw new Error("Failed to fetch sold stocks")
+        const data = await response.json()
+        setSoldStocks(data)
+      } catch (err) {
+        console.error("Error fetching sold stocks:", err)
+      } finally {
+        setSoldStocksLoading(false)
+      }
+    }
+
+    fetchSoldStocks()
+  }, [activeTab, soldStocks.length])
 
   const handleRemovePassedStock = async (id: string) => {
     try {
@@ -342,6 +395,16 @@ export default function MyStocksClient() {
           >
             見送った銘柄 ({passedStocks.length})
           </button>
+          <button
+            onClick={() => setActiveTab("sold")}
+            className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors ${
+              activeTab === "sold"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            保有してた銘柄 ({soldStocks.length})
+          </button>
         </div>
 
         {/* Stock List Section */}
@@ -371,6 +434,35 @@ export default function MyStocksClient() {
                       key={ps.id}
                       passedStock={ps}
                       onRemove={handleRemovePassedStock}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : activeTab === "sold" ? (
+            // 保有してた銘柄タブ
+            <>
+              {soldStocksLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
+                  <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
+                </div>
+              ) : soldStocks.length === 0 ? (
+                <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
+                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📈</div>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                    保有してた銘柄はありません
+                  </h3>
+                  <p className="text-sm sm:text-base text-gray-600">
+                    全株売却した銘柄がここに表示されます
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:gap-6">
+                  {soldStocks.map((ss) => (
+                    <SoldStockCard
+                      key={ss.id}
+                      soldStock={ss}
                     />
                   ))}
                 </div>
@@ -455,7 +547,7 @@ export default function MyStocksClient() {
           handleStockAdded(newStock)
           setPurchaseFromWatchlist(null)
         }}
-        defaultType={purchaseFromWatchlist ? "portfolio" : activeTab === "passed" ? "portfolio" : activeTab}
+        defaultType={purchaseFromWatchlist ? "portfolio" : (activeTab === "passed" || activeTab === "sold") ? "portfolio" : activeTab}
         initialStock={purchaseFromWatchlist ? {
           id: purchaseFromWatchlist.stock.id,
           tickerCode: purchaseFromWatchlist.stock.tickerCode,
