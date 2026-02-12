@@ -73,9 +73,9 @@ def fetch_price_data(ticker_code: str) -> dict | None:
         volatility = None
         if len(hist) >= 20:
             close_prices = hist["Close"].values
-            avg_price = close_prices.mean()
+            avg_price = float(close_prices.mean())
             if avg_price > 0:
-                std_dev = close_prices.std()
+                std_dev = float(close_prices.std())
                 volatility = round((std_dev / avg_price) * 100, 2)
 
         # 出来高比率（直近3日 vs 4-30日前）
@@ -85,8 +85,8 @@ def fetch_price_data(ticker_code: str) -> dict | None:
             recent_volumes = volumes[-3:]  # 直近3日
             older_volumes = volumes[:-3]    # それより前
             if len(older_volumes) > 0:
-                recent_avg = recent_volumes.mean()
-                older_avg = older_volumes.mean()
+                recent_avg = float(recent_volumes.mean())
+                older_avg = float(older_volumes.mean())
                 if older_avg > 0:
                     volume_ratio = round(recent_avg / older_avg, 2)
 
