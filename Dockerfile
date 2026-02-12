@@ -1,6 +1,9 @@
 # Node 22 required for yahoo-finance2 v3.13.0
 FROM node:22.14-alpine AS base
 
+# Install Python3 and pip for yfinance
+RUN apk add --no-cache python3 py3-pip
+
 # Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
@@ -31,6 +34,9 @@ ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+# Install yfinance for real-time stock price fetching
+RUN pip3 install --no-cache-dir --break-system-packages yfinance
 
 # Copy everything needed for production
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
