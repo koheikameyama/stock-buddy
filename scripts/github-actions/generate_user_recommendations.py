@@ -5,7 +5,7 @@
 各ユーザーの投資スタイル（期間・リスク許容度）と投資資金に基づき、
 DBの株価データを使って、パーソナライズされたおすすめ3銘柄を生成する。
 
-前場終了後（11:35 JST）と後場終了後（15:35 JST）に実行。
+寄り前（08:00 JST）、前場終了後（11:35 JST）、後場終了後（15:35 JST）に実行。
 """
 
 import json
@@ -87,11 +87,15 @@ SCORE_WEIGHTS = {
 
 # 時間帯別のプロンプト設定
 SESSION_PROMPTS = {
-    "for_afternoon": {
+    "morning": {
+        "intro": "前日の動きを踏まえた今日のおすすめです。",
+        "focus": "今日注目したい銘柄",
+    },
+    "afternoon": {
         "intro": "前場の動きを踏まえたおすすめです。",
         "focus": "後場に注目したい銘柄",
     },
-    "for_next_day": {
+    "evening": {
         "intro": "本日の取引を踏まえた明日へのおすすめです。",
         "focus": "明日以降に注目したい銘柄",
     },
@@ -297,7 +301,7 @@ def generate_recommendations_for_user(
     stocks: list[dict]
 ) -> list[dict] | None:
     """AIでおすすめ銘柄を生成"""
-    prompts = SESSION_PROMPTS.get(session, SESSION_PROMPTS["for_next_day"])
+    prompts = SESSION_PROMPTS.get(session, SESSION_PROMPTS["evening"])
 
     period_label = PERIOD_LABELS.get(user["investmentPeriod"] or "", "不明")
     risk_label = RISK_LABELS.get(user["riskTolerance"] or "", "不明")
@@ -424,7 +428,7 @@ def save_user_recommendations(
 
 
 def main():
-    session = os.environ.get("SESSION", "for_next_day")
+    session = os.environ.get("SESSION", "evening")
 
     print("=" * 60)
     print("User Daily Recommendation Generation (AI) - Python")
