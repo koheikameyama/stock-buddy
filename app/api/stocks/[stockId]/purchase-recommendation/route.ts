@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
+import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
 import dayjs from "dayjs"
@@ -265,6 +266,22 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
       }
     }
 
+    // チャートパターン（複数足フォーメーション）の検出
+    let chartPatternContext = ""
+    if (prices.length >= 15) {
+      const pricePoints: PricePoint[] = [...prices].reverse().map(p => ({
+        date: p.date,
+        open: p.open,
+        high: p.high,
+        low: p.low,
+        close: p.close,
+      }))
+      const chartPatterns = detectChartPatterns(pricePoints)
+      if (chartPatterns.length > 0) {
+        chartPatternContext = "\n" + formatChartPatternsForPrompt(chartPatterns)
+      }
+    }
+
     // 関連ニュースを取得
     const tickerCode = stock.tickerCode.replace(".T", "")
     const news = await getRelatedNews({
@@ -317,8 +334,9 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 `
       : ""
 
-    const prompt = `あなたは投資初心者向けのAIコーチです。
+    const prompt = `あなたは投資を学びたい人向けのAIコーチです。
 以下の銘柄について、詳細な購入判断をしてください。
+テクニカル分析の結果を活用し、専門用語は解説を添えて使ってください。
 
 【銘柄情報】
 - 名前: ${stock.name}
@@ -328,7 +346,7 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${patternContext}${technicalContext}${newsContext}
+${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -363,9 +381,10 @@ ${patternContext}${technicalContext}${newsContext}
 【制約】
 - 提供されたニュース情報を参考にしてください
 - ニュースにない情報は推測や創作をしないでください
-- 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
-- 「成長性」「安定性」「割安」のような平易な言葉を使う
-- すべての説明は中学生でも理解できる表現にする
+- 専門用語（RSI、MACD、チャートパターン名など）は使ってOKだが、必ず簡単な解説を添える
+  例: 「RSI（売られすぎ・買われすぎを判断する指標）が30を下回り…」
+  例: 「ダブルボトム（2回底を打って反転する形）が形成され…」
+- チャートパターンが検出された場合は、reasonやbuyTimingExplanationで言及する
 - positives、concernsは箇条書き形式（・で始める）
 - idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
