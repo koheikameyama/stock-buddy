@@ -145,18 +145,20 @@ export async function getRelatedNews(
 /**
  * ニュース参照リストをフォーマットする
  *
- * 回答の最後に追加する「参考にしたニュース」セクションを生成
+ * 回答の最後に追加する「参考にした情報」セクションを生成
+ * GlobalChat.tsx の parseMessage でパースされる形式に合わせる
  */
 export function formatNewsReferences(news: RelatedNews[]): string {
   if (news.length === 0) return ""
 
+  // URLがある記事のみ抽出
+  const newsWithUrl = news.filter((n) => n.url)
+  if (newsWithUrl.length === 0) return ""
+
   return (
-    `\n\n---\n📰 参考にしたニュース:\n` +
-    news
-      .map(
-        (n) =>
-          `• ${n.title} (${dayjs(n.publishedAt).format("YYYY-MM-DD")}) - ${n.sentiment || "不明"}\n  ${n.url || "(URLなし)"}`
-      )
+    `\n\n---\n📰 参考にした情報:\n` +
+    newsWithUrl
+      .map((n) => `• ${n.title}\n  ${n.url}`)
       .join("\n")
   )
 }
