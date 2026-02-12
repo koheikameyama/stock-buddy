@@ -2,13 +2,8 @@ name: Featured Stocks Generation
 
 on:
   schedule:
-    # 取引時間に合わせて6回実行
-    - cron: '0 21 * * 0-4'   # 6:00 JST - 早朝ニュースチェック（月〜金）
-    - cron: '0 23 * * 0-4'   # 8:00 JST - 前場開始前
-    - cron: '30 1 * * 1-5'   # 10:30 JST - 前場中間
-    - cron: '30 3 * * 1-5'   # 12:30 JST - 後場開始
-    - cron: '30 6 * * 1-5'   # 15:30 JST - 取引終了
-    - cron: '0 9 * * 1-5'    # 18:00 JST - 夕方まとめ
+    # 朝1回のみ実行
+    - cron: '0 23 * * 0-4'   # 8:00 JST - 寄り前（月〜金）
   workflow_dispatch: # 手動実行も可能
 
 concurrency:
@@ -42,14 +37,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r scripts/news/requirements.txt
-
-      - name: Fetch news and save to database
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python scripts/news/fetch_news.py
+          pip install psycopg2-binary openai requests
 
       - name: Generate user recommendations (AI)
         env:
