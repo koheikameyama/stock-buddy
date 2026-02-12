@@ -189,6 +189,53 @@ if __name__ == "__main__":
 
 新しいGitHub Actionsワークフローを作成する場合は、これらを参考にPythonスクリプトを作成してください。
 
+### Slack通知
+
+**GitHub Actionsワークフローには必ずSlack通知を追加してください。**
+
+#### 標準パターン
+
+```yaml
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ [処理名]に成功しました"
+          SLACK_MESSAGE: |
+            処理の詳細メッセージ ✅
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ [処理名]に失敗しました"
+          SLACK_MESSAGE: |
+            処理中にエラーが発生しました
+            詳細はGitHub Actionsログを確認してください
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"
+```
+
+#### ルール
+
+1. **成功時**: `if: success()` で緑色（`good`）通知
+2. **失敗時**: `if: failure()` で赤色（`danger`）通知
+3. **アクション**: `rtCamp/action-slack-notify@v2` を使用
+4. **Webhook**: `secrets.SLACK_WEBHOOK_URL` を使用
+5. **フッター**: 必ず `"Stock Buddy"` を設定
+
+#### チェックリスト
+
+新しいワークフロー作成時：
+- [ ] 成功時のSlack通知を追加
+- [ ] 失敗時のSlack通知を追加
+- [ ] タイトルに処理内容を明記
+- [ ] メッセージに適切な詳細を記載
+
 ## データベース
 
 ### ローカル環境

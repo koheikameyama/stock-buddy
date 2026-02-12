@@ -32,6 +32,25 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/jpx/sync_stock_master_from_jpx.py
 
-      - name: Notify on failure
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ JPX銘柄マスタの同期に成功しました"
+          SLACK_MESSAGE: |
+            JPXから銘柄マスタを同期しました ✅
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
         if: failure()
-        run: echo "❌ JPX stock master sync failed!"
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ JPX銘柄マスタの同期に失敗しました"
+          SLACK_MESSAGE: |
+            JPX銘柄マスタ同期中にエラーが発生しました
+            詳細はGitHub Actionsログを確認してください
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"

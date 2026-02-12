@@ -81,6 +81,25 @@ jobs:
             --body "ポートフォリオ分析と購入レコメンドを更新しました" \
             --url "/my-stocks"
 
-      - name: Notify on failure
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ 株価予測の生成に成功しました"
+          SLACK_MESSAGE: |
+            株価予測・ポートフォリオ分析・購入レコメンドを更新しました ✅
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
         if: failure()
-        run: echo "❌ Stock analysis generation failed!"
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ 株価予測の生成に失敗しました"
+          SLACK_MESSAGE: |
+            株価予測生成中にエラーが発生しました
+            詳細はGitHub Actionsログを確認してください
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"
