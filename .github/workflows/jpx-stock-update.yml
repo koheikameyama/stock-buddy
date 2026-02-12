@@ -17,24 +17,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
-          cache: 'npm'
+          python-version: '3.11'
 
       - name: Install dependencies
-        run: npm ci
+        run: pip install requests beautifulsoup4 psycopg2-binary
 
       - name: Scrape JPX stocks
         id: scrape
-        run: npx tsx scripts/jpx/scrape-stocks.ts
+        run: python scripts/jpx/scrape_stocks.py
 
       - name: Update stock master database
         id: update
         env:
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: npx tsx scripts/jpx/update-stock-master.ts
+        run: python scripts/jpx/update_stock_master.py
 
       - name: Upload JPX data as artifact
         uses: actions/upload-artifact@v4
