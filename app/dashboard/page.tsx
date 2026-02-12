@@ -5,8 +5,7 @@ import { prisma } from "@/lib/prisma"
 import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
-import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import PortfolioSummary from "./PortfolioSummary"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -24,17 +23,10 @@ export default async function DashboardPage() {
       privacyPolicyAccepted: true,
       settings: true,
       watchlistStocks: {
-        include: {
-          stock: true,
-        },
+        select: { id: true },
       },
       portfolioStocks: {
-        include: {
-          stock: true,
-          transactions: {
-            orderBy: { transactionDate: "asc" },
-          },
-        },
+        select: { id: true },
       },
     },
   })
@@ -50,51 +42,6 @@ export default async function DashboardPage() {
 
   const hasHoldings = user.portfolioStocks.length > 0
   const hasWatchlist = user.watchlistStocks.length > 0
-
-  // 損益計算（保有銘柄がある場合のみ）
-  let portfolioSummary: {
-    totalValue: number
-    totalCost: number
-    unrealizedGain: number
-    unrealizedGainPercent: number
-  } | null = null
-
-  if (hasHoldings) {
-    // 現在の株価を取得
-    const tickerCodes = user.portfolioStocks.map((ps) => ps.stock.tickerCode)
-    const prices = await fetchStockPrices(tickerCodes)
-    const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
-
-    let totalValue = 0
-    let totalCost = 0
-
-    for (const ps of user.portfolioStocks) {
-      const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
-        ps.transactions
-      )
-
-      // 保有数が0なら（売却済み）スキップ
-      if (quantity <= 0) continue
-
-      const currentPrice = priceMap.get(ps.stock.tickerCode)
-      if (currentPrice == null) continue
-
-      totalValue += currentPrice * quantity
-      totalCost += averagePurchasePrice.toNumber() * quantity
-    }
-
-    if (totalCost > 0) {
-      const unrealizedGain = totalValue - totalCost
-      const unrealizedGainPercent = (unrealizedGain / totalCost) * 100
-
-      portfolioSummary = {
-        totalValue,
-        totalCost,
-        unrealizedGain,
-        unrealizedGainPercent,
-      }
-    }
-  }
 
   return (
     <>
@@ -254,46 +201,7 @@ export default async function DashboardPage() {
           </Link>
 
           {/* 損益サマリー */}
-          {portfolioSummary && (
-            <div className="mb-6 bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                  <span className="text-lg">💰</span>
-                </div>
-                <span className="text-sm font-semibold text-gray-900">資産状況</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center">
-                  <div className="text-xs text-gray-500 mb-1">総資産額</div>
-                  <div className="text-base sm:text-lg font-bold text-gray-900">
-                    ¥{Math.round(portfolioSummary.totalValue).toLocaleString()}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-gray-500 mb-1">含み損益</div>
-                  <div
-                    className={`text-base sm:text-lg font-bold ${
-                      portfolioSummary.unrealizedGain >= 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {portfolioSummary.unrealizedGain >= 0 ? "+" : ""}
-                    ¥{Math.round(portfolioSummary.unrealizedGain).toLocaleString()}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-gray-500 mb-1">損益率</div>
-                  <div
-                    className={`text-base sm:text-lg font-bold ${
-                      portfolioSummary.unrealizedGainPercent >= 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {portfolioSummary.unrealizedGainPercent >= 0 ? "+" : ""}
-                    {portfolioSummary.unrealizedGainPercent.toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <PortfolioSummary hasHoldings={hasHoldings} />
 
         {/* 今日の注目銘柄（カテゴリ別） */}
         {user && (
