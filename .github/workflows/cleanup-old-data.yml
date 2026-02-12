@@ -18,21 +18,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          pip install psycopg2-binary
+        run: npm ci
 
       - name: Run cleanup script
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          python scripts/github-actions/cleanup_old_data.py
+          npx tsx scripts/github-actions/cleanup-old-data.ts
 
       - name: Notify Slack on success
         if: success()
