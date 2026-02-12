@@ -11,14 +11,14 @@ on:
   workflow_dispatch:
     inputs:
       session:
-        description: 'Session (for_today/for_afternoon/for_next_day)'
+        description: 'Session (morning/afternoon/evening)'
         required: true
-        default: 'for_next_day'
+        default: 'evening'
         type: choice
         options:
-          - for_today
-          - for_afternoon
-          - for_next_day
+          - morning
+          - afternoon
+          - evening
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,11 +40,11 @@ jobs:
           else
             HOUR=$(TZ=Asia/Tokyo date +%H)
             if [ "$HOUR" -lt 10 ]; then
-              echo "session=for_today" >> $GITHUB_OUTPUT
+              echo "session=morning" >> $GITHUB_OUTPUT
             elif [ "$HOUR" -lt 13 ]; then
-              echo "session=for_afternoon" >> $GITHUB_OUTPUT
+              echo "session=afternoon" >> $GITHUB_OUTPUT
             else
-              echo "session=for_next_day" >> $GITHUB_OUTPUT
+              echo "session=evening" >> $GITHUB_OUTPUT
             fi
           fi
           echo "Session: $(cat $GITHUB_OUTPUT)"
@@ -58,7 +58,7 @@ jobs:
         run: pip install yfinance psycopg2-binary openai
 
       - name: Fetch stock prices
-        if: steps.session.outputs.session != 'for_today'
+        if: steps.session.outputs.session != 'morning'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/github-actions/fetch_stock_prices.py
