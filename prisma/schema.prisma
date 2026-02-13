@@ -466,3 +466,39 @@ model PortfolioOverallAnalysis {
   @@index([userId])
   @@index([analyzedAt(sort: Desc)])
 }
+
+// 週次AI精度レポート
+model WeeklyAIReport {
+  id        String   @id @default(cuid())
+  weekStart DateTime @db.Date  // レポート対象週の開始日
+  weekEnd   DateTime @db.Date  // レポート対象週の終了日
+
+  // おすすめ銘柄
+  dailyRecommendationCount       Int?
+  dailyRecommendationAvgReturn   Decimal? @db.Decimal(8, 2)
+  dailyRecommendationPlusRate    Decimal? @db.Decimal(5, 2)
+  dailyRecommendationSuccessRate Decimal? @db.Decimal(5, 2)
+  dailyRecommendationImprovement String?
+
+  // 購入判断
+  purchaseRecommendationCount       Int?
+  purchaseRecommendationAvgReturn   Decimal? @db.Decimal(8, 2)
+  purchaseRecommendationPlusRate    Decimal? @db.Decimal(5, 2)
+  purchaseRecommendationSuccessRate Decimal? @db.Decimal(5, 2)
+  purchaseRecommendationImprovement String?
+
+  // 銘柄分析
+  stockAnalysisCount       Int?
+  stockAnalysisAvgReturn   Decimal? @db.Decimal(8, 2)
+  stockAnalysisPlusRate    Decimal? @db.Decimal(5, 2)
+  stockAnalysisSuccessRate Decimal? @db.Decimal(5, 2)
+  stockAnalysisImprovement String?
+
+  // 詳細データ（JSON）
+  details Json?  // ベスト/ワースト、セクター別等
+
+  createdAt DateTime @default(now())
+
+  @@unique([weekStart])
+  @@index([weekStart])
+}

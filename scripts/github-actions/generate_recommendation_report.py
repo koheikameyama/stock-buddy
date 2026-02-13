@@ -968,6 +968,111 @@ def send_slack_notification(webhook_url: str, message: dict):
     print("Slack notification sent successfully")
 
 
+def save_report_to_db(
+    conn,
+    daily: dict,
+    purchase: dict,
+    analysis: dict,
+    insights: dict | None,
+):
+    """週次レポートをDBに保存"""
+    today = datetime.now(timezone.utc).date()
+    week_start = today - timedelta(days=7)
+    week_end = today - timedelta(days=1)
+
+    # 詳細データをJSON形式で構築
+    details = {
+        "daily": {
+            "best": [{"name": b["name"], "tickerCode": b["tickerCode"], "performance": b["performance"]} for b in daily.get("best", [])[:3]],
+            "worst": [{"name": w["name"], "tickerCode": w["tickerCode"], "performance": w["performance"]} for w in daily.get("worst", [])[:3]],
+            "topSectors": [{"sector": s, "avgReturn": d["avgReturn"], "count": d["count"]} for s, d in daily.get("topSectors", [])],
+            "bottomSectors": [{"sector": s, "avgReturn": d["avgReturn"], "count": d["count"]} for s, d in daily.get("bottomSectors", [])],
+        },
+        "purchase": {
+            "byRecommendation": purchase.get("byRecommendation", {}),
+            "topSectors": [{"sector": s, "successRate": d["successRate"], "count": d["count"]} for s, d in purchase.get("topSectors", [])],
+            "bottomSectors": [{"sector": s, "successRate": d["successRate"], "count": d["count"]} for s, d in purchase.get("bottomSectors", [])],
+        },
+        "analysis": {
+            "byTrend": analysis.get("byTrend", {}),
+            "topSectors": [{"sector": s, "successRate": d["successRate"], "count": d["count"]} for s, d in analysis.get("topSectors", [])],
+            "bottomSectors": [{"sector": s, "successRate": d["successRate"], "count": d["count"]} for s, d in analysis.get("bottomSectors", [])],
+        },
+    }
+
+    with conn.cursor() as cur:
+        cur.execute('''
+            INSERT INTO "WeeklyAIReport" (
+                id,
+                "weekStart",
+                "weekEnd",
+                "dailyRecommendationCount",
+                "dailyRecommendationAvgReturn",
+                "dailyRecommendationPlusRate",
+                "dailyRecommendationSuccessRate",
+                "dailyRecommendationImprovement",
+                "purchaseRecommendationCount",
+                "purchaseRecommendationAvgReturn",
+                "purchaseRecommendationPlusRate",
+                "purchaseRecommendationSuccessRate",
+                "purchaseRecommendationImprovement",
+                "stockAnalysisCount",
+                "stockAnalysisAvgReturn",
+                "stockAnalysisPlusRate",
+                "stockAnalysisSuccessRate",
+                "stockAnalysisImprovement",
+                details,
+                "createdAt"
+            ) VALUES (
+                gen_random_uuid()::text,
+                %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, NOW()
+            )
+            ON CONFLICT ("weekStart") DO UPDATE SET
+                "weekEnd" = EXCLUDED."weekEnd",
+                "dailyRecommendationCount" = EXCLUDED."dailyRecommendationCount",
+                "dailyRecommendationAvgReturn" = EXCLUDED."dailyRecommendationAvgReturn",
+                "dailyRecommendationPlusRate" = EXCLUDED."dailyRecommendationPlusRate",
+                "dailyRecommendationSuccessRate" = EXCLUDED."dailyRecommendationSuccessRate",
+                "dailyRecommendationImprovement" = EXCLUDED."dailyRecommendationImprovement",
+                "purchaseRecommendationCount" = EXCLUDED."purchaseRecommendationCount",
+                "purchaseRecommendationAvgReturn" = EXCLUDED."purchaseRecommendationAvgReturn",
+                "purchaseRecommendationPlusRate" = EXCLUDED."purchaseRecommendationPlusRate",
+                "purchaseRecommendationSuccessRate" = EXCLUDED."purchaseRecommendationSuccessRate",
+                "purchaseRecommendationImprovement" = EXCLUDED."purchaseRecommendationImprovement",
+                "stockAnalysisCount" = EXCLUDED."stockAnalysisCount",
+                "stockAnalysisAvgReturn" = EXCLUDED."stockAnalysisAvgReturn",
+                "stockAnalysisPlusRate" = EXCLUDED."stockAnalysisPlusRate",
+                "stockAnalysisSuccessRate" = EXCLUDED."stockAnalysisSuccessRate",
+                "stockAnalysisImprovement" = EXCLUDED."stockAnalysisImprovement",
+                details = EXCLUDED.details
+        ''', (
+            week_start,
+            week_end,
+            daily["count"] if daily["count"] > 0 else None,
+            daily["avgReturn"] if daily["count"] > 0 else None,
+            daily["positiveRate"] if daily["count"] > 0 else None,
+            daily["successRate"] if daily["count"] > 0 else None,
+            insights.get("dailyImprovement") if insights else None,
+            purchase["count"] if purchase["count"] > 0 else None,
+            purchase["avgReturn"] if purchase["count"] > 0 else None,
+            None,  # purchaseはplusRateがない
+            purchase["successRate"] if purchase["count"] > 0 else None,
+            insights.get("purchaseImprovement") if insights else None,
+            analysis["count"] if analysis["count"] > 0 else None,
+            analysis["avgReturn"] if analysis["count"] > 0 else None,
+            None,  # analysisはplusRateがない
+            analysis["successRate"] if analysis["count"] > 0 else None,
+            insights.get("analysisImprovement") if insights else None,
+            json.dumps(details, ensure_ascii=False),
+        ))
+        conn.commit()
+    print("   Report saved to database")
+
+
 def main():
     print("=" * 60)
     print("Weekly AI Analysis Performance Report")
@@ -1053,8 +1158,12 @@ def main():
         else:
             print("   Skipped (no API key or error)")
 
-        # 6. Slack通知
-        print("\n5. Sending Slack notification...")
+        # 6. DBに保存
+        print("\n5. Saving report to database...")
+        save_report_to_db(conn, daily_stats, purchase_stats, analysis_stats, insights)
+
+        # 7. Slack通知
+        print("\n6. Sending Slack notification...")
         message = generate_slack_message(daily_stats, purchase_stats, analysis_stats, insights)
         send_slack_notification(get_slack_webhook(), message)
 
