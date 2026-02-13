@@ -455,22 +455,26 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
             return "安値圏"
         return "中間"
 
-    failures = [
-        {
-            "name": v["name"],
-            "tickerCode": v["tickerCode"],
-            "sector": v.get("sector") or "その他",
-            "performance": v["performance"],
-            "marketCapCategory": categorize_market_cap(v.get("marketCap")),
-            "valuation": categorize_valuation(v.get("per"), v.get("pbr")),
-            "pricePosition": categorize_price_position(
-                v.get("latestPrice"), v.get("fiftyTwoWeekHigh"), v.get("fiftyTwoWeekLow")
-            ),
-            "volatility": v.get("volatility"),
-        }
-        for v in valid
-        if v["performance"] <= -3
-    ]
+    # 失敗銘柄を収集（-3%以下）、ユニーク化（同じ銘柄は最悪のパフォーマンスのみ残す）
+    failure_by_ticker = {}
+    for v in valid:
+        if v["performance"] <= -3:
+            ticker = v["tickerCode"]
+            if ticker not in failure_by_ticker or v["performance"] < failure_by_ticker[ticker]["performance"]:
+                failure_by_ticker[ticker] = {
+                    "name": v["name"],
+                    "tickerCode": ticker,
+                    "sector": v.get("sector") or "その他",
+                    "performance": v["performance"],
+                    "marketCapCategory": categorize_market_cap(v.get("marketCap")),
+                    "valuation": categorize_valuation(v.get("per"), v.get("pbr")),
+                    "pricePosition": categorize_price_position(
+                        v.get("latestPrice"), v.get("fiftyTwoWeekHigh"), v.get("fiftyTwoWeekLow")
+                    ),
+                    "volatility": v.get("volatility"),
+                }
+
+    failures = list(failure_by_ticker.values())
     # パフォーマンスが悪い順にソート
     failures.sort(key=lambda x: x["performance"])
 
