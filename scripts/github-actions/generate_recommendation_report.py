@@ -156,13 +156,32 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
     perfs = [v["performance"] for v in valid]
     sorted_valid = sorted(valid, key=lambda x: x["performance"], reverse=True)
 
+    # ユニークな銘柄のみ（同じ銘柄が複数日に推奨されている場合の重複排除）
+    seen_tickers = set()
+    unique_best = []
+    for v in sorted_valid:
+        if v["tickerCode"] not in seen_tickers:
+            unique_best.append(v)
+            seen_tickers.add(v["tickerCode"])
+        if len(unique_best) >= 3:
+            break
+
+    seen_tickers = set()
+    unique_worst = []
+    for v in reversed(sorted_valid):
+        if v["tickerCode"] not in seen_tickers:
+            unique_worst.append(v)
+            seen_tickers.add(v["tickerCode"])
+        if len(unique_worst) >= 3:
+            break
+
     return {
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
         "positiveRate": sum(1 for p in perfs if p > 0) / len(perfs) * 100,
         "successRate": sum(1 for p in perfs if p >= 3) / len(perfs) * 100,
-        "best": sorted_valid[:3],
-        "worst": sorted_valid[-3:],
+        "best": unique_best,
+        "worst": unique_worst,
     }
 
 
