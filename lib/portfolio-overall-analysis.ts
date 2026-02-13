@@ -366,7 +366,7 @@ ${watchlistStocksText}
         content: prompt,
       },
     ],
-    temperature: 0.7,
+    temperature: 0.5,
     response_format: { type: "json_object" },
   })
 

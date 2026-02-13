@@ -380,7 +380,7 @@ def generate_recommendations_for_user(
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.7,
+            temperature=0.5,
             max_tokens=500,
         )
 
