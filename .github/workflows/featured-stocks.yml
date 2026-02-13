@@ -4,8 +4,8 @@ on:
   schedule:
     # 寄り前（08:00 JST = 23:00 UTC 前日）- 月〜金
     - cron: '0 23 * * 0-4'
-    # 前場終了後（11:35 JST = 02:35 UTC）- 月〜金
-    - cron: '35 2 * * 1-5'
+    # 昼休み（12:30 JST = 03:30 UTC）- 月〜金
+    - cron: '30 3 * * 1-5'
     # 後場終了後（15:35 JST = 06:35 UTC）- 月〜金
     - cron: '35 6 * * 1-5'
   workflow_dispatch:
@@ -62,6 +62,12 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/github-actions/fetch_stock_prices.py
+
+      - name: Generate featured stocks (morning/afternoon)
+        if: steps.session.outputs.session != 'evening'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/github-actions/generate_featured_stocks.py
 
       - name: Generate user recommendations
         env:

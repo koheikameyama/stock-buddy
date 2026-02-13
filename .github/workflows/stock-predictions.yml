@@ -78,11 +78,6 @@ jobs:
           TIME_CONTEXT: ${{ steps.time.outputs.context }}
         run: python scripts/github-actions/generate_portfolio_analysis.py
 
-      - name: Generate daily featured stocks
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/github-actions/generate_featured_stocks.py
-
       - name: Send push notification
         if: success()
         env:
