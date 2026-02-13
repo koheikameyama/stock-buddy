@@ -7,6 +7,7 @@ import TrackedStockCard from "./TrackedStockCard"
 import SoldStockCard from "./SoldStockCard"
 import AddStockDialog from "./AddStockDialog"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
+import { UPDATE_SCHEDULES } from "@/lib/constants"
 
 interface UserStock {
   id: string
@@ -637,6 +638,9 @@ export default function MyStocksClient() {
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">
                     現在 {displayStocks.length}/{MAX_USER_STOCKS} 銘柄
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    AI分析更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
                   </p>
                 </div>
                 <button

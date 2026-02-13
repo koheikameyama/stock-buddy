@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { UPDATE_SCHEDULES } from "@/lib/constants"
 
 interface FeaturedStock {
   id: string
@@ -36,7 +37,6 @@ export default function FeaturedStocksByCategory({
   const [trendingStocks, setTrendingStocks] = useState<FeaturedStock[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
-  const [date, setDate] = useState<string | null>(null)
   const [addingStockId, setAddingStockId] = useState<string | null>(null)
   const [addingType, setAddingType] = useState<"watchlist" | "tracked" | null>(null)
 
@@ -93,7 +93,6 @@ export default function FeaturedStocksByCategory({
         const trending = data.trendingStocks || []
         setPersonalRecommendations(personal)
         setTrendingStocks(trending)
-        setDate(data.date || null)
 
         // 株価を非同期で取得（表示後にバックグラウンドで）
         const allStocks = [...personal, ...trending]
@@ -240,12 +239,6 @@ export default function FeaturedStocksByCategory({
     )
   }
 
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return ""
-    const d = new Date(dateString)
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日分`
-  }
-
   const renderStockCard = (stock: FeaturedStock, colorTheme: "blue" | "purple") => {
     const themes = {
       blue: {
@@ -264,21 +257,25 @@ export default function FeaturedStocksByCategory({
     return (
       <div
         key={stock.id}
-        className={`flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 ${theme.border} ${theme.bg} hover:shadow-md transition-shadow`}
+        className={`relative flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 ${theme.border} ${theme.bg} hover:shadow-md transition-shadow`}
       >
+        {/* ステータスバッジ - 右上 */}
+        {stock.isOwned ? (
+          <span className="absolute top-2 right-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+            保有中
+          </span>
+        ) : stock.isRegistered ? (
+          <span className="absolute top-2 right-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+            気になる
+          </span>
+        ) : null}
+
         <div className="mb-2 sm:mb-3">
           <div className="flex items-start justify-between mb-1">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className="text-sm sm:text-base font-bold text-gray-900 truncate">
-                  {stock.stock.name}
-                </h4>
-                {stock.isOwned && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 whitespace-nowrap">
-                    保有中
-                  </span>
-                )}
-              </div>
+            <div className="flex-1 min-w-0 pr-14">
+              <h4 className="text-sm sm:text-base font-bold text-gray-900 truncate mb-1">
+                {stock.stock.name}
+              </h4>
               <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500">
                 <span>{stock.stock.tickerCode}</span>
                 {stock.stock.sector && (
@@ -356,11 +353,9 @@ export default function FeaturedStocksByCategory({
               <p className="text-xs sm:text-sm text-gray-600">
                 投資スタイルと予算に合わせてAIが選びました
               </p>
-              {date && (
-                <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                  {formatDate(date)}
-                </span>
-              )}
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>更新 {UPDATE_SCHEDULES.PERSONAL_RECOMMENDATIONS}（平日）</span>
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto pb-2 -mx-1 px-1">
@@ -379,9 +374,14 @@ export default function FeaturedStocksByCategory({
               <span className="text-xl sm:text-2xl">🔥</span>
               <h3 className="text-lg sm:text-xl font-bold text-gray-900">みんなが注目</h3>
             </div>
-            <p className="text-xs sm:text-sm text-gray-600">
-              いま話題になっている銘柄です
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <p className="text-xs sm:text-sm text-gray-600">
+                いま話題になっている銘柄です
+              </p>
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）</span>
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto pb-2 -mx-1 px-1">
             <div className="flex gap-3 sm:gap-4" style={{ minWidth: "min-content" }}>
@@ -390,14 +390,6 @@ export default function FeaturedStocksByCategory({
           </div>
         </div>
       )}
-
-      {/* Footer Note */}
-      <div className="pt-2">
-        <p className="text-xs text-gray-500 text-center">
-          注目銘柄は毎日AIが分析して更新されます
-        </p>
-      </div>
-
     </div>
   )
 }

@@ -49,3 +49,11 @@ export const OPENAI_CONFIG = {
   MAX_TOKENS_ANALYSIS: 600,
   MAX_TOKENS_RECOMMENDATION: 500,
 } as const
+
+// AI分析の更新スケジュール（平日のみ）
+export const UPDATE_SCHEDULES = {
+  // あなたへのおすすめ
+  PERSONAL_RECOMMENDATIONS: "8:00 / 11:35 / 15:35",
+  // みんなが注目・ポートフォリオ分析・ウォッチリスト分析
+  STOCK_ANALYSIS: "8:00 / 10:30 / 12:30 / 14:00 / 15:30",
+} as const

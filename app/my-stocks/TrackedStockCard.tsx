@@ -64,7 +64,7 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
   return (
     <div
       onClick={handleClick}
-      className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
+      className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -74,9 +74,26 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
         }
       }}
     >
+      {/* シグナルバッジ - 右上 */}
+      {signal && (
+        <span
+          className={`absolute top-3 right-10 sm:top-4 sm:right-12 px-2 py-0.5 rounded-full text-xs font-semibold ${
+            signal.signal === "buy"
+              ? "bg-green-100 text-green-700"
+              : signal.signal === "sell"
+                ? "bg-red-100 text-red-700"
+                : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {signal.signal === "buy" && "買いシグナル"}
+          {signal.signal === "sell" && "売りシグナル"}
+          {signal.signal === "neutral" && "様子見"}
+        </span>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div>
+        <div className="pr-20">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900">
             {stock.name}
           </h3>
@@ -116,25 +133,6 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
           <span className="text-sm text-gray-400">価格取得中...</span>
         )}
       </div>
-
-      {/* Signal Badge */}
-      {signal && (
-        <div className="mb-4">
-          <span
-            className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-              signal.signal === "buy"
-                ? "bg-green-100 text-green-700"
-                : signal.signal === "sell"
-                  ? "bg-red-100 text-red-700"
-                  : "bg-gray-100 text-gray-700"
-            }`}
-          >
-            {signal.signal === "buy" && "買いシグナル"}
-            {signal.signal === "sell" && "売りシグナル"}
-            {signal.signal === "neutral" && "様子見"}
-          </span>
-        </div>
-      )}
 
       {/* Actions */}
       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
