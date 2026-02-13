@@ -185,7 +185,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
                 ? "bg-green-100 text-green-800"
                 : "bg-yellow-100 text-yellow-800"
             }`}>
-              {data.shouldBuyToday ? "買い推奨" : "様子見"}
+              {data.shouldBuyToday ? "買い推奨" : "タイミング待ち"}
             </span>
           )}
         </div>
