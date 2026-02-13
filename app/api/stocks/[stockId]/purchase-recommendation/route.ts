@@ -8,10 +8,7 @@ import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
-import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-
-dayjs.extend(utc)
+import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 
 function getOpenAIClient() {
   return new OpenAI({
@@ -48,7 +45,7 @@ export async function GET(
     }
 
     // 最新の購入判断を取得（過去7日以内）
-    const sevenDaysAgo = dayjs.utc().subtract(7, "day").startOf("day").toDate()
+    const sevenDaysAgo = getDaysAgoForDB(7)
 
     const recommendation = await prisma.purchaseRecommendation.findFirst({
       where: {
@@ -467,7 +464,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
     }
 
     // データベースに保存（upsert）
-    const today = dayjs.utc().startOf("day").toDate()
+    // JSTの今日00:00をUTCに変換
+    const today = getTodayForDB()
 
     await prisma.purchaseRecommendation.upsert({
       where: {

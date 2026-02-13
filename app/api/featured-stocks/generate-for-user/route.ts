@@ -3,10 +3,7 @@ import { auth } from "@/auth"
 import { verifyCronOrSession } from "@/lib/cron-auth"
 import { prisma } from "@/lib/prisma"
 import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
-import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-
-dayjs.extend(utc)
+import { getTodayForDB } from "@/lib/date-utils"
 
 interface StockWithPrices {
   id: string
@@ -300,7 +297,8 @@ function calculateTrendingStocks(
 async function saveDailyFeaturedStocks(
   featuredStocks: FeaturedStockCandidate[]
 ) {
-  const today = dayjs.utc().startOf("day").toDate()
+  // JSTの今日00:00をUTCに変換
+  const today = getTodayForDB()
 
   // 既存データを削除（今日の日付）
   await prisma.dailyFeaturedStock.deleteMany({

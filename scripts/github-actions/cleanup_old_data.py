@@ -3,7 +3,8 @@
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import psycopg2
 
 # データ保持期間
@@ -18,10 +19,19 @@ def get_database_url() -> str:
     return url
 
 
+def get_days_ago_jst(days: int) -> datetime:
+    """N日前の日付（JST 00:00:00をUTCに変換）"""
+    jst = ZoneInfo("Asia/Tokyo")
+    today_jst = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
+    target_jst = today_jst - timedelta(days=days)
+    return target_jst.astimezone(timezone.utc)
+
+
 def cleanup_old_data():
     conn = psycopg2.connect(get_database_url())
     try:
-        cutoff_date = datetime.utcnow() - timedelta(days=RETENTION_DAYS)
+        # JST基準でN日前を計算
+        cutoff_date = get_days_ago_jst(RETENTION_DAYS)
         print(f"Cleanup started at {datetime.now().isoformat()}")
         print(f"Retention: {RETENTION_DAYS} days")
         print(f"Cutoff date: {cutoff_date.date()}")

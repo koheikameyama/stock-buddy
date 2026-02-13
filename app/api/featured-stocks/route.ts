@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-import timezone from "dayjs/plugin/timezone"
-
-dayjs.extend(utc)
-dayjs.extend(timezone)
+import { getTodayForDB } from "@/lib/date-utils"
 
 /**
  * GET /api/featured-stocks
@@ -28,8 +23,7 @@ export async function GET() {
     }
 
     // 日本時間で今日の00:00:00をUTCに変換
-    const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
-    const todayUTC = todayJST.utc().toDate()
+    const todayUTC = getTodayForDB()
 
     // ユーザーの銘柄IDを取得
     const [watchlist, portfolio, tracked] = await Promise.all([
