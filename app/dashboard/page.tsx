@@ -125,16 +125,20 @@ export default async function DashboardPage() {
                           資金 {(user.settings.investmentBudget / 10000).toLocaleString()}万円
                         </span>
                       )}
-                      {user.settings.targetReturnRate && (
-                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 w-fit">
-                          利確 +{user.settings.targetReturnRate}%
-                        </span>
-                      )}
-                      {user.settings.stopLossRate && (
-                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 w-fit">
-                          損切り {user.settings.stopLossRate}%
-                        </span>
-                      )}
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold w-fit ${
+                        user.settings.targetReturnRate
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-gray-100 text-gray-600"
+                      }`}>
+                        利確 {user.settings.targetReturnRate ? `+${user.settings.targetReturnRate}%` : "AIお任せ"}
+                      </span>
+                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold w-fit ${
+                        user.settings.stopLossRate
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-600"
+                      }`}>
+                        損切り {user.settings.stopLossRate ? `${user.settings.stopLossRate}%` : "AIお任せ"}
+                      </span>
                     </div>
                   </div>
                 </div>
