@@ -68,7 +68,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SESSION: ${{ steps.session.outputs.session }}
-        run: python scripts/github-actions/generate_user_recommendations.py
+        run: python scripts/github-actions/generate_personal_recommendations.py
 
       - name: Notify Slack on success
         if: success()

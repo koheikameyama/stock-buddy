@@ -81,7 +81,7 @@ jobs:
       - name: Generate daily featured stocks
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/github-actions/generate_daily_featured_stocks.py
+        run: python scripts/github-actions/generate_featured_stocks.py
 
       - name: Send push notification
         if: success()

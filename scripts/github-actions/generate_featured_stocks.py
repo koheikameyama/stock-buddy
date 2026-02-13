@@ -7,7 +7,7 @@ DailyFeaturedStock自動生成スクリプト
 - stable（中長期安定）: ボラティリティ15%以下（時価総額はスコアで加点）
 - trending（話題）: 出来高比率1.5倍以上（時価総額はスコアで加点）
 
-毎日朝に実行され、各カテゴリTop 3を選出（合計9銘柄）
+毎日朝に実行され、各カテゴリTop 5を選出（合計15銘柄）
 """
 
 import os
@@ -94,7 +94,7 @@ def calculate_surge_stocks(stocks: list[dict]) -> list[dict]:
     candidates.sort(key=lambda x: x["compositeScore"], reverse=True)
 
     results = []
-    for idx, candidate in enumerate(candidates[:3]):
+    for idx, candidate in enumerate(candidates[:5]):
         stock = candidate["stock"]
         cap_label = market_cap_label(stock["marketCap"])
 
@@ -135,7 +135,7 @@ def calculate_stable_stocks(stocks: list[dict]) -> list[dict]:
     candidates.sort(key=lambda x: x["compositeScore"], reverse=True)
 
     results = []
-    for idx, candidate in enumerate(candidates[:3]):
+    for idx, candidate in enumerate(candidates[:5]):
         stock = candidate["stock"]
         cap_label = market_cap_label(stock["marketCap"])
 
@@ -176,7 +176,7 @@ def calculate_trending_stocks(stocks: list[dict]) -> list[dict]:
     candidates.sort(key=lambda x: x["compositeScore"], reverse=True)
 
     results = []
-    for idx, candidate in enumerate(candidates[:3]):
+    for idx, candidate in enumerate(candidates[:5]):
         stock = candidate["stock"]
         cap_label = market_cap_label(stock["marketCap"])
 
