@@ -21,6 +21,8 @@ from openai import OpenAI
 CONFIG = {
     "MAX_PER_SECTOR": 5,       # 各セクターからの最大銘柄数
     "MAX_STOCKS_FOR_AI": 30,   # AIに渡す最大銘柄数
+    "EXCLUDE_UNPROFITABLE": True,  # 赤字企業を除外
+    "MAX_VOLATILITY": 50,      # ボラティリティ上限（%）
 }
 
 # 投資スタイル別のスコア配分（period × risk）
@@ -193,7 +195,8 @@ def get_stocks_with_prices(conn) -> list[dict]:
                 "marketCap",
                 "volatility",
                 "volumeRatio",
-                "dividendYield"
+                "dividendYield",
+                "isProfitable"
             FROM "Stock"
             WHERE "priceUpdatedAt" IS NOT NULL
               AND "latestPrice" IS NOT NULL
@@ -213,6 +216,7 @@ def get_stocks_with_prices(conn) -> list[dict]:
             "volatility": float(row[8]) if row[8] else None,
             "volumeRatio": float(row[9]) if row[9] else None,
             "dividendYield": float(row[10]) if row[10] else 0,
+            "isProfitable": row[11],
         }
         for row in rows
     ]
@@ -316,6 +320,33 @@ def filter_stocks_by_budget(stocks: list[dict], budget: int | None) -> list[dict
     if not budget:
         return stocks
     return [s for s in stocks if s["latestPrice"] * 100 <= budget]
+
+
+def filter_risky_stocks(stocks: list[dict]) -> list[dict]:
+    """リスクの高い銘柄を除外（赤字企業・高ボラティリティ）"""
+    filtered = stocks
+
+    # 赤字企業を除外
+    if CONFIG["EXCLUDE_UNPROFITABLE"]:
+        before = len(filtered)
+        filtered = [s for s in filtered if s.get("isProfitable") is True]
+        excluded = before - len(filtered)
+        if excluded > 0:
+            print(f"  Excluded {excluded} unprofitable stocks")
+
+    # 高ボラティリティ銘柄を除外
+    max_vol = CONFIG["MAX_VOLATILITY"]
+    if max_vol:
+        before = len(filtered)
+        filtered = [
+            s for s in filtered
+            if s.get("volatility") is None or s["volatility"] <= max_vol
+        ]
+        excluded = before - len(filtered)
+        if excluded > 0:
+            print(f"  Excluded {excluded} high-volatility stocks (>{max_vol}%)")
+
+    return filtered
 
 
 def generate_recommendations_for_user(
@@ -462,6 +493,8 @@ def main():
     print(f"Config:")
     print(f"  - MAX_PER_SECTOR: {CONFIG['MAX_PER_SECTOR']}")
     print(f"  - MAX_STOCKS_FOR_AI: {CONFIG['MAX_STOCKS_FOR_AI']}")
+    print(f"  - EXCLUDE_UNPROFITABLE: {CONFIG['EXCLUDE_UNPROFITABLE']}")
+    print(f"  - MAX_VOLATILITY: {CONFIG['MAX_VOLATILITY']}%")
     print()
 
     # クライアント初期化
@@ -507,15 +540,24 @@ def main():
                 error_count += 1
                 continue
 
-            # 2. 投資スタイルに基づいてスコア計算
+            # 2. リスクの高い銘柄を除外（赤字企業・高ボラティリティ）
+            filtered = filter_risky_stocks(filtered)
+            print(f"  Stocks after risk filter: {len(filtered)}")
+
+            if not filtered:
+                print("  No stocks available after risk filter. Skipping.")
+                error_count += 1
+                continue
+
+            # 3. 投資スタイルに基づいてスコア計算
             scored = calculate_stock_scores(filtered, period, risk)
             print(f"  Top 3 scores: {[(s['tickerCode'], s['score']) for s in scored[:3]]}")
 
-            # 3. セクター分散を適用
+            # 4. セクター分散を適用
             diversified = apply_sector_diversification(scored)
             print(f"  After sector diversification: {len(diversified)} stocks")
 
-            # 4. ポートフォリオ・ウォッチリストの銘柄を除外（3件以下なら除外しない）
+            # 5. ポートフォリオ・ウォッチリストの銘柄を除外（3件以下なら除外しない）
             registered_ids = all_registered.get(user["userId"], set())
             if registered_ids:
                 candidates = [s for s in diversified if s["id"] not in registered_ids]
