@@ -347,7 +347,7 @@ model PurchaseRecommendation {
   date    DateTime @db.Date
 
   // 基本判断
-  recommendation String // "buy" | "hold"
+  recommendation String // "buy" | "stay"
   confidence     Float  // 0.0-1.0
 
   // 説明
