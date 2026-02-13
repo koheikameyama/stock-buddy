@@ -102,6 +102,10 @@
 
 - 本番DBに直接マイグレーションを実行しない
 - `DATABASE_URL="postgresql://..." npx prisma migrate deploy` は不要
+- **Claude Codeは本番DBへのマイグレーション操作を一切行わない**
+  - `prisma migrate resolve --applied` を本番DBに対して実行しない
+  - 本番DBに直接SQLを実行しない
+  - マイグレーションが必要な場合はユーザーに依頼する
 
 ### ✅ 正しい手順
 
