@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import AnalysisTimestamp from "./AnalysisTimestamp"
+import { UPDATE_SCHEDULES } from "@/lib/constants"
 
 // Inline SVG icons
 const ChevronDownIcon = ({ className }: { className?: string }) => (
@@ -365,8 +366,11 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             <span className="text-xs text-gray-600 whitespace-nowrap">信頼度 {confidencePercent}%</span>
           </div>
 
-          <div className="text-center">
+          <div className="text-center space-y-1">
             <AnalysisTimestamp dateString={data.analyzedAt} />
+            <p className="text-xs text-gray-400">
+              更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
+            </p>
           </div>
         </div>
       </div>
@@ -411,8 +415,11 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           <span className="text-xs text-gray-600 whitespace-nowrap">信頼度 {confidencePercent}%</span>
         </div>
 
-        <div className="text-center">
+        <div className="text-center space-y-1">
           <AnalysisTimestamp dateString={data.analyzedAt} />
+          <p className="text-xs text-gray-400">
+            更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
+          </p>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import AnalysisTimestamp from "./AnalysisTimestamp"
+import { UPDATE_SCHEDULES } from "@/lib/constants"
 
 interface StockAnalysisCardProps {
   stockId: string
@@ -320,12 +321,13 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
         </div>
       )}
 
-      {/* 分析日時 */}
-      {analysisDate && (
-        <div className="text-center">
-          <AnalysisTimestamp dateString={analysisDate} />
-        </div>
-      )}
+      {/* 分析日時・更新スケジュール */}
+      <div className="text-center space-y-1">
+        {analysisDate && <AnalysisTimestamp dateString={analysisDate} />}
+        <p className="text-xs text-gray-400">
+          更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
+        </p>
+      </div>
 
       <p className="text-xs text-gray-500 text-center">
         ※ 予測は参考情報です。投資判断はご自身の責任でお願いします。
