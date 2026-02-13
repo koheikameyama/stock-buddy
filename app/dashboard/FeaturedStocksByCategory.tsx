@@ -42,7 +42,58 @@ export default function FeaturedStocksByCategory({
 
   useEffect(() => {
     fetchFeaturedStocks()
+    // ページ読み込み時に処理中のジョブがあるかチェック
+    checkPendingJob()
   }, [])
+
+  // 処理中のジョブがあるか確認
+  const checkPendingJob = async () => {
+    try {
+      const response = await fetch("/api/analysis-jobs?type=featured-stocks")
+      const data = await response.json()
+      if (data.job) {
+        setGenerating(true)
+        pollJob(data.job.jobId)
+      }
+    } catch (error) {
+      console.error("Error checking pending job:", error)
+    }
+  }
+
+  // ジョブの完了をポーリングで監視
+  const pollJob = async (jobId: string) => {
+    const maxAttempts = 120 // 4分（2秒×120回）- 50銘柄の処理に時間がかかる
+    let attempts = 0
+
+    while (attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      try {
+        const response = await fetch(`/api/analysis-jobs/${jobId}`)
+        const job = await response.json()
+
+        if (job.status === "completed") {
+          await fetchFeaturedStocks()
+          setGenerating(false)
+          return
+        }
+
+        if (job.status === "failed") {
+          alert(job.error || "生成に失敗しました")
+          setGenerating(false)
+          return
+        }
+      } catch (error) {
+        console.error("Error polling job:", error)
+      }
+
+      attempts++
+    }
+
+    // タイムアウト
+    alert("処理がタイムアウトしました。ページを更新してください。")
+    setGenerating(false)
+  }
 
   // 株価を非同期で取得
   const fetchPrices = async (stocks: FeaturedStock[]) => {
@@ -193,21 +244,27 @@ export default function FeaturedStocksByCategory({
   const handleGenerate = async () => {
     try {
       setGenerating(true)
-      const response = await fetch("/api/featured-stocks/generate-for-user", {
+
+      // 非同期ジョブを作成
+      const response = await fetch("/api/analysis-jobs", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "featured-stocks" }),
       })
 
       const data = await response.json()
 
-      if (response.ok) {
-        await fetchFeaturedStocks()
-      } else {
-        alert(data.error || "生成に失敗しました")
+      if (!response.ok) {
+        alert(data.error || "生成の開始に失敗しました")
+        setGenerating(false)
+        return
       }
+
+      // ポーリングでジョブの完了を待つ
+      pollJob(data.jobId)
     } catch (error) {
       console.error("Error generating featured stocks:", error)
       alert("生成に失敗しました")
-    } finally {
       setGenerating(false)
     }
   }
@@ -227,13 +284,25 @@ export default function FeaturedStocksByCategory({
           <p className="text-xs sm:text-sm text-gray-600 mb-4">
             AIが毎日注目銘柄を発見します
           </p>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {generating ? "生成中..." : "今すぐ生成する"}
-          </button>
+          {generating ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-400 text-white rounded-lg font-semibold text-sm cursor-not-allowed">
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                生成中...
+              </div>
+              <p className="text-xs text-gray-500">50銘柄を分析しています（数分かかる場合があります）</p>
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerate}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-colors"
+            >
+              今すぐ生成する
+            </button>
+          )}
         </div>
       </div>
     )

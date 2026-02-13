@@ -14,6 +14,7 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone, date
 from collections import defaultdict
+from pathlib import Path
 
 import json
 
@@ -22,6 +23,16 @@ import pandas as pd
 import yfinance as yf
 import requests
 from openai import OpenAI
+
+# .envファイルから環境変数を読み込む（ローカル実行用）
+env_path = Path(__file__).resolve().parents[2] / ".env"
+if env_path.exists():
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def get_database_url() -> str:
@@ -33,9 +44,9 @@ def get_database_url() -> str:
 
 
 def get_slack_webhook() -> str:
-    url = os.environ.get("SLACK_WEBHOOK_URL")
+    url = os.environ.get("REPORT_SLACK_WEBHOOK_URL")
     if not url:
-        print("Error: SLACK_WEBHOOK_URL not set")
+        print("Error: REPORT_SLACK_WEBHOOK_URL not set")
         sys.exit(1)
     return url
 
@@ -126,6 +137,61 @@ def generate_single_insight(client: OpenAI, category: str, data: dict) -> str | 
         return None
 
 
+def generate_improvement_suggestion(client: OpenAI, category: str, failures: list[dict]) -> str | None:
+    """失敗パターンから改善提案を生成（1-2行）"""
+    if not failures:
+        return None
+
+    if category == "daily":
+        failure_text = "パフォーマンスが悪かったおすすめ銘柄:\n"
+        for f in failures[:3]:
+            failure_text += f"- {f['name']} ({f['sector']}): {f['performance']:+.1f}%\n"
+
+        prompt = f"""{failure_text}
+上記の銘柄選定を分析し、今後のおすすめ銘柄の精度を上げるための改善ポイントを1-2行（60文字以内）で提案してください。
+セクターの傾向なども考慮して、具体的で実践的なアドバイスをお願いします。"""
+
+    elif category == "purchase":
+        failure_text = "外れた購入推奨:\n"
+        for f in failures[:3]:
+            rec_label = {"buy": "買い推奨", "stay": "様子見推奨", "remove": "見送り推奨"}.get(f["recommendation"], f["recommendation"])
+            failure_text += f"- {f['name']}: {rec_label}→{f['performance']:+.1f}%\n"
+            failure_text += f"  判断理由: {f.get('reason', '不明')[:100]}\n"
+
+        prompt = f"""{failure_text}
+上記の外れた判断を分析し、今後の判断精度を上げるための改善ポイントを1-2行（60文字以内）で提案してください。
+具体的で実践的なアドバイスをお願いします。"""
+
+    elif category == "analysis":
+        failure_text = "外れた予測:\n"
+        for f in failures[:3]:
+            trend_label = {"up": "上昇予測", "down": "下落予測", "neutral": "横ばい予測"}.get(f["shortTermTrend"], f["shortTermTrend"])
+            failure_text += f"- {f['name']}: {trend_label}→{f['performance']:+.1f}%\n"
+            failure_text += f"  アドバイス: {f.get('advice', '不明')[:100]}\n"
+
+        prompt = f"""{failure_text}
+上記の外れた予測を分析し、今後の予測精度を上げるための改善ポイントを1-2行（60文字以内）で提案してください。
+具体的で実践的なアドバイスをお願いします。"""
+
+    else:
+        return None
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "あなたは株式投資AIの分析改善アドバイザーです。簡潔に日本語で回答してください。"},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=150,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"    Warning: {category} improvement suggestion failed: {e}")
+        return None
+
+
 def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | None:
     """各カテゴリごとにAIインサイトを生成"""
     client = get_openai_client()
@@ -147,6 +213,16 @@ def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | 
 
     if analysis["count"] > 0:
         insights["analysis"] = generate_single_insight(client, "analysis", analysis)
+
+    # 失敗例から改善提案を生成
+    if daily.get("failures"):
+        insights["dailyImprovement"] = generate_improvement_suggestion(client, "daily", daily["failures"])
+
+    if purchase.get("failures"):
+        insights["purchaseImprovement"] = generate_improvement_suggestion(client, "purchase", purchase["failures"])
+
+    if analysis.get("failures"):
+        insights["analysisImprovement"] = generate_improvement_suggestion(client, "analysis", analysis["failures"])
 
     return insights if any(insights.values()) else None
 
@@ -254,7 +330,10 @@ def get_daily_recommendations(conn, days_ago: int = 7) -> list[dict]:
 
 
 def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
-    """おすすめ銘柄のパフォーマンスを分析"""
+    """おすすめ銘柄のパフォーマンスを分析
+
+    成功基準: 騰落率 > -3%（大きく下がらなければ成功）
+    """
     today = datetime.now(timezone.utc).date()
     valid = []
 
@@ -265,7 +344,7 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
             valid.append({**d, "performance": perf})
 
     if not valid:
-        return {"count": 0, "avgReturn": 0, "positiveRate": 0, "successRate": 0, "best": [], "worst": []}
+        return {"count": 0, "avgReturn": 0, "positiveRate": 0, "successRate": 0, "best": [], "worst": [], "failures": []}
 
     perfs = [v["performance"] for v in valid]
     sorted_valid = sorted(valid, key=lambda x: x["performance"], reverse=True)
@@ -301,7 +380,7 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
             sector_stats[sector] = {
                 "count": len(perfs_list),
                 "avgReturn": sum(perfs_list) / len(perfs_list),
-                "successRate": sum(1 for p in perfs_list if p > 0) / len(perfs_list) * 100,
+                "successRate": sum(1 for p in perfs_list if p > -3) / len(perfs_list) * 100,  # 緩和: -3%以上
             }
 
     # 成績順にソート
@@ -309,15 +388,30 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
     top_sectors = sorted_sectors[:3] if len(sorted_sectors) >= 3 else sorted_sectors
     bottom_sectors = sorted_sectors[-3:] if len(sorted_sectors) >= 3 else []
 
+    # 失敗例を収集（-3%以下のもの）
+    failures = [
+        {
+            "name": v["name"],
+            "tickerCode": v["tickerCode"],
+            "sector": v.get("sector") or "その他",
+            "performance": v["performance"],
+        }
+        for v in valid
+        if v["performance"] <= -3
+    ]
+    # パフォーマンスが悪い順にソート
+    failures.sort(key=lambda x: x["performance"])
+
     return {
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
         "positiveRate": sum(1 for p in perfs if p > 0) / len(perfs) * 100,
-        "successRate": sum(1 for p in perfs if p >= 3) / len(perfs) * 100,
+        "successRate": sum(1 for p in perfs if p > -3) / len(perfs) * 100,  # 緩和: -3%以上で成功
         "best": unique_best,
         "worst": unique_worst,
         "topSectors": top_sectors,
         "bottomSectors": bottom_sectors,
+        "failures": failures[:3],  # 上位3件
     }
 
 
@@ -334,7 +428,8 @@ def get_purchase_recommendations(conn, days_ago: int = 7) -> list[dict]:
                 p.recommendation,
                 s."tickerCode",
                 s.name,
-                s.sector
+                s.sector,
+                p.reason
             FROM "PurchaseRecommendation" p
             JOIN "Stock" s ON p."stockId" = s.id
             WHERE p.date >= %s
@@ -348,13 +443,20 @@ def get_purchase_recommendations(conn, days_ago: int = 7) -> list[dict]:
                 "tickerCode": row[2],
                 "name": row[3],
                 "sector": row[4],
+                "reason": row[5],
             }
             for row in cur.fetchall()
         ]
 
 
 def analyze_purchase_recommendations(data: list[dict], prices: dict) -> dict:
-    """購入推奨のパフォーマンスを分析"""
+    """購入推奨のパフォーマンスを分析
+
+    成功基準（緩和版）:
+    - buy: 騰落率 > -3%（大きく下がらなければ成功）
+    - stay: 騰落率 <= 5%（5%以上の急騰を見逃さなければ成功）
+    - remove: 騰落率 < 3%（大きく上がらなければ成功）
+    """
     today = datetime.now(timezone.utc).date()
     valid = []
 
@@ -364,17 +466,17 @@ def analyze_purchase_recommendations(data: list[dict], prices: dict) -> dict:
             perf = ((current_price - price_at_rec) / price_at_rec) * 100
             rec = d["recommendation"]
             if rec == "buy":
-                is_success = perf > 0
+                is_success = perf > -3  # 緩和: -3%以上
             elif rec == "stay":
-                is_success = perf <= 3
+                is_success = perf <= 5  # 緩和: 5%以下
             elif rec == "remove":
-                is_success = perf < 0
+                is_success = perf < 3   # 緩和: 3%未満
             else:
                 is_success = None
             valid.append({**d, "performance": perf, "isSuccess": is_success})
 
     if not valid:
-        return {"count": 0, "avgReturn": 0, "successRate": 0, "byRecommendation": {}}
+        return {"count": 0, "avgReturn": 0, "successRate": 0, "byRecommendation": {}, "failures": []}
 
     perfs = [v["performance"] for v in valid]
     successes = [v["isSuccess"] for v in valid if v["isSuccess"] is not None]
@@ -410,6 +512,21 @@ def analyze_purchase_recommendations(data: list[dict], prices: dict) -> dict:
     top_sectors = sorted_sectors[:3] if len(sorted_sectors) >= 3 else sorted_sectors
     bottom_sectors = sorted_sectors[-3:] if len(sorted_sectors) >= 3 else []
 
+    # 失敗例を収集（reason付き）
+    failures = [
+        {
+            "name": v["name"],
+            "tickerCode": v["tickerCode"],
+            "recommendation": v["recommendation"],
+            "performance": v["performance"],
+            "reason": v.get("reason") or "",
+        }
+        for v in valid
+        if v["isSuccess"] is False and v.get("reason")
+    ]
+    # パフォーマンスが悪い順にソート（buyなら下落幅が大きい順、stayなら上昇幅が大きい順）
+    failures.sort(key=lambda x: -x["performance"] if x["recommendation"] == "stay" else x["performance"])
+
     return {
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
@@ -417,6 +534,7 @@ def analyze_purchase_recommendations(data: list[dict], prices: dict) -> dict:
         "byRecommendation": by_rec_stats,
         "topSectors": top_sectors,
         "bottomSectors": bottom_sectors,
+        "failures": failures[:3],  # 上位3件
     }
 
 
@@ -434,7 +552,8 @@ def get_stock_analyses(conn, days_ago: int = 7) -> list[dict]:
                 a.recommendation,
                 s."tickerCode",
                 s.name,
-                s.sector
+                s.sector,
+                a.advice
             FROM "StockAnalysis" a
             JOIN "Stock" s ON a."stockId" = s.id
             WHERE a."analyzedAt" >= %s
@@ -449,13 +568,20 @@ def get_stock_analyses(conn, days_ago: int = 7) -> list[dict]:
                 "tickerCode": row[3],
                 "name": row[4],
                 "sector": row[5],
+                "advice": row[6],
             }
             for row in cur.fetchall()
         ]
 
 
 def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
-    """ポートフォリオ分析のパフォーマンスを分析"""
+    """ポートフォリオ分析のパフォーマンスを分析
+
+    成功基準（緩和版）:
+    - up: 騰落率 > -3%（大きく下がらなければ成功）
+    - down: 騰落率 < 3%（大きく上がらなければ成功）
+    - neutral: -5% <= 騰落率 <= 5%（大きく動かなければ成功）
+    """
     today = datetime.now(timezone.utc).date()
     valid = []
 
@@ -465,17 +591,17 @@ def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
             perf = ((current_price - price_at_rec) / price_at_rec) * 100
             trend = d["shortTermTrend"]
             if trend == "up":
-                is_success = perf > 0
+                is_success = perf > -3  # 緩和: -3%以上
             elif trend == "down":
-                is_success = perf < 0
+                is_success = perf < 3   # 緩和: 3%未満
             elif trend == "neutral":
-                is_success = -3 <= perf <= 3
+                is_success = -5 <= perf <= 5  # 緩和: ±5%以内
             else:
                 is_success = None
             valid.append({**d, "performance": perf, "isSuccess": is_success})
 
     if not valid:
-        return {"count": 0, "avgReturn": 0, "successRate": 0, "byTrend": {}}
+        return {"count": 0, "avgReturn": 0, "successRate": 0, "byTrend": {}, "failures": []}
 
     perfs = [v["performance"] for v in valid]
     successes = [v["isSuccess"] for v in valid if v["isSuccess"] is not None]
@@ -511,6 +637,21 @@ def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
     top_sectors = sorted_sectors[:3] if len(sorted_sectors) >= 3 else sorted_sectors
     bottom_sectors = sorted_sectors[-3:] if len(sorted_sectors) >= 3 else []
 
+    # 失敗例を収集（advice付き）
+    failures = [
+        {
+            "name": v["name"],
+            "tickerCode": v["tickerCode"],
+            "shortTermTrend": v["shortTermTrend"],
+            "performance": v["performance"],
+            "advice": v.get("advice") or "",
+        }
+        for v in valid
+        if v["isSuccess"] is False and v.get("advice")
+    ]
+    # 予測と実際の乖離が大きい順にソート
+    failures.sort(key=lambda x: abs(x["performance"]), reverse=True)
+
     return {
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
@@ -518,6 +659,7 @@ def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
         "byTrend": by_trend_stats,
         "topSectors": top_sectors,
         "bottomSectors": bottom_sectors,
+        "failures": failures[:3],  # 上位3件
     }
 
 
@@ -579,6 +721,21 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['daily']}_"}]
             })
+        # 失敗例（おすすめ銘柄）
+        if daily.get("failures"):
+            failure_lines = []
+            for f in daily["failures"][:2]:
+                failure_lines.append(f"• {f['name']} ({f['sector']}): {f['performance']:+.1f}%")
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": "📝 *パフォーマンス不振:*\n" + "\n".join(failure_lines)}]
+            })
+            # 改善ポイント（おすすめ銘柄）
+            if insights and insights.get("dailyImprovement"):
+                blocks.append({
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": f"🔧 *改善ポイント:* {insights['dailyImprovement']}"}]
+                })
         blocks.append({"type": "divider"})
 
     # 2. 購入推奨
@@ -626,6 +783,23 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['purchase']}_"}]
             })
+        # 失敗例（購入推奨）
+        if purchase.get("failures"):
+            failure_lines = []
+            for f in purchase["failures"][:2]:
+                rec_label = {"buy": "買い→", "stay": "様子見→"}.get(f["recommendation"], "")
+                reason_short = f["reason"][:30] + "..." if len(f["reason"]) > 30 else f["reason"]
+                failure_lines.append(f"• {f['name']}: {rec_label}{f['performance']:+.1f}%「{reason_short}」")
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": "📝 *外れた判断:*\n" + "\n".join(failure_lines)}]
+            })
+            # 改善ポイント（購入推奨）
+            if insights and insights.get("purchaseImprovement"):
+                blocks.append({
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": f"🔧 *改善ポイント:* {insights['purchaseImprovement']}"}]
+                })
         blocks.append({"type": "divider"})
 
     # 3. ポートフォリオ分析
@@ -673,6 +847,23 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['analysis']}_"}]
             })
+        # 失敗例（ポートフォリオ分析）
+        if analysis.get("failures"):
+            failure_lines = []
+            for f in analysis["failures"][:2]:
+                trend_label = {"up": "上昇予測→", "down": "下落予測→", "neutral": "横ばい予測→"}.get(f["shortTermTrend"], "")
+                advice_short = f["advice"][:30] + "..." if len(f["advice"]) > 30 else f["advice"]
+                failure_lines.append(f"• {f['name']}: {trend_label}{f['performance']:+.1f}%「{advice_short}」")
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": "📝 *外れた予測:*\n" + "\n".join(failure_lines)}]
+            })
+            # 改善ポイント（ポートフォリオ分析）
+            if insights and insights.get("analysisImprovement"):
+                blocks.append({
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": f"🔧 *改善ポイント:* {insights['analysisImprovement']}"}]
+                })
 
     # フッター
     blocks.append({
@@ -781,7 +972,14 @@ def main():
         if insights:
             for key, value in insights.items():
                 if value:
-                    label = {"daily": "おすすめ", "purchase": "購入推奨", "analysis": "分析"}.get(key, key)
+                    label = {
+                        "daily": "おすすめ",
+                        "purchase": "購入推奨",
+                        "analysis": "分析",
+                        "dailyImprovement": "おすすめ・改善",
+                        "purchaseImprovement": "購入推奨・改善",
+                        "analysisImprovement": "分析・改善"
+                    }.get(key, key)
                     print(f"   {label}: {value[:50]}...")
         else:
             print("   Skipped (no API key or error)")
