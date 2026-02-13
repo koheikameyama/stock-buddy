@@ -33,7 +33,7 @@ def cleanup_old_data():
             # 1. StockAnalysis（ポートフォリオ分析）
             cur.execute('SELECT COUNT(*) FROM "StockAnalysis" WHERE "analyzedAt" < %s', (cutoff_date,))
             count = cur.fetchone()[0]
-            print(f"\n[1/3] StockAnalysis: {count} records to delete")
+            print(f"\n[1/4] StockAnalysis: {count} records to delete")
             if count > 0:
                 cur.execute('DELETE FROM "StockAnalysis" WHERE "analyzedAt" < %s', (cutoff_date,))
                 print(f"  Deleted: {cur.rowcount}")
@@ -42,7 +42,7 @@ def cleanup_old_data():
             # 2. PurchaseRecommendation（ウォッチリスト購入推奨）
             cur.execute('SELECT COUNT(*) FROM "PurchaseRecommendation" WHERE date < %s', (cutoff_date.date(),))
             count = cur.fetchone()[0]
-            print(f"\n[2/3] PurchaseRecommendation: {count} records to delete")
+            print(f"\n[2/4] PurchaseRecommendation: {count} records to delete")
             if count > 0:
                 cur.execute('DELETE FROM "PurchaseRecommendation" WHERE date < %s', (cutoff_date.date(),))
                 print(f"  Deleted: {cur.rowcount}")
@@ -51,9 +51,18 @@ def cleanup_old_data():
             # 3. UserDailyRecommendation（あなたへのおすすめ）
             cur.execute('SELECT COUNT(*) FROM "UserDailyRecommendation" WHERE date < %s', (cutoff_date.date(),))
             count = cur.fetchone()[0]
-            print(f"\n[3/3] UserDailyRecommendation: {count} records to delete")
+            print(f"\n[3/4] UserDailyRecommendation: {count} records to delete")
             if count > 0:
                 cur.execute('DELETE FROM "UserDailyRecommendation" WHERE date < %s', (cutoff_date.date(),))
+                print(f"  Deleted: {cur.rowcount}")
+                total_deleted += cur.rowcount
+
+            # 4. MarketNews（マーケットニュース）
+            cur.execute('SELECT COUNT(*) FROM "MarketNews" WHERE "publishedAt" < %s', (cutoff_date,))
+            count = cur.fetchone()[0]
+            print(f"\n[4/4] MarketNews: {count} records to delete")
+            if count > 0:
+                cur.execute('DELETE FROM "MarketNews" WHERE "publishedAt" < %s', (cutoff_date,))
                 print(f"  Deleted: {cur.rowcount}")
                 total_deleted += cur.rowcount
 
