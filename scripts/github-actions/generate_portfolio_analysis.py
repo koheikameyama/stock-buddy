@@ -115,6 +115,10 @@ def main():
         print(f"\n=== Summary ===")
         print(f"Success: {success_count}, Errors: {error_count}")
 
+        # 全員失敗した場合はエラー終了
+        if success_count == 0 and error_count > 0:
+            sys.exit(1)
+
     finally:
         conn.close()
 

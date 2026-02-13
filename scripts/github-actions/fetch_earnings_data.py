@@ -223,6 +223,10 @@ def main():
         print(f"終了時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("=" * 60)
 
+        # 全員失敗した場合はエラー終了
+        if success_count == 0 and error_count > 0:
+            sys.exit(1)
+
     finally:
         conn.close()
 
