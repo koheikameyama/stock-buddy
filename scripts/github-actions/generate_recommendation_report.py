@@ -937,7 +937,9 @@ def main():
                         "purchaseImprovement": "購入推奨・改善",
                         "analysisImprovement": "分析・改善"
                     }.get(key, key)
-                    print(f"   {label}: {value[:50]}...")
+                    # 構造化出力（dict）の場合は文字列に変換
+                    display_value = str(value) if isinstance(value, dict) else value
+                    print(f"   {label}: {display_value[:50]}...")
         else:
             print("   Skipped (no API key or error)")
 
