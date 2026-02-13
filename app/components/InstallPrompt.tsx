@@ -50,7 +50,6 @@ export default function InstallPrompt() {
 
     // ユーザーの選択を待つ
     const { outcome } = await deferredPrompt.userChoice
-    console.log(`User response to the install prompt: ${outcome}`)
 
     // プロンプトをクリア
     setDeferredPrompt(null)
@@ -66,7 +65,6 @@ export default function InstallPrompt() {
 
   const requestNotificationPermission = async () => {
     if (!("Notification" in window)) {
-      console.log("This browser does not support notifications")
       return
     }
 
@@ -106,8 +104,6 @@ export default function InstallPrompt() {
         },
         body: JSON.stringify(subscription),
       })
-
-      console.log("Push notification subscribed successfully")
     } catch (error) {
       console.error("Failed to subscribe to push notifications:", error)
     }

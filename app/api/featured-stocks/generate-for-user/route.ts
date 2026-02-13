@@ -40,8 +40,6 @@ export async function POST(request: NextRequest) {
       return authResult
     }
 
-    console.log("📊 Generating featured stocks for user...")
-
     // 銘柄と株価データを取得
     const stocks = await getStocksWithPrices()
 
@@ -68,8 +66,6 @@ export async function POST(request: NextRequest) {
 
     // データベースに保存
     await saveDailyFeaturedStocks(allFeatured)
-
-    console.log(`✅ Generated ${allFeatured.length} featured stocks`)
 
     return NextResponse.json({
       success: true,

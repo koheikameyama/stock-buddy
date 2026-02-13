@@ -268,8 +268,6 @@ export async function POST(request: NextRequest) {
 
     // マスタにない場合はyfinanceで検索して追加を試みる
     if (!stock) {
-      console.log(`Stock not found in master, searching with yfinance: ${normalizedTickerCode}`)
-
       const searchResult = await searchAndAddStock(normalizedTickerCode)
 
       if (!searchResult.success || !searchResult.stock) {
@@ -292,8 +290,6 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
-
-      console.log(`Successfully added new stock to master: ${stock.tickerCode} - ${stock.name}`)
     }
 
     // Check if stock already exists

@@ -76,15 +76,11 @@ export async function fetchStockPrices(
   tickerCodes: string[]
 ): Promise<StockPrice[]> {
   if (tickerCodes.length === 0) {
-    console.log("銘柄が登録されていません")
     return []
   }
 
   // ティッカーコードを正規化
   const normalizedCodes = tickerCodes.map(normalizeTickerCode)
-
-  console.log("ポートフォリオの銘柄数:", normalizedCodes.length)
-  console.log("ティッカーコード:", normalizedCodes)
 
   try {
     const scriptPath = getPythonScriptPath("fetch_stock_prices.py")
@@ -92,12 +88,8 @@ export async function fetchStockPrices(
 
     // スクリプトの存在確認
     if (!fs.existsSync(scriptPath)) {
-      console.error("Python script not found:", scriptPath)
-      console.error("Current working directory:", process.cwd())
-      return []
+      throw new Error(`Python script not found: ${scriptPath} (cwd: ${process.cwd()})`)
     }
-
-    console.log("Executing Python script:", scriptPath)
 
     const { stdout, stderr } = await execAsync(
       `python3 "${scriptPath}" "${tickerArg}"`,
@@ -110,12 +102,9 @@ export async function fetchStockPrices(
 
     const results: StockPrice[] = JSON.parse(stdout.trim())
 
-    console.log("取得した株価データ:", results.length)
-
     return results
   } catch (error) {
-    console.error("Error fetching stock prices via yfinance:", error)
-    return []
+    throw new Error(`Failed to fetch stock prices: ${error instanceof Error ? error.message : error}`)
   }
 }
 
@@ -140,9 +129,7 @@ export async function fetchHistoricalPrices(
 
     // スクリプトの存在確認
     if (!fs.existsSync(scriptPath)) {
-      console.error("Python script not found:", scriptPath)
-      console.error("Current working directory:", process.cwd())
-      return []
+      throw new Error(`Python script not found: ${scriptPath} (cwd: ${process.cwd()})`)
     }
 
     const { stdout, stderr } = await execAsync(
@@ -161,8 +148,7 @@ export async function fetchHistoricalPrices(
 
     return results
   } catch (error) {
-    console.error(`Error fetching historical data for ${normalizedCode}:`, error)
-    return []
+    throw new Error(`Failed to fetch historical prices for ${normalizedCode}: ${error instanceof Error ? error.message : error}`)
   }
 }
 
@@ -186,8 +172,7 @@ export async function fetchEarningsData(
     const tickerArg = normalizedCodes.join(",")
 
     if (!fs.existsSync(scriptPath)) {
-      console.error("Python script not found:", scriptPath)
-      return []
+      throw new Error(`Python script not found: ${scriptPath} (cwd: ${process.cwd()})`)
     }
 
     const { stdout, stderr } = await execAsync(
@@ -202,7 +187,6 @@ export async function fetchEarningsData(
     const results: EarningsData[] = JSON.parse(stdout.trim())
     return results
   } catch (error) {
-    console.error("Error fetching earnings data:", error)
-    return []
+    throw new Error(`Failed to fetch earnings data: ${error instanceof Error ? error.message : error}`)
   }
 }
