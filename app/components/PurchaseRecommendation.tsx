@@ -29,9 +29,6 @@ interface RecommendationData {
   recommendation: "buy" | "hold"
   confidence: number
   reason: string
-  recommendedQuantity?: number | null
-  recommendedPrice?: number | null
-  estimatedAmount?: number | null
   caution: string
   // A. 買い時判断
   shouldBuyToday?: boolean | null
@@ -333,16 +330,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
           {/* D. パーソナライズ */}
           <PersonalizedSection />
-
-          {data.recommendedQuantity && data.estimatedAmount && (
-            <div className="bg-white rounded-lg p-3 sm:p-4 mb-4">
-              <p className="text-xs text-gray-600 mb-2">📊 おすすめの買い方</p>
-              <ul className="text-xs sm:text-sm text-gray-800 space-y-1">
-                <li>• 購入数量: {data.recommendedQuantity}株</li>
-                <li>• 必要金額: 約{data.estimatedAmount.toLocaleString()}円</li>
-              </ul>
-            </div>
-          )}
 
           {/* B. 深掘り評価 */}
           <DeepEvaluationSection />

@@ -81,13 +81,6 @@ export async function GET(
       recommendation: recommendation.recommendation,
       confidence: recommendation.confidence,
       reason: recommendation.reason,
-      recommendedQuantity: recommendation.recommendedQuantity,
-      recommendedPrice: recommendation.recommendedPrice
-        ? Number(recommendation.recommendedPrice)
-        : null,
-      estimatedAmount: recommendation.estimatedAmount
-        ? Number(recommendation.estimatedAmount)
-        : null,
       caution: recommendation.caution,
       // A. 買い時判断
       shouldBuyToday: recommendation.shouldBuyToday,
@@ -357,9 +350,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   "recommendation": "buy" | "hold",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
-  "recommendedQuantity": 100株単位の整数（buyの場合のみ、それ以外はnull）,
-  "recommendedPrice": 目安価格の整数（buyの場合のみ、それ以外はnull）,
-  "estimatedAmount": 必要金額の整数（buyの場合のみ、それ以外はnull）,
   "caution": "注意点を1-2文",
 
   // A. 買い時判断
@@ -444,9 +434,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
       update: {
         recommendation: result.recommendation,
         confidence: result.confidence,
-        recommendedQuantity: result.recommendedQuantity || null,
-        recommendedPrice: result.recommendedPrice || null,
-        estimatedAmount: result.estimatedAmount || null,
         reason: result.reason,
         caution: result.caution,
         // A. 買い時判断
@@ -472,9 +459,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         date: today,
         recommendation: result.recommendation,
         confidence: result.confidence,
-        recommendedQuantity: result.recommendedQuantity || null,
-        recommendedPrice: result.recommendedPrice || null,
-        estimatedAmount: result.estimatedAmount || null,
         reason: result.reason,
         caution: result.caution,
         // A. 買い時判断
@@ -505,9 +489,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
       recommendation: result.recommendation,
       confidence: result.confidence,
       reason: result.reason,
-      recommendedQuantity: result.recommendedQuantity || null,
-      recommendedPrice: result.recommendedPrice || null,
-      estimatedAmount: result.estimatedAmount || null,
       caution: result.caution,
       // A. 買い時判断
       shouldBuyToday: result.shouldBuyToday ?? null,

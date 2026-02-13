@@ -335,11 +335,6 @@ model PurchaseRecommendation {
   recommendation String // "buy" | "hold"
   confidence     Float  // 0.0-1.0
 
-  // 購入提案（recommendationが"buy"の場合のみ）
-  recommendedQuantity Int?
-  recommendedPrice    Decimal? @db.Decimal(12, 2)
-  estimatedAmount     Decimal? @db.Decimal(15, 2)
-
   // 説明
   reason  String @db.Text
   caution String @db.Text

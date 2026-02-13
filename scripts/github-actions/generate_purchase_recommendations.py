@@ -114,7 +114,7 @@ def generate_recommendation(client: OpenAI, stock: dict, recent_prices: list[dic
 - 現在価格: {current_price or '不明'}円
 {pattern_context}
 【回答形式】JSON形式で回答してください。
-{{"recommendation": "buy" | "hold", "confidence": 0.0-1.0, "reason": "理由1-2文", "recommendedQuantity": 100株単位（buyのみ）, "recommendedPrice": 目安価格（buyのみ）, "estimatedAmount": 必要金額（buyのみ）, "caution": "注意点1-2文"}}
+{{"recommendation": "buy" | "hold", "confidence": 0.0-1.0, "reason": "理由1-2文", "caution": "注意点1-2文"}}
 
 【制約】専門用語は使わない。中学生でも理解できる表現にする。"""
 
@@ -139,11 +139,11 @@ def save_recommendation(conn, stock_id: str, recommendation: dict):
         cur.execute('SELECT id FROM "PurchaseRecommendation" WHERE "stockId" = %s AND date = %s', (stock_id, today))
         existing = cur.fetchone()
         if existing:
-            cur.execute('UPDATE "PurchaseRecommendation" SET recommendation = %s, confidence = %s, "recommendedQuantity" = %s, "recommendedPrice" = %s, "estimatedAmount" = %s, reason = %s, caution = %s, "updatedAt" = %s WHERE "stockId" = %s AND date = %s',
-                (recommendation["recommendation"], recommendation["confidence"], recommendation.get("recommendedQuantity"), recommendation.get("recommendedPrice"), recommendation.get("estimatedAmount"), recommendation["reason"], recommendation["caution"], datetime.now(timezone.utc), stock_id, today))
+            cur.execute('UPDATE "PurchaseRecommendation" SET recommendation = %s, confidence = %s, reason = %s, caution = %s, "updatedAt" = %s WHERE "stockId" = %s AND date = %s',
+                (recommendation["recommendation"], recommendation["confidence"], recommendation["reason"], recommendation["caution"], datetime.now(timezone.utc), stock_id, today))
         else:
-            cur.execute('INSERT INTO "PurchaseRecommendation" (id, "stockId", date, recommendation, confidence, "recommendedQuantity", "recommendedPrice", "estimatedAmount", reason, caution, "createdAt", "updatedAt") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                (str(uuid.uuid4().hex[:25]), stock_id, today, recommendation["recommendation"], recommendation["confidence"], recommendation.get("recommendedQuantity"), recommendation.get("recommendedPrice"), recommendation.get("estimatedAmount"), recommendation["reason"], recommendation["caution"], datetime.now(timezone.utc), datetime.now(timezone.utc)))
+            cur.execute('INSERT INTO "PurchaseRecommendation" (id, "stockId", date, recommendation, confidence, reason, caution, "createdAt", "updatedAt") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                (str(uuid.uuid4().hex[:25]), stock_id, today, recommendation["recommendation"], recommendation["confidence"], recommendation["reason"], recommendation["caution"], datetime.now(timezone.utc), datetime.now(timezone.utc)))
     conn.commit()
 
 
