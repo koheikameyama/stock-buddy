@@ -378,7 +378,7 @@ export default function FeaturedStocksByCategory({
                 いま話題になっている銘柄です
               </p>
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span>更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）</span>
+                <span>更新 {UPDATE_SCHEDULES.FEATURED_STOCKS}（平日）</span>
               </div>
             </div>
           </div>
