@@ -283,101 +283,96 @@ postgresql://kouheikameyama@localhost:5432/stock_buddy
 
 ## 日付・時刻の扱い
 
-**JavaScriptの`Date`オブジェクトではなく、dayjsを使用してください。**
+**日付の保存・取得はJST（日本時間）00:00を基準に統一してください。**
 
-### 理由
+### 方針
 
-1. **タイムゾーン処理が明確**: UTCとJSTの変換が簡単
-2. **可読性**: `dayjs.utc().startOf("day")` は意図が明確
-3. **不変性**: 元のオブジェクトを変更しない
-4. **バグ防止**: Dateオブジェクトの複雑な挙動を回避
+- **DBにはUTC形式で保存**される
+- **日付の境界はJST 00:00:00**（日本時間の深夜0時で日付が変わる）
+- 共通ユーティリティ `lib/date-utils.ts` を使用する
 
-### 基本的な使い方
+### なぜJST基準か
+
+- 日本株を扱うアプリなので、JSTで日付を区切るのが自然
+- ユーザーが「今日のおすすめ」と言ったらJSTの今日を期待する
+- 市場の営業日もJST基準
+
+### 共通ユーティリティ
 
 ```typescript
-import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-import timezone from "dayjs/plugin/timezone"
+// lib/date-utils.ts
+import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 
-dayjs.extend(utc)
-dayjs.extend(timezone)
+// 今日の日付（JST 00:00をUTCに変換）
+const today = getTodayForDB()
+// 例: JST 2024-06-10 00:00:00 → UTC 2024-06-09 15:00:00
 
-// ✅ 良い例: dayjsを使用
+// N日前の日付
+const sevenDaysAgo = getDaysAgoForDB(7)
+```
+
+```python
+# Python版: scripts/lib/date_utils.py
+from scripts.lib.date_utils import get_today_for_db, get_days_ago_for_db
+
+today = get_today_for_db()
+seven_days_ago = get_days_ago_for_db(7)
+```
+
+### ✅ 良い例
+
+```typescript
+import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
+
+// DB保存
+await prisma.dailyFeaturedStock.create({
+  data: {
+    date: getTodayForDB(),
+    stockId: stock.id,
+  },
+})
+
+// DB検索
+const recommendations = await prisma.userDailyRecommendation.findMany({
+  where: {
+    date: getTodayForDB(),
+  },
+})
+
+// 範囲検索
+const recentData = await prisma.purchaseRecommendation.findFirst({
+  where: {
+    date: { gte: getDaysAgoForDB(7) },
+  },
+})
+```
+
+### ❌ 悪い例
+
+```typescript
+// UTC 00:00を使用 - JSTと9時間ずれる
 const today = dayjs.utc().startOf("day").toDate()
-const yesterday = dayjs.utc().subtract(1, "day").startOf("day").toDate()
-const jstNow = dayjs().tz("Asia/Tokyo")
 
-// ❌ 悪い例: Dateオブジェクトを使用
+// 生のDateを使用 - タイムゾーンが曖昧
 const today = new Date()
 today.setHours(0, 0, 0, 0)
-const yesterday = new Date(today)
-yesterday.setDate(yesterday.getDate() - 1)
 ```
 
-### よくあるパターン
+### 対象テーブル
 
-#### 今日の日付（UTC 00:00:00）
-```typescript
-const today = dayjs.utc().startOf("day").toDate()
-```
+以下のテーブルは `@db.Date` 型で日付を保存しており、JST基準で統一：
 
-#### 日本時間の現在時刻
-```typescript
-const jstNow = dayjs().tz("Asia/Tokyo")
-```
-
-#### 日付範囲検索
-```typescript
-const startDate = dayjs.utc().subtract(7, "day").startOf("day").toDate()
-const endDate = dayjs.utc().endOf("day").toDate()
-
-const records = await prisma.record.findMany({
-  where: {
-    date: {
-      gte: startDate,
-      lte: endDate,
-    },
-  },
-})
-```
-
-#### 日付フォーマット
-```typescript
-// ✅ dayjsを使用
-const formatted = dayjs().format("YYYY-MM-DD HH:mm:ss")
-
-// ❌ Dateオブジェクトを使用
-const formatted = new Date().toISOString() // ISO形式固定
-```
-
-### Prismaでの日付扱い
-
-Prismaの `DateTime` 型はUTC基準で保存されます。dayjsで `.toDate()` を呼ぶと、Prismaが期待する形式に変換されます。
-
-```typescript
-// ✅ 正しい
-const record = await prisma.record.create({
-  data: {
-    date: dayjs.utc().startOf("day").toDate(),
-    createdAt: dayjs().toDate(), // 現在時刻
-  },
-})
-
-// ❌ 間違い
-const record = await prisma.record.create({
-  data: {
-    date: new Date(), // タイムゾーンが曖昧
-  },
-})
-```
+- `DailyFeaturedStock.date` - 今日の注目銘柄
+- `PurchaseRecommendation.date` - 購入判断
+- `UserDailyRecommendation.date` - あなたへのおすすめ
 
 ### 注意事項
 
-- **タイムスタンプ（createdAt, updatedAt等）**: `dayjs().toDate()` または `new Date()` でOK
-- **日付比較・計算**: 必ずdayjsを使用
-- **プラグイン**: utcとtimezoneプラグインを必ず読み込む
+- **タイムスタンプ（createdAt, updatedAt等）**: `new Date()` でOK（現在時刻なのでTZ関係なし）
+- **日付フィールド（date型）**: 必ず `getTodayForDB()` を使用
+- **日付フォーマット表示**: `dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD")`
 
-**重要: 日付・時刻を扱うコードを書く際は、必ずdayjsを使用してください。**
+**重要: 日付を保存・検索する際は、必ず共通ユーティリティを使用してください。**
 
 ## データ取得とローディング表示
 
