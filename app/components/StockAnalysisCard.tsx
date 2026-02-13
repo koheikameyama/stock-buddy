@@ -27,6 +27,8 @@ interface PredictionData {
   recommendation: string
   advice: string
   confidence: number
+  limitPrice: string | null
+  stopLossPrice: string | null
   analyzedAt: string
 }
 
@@ -325,6 +327,32 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}
           </p>
+          {/* 指値・逆指値 */}
+          {(prediction.limitPrice || prediction.stopLossPrice) && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+              <p className="text-sm font-semibold text-gray-800 mb-2">🎯 推奨価格</p>
+              <div className="grid grid-cols-2 gap-3">
+                {prediction.limitPrice && (
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      {prediction.recommendation === "buy" ? "買い指値" : "利確目標"}
+                    </p>
+                    <p className="text-base font-bold text-green-600">
+                      {formatPrice(prediction.limitPrice)}円
+                    </p>
+                  </div>
+                )}
+                {prediction.stopLossPrice && (
+                  <div>
+                    <p className="text-xs text-gray-500">逆指値（損切り）</p>
+                    <p className="text-base font-bold text-red-600">
+                      {formatPrice(prediction.stopLossPrice)}円
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {/* 買い推奨時に理想の買い値を表示 */}
           {prediction.recommendation === "buy" && purchaseRecommendation?.idealEntryPrice && (
             <div className="bg-green-50 rounded-lg p-3 mb-3">
