@@ -298,7 +298,7 @@ ${watchlistStocksText}
 
 {
   "overallSummary": "全体の総評を初心者向けに2-3文で。専門用語を使う場合は括弧で解説を添える",
-  "overallStatus": "好調/順調/様子見/注意/要確認のいずれか",
+  "overallStatus": "好調/順調/やや低調/注意/要確認のいずれか",
   "overallStatusType": "excellent/good/neutral/caution/warningのいずれか",
   "metricsAnalysis": {
     "sectorDiversification": {
@@ -311,7 +311,7 @@ ${watchlistStocksText}
     "profitLoss": {
       "value": "含み損益額と率（例: +12,500円（+8.5%））",
       "explanation": "損益状況の解説を1-2文",
-      "evaluation": "評価（好調/順調/様子見/注意など）",
+      "evaluation": "評価（好調/順調/やや低調/注意など）",
       "evaluationType": "good/neutral/warning",
       "action": "アドバイス"
     },
@@ -426,7 +426,7 @@ ${watchlistStocksText}
           type: "object",
           properties: {
             overallSummary: { type: "string" },
-            overallStatus: { type: "string", enum: ["好調", "順調", "様子見", "注意", "要確認"] },
+            overallStatus: { type: "string", enum: ["好調", "順調", "やや低調", "注意", "要確認"] },
             overallStatusType: { type: "string", enum: ["excellent", "good", "neutral", "caution", "warning"] },
             metricsAnalysis: {
               type: "object",

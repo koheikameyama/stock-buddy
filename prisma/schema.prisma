@@ -436,7 +436,7 @@ model PortfolioOverallAnalysis {
 
   // AI生成テキスト
   overallSummary         String   @db.Text            // 全体の総評（2-3文）
-  overallStatus          String                       // 好調/順調/様子見/注意/要確認
+  overallStatus          String                       // 好調/順調/やや低調/注意/要確認
   overallStatusType      String                       // excellent/good/neutral/caution/warning
   metricsAnalysis        Json                         // 各指標の解説・評価・アクション提案
   actionSuggestions      Json                         // 推奨アクションリスト
