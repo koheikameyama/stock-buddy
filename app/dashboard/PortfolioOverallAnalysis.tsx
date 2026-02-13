@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import type {
   MetricsAnalysis,
   ActionSuggestion,
@@ -207,39 +206,19 @@ export default function PortfolioOverallAnalysis({
 
   // 銘柄数不足の場合
   if (totalCount < 3) {
-    const remaining = 3 - totalCount
     return (
-      <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+      <div className="mb-6 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-4 border border-gray-200">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
             <span className="text-xl">📊</span>
           </div>
           <div className="flex-1">
             <div className="text-sm font-semibold text-gray-900 mb-1">
               ポートフォリオ総評
             </div>
-            <p className="text-xs text-gray-600 mb-2">
-              あと{remaining}銘柄追加すると、ポートフォリオ全体の分析が見られます
+            <p className="text-xs text-gray-600">
+              保有銘柄、気になる銘柄を合計3銘柄以上登録すると分析が開始されます
             </p>
-            <Link
-              href="/stocks"
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-            >
-              銘柄を探す
-              <svg
-                className="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
           </div>
         </div>
       </div>
