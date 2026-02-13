@@ -322,8 +322,8 @@ ${patternContext}${supportResistanceContext}${newsContext}
   "recommendation": "buy" | "hold" | "sell",
   "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で、ニュース情報があれば参考にする）",
   "confidence": 0.0〜1.0の信頼度,
-  "limitPrice": 数値またはnull（買い推奨時の理想的な買値。サポートライン付近を参考に設定。holdやsellの場合はnull）,
-  "stopLossPrice": 数値またはnull（損切りライン。サポートラインを少し下回る価格に設定。holdやsellの場合はnull）
+  "limitPrice": 数値またはnull（推奨に応じた指値。buy=買い指値、sell=利確目標、hold=null）,
+  "stopLossPrice": 数値またはnull（損切りライン。全ての推奨で設定。サポートを下回る価格）
 }
 
 注意事項:
@@ -335,9 +335,19 @@ ${patternContext}${supportResistanceContext}${newsContext}
 - 投資判断は最終的にユーザー自身が行うことを前提にする
 
 指値・逆指値の設定ガイド:
-- 指値（limitPrice）: サポートライン（直近安値や移動平均線）付近が理想。現在価格より数%安い水準で押し目買いを狙う
-- 逆指値（stopLossPrice）: サポートラインを明確に下回った水準。サポートを割り込んだら損切りする想定
-- サポート・レジスタンスの情報がない場合は、現在価格を基準に5-10%のレンジで設定`
+【buy推奨時】
+- limitPrice（買い指値）: サポートライン付近。現在価格より数%安い水準で押し目買いを狙う
+- stopLossPrice（逆指値）: サポートを明確に下回る水準。損切りライン
+
+【sell推奨時】
+- limitPrice（利確目標）: レジスタンスライン付近。現在価格より数%高い水準で利確を狙う
+- stopLossPrice（逆指値）: これ以上下がる前に売却する損切りライン
+
+【hold推奨時】
+- limitPrice: null（様子見なのでアクション不要）
+- stopLossPrice: null（様子見なのでアクション不要）
+
+サポート・レジスタンスの情報がない場合は、現在価格を基準に5-10%のレンジで設定`
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
