@@ -22,12 +22,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install psycopg2-binary yfinance pandas requests
+          pip install psycopg2-binary yfinance pandas requests openai
 
       - name: Generate and send report
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SLACK_WEBHOOK_URL: ${{ secrets.REPORT_SLACK_WEBHOOK_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/github-actions/generate_recommendation_report.py
 
       - name: Notify Slack on failure

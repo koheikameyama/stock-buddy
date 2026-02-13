@@ -15,10 +15,13 @@ import sys
 from datetime import datetime, timedelta, timezone, date
 from collections import defaultdict
 
+import json
+
 import psycopg2
 import pandas as pd
 import yfinance as yf
 import requests
+from openai import OpenAI
 
 
 def get_database_url() -> str:
@@ -35,6 +38,110 @@ def get_slack_webhook() -> str:
         print("Error: SLACK_WEBHOOK_URL not set")
         sys.exit(1)
     return url
+
+
+def get_openai_client() -> OpenAI | None:
+    """OpenAIクライアントを取得（APIキーがない場合はNone）"""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        print("Warning: OPENAI_API_KEY not set, skipping AI insights")
+        return None
+    return OpenAI(api_key=api_key)
+
+
+def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | None:
+    """AIによるパフォーマンス分析インサイトを生成"""
+    client = get_openai_client()
+    if not client:
+        return None
+
+    # データがない場合はスキップ
+    total_count = daily["count"] + purchase["count"] + analysis["count"]
+    if total_count == 0:
+        return None
+
+    # プロンプト用データ整形
+    data_summary = f"""## パフォーマンスデータ（過去7日間）
+
+### おすすめ銘柄
+- 分析件数: {daily['count']}件
+- 平均リターン: {daily['avgReturn']:+.2f}%
+- プラス率: {daily['positiveRate']:.1f}%
+- 成功率(+3%以上): {daily['successRate']:.1f}%
+"""
+    if daily["best"]:
+        best_items = [f"{b['name']}({b['performance']:+.1f}%)" for b in daily['best'][:3]]
+        data_summary += f"- ベスト: {', '.join(best_items)}\n"
+    if daily["worst"]:
+        worst_items = [f"{w['name']}({w['performance']:+.1f}%)" for w in daily['worst'][:3]]
+        data_summary += f"- ワースト: {', '.join(worst_items)}\n"
+
+    data_summary += f"""
+### 購入推奨（ウォッチリスト）
+- 分析件数: {purchase['count']}件
+- 判断成功率: {purchase['successRate']:.1f}%
+- 平均騰落率: {purchase['avgReturn']:+.2f}%
+"""
+    for rec, stats in purchase.get("byRecommendation", {}).items():
+        label = {"buy": "買い", "stay": "様子見", "remove": "見送り"}.get(rec, rec)
+        data_summary += f"- {label}判断: {stats['successRate']:.0f}%的中 ({stats['count']}件)\n"
+
+    data_summary += f"""
+### ポートフォリオ分析（短期予測）
+- 分析件数: {analysis['count']}件
+- 予測的中率: {analysis['successRate']:.1f}%
+- 平均騰落率: {analysis['avgReturn']:+.2f}%
+"""
+    for trend, stats in analysis.get("byTrend", {}).items():
+        label = {"up": "上昇予測", "down": "下落予測", "neutral": "横ばい予測"}.get(trend, trend)
+        data_summary += f"- {label}: {stats['successRate']:.0f}%的中 ({stats['count']}件)\n"
+
+    prompt = f"""あなたは株式投資AIの分析官です。
+以下のAI推奨システムのパフォーマンスデータを分析し、改善に向けたインサイトを提供してください。
+
+{data_summary}
+
+## 出力形式
+以下のJSON形式で回答してください:
+{{
+  "summary": "全体傾向の要約（1文）",
+  "findings": ["発見1", "発見2"],
+  "suggestion": "改善に向けた提案（1文）"
+}}
+
+注意:
+- 日本語で回答
+- 簡潔に（各項目50文字以内）
+- 具体的な数値を引用して説明"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a stock analysis expert. Always respond in valid JSON format only."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=500,
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        # マークダウンコードブロックを削除
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        result = json.loads(content)
+        return result
+
+    except Exception as e:
+        print(f"  Warning: AI insight generation failed: {e}")
+        return None
 
 
 def fetch_historical_prices(ticker_codes: list[str], start_date: datetime, end_date: datetime) -> dict:
@@ -345,7 +452,7 @@ def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
 
 # ===== Slack通知 =====
 
-def generate_slack_message(daily: dict, purchase: dict, analysis: dict) -> dict:
+def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights: dict | None = None) -> dict:
     """Slack通知用メッセージを生成"""
     blocks = [
         {
@@ -435,6 +542,27 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict) -> dict:
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": " | ".join(trend_text)}]
             })
+
+    # AIインサイト
+    if insights:
+        blocks.append({"type": "divider"})
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "*💡 AIインサイト*"}
+        })
+
+        insight_text = f"_{insights.get('summary', '')}_\n\n"
+        findings = insights.get("findings", [])
+        for f in findings:
+            insight_text += f"• {f}\n"
+        suggestion = insights.get("suggestion", "")
+        if suggestion:
+            insight_text += f"\n📌 {suggestion}"
+
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": insight_text}
+        })
 
     # フッター
     blocks.append({
@@ -537,9 +665,17 @@ def main():
         analysis_stats = analyze_stock_analyses(analysis_data, prices)
         print(f"   Analysis: {analysis_stats['count']} valid records")
 
-        # 5. Slack通知
-        print("\n4. Sending Slack notification...")
-        message = generate_slack_message(daily_stats, purchase_stats, analysis_stats)
+        # 5. AIインサイト生成
+        print("\n4. Generating AI insights...")
+        insights = generate_ai_insights(daily_stats, purchase_stats, analysis_stats)
+        if insights:
+            print(f"   Summary: {insights.get('summary', 'N/A')}")
+        else:
+            print("   Skipped (no API key or error)")
+
+        # 6. Slack通知
+        print("\n5. Sending Slack notification...")
+        message = generate_slack_message(daily_stats, purchase_stats, analysis_stats, insights)
         send_slack_notification(get_slack_webhook(), message)
 
         print("\n" + "=" * 60)
