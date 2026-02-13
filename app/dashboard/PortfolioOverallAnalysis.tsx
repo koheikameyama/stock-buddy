@@ -219,6 +219,9 @@ export default function PortfolioOverallAnalysis({
             <p className="text-xs text-gray-600">
               保有銘柄、気になる銘柄を合計3銘柄以上登録すると分析が開始されます
             </p>
+            <p className="text-[10px] text-gray-400 mt-1">
+              毎日15:30頃に自動生成
+            </p>
           </div>
         </div>
       </div>
@@ -262,7 +265,10 @@ export default function PortfolioOverallAnalysis({
               ポートフォリオ総評
             </div>
             <p className="text-xs text-gray-600">
-              総評は毎日15:30頃に自動生成されます
+              総評はまだ生成されていません
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1">
+              毎日15:30頃に自動生成
             </p>
           </div>
         </div>
