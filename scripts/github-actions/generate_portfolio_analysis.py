@@ -77,38 +77,38 @@ def fetch_portfolio_stocks(conn) -> list[dict]:
         ''')
         portfolio_rows = cur.fetchall()
 
-    portfolio_stocks = []
-    for row in portfolio_rows:
-        ps_id = row[0]
+        portfolio_stocks = []
+        for row in portfolio_rows:
+            ps_id = row[0]
 
-        # 取引履歴を取得
-        cur.execute('''
-            SELECT type, quantity, "totalAmount", "transactionDate"
-            FROM "Transaction"
-            WHERE "portfolioStockId" = %s
-        ''', (ps_id,))
-        transactions = cur.fetchall()
+            # 取引履歴を取得
+            cur.execute('''
+                SELECT type, quantity, "totalAmount", "transactionDate"
+                FROM "Transaction"
+                WHERE "portfolioStockId" = %s
+            ''', (ps_id,))
+            transactions = cur.fetchall()
 
-        portfolio_stocks.append({
-            "id": ps_id,
-            "userId": row[1],
-            "stockId": row[2],
-            "suggestedSellPrice": float(row[3]) if row[3] else None,
-            "tickerCode": row[4],
-            "name": row[5],
-            "sector": row[6],
-            "marketCap": float(row[7]) if row[7] else None,
-            "dividendYield": float(row[8]) if row[8] else None,
-            "pbr": float(row[9]) if row[9] else None,
-            "per": float(row[10]) if row[10] else None,
-            "roe": float(row[11]) if row[11] else None,
-            "fiftyTwoWeekHigh": float(row[12]) if row[12] else None,
-            "fiftyTwoWeekLow": float(row[13]) if row[13] else None,
-            "transactions": [
-                {"type": t[0], "quantity": t[1], "totalAmount": float(t[2]), "transactionDate": t[3]}
-                for t in transactions
-            ],
-        })
+            portfolio_stocks.append({
+                "id": ps_id,
+                "userId": row[1],
+                "stockId": row[2],
+                "suggestedSellPrice": float(row[3]) if row[3] else None,
+                "tickerCode": row[4],
+                "name": row[5],
+                "sector": row[6],
+                "marketCap": float(row[7]) if row[7] else None,
+                "dividendYield": float(row[8]) if row[8] else None,
+                "pbr": float(row[9]) if row[9] else None,
+                "per": float(row[10]) if row[10] else None,
+                "roe": float(row[11]) if row[11] else None,
+                "fiftyTwoWeekHigh": float(row[12]) if row[12] else None,
+                "fiftyTwoWeekLow": float(row[13]) if row[13] else None,
+                "transactions": [
+                    {"type": t[0], "quantity": t[1], "totalAmount": float(t[2]), "transactionDate": t[3]}
+                    for t in transactions
+                ],
+            })
 
     return portfolio_stocks
 
