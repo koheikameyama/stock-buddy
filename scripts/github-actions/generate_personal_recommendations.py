@@ -12,6 +12,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
@@ -473,7 +474,10 @@ def save_user_recommendations(
     stock_map: dict[str, str]
 ) -> int:
     """おすすめをDBに保存"""
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    # フロントエンドと同じ日付計算: JSTの今日00:00をUTCに変換
+    jst = ZoneInfo("Asia/Tokyo")
+    today_jst = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
+    today = today_jst.astimezone(timezone.utc)
 
     with conn.cursor() as cur:
         # 既存データを削除
