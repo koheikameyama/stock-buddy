@@ -12,6 +12,8 @@ interface StockWithPrices {
   id: string
   tickerCode: string
   name: string
+  isProfitable: boolean | null
+  profitTrend: string | null
   prices: {
     date: string
     close: number
@@ -88,11 +90,20 @@ export async function POST(request: NextRequest) {
  */
 async function getStocksWithPrices(): Promise<StockWithPrices[]> {
   // 上位50銘柄を取得（全銘柄だと時間がかかりすぎる）
+  // 赤字企業は除外（初心者向けに安全な銘柄のみ）
   const stocks = await prisma.stock.findMany({
+    where: {
+      OR: [
+        { isProfitable: true },
+        { isProfitable: null }, // 業績データがない場合は除外しない
+      ],
+    },
     select: {
       id: true,
       tickerCode: true,
       name: true,
+      isProfitable: true,
+      profitTrend: true,
     },
     orderBy: {
       tickerCode: "asc",
@@ -111,7 +122,11 @@ async function getStocksWithPrices(): Promise<StockWithPrices[]> {
         // 新しい順に並べ替え
         const sortedPrices = [...historicalPrices].reverse()
         stocksWithPrices.push({
-          ...stock,
+          id: stock.id,
+          tickerCode: stock.tickerCode,
+          name: stock.name,
+          isProfitable: stock.isProfitable,
+          profitTrend: stock.profitTrend,
           prices: sortedPrices.map((p) => ({
             date: p.date,
             close: p.close,
@@ -155,12 +170,19 @@ function calculateSurgeStocks(
   candidates.sort((a, b) => b.changeRate - a.changeRate)
 
   // Top 3を選出
-  return candidates.slice(0, 3).map((c) => ({
-    stockId: c.stock.id,
-    category: "surge",
-    reason: `この1週間で株価が${c.changeRate.toFixed(1)}%上昇しています`,
-    score: Math.round(c.changeRate * 10), // 上昇率をスコアに変換
-  }))
+  return candidates.slice(0, 3).map((c) => {
+    let score = Math.round(c.changeRate * 10) // 上昇率をスコアに変換
+    // 業績加点: 黒字+増益 +10点、黒字のみ +5点
+    if (c.stock.isProfitable === true) {
+      score += c.stock.profitTrend === "increasing" ? 10 : 5
+    }
+    return {
+      stockId: c.stock.id,
+      category: "surge",
+      reason: `この1週間で株価が${c.changeRate.toFixed(1)}%上昇しています`,
+      score,
+    }
+  })
 }
 
 /**
@@ -196,12 +218,19 @@ function calculateStableStocks(
   candidates.sort((a, b) => a.volatility - b.volatility)
 
   // Top 3を選出
-  return candidates.slice(0, 3).map((c) => ({
-    stockId: c.stock.id,
-    category: "stable",
-    reason: `安定した値動きで、初心者に最適な銘柄です（変動率${c.volatility.toFixed(1)}%）`,
-    score: Math.round(100 - c.volatility * 5), // 安定度をスコアに変換
-  }))
+  return candidates.slice(0, 3).map((c) => {
+    let score = Math.round(100 - c.volatility * 5) // 安定度をスコアに変換
+    // 業績加点: 黒字+増益 +10点、黒字のみ +5点
+    if (c.stock.isProfitable === true) {
+      score += c.stock.profitTrend === "increasing" ? 10 : 5
+    }
+    return {
+      stockId: c.stock.id,
+      category: "stable",
+      reason: `安定した値動きで、初心者に最適な銘柄です（変動率${c.volatility.toFixed(1)}%）`,
+      score,
+    }
+  })
 }
 
 /**
@@ -250,12 +279,19 @@ function calculateTrendingStocks(
   candidates.sort((a, b) => b.volumeRatio - a.volumeRatio)
 
   // Top 3を選出
-  return candidates.slice(0, 3).map((c) => ({
-    stockId: c.stock.id,
-    category: "trending",
-    reason: `最近取引が活発になっている注目銘柄です（取引高${c.volumeRatio.toFixed(1)}倍）`,
-    score: Math.round(c.volumeRatio * 30), // 出来高比率をスコアに変換
-  }))
+  return candidates.slice(0, 3).map((c) => {
+    let score = Math.round(c.volumeRatio * 30) // 出来高比率をスコアに変換
+    // 業績加点: 黒字+増益 +10点、黒字のみ +5点
+    if (c.stock.isProfitable === true) {
+      score += c.stock.profitTrend === "increasing" ? 10 : 5
+    }
+    return {
+      stockId: c.stock.id,
+      category: "trending",
+      reason: `最近取引が活発になっている注目銘柄です（取引高${c.volumeRatio.toFixed(1)}倍）`,
+      score,
+    }
+  })
 }
 
 /**

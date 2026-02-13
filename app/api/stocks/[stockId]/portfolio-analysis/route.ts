@@ -295,11 +295,84 @@ export async function POST(
     if (stock.pbr) {
       const pbr = Number(stock.pbr)
       if (pbr < 1) {
-        metrics.push("- 株価水準: 割安（資産価値より安い）")
+        metrics.push("- 株価水準(PBR): 割安（資産価値より安い）")
       } else if (pbr < 1.5) {
-        metrics.push("- 株価水準: 適正")
+        metrics.push("- 株価水準(PBR): 適正")
       } else {
-        metrics.push("- 株価水準: やや割高")
+        metrics.push("- 株価水準(PBR): やや割高")
+      }
+    }
+
+    // PER（株価収益率）
+    if (stock.per) {
+      const per = Number(stock.per)
+      if (per < 0) {
+        metrics.push("- 収益性(PER): 赤字のため算出不可")
+      } else if (per < 10) {
+        metrics.push(`- 収益性(PER): 割安（${per.toFixed(1)}倍）`)
+      } else if (per < 20) {
+        metrics.push(`- 収益性(PER): 適正（${per.toFixed(1)}倍）`)
+      } else if (per < 30) {
+        metrics.push(`- 収益性(PER): やや割高（${per.toFixed(1)}倍）`)
+      } else {
+        metrics.push(`- 収益性(PER): 割高（${per.toFixed(1)}倍）`)
+      }
+    }
+
+    // ROE（自己資本利益率）
+    if (stock.roe) {
+      const roe = Number(stock.roe) * 100 // 小数点で保存されている場合
+      if (roe >= 15) {
+        metrics.push(`- 経営効率(ROE): 優秀（${roe.toFixed(1)}%）`)
+      } else if (roe >= 10) {
+        metrics.push(`- 経営効率(ROE): 良好（${roe.toFixed(1)}%）`)
+      } else if (roe >= 5) {
+        metrics.push(`- 経営効率(ROE): 普通（${roe.toFixed(1)}%）`)
+      } else if (roe > 0) {
+        metrics.push(`- 経営効率(ROE): 低め（${roe.toFixed(1)}%）`)
+      } else {
+        metrics.push(`- 経営効率(ROE): 赤字`)
+      }
+    }
+
+    // 業績トレンド
+    if (stock.isProfitable !== null && stock.isProfitable !== undefined) {
+      if (stock.isProfitable) {
+        if (stock.profitTrend === "increasing") {
+          metrics.push("- 業績: 黒字（利益増加傾向）")
+        } else if (stock.profitTrend === "decreasing") {
+          metrics.push("- 業績: 黒字（利益減少傾向）")
+        } else {
+          metrics.push("- 業績: 黒字")
+        }
+      } else {
+        metrics.push("- 業績: 赤字")
+      }
+    }
+
+    // 売上成長率
+    if (stock.revenueGrowth) {
+      const growth = Number(stock.revenueGrowth)
+      if (growth >= 20) {
+        metrics.push(`- 売上成長: 急成長（前年比+${growth.toFixed(1)}%）`)
+      } else if (growth >= 10) {
+        metrics.push(`- 売上成長: 好調（前年比+${growth.toFixed(1)}%）`)
+      } else if (growth >= 0) {
+        metrics.push(`- 売上成長: 安定（前年比+${growth.toFixed(1)}%）`)
+      } else if (growth >= -10) {
+        metrics.push(`- 売上成長: やや減少（前年比${growth.toFixed(1)}%）`)
+      } else {
+        metrics.push(`- 売上成長: 減少傾向（前年比${growth.toFixed(1)}%）`)
+      }
+    }
+
+    // EPS（1株当たり利益）
+    if (stock.eps) {
+      const eps = Number(stock.eps)
+      if (eps > 0) {
+        metrics.push(`- 1株利益(EPS): ${eps.toFixed(0)}円`)
+      } else {
+        metrics.push(`- 1株利益(EPS): 赤字`)
       }
     }
 
