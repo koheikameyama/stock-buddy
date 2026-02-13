@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation"
 import StockAnalysisCard from "@/app/components/StockAnalysisCard"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
+import EarningsInfo from "@/app/components/EarningsInfo"
 import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
 import RelatedNews from "@/app/components/RelatedNews"
@@ -53,6 +54,14 @@ interface Stock {
     roe: number | null
     operatingCF: number | null
     freeCF: number | null
+    // Earnings data
+    isProfitable?: boolean | null
+    profitTrend?: string | null
+    revenueGrowth?: number | null
+    netIncomeGrowth?: number | null
+    eps?: number | null
+    latestRevenue?: number | null
+    latestNetIncome?: number | null
   }
 }
 
@@ -365,6 +374,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* Financial Metrics Section */}
           <FinancialMetrics stock={stock.stock} />
+
+          {/* Earnings Info Section */}
+          <EarningsInfo earnings={stock.stock} />
         </>
       )}
 
@@ -435,6 +447,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* Financial Metrics Section */}
           <FinancialMetrics stock={stock.stock} />
+
+          {/* Earnings Info Section */}
+          <EarningsInfo earnings={stock.stock} />
         </>
       )}
 

@@ -136,6 +136,22 @@ async function StockDetailContent({
         ? Number(userStock.stock.operatingCF)
         : null,
       freeCF: userStock.stock.freeCF ? Number(userStock.stock.freeCF) : null,
+      // Earnings data
+      isProfitable: userStock.stock.isProfitable,
+      profitTrend: userStock.stock.profitTrend,
+      revenueGrowth: userStock.stock.revenueGrowth
+        ? Number(userStock.stock.revenueGrowth)
+        : null,
+      netIncomeGrowth: userStock.stock.netIncomeGrowth
+        ? Number(userStock.stock.netIncomeGrowth)
+        : null,
+      eps: userStock.stock.eps ? Number(userStock.stock.eps) : null,
+      latestRevenue: userStock.stock.latestRevenue
+        ? Number(userStock.stock.latestRevenue)
+        : null,
+      latestNetIncome: userStock.stock.latestNetIncome
+        ? Number(userStock.stock.latestNetIncome)
+        : null,
     },
   }
 
