@@ -68,10 +68,66 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
   const [noData, setNoData] = useState(false)
   const [error, setError] = useState("")
 
+  // ポーリングロジック（共通化）
+  async function pollJob(jobId: string): Promise<void> {
+    const pollInterval = 1500 // 1.5秒間隔
+    const maxAttempts = 40 // 最大60秒
+    let attempts = 0
+
+    const poll = async (): Promise<void> => {
+      attempts++
+      const statusResponse = await fetch(`/api/analysis-jobs/${jobId}`)
+      if (!statusResponse.ok) {
+        throw new Error("ジョブの状態取得に失敗しました")
+      }
+
+      const job = await statusResponse.json()
+
+      if (job.status === "completed") {
+        setPortfolioAnalysis(job.result)
+        setNoData(false)
+        setGenerating(false)
+        return
+      }
+
+      if (job.status === "failed") {
+        throw new Error(job.error || "分析の生成に失敗しました")
+      }
+
+      if (attempts >= maxAttempts) {
+        throw new Error("分析がタイムアウトしました。しばらく待ってから再度お試しください。")
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval))
+      return poll()
+    }
+
+    await poll()
+  }
+
   async function fetchData() {
     setLoading(true)
     setError("")
     try {
+      // 処理中のジョブがあるかチェック
+      const pendingJobRes = await fetch(`/api/analysis-jobs?type=portfolio-analysis&targetId=${stockId}`)
+      if (pendingJobRes.ok) {
+        const { job: pendingJob } = await pendingJobRes.json()
+        if (pendingJob) {
+          // 処理中のジョブがある場合、ポーリングを再開
+          setGenerating(true)
+          setLoading(false)
+          try {
+            await pollJob(pendingJob.jobId)
+          } catch (err) {
+            console.error("Error polling job:", err)
+            setError(err instanceof Error ? err.message : "分析の取得に失敗しました")
+            setGenerating(false)
+          }
+          return
+        }
+      }
+
       // 3つのAPIを並列で取得
       const [predictionRes, portfolioRes, purchaseRecRes] = await Promise.all([
         fetch(`/api/stocks/${stockId}/analysis`),
@@ -124,22 +180,28 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
     setGenerating(true)
     setError("")
     try {
-      const response = await fetch(`/api/stocks/${stockId}/portfolio-analysis`, {
+      // ジョブを作成
+      const createResponse = await fetch("/api/analysis-jobs", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "portfolio-analysis",
+          targetId: stockId,
+        }),
       })
 
-      if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.error || "分析の生成に失敗しました")
+      if (!createResponse.ok) {
+        const errData = await createResponse.json()
+        throw new Error(errData.error || "分析の開始に失敗しました")
       }
 
-      const result = await response.json()
-      setPortfolioAnalysis(result)
-      setNoData(false)
+      const { jobId } = await createResponse.json()
+
+      // ポーリングで結果を取得
+      await pollJob(jobId)
     } catch (err) {
       console.error("Error generating portfolio analysis:", err)
       setError(err instanceof Error ? err.message : "分析の生成に失敗しました")
-    } finally {
       setGenerating(false)
     }
   }
@@ -219,6 +281,20 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
     )
   }
 
+  // 分析中の場合
+  if (generating) {
+    return (
+      <div className="bg-gray-50 rounded-lg p-6 text-center">
+        <div className="text-4xl mb-3">📊</div>
+        <p className="text-sm text-gray-600 mb-4">AIが分析中です...</p>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-400 text-white text-sm font-medium rounded-lg cursor-not-allowed">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          分析中...
+        </div>
+      </div>
+    )
+  }
+
   // noDataはlastAnalysisがnullの場合にtrueになる
   // predictionがない場合は生成ボタンを表示
   if ((noData || error) && !prediction) {
@@ -230,22 +306,12 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
         </p>
         <button
           onClick={generateAnalysis}
-          disabled={generating}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
-          {generating ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              分析中...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              今すぐ分析する
-            </>
-          )}
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          今すぐ分析する
         </button>
       </div>
     )

@@ -417,6 +417,24 @@ model UserDailyRecommendation {
   @@index([stockId])
 }
 
+// 非同期分析ジョブ
+model AnalysisJob {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "portfolio-analysis" | "purchase-recommendation" | "overall-analysis"
+  targetId    String?  // stockId等（typeによって異なる）
+  status      String   @default("pending") // "pending" | "processing" | "completed" | "failed"
+  result      Json?    // 分析結果（完了時）
+  error       String?  // エラーメッセージ（失敗時）
+  createdAt   DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+}
+
 // ポートフォリオ総評分析（ユーザーごと）
 model PortfolioOverallAnalysis {
   id                     String   @id @default(cuid())
