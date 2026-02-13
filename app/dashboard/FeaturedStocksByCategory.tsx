@@ -259,16 +259,23 @@ export default function FeaturedStocksByCategory({
         key={stock.id}
         className={`relative flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 ${theme.border} ${theme.bg} hover:shadow-md transition-shadow`}
       >
-        {/* ステータスバッジ - 右上 */}
-        {stock.isOwned ? (
-          <span className="absolute top-2 right-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-            保有中
-          </span>
-        ) : stock.isRegistered ? (
-          <span className="absolute top-2 right-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-            気になる
-          </span>
-        ) : null}
+        {/* バッジ - 右上 */}
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          {stock.category && categoryBadges[stock.category] && (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${categoryBadges[stock.category].className}`}>
+              {categoryBadges[stock.category].label}
+            </span>
+          )}
+          {stock.isOwned ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+              保有中
+            </span>
+          ) : stock.isRegistered ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+              気になる
+            </span>
+          ) : null}
+        </div>
 
         <div className="mb-2 sm:mb-3">
           <div className="flex items-start justify-between mb-1">
@@ -295,14 +302,6 @@ export default function FeaturedStocksByCategory({
               <span className="text-gray-400 text-sm">取得中...</span>
             )}
           </div>
-
-          {stock.category && categoryBadges[stock.category] && (
-            <div className="mt-1">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${categoryBadges[stock.category].className}`}>
-                {categoryBadges[stock.category].label}
-              </span>
-            </div>
-          )}
         </div>
 
         {stock.reason && (
