@@ -320,7 +320,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">💡</span>
-            <h3 className="text-base sm:text-lg font-bold text-green-800">今が買い時です！</h3>
+            <h3 className="text-base sm:text-lg font-bold text-green-800">購入を検討できるタイミングです</h3>
           </div>
 
           <p className="text-sm text-gray-700 mb-4">{data.reason}</p>

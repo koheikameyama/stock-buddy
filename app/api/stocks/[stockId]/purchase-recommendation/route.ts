@@ -363,7 +363,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   "idealEntryPrice": 理想の買い値（整数）,
   "idealEntryPriceExpiry": "理想の買い値の有効期限（ISO 8601形式、例: 2026-02-20）",
   "priceGap": 現在価格との差（マイナス=割安、プラス=割高）,
-  "buyTimingExplanation": "買い時の説明（例: あと50円下がったら最高の買い時です / 今が買い時です！）",
+  "buyTimingExplanation": "購入タイミングの説明（例: あと50円下がったら良い買い場です / 購入を検討できるタイミングです）",
 
   // B. 深掘り評価
   "positives": "良いところを3つ、箇条書き（各項目は1行で簡潔に）",
@@ -381,6 +381,9 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 【制約】
 - 提供されたニュース情報を参考にしてください
 - ニュースにない情報は推測や創作をしないでください
+- 「買い時」「今すぐ買うべき」などの断定的な表現は避け、「検討できる」「検討のタイミング」などの表現を使う
+- 赤字企業の場合は concerns で必ず「業績が赤字である」ことに言及し、リスクを伝える
+- 赤字かつ減益傾向の場合は、特に慎重な表現を使う
 - 専門用語（RSI、MACD、チャートパターン名など）は使ってOKだが、必ず簡単な解説を添える
   例: 「RSI（売られすぎ・買われすぎを判断する指標）が30を下回り…」
   例: 「ダブルボトム（2回底を打って反転する形）が形成され…」
