@@ -354,12 +354,62 @@ ${watchlistStocksText}
 - 行動につながる具体的なアドバイスを含める
 - ネガティブな内容も前向きな表現で伝える`
 
+  // MetricAnalysis のスキーマ定義
+  const metricAnalysisSchema = {
+    type: "object",
+    properties: {
+      value: { type: "string" },
+      explanation: { type: "string" },
+      evaluation: { type: "string" },
+      evaluationType: { type: "string", enum: ["good", "neutral", "warning"] },
+      action: { type: "string" },
+    },
+    required: ["value", "explanation", "evaluation", "evaluationType", "action"],
+    additionalProperties: false,
+  }
+
+  // ActionSuggestion のスキーマ定義
+  const actionSuggestionSchema = {
+    type: "object",
+    properties: {
+      priority: { type: "number" },
+      title: { type: "string" },
+      description: { type: "string" },
+      type: { type: "string", enum: ["diversify", "rebalance", "hold", "take_profit", "cut_loss"] },
+    },
+    required: ["priority", "title", "description", "type"],
+    additionalProperties: false,
+  }
+
+  // WatchlistStock のスキーマ定義
+  const watchlistStockSchema = {
+    type: "object",
+    properties: {
+      stockId: { type: "string" },
+      stockName: { type: "string" },
+      tickerCode: { type: "string" },
+      sector: { type: "string" },
+      predictedImpact: {
+        type: "object",
+        properties: {
+          sectorConcentrationChange: { type: "number" },
+          diversificationScore: { type: "string", enum: ["改善", "悪化", "変化なし"] },
+          recommendation: { type: "string" },
+        },
+        required: ["sectorConcentrationChange", "diversificationScore", "recommendation"],
+        additionalProperties: false,
+      },
+    },
+    required: ["stockId", "stockName", "tickerCode", "sector", "predictedImpact"],
+    additionalProperties: false,
+  }
+
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {
         role: "system",
-        content: "あなたは投資初心者向けのAIコーチです。専門用語を使う場合は必ず括弧内に解説を添えてください。JSONのみで回答してください。",
+        content: "あなたは投資初心者向けのAIコーチです。専門用語を使う場合は必ず括弧内に解説を添えてください。",
       },
       {
         role: "user",
@@ -367,7 +417,50 @@ ${watchlistStocksText}
       },
     ],
     temperature: 0.3,
-    response_format: { type: "json_object" },
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "portfolio_overall_analysis",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            overallSummary: { type: "string" },
+            overallStatus: { type: "string", enum: ["好調", "順調", "様子見", "注意", "要確認"] },
+            overallStatusType: { type: "string", enum: ["excellent", "good", "neutral", "caution", "warning"] },
+            metricsAnalysis: {
+              type: "object",
+              properties: {
+                sectorDiversification: metricAnalysisSchema,
+                profitLoss: metricAnalysisSchema,
+                volatility: metricAnalysisSchema,
+              },
+              required: ["sectorDiversification", "profitLoss", "volatility"],
+              additionalProperties: false,
+            },
+            actionSuggestions: {
+              type: "array",
+              items: actionSuggestionSchema,
+            },
+            watchlistSimulation: watchlistStocks.length > 0
+              ? {
+                  type: "object",
+                  properties: {
+                    stocks: {
+                      type: "array",
+                      items: watchlistStockSchema,
+                    },
+                  },
+                  required: ["stocks"],
+                  additionalProperties: false,
+                }
+              : { type: "null" },
+          },
+          required: ["overallSummary", "overallStatus", "overallStatusType", "metricsAnalysis", "actionSuggestions", "watchlistSimulation"],
+          additionalProperties: false,
+        },
+      },
+    },
   })
 
   const content = response.choices[0]?.message?.content

@@ -513,49 +513,66 @@ ${newsContext}${marketContext}
 - 損益状況と財務指標を考慮した実践的なアドバイスを含める
 `
 
-    // OpenAI API呼び出し
+    // OpenAI API呼び出し（Structured Outputs使用）
     const openai = getOpenAIClient()
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "You are a helpful investment coach for beginners. Always respond in JSON format.",
+          content: "You are a helpful investment coach for beginners.",
         },
         { role: "user", content: prompt },
       ],
       temperature: 0.3,
-      max_tokens: 600,
+      max_tokens: 800,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "portfolio_analysis",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              shortTerm: { type: "string" },
+              mediumTerm: { type: "string" },
+              longTerm: { type: "string" },
+              suggestedSellPrice: { type: ["number", "null"] },
+              suggestedStopLossPrice: { type: ["number", "null"] },
+              sellCondition: { type: ["string", "null"] },
+              emotionalCoaching: { type: "string" },
+              simpleStatus: { type: "string", enum: ["好調", "順調", "様子見", "注意", "要確認"] },
+              statusType: { type: "string", enum: ["excellent", "good", "neutral", "caution", "warning"] },
+              shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              shortTermPriceLow: { type: "number" },
+              shortTermPriceHigh: { type: "number" },
+              midTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              midTermPriceLow: { type: "number" },
+              midTermPriceHigh: { type: "number" },
+              longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              longTermPriceLow: { type: "number" },
+              longTermPriceHigh: { type: "number" },
+              recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+              advice: { type: "string" },
+              confidence: { type: "number" },
+            },
+            required: [
+              "shortTerm", "mediumTerm", "longTerm",
+              "suggestedSellPrice", "suggestedStopLossPrice", "sellCondition",
+              "emotionalCoaching", "simpleStatus", "statusType",
+              "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
+              "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
+              "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
+              "recommendation", "advice", "confidence"
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
     })
 
-    let content = response.choices[0].message.content?.trim() || "{}"
-
-    // マークダウンコードブロックを削除
-    if (content.startsWith("```json")) {
-      content = content.slice(7)
-    } else if (content.startsWith("```")) {
-      content = content.slice(3)
-    }
-    if (content.endsWith("```")) {
-      content = content.slice(0, -3)
-    }
-    content = content.trim()
-
-    // JSONパース
+    const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
-
-    // バリデーション
-    const requiredFields = ["shortTerm", "mediumTerm", "longTerm", "emotionalCoaching", "simpleStatus", "statusType", "recommendation"]
-    for (const field of requiredFields) {
-      if (!result[field]) {
-        throw new Error(`Missing required field: ${field}`)
-      }
-    }
-
-    // recommendationのバリデーション
-    if (!["buy", "hold", "sell"].includes(result.recommendation)) {
-      result.recommendation = "hold" // デフォルト値
-    }
 
     // データベースに保存
     const now = dayjs.utc().toDate()

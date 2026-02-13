@@ -148,8 +148,23 @@ async function analyzeWithOpenAI(title: string, content: string): Promise<{ sect
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
       temperature: 0.3,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "news_analysis",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              sector: { type: ["string", "null"] },
+              sentiment: { type: ["string", "null"], enum: ["positive", "neutral", "negative", null] },
+            },
+            required: ["sector", "sentiment"],
+            additionalProperties: false,
+          },
+        },
+      },
     })
 
     const result = JSON.parse(response.choices[0].message.content || "{}")

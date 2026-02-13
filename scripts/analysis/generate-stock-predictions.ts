@@ -352,8 +352,56 @@ ${patternContext}${supportResistanceContext}${newsContext}
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
-    response_format: { type: "json_object" },
     temperature: 0.4,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "stock_prediction",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            shortTerm: {
+              type: "object",
+              properties: {
+                trend: { type: "string", enum: ["up", "neutral", "down"] },
+                priceLow: { type: "number" },
+                priceHigh: { type: "number" },
+              },
+              required: ["trend", "priceLow", "priceHigh"],
+              additionalProperties: false,
+            },
+            midTerm: {
+              type: "object",
+              properties: {
+                trend: { type: "string", enum: ["up", "neutral", "down"] },
+                priceLow: { type: "number" },
+                priceHigh: { type: "number" },
+              },
+              required: ["trend", "priceLow", "priceHigh"],
+              additionalProperties: false,
+            },
+            longTerm: {
+              type: "object",
+              properties: {
+                trend: { type: "string", enum: ["up", "neutral", "down"] },
+                priceLow: { type: "number" },
+                priceHigh: { type: "number" },
+              },
+              required: ["trend", "priceLow", "priceHigh"],
+              additionalProperties: false,
+            },
+            recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+            advice: { type: "string" },
+            confidence: { type: "number" },
+            limitPrice: { type: ["number", "null"] },
+            stopLossPrice: { type: ["number", "null"] },
+          },
+          required: ["shortTerm", "midTerm", "longTerm", "recommendation", "advice", "confidence", "limitPrice", "stopLossPrice"],
+          additionalProperties: false,
+        },
+      },
+    },
   })
 
   const prediction = JSON.parse(response.choices[0].message.content || "{}")
