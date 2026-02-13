@@ -300,14 +300,21 @@ def calculate_stock_scores(
                 total_score += component_score
                 score_breakdown[key] = round(component_score, 1)
 
-        # 赤字 AND 高ボラティリティ AND 急騰の場合は完全除外（投機的すぎる）
+        # 異常な急騰（週間+50%超）は無条件で除外
+        # 例: 地盤ネットHD (6072) - 週間+214%
+        week_change = stock.get("weekChangeRate")
+        if week_change is not None and week_change > 50:
+            excluded_count += 1
+            continue
+
+        # 赤字 AND 高ボラティリティ AND 急騰の場合も除外（投機的すぎる）
         # 例: 窪田製薬 (4596) - 赤字、ボラ60%、週間+52%
         is_speculative_stock = (
             stock.get("isProfitable") is False
             and stock.get("volatility") is not None
             and stock["volatility"] > max_vol
-            and stock.get("weekChangeRate") is not None
-            and stock["weekChangeRate"] > 30  # 週間+30%超
+            and week_change is not None
+            and week_change > 30  # 週間+30%超
         )
         if is_speculative_stock:
             # スキップ（scored_stocksに追加しない）
@@ -332,7 +339,7 @@ def calculate_stock_scores(
         })
 
     if excluded_count > 0:
-        print(f"  Excluded {excluded_count} speculative stocks (unprofitable AND volatility>{max_vol}% AND weekChange>30%)")
+        print(f"  Excluded {excluded_count} speculative stocks (weekChange>50% OR unprofitable+highVol+surge)")
     if penalty_count > 0:
         print(f"  Applied risk penalty ({penalty}) to {penalty_count} stocks (unprofitable AND volatility>{max_vol}%)")
 
