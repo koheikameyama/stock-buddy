@@ -149,8 +149,8 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
             failure_text += f"- {f['name']} ({', '.join(details)}): {f['performance']:+.1f}%\n"
 
         prompt = f"""{failure_text}
-上記の共通点を分析し、今後避けるべき銘柄特性を1文（50文字以内）で提案してください。
-例: 「小型の医薬品株は開発リスクが高く避けるべき」"""
+上記の共通点を分析し、今後の改善アクションを1文（50文字以内）で「〜を強化します」「〜を見直します」の形式で出力してください。
+例: 「小型医薬品株のリスク評価基準を厳格化します」"""
 
     elif category == "purchase":
         failure_text = "外れた購入推奨:\n"
@@ -160,8 +160,8 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
             failure_text += f"  判断理由: {f.get('reason', '不明')[:100]}\n"
 
         prompt = f"""{failure_text}
-上記の外れた判断を分析し、今後の判断精度を上げるための改善ポイントを1-2行（60文字以内）で提案してください。
-具体的で実践的なアドバイスをお願いします。"""
+上記を分析し、今後の改善アクションを1文（50文字以内）で「〜を強化します」「〜を見直します」の形式で出力してください。
+例: 「業績悪化銘柄の買い判断基準を厳格化します」"""
 
     elif category == "analysis":
         failure_text = "外れた予測:\n"
@@ -171,8 +171,8 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
             failure_text += f"  アドバイス: {f.get('advice', '不明')[:100]}\n"
 
         prompt = f"""{failure_text}
-上記の外れた予測を分析し、今後の予測精度を上げるための改善ポイントを1-2行（60文字以内）で提案してください。
-具体的で実践的なアドバイスをお願いします。"""
+上記を分析し、今後の改善アクションを1文（50文字以内）で「〜を強化します」「〜を見直します」の形式で出力してください。
+例: 「高ボラティリティ銘柄の予測モデルを調整します」"""
 
     else:
         return None
