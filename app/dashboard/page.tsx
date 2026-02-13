@@ -6,6 +6,7 @@ import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
+import PortfolioOverallAnalysis from "./PortfolioOverallAnalysis"
 import NikkeiSummary from "./NikkeiSummary"
 
 export default async function DashboardPage() {
@@ -206,6 +207,12 @@ export default async function DashboardPage() {
 
           {/* 損益サマリー */}
           <PortfolioSummary hasHoldings={hasHoldings} />
+
+          {/* ポートフォリオ総評分析 */}
+          <PortfolioOverallAnalysis
+            portfolioCount={user.portfolioStocks.length}
+            watchlistCount={user.watchlistStocks.length}
+          />
 
         {/* 今日の注目銘柄（カテゴリ別） */}
         {user && (

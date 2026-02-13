@@ -51,18 +51,19 @@ model User {
   subscriptionPlan        String                   @default("free") // 'free' | 'premium'
   subscriptionExpiry      DateTime?
 
-  accounts               Account[]
-  sessions               Session[]
-  settings               UserSettings?
-  pushSubscriptions      PushSubscription[]
-  stockRequests          StockRequest[]
-  watchlistStocks        WatchlistStock[]
-  portfolioStocks        PortfolioStock[]
-  transactions           Transaction[]
-  dailyRecommendations   UserDailyRecommendation[]
-  trackedStocks          TrackedStock[]
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  accounts                  Account[]
+  sessions                  Session[]
+  settings                  UserSettings?
+  pushSubscriptions         PushSubscription[]
+  stockRequests             StockRequest[]
+  watchlistStocks           WatchlistStock[]
+  portfolioStocks           PortfolioStock[]
+  transactions              Transaction[]
+  dailyRecommendations      UserDailyRecommendation[]
+  trackedStocks             TrackedStock[]
+  portfolioOverallAnalysis  PortfolioOverallAnalysis?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 }
 
 model VerificationToken {
@@ -400,4 +401,36 @@ model UserDailyRecommendation {
   @@unique([userId, date, position])
   @@index([userId, date(sort: Desc)])
   @@index([stockId])
+}
+
+// ポートフォリオ総評分析（ユーザーごと）
+model PortfolioOverallAnalysis {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  analyzedAt             DateTime
+
+  // 数値指標
+  sectorConcentration    Decimal? @db.Decimal(5, 2)  // 最大セクター比率(%)
+  sectorCount            Int?                         // セクター数
+  totalValue             Decimal? @db.Decimal(15, 2)  // 総資産額
+  totalCost              Decimal? @db.Decimal(15, 2)  // 総投資額
+  unrealizedGain         Decimal? @db.Decimal(15, 2)  // 含み損益
+  unrealizedGainPercent  Decimal? @db.Decimal(8, 2)   // 含み損益率(%)
+  portfolioVolatility    Decimal? @db.Decimal(8, 2)   // ポートフォリオ全体のボラティリティ(%)
+
+  // AI生成テキスト
+  overallSummary         String   @db.Text            // 全体の総評（2-3文）
+  overallStatus          String                       // 好調/順調/様子見/注意/要確認
+  overallStatusType      String                       // excellent/good/neutral/caution/warning
+  metricsAnalysis        Json                         // 各指標の解説・評価・アクション提案
+  actionSuggestions      Json                         // 推奨アクションリスト
+  watchlistSimulation    Json?                        // ウォッチリスト銘柄追加時の予測
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([userId])
+  @@index([analyzedAt(sort: Desc)])
 }
