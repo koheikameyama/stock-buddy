@@ -26,7 +26,7 @@ interface RecommendationData {
   stockName: string
   tickerCode: string
   currentPrice: number | null
-  recommendation: "buy" | "hold"
+  recommendation: "buy" | "stay"
   confidence: number
   reason: string
   caution: string
@@ -359,7 +359,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     )
   }
 
-  // 様子見（holdまたはそれ以外のフォールバック）
+  // 様子見（stayまたはそれ以外のフォールバック）
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
       <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6">

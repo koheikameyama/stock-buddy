@@ -353,7 +353,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
-  "recommendation": "buy" | "hold",
+  "recommendation": "buy" | "stay",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "caution": "注意点を1-2文",
@@ -365,9 +365,9 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   "priceGap": 現在価格との差（マイナス=割安、プラス=割高）,
   "buyTimingExplanation": "購入タイミングの説明（例: あと50円下がったら良い買い場です / 購入を検討できるタイミングです）",
 
-  // B. 深掘り評価
-  "positives": "良いところを3つ、箇条書き（各項目は1行で簡潔に）",
-  "concerns": "不安な点を2-3つ、箇条書き（各項目は1行で簡潔に）",
+  // B. 深掘り評価（文字列で返す。配列ではない）
+  "positives": "・良い点1\n・良い点2\n・良い点3",
+  "concerns": "・不安な点1\n・不安な点2\n・不安な点3",
   "suitableFor": "こんな人におすすめ（1-2文で具体的に）",
 
   // D. パーソナライズ（ユーザー設定がある場合）
@@ -388,47 +388,69 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   例: 「RSI（売られすぎ・買われすぎを判断する指標）が30を下回り…」
   例: 「ダブルボトム（2回底を打って反転する形）が形成され…」
 - チャートパターンが検出された場合は、reasonやbuyTimingExplanationで言及する
-- positives、concernsは箇条書き形式（・で始める）
+- positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
 - idealEntryPriceExpiryは市場状況に応じて1日〜2週間程度の範囲で設定（短期的な値動きが予想される場合は短め、安定している場合は長め）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
 `
 
-    // OpenAI API呼び出し
+    // OpenAI API呼び出し（Structured Outputs使用）
     const openai = getOpenAIClient()
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "You are a helpful investment coach for beginners. Always respond in JSON format.",
+          content: "You are a helpful investment coach for beginners.",
         },
         { role: "user", content: prompt },
       ],
       temperature: 0.4,
-      max_tokens: 500,
+      max_tokens: 800,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "purchase_recommendation",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              recommendation: { type: "string", enum: ["buy", "stay"] },
+              confidence: { type: "number" },
+              reason: { type: "string" },
+              caution: { type: "string" },
+              // A. 買い時判断
+              shouldBuyToday: { type: "boolean" },
+              idealEntryPrice: { type: ["number", "null"] },
+              idealEntryPriceExpiry: { type: ["string", "null"] },
+              priceGap: { type: ["number", "null"] },
+              buyTimingExplanation: { type: ["string", "null"] },
+              // B. 深掘り評価
+              positives: { type: ["string", "null"] },
+              concerns: { type: ["string", "null"] },
+              suitableFor: { type: ["string", "null"] },
+              // D. パーソナライズ
+              userFitScore: { type: ["number", "null"] },
+              budgetFit: { type: ["boolean", "null"] },
+              periodFit: { type: ["boolean", "null"] },
+              riskFit: { type: ["boolean", "null"] },
+              personalizedReason: { type: ["string", "null"] },
+            },
+            required: [
+              "recommendation", "confidence", "reason", "caution",
+              "shouldBuyToday", "idealEntryPrice", "idealEntryPriceExpiry",
+              "priceGap", "buyTimingExplanation",
+              "positives", "concerns", "suitableFor",
+              "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
     })
 
-    let content = response.choices[0].message.content?.trim() || "{}"
-
-    // マークダウンコードブロックを削除
-    if (content.startsWith("```json")) {
-      content = content.slice(7)
-    } else if (content.startsWith("```")) {
-      content = content.slice(3)
-    }
-    if (content.endsWith("```")) {
-      content = content.slice(0, -3)
-    }
-    content = content.trim()
-
-    // JSONパース
+    const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
-
-    // バリデーション
-    if (!["buy", "hold"].includes(result.recommendation)) {
-      throw new Error(`Invalid recommendation: ${result.recommendation}`)
-    }
 
     // データベースに保存（upsert）
     const today = dayjs.utc().startOf("day").toDate()
