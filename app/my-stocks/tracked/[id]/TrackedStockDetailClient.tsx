@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
+import EarningsInfo from "@/app/components/EarningsInfo"
 import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
 import RelatedNews from "@/app/components/RelatedNews"
@@ -139,6 +140,9 @@ export default function TrackedStockDetailClient({ stock }: { stock: TrackedStoc
           </div>
         </div>
       </section>
+
+      {/* Earnings Info Section */}
+      {price?.earnings && <EarningsInfo earnings={price.earnings} />}
 
       {/* Related News Section */}
       <RelatedNews stockId={stock.stockId} />

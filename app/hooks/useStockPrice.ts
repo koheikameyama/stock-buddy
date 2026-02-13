@@ -2,11 +2,22 @@
 
 import { useEffect, useState } from "react"
 
+export interface StockEarnings {
+  isProfitable: boolean | null
+  profitTrend: string | null
+  revenueGrowth: number | null
+  netIncomeGrowth: number | null
+  eps: number | null
+  latestRevenue: number | null
+  latestNetIncome: number | null
+}
+
 export interface StockPrice {
   currentPrice: number
   previousClose: number
   change: number
   changePercent: number
+  earnings?: StockEarnings | null
 }
 
 interface UseStockPriceResult {
@@ -25,7 +36,8 @@ export function useStockPrice(tickerCode: string): UseStockPriceResult {
       setLoading(true)
       setError(null)
       try {
-        const response = await fetch("/api/stocks/prices")
+        // 特定の銘柄を指定して取得（追跡銘柄でも確実に取得できる）
+        const response = await fetch(`/api/stocks/prices?tickers=${tickerCode}`)
         if (!response.ok) throw new Error("Failed to fetch price")
 
         const data = await response.json()
