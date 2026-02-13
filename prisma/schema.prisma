@@ -120,6 +120,15 @@ model Stock {
   // 財務データの最終更新日時
   financialDataUpdatedAt DateTime?
 
+  // 業績データ（yfinanceから取得）
+  latestRevenue          Decimal?           @db.Decimal(18, 0) // 直近通期売上高（円）
+  latestNetIncome        Decimal?           @db.Decimal(18, 0) // 直近通期純利益（円）
+  revenueGrowth          Decimal?           @db.Decimal(8, 2)  // 売上高前年比（%）
+  netIncomeGrowth        Decimal?           @db.Decimal(8, 2)  // 純利益前年比（%）
+  isProfitable           Boolean?           // 黒字かどうか
+  profitTrend            String?            // 'increasing' | 'decreasing' | 'stable'
+  earningsUpdatedAt      DateTime?          // 業績データ更新日時
+
   // IPO対応
   listedDate        DateTime?          // 上場日
 

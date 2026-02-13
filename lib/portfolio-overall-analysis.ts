@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { fetchStockPrices, fetchEarningsData } from "@/lib/stock-price-fetcher"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { OpenAI } from "openai"
 import { Decimal } from "@prisma/client/runtime/library"
@@ -94,6 +94,11 @@ interface PortfolioStockData {
   currentPrice: number
   value: number
   volatility: number | null
+  // 業績データ
+  isProfitable: boolean | null
+  profitTrend: string | null
+  revenueGrowth: number | null
+  netIncomeGrowth: number | null
 }
 
 interface WatchlistStockData {
@@ -101,6 +106,11 @@ interface WatchlistStockData {
   tickerCode: string
   name: string
   sector: string | null
+  // 業績データ
+  isProfitable: boolean | null
+  profitTrend: string | null
+  revenueGrowth: number | null
+  netIncomeGrowth: number | null
 }
 
 function getOpenAIClient() {
@@ -218,13 +228,27 @@ async function generateAnalysisWithAI(
     .map(s => `${s.sector}: ${s.percentage.toFixed(1)}%（${s.count}銘柄）`)
     .join("\n")
 
+  const formatEarningsInfo = (s: { isProfitable: boolean | null; profitTrend: string | null; netIncomeGrowth: number | null }) => {
+    if (s.isProfitable === null) return ""
+    const status = s.isProfitable ? "黒字" : "赤字"
+    const trend = s.profitTrend === "increasing" ? "増益" : s.profitTrend === "decreasing" ? "減益" : "横ばい"
+    const growth = s.netIncomeGrowth !== null ? `${s.netIncomeGrowth >= 0 ? "+" : ""}${s.netIncomeGrowth.toFixed(1)}%` : ""
+    return `【業績: ${status}・${trend}${growth ? `（前年比${growth}）` : ""}】`
+  }
+
   const portfolioStocksText = portfolioStocks
-    .map(s => `- ${s.name}（${s.tickerCode}）: ${s.sector || "その他"}、評価額 ¥${Math.round(s.value).toLocaleString()}`)
+    .map(s => `- ${s.name}（${s.tickerCode}）: ${s.sector || "その他"}、評価額 ¥${Math.round(s.value).toLocaleString()} ${formatEarningsInfo(s)}`)
     .join("\n")
 
   const watchlistStocksText = watchlistStocks.length > 0
-    ? watchlistStocks.map(s => `- ${s.name}（${s.tickerCode}）: ${s.sector || "その他"}`).join("\n")
+    ? watchlistStocks.map(s => `- ${s.name}（${s.tickerCode}）: ${s.sector || "その他"} ${formatEarningsInfo(s)}`).join("\n")
     : "なし"
+
+  // 業績サマリー
+  const profitableCount = portfolioStocks.filter(s => s.isProfitable === true).length
+  const increasingCount = portfolioStocks.filter(s => s.profitTrend === "increasing").length
+  const decreasingCount = portfolioStocks.filter(s => s.profitTrend === "decreasing").length
+  const hasEarningsData = portfolioStocks.some(s => s.isProfitable !== null)
 
   const maxSectorConcentration = sectorBreakdown.length > 0 ? sectorBreakdown[0].percentage : 0
 
@@ -246,6 +270,11 @@ ${sectorBreakdownText}
 
 【ボラティリティ】
 - ポートフォリオ全体: ${portfolioVolatility != null ? portfolioVolatility.toFixed(1) + "%" : "データなし"}
+
+【業績状況】
+${hasEarningsData ? `- 黒字銘柄: ${profitableCount}/${portfolioStocks.length}銘柄
+- 増益傾向: ${increasingCount}銘柄
+- 減益傾向: ${decreasingCount}銘柄` : "業績データなし"}
 
 【ウォッチリスト銘柄】
 ${watchlistStocksText}
@@ -468,13 +497,17 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
     }
   }
 
-  // 株価を取得
+  // 株価と業績データを取得
   const allTickerCodes = [
     ...user.portfolioStocks.map(ps => ps.stock.tickerCode),
     ...user.watchlistStocks.map(ws => ws.stock.tickerCode),
   ]
-  const prices = await fetchStockPrices(allTickerCodes)
+  const [prices, earningsDataList] = await Promise.all([
+    fetchStockPrices(allTickerCodes),
+    fetchEarningsData(allTickerCodes),
+  ])
   const priceMap = new Map(prices.map(p => [p.tickerCode, p.currentPrice]))
+  const earningsMap = new Map(earningsDataList.map(e => [e.tickerCode, e]))
 
   // ポートフォリオデータを構築
   const portfolioStocksData: PortfolioStockData[] = []
@@ -489,6 +522,7 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
     const value = currentPrice * quantity
     const cost = averagePurchasePrice.toNumber() * quantity
 
+    const earnings = earningsMap.get(ps.stock.tickerCode)
     portfolioStocksData.push({
       stockId: ps.stockId,
       tickerCode: ps.stock.tickerCode,
@@ -499,6 +533,10 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
       currentPrice,
       value,
       volatility: ps.stock.volatility ? Number(ps.stock.volatility) : null,
+      isProfitable: earnings?.isProfitable ?? null,
+      profitTrend: earnings?.profitTrend ?? null,
+      revenueGrowth: earnings?.revenueGrowth ?? null,
+      netIncomeGrowth: earnings?.netIncomeGrowth ?? null,
     })
 
     totalValue += value
@@ -506,12 +544,19 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
   }
 
   // ウォッチリストデータを構築
-  const watchlistStocksData: WatchlistStockData[] = user.watchlistStocks.map(ws => ({
-    stockId: ws.stockId,
-    tickerCode: ws.stock.tickerCode,
-    name: ws.stock.name,
-    sector: ws.stock.sector,
-  }))
+  const watchlistStocksData: WatchlistStockData[] = user.watchlistStocks.map(ws => {
+    const earnings = earningsMap.get(ws.stock.tickerCode)
+    return {
+      stockId: ws.stockId,
+      tickerCode: ws.stock.tickerCode,
+      name: ws.stock.name,
+      sector: ws.stock.sector,
+      isProfitable: earnings?.isProfitable ?? null,
+      profitTrend: earnings?.profitTrend ?? null,
+      revenueGrowth: earnings?.revenueGrowth ?? null,
+      netIncomeGrowth: earnings?.netIncomeGrowth ?? null,
+    }
+  })
 
   // 指標を計算
   const sectorBreakdown = calculateSectorBreakdown(portfolioStocksData)

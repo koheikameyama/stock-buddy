@@ -1,0 +1,52 @@
+name: Fetch Earnings Data
+
+on:
+  schedule:
+    # 毎週日曜 10:00 JST（01:00 UTC）- 決算は頻繁に更新されないので週1回
+    - cron: '0 1 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fetch-earnings:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install yfinance psycopg2-binary
+
+      - name: Fetch earnings data
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/github-actions/fetch_earnings_data.py
+
+      - name: Notify Slack on success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "✅ 業績データの取得に成功しました"
+          SLACK_MESSAGE: "ユーザー関連銘柄の業績データを更新しました"
+          SLACK_COLOR: good
+          SLACK_FOOTER: "Stock Buddy"
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: "❌ 業績データの取得に失敗しました"
+          SLACK_MESSAGE: "業績データ取得中にエラーが発生しました"
+          SLACK_COLOR: danger
+          SLACK_FOOTER: "Stock Buddy"

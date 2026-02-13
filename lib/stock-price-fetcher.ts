@@ -31,6 +31,18 @@ export interface HistoricalPrice {
   volume: number
 }
 
+export interface EarningsData {
+  tickerCode: string
+  hasData: boolean
+  latestRevenue?: number | null
+  latestNetIncome?: number | null
+  revenueGrowth?: number | null
+  netIncomeGrowth?: number | null
+  isProfitable?: boolean | null
+  profitTrend?: string | null
+  error?: string
+}
+
 /**
  * ティッカーコードを正規化（.T サフィックスを確実に付与）
  * インデックス（^で始まる）はそのまま返す
@@ -149,6 +161,47 @@ export async function fetchHistoricalPrices(
     return results
   } catch (error) {
     console.error(`Error fetching historical data for ${normalizedCode}:`, error)
+    return []
+  }
+}
+
+/**
+ * 業績データを取得（Python yfinance経由）
+ *
+ * @param tickerCodes - ティッカーコード配列
+ * @returns 業績データ配列
+ */
+export async function fetchEarningsData(
+  tickerCodes: string[]
+): Promise<EarningsData[]> {
+  if (tickerCodes.length === 0) {
+    return []
+  }
+
+  const normalizedCodes = tickerCodes.map(normalizeTickerCode)
+
+  try {
+    const scriptPath = getPythonScriptPath("fetch_earnings.py")
+    const tickerArg = normalizedCodes.join(",")
+
+    if (!fs.existsSync(scriptPath)) {
+      console.error("Python script not found:", scriptPath)
+      return []
+    }
+
+    const { stdout, stderr } = await execAsync(
+      `python3 "${scriptPath}" "${tickerArg}"`,
+      { timeout: 120000 }
+    )
+
+    if (stderr) {
+      console.error("Python stderr:", stderr)
+    }
+
+    const results: EarningsData[] = JSON.parse(stdout.trim())
+    return results
+  } catch (error) {
+    console.error("Error fetching earnings data:", error)
     return []
   }
 }
