@@ -64,7 +64,7 @@ export async function GET(
       }),
       prisma.userSettings.findUnique({
         where: { userId },
-        select: { stopLossRate: true },
+        select: { stopLossRate: true, targetReturnRate: true },
       }),
     ])
 
@@ -89,6 +89,21 @@ export async function GET(
     // 日本時間で今日の00:00:00を取得
     const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
 
+    // ユーザー設定に基づく計算価格
+    const targetReturnRate = userSettings?.targetReturnRate ?? null
+    const stopLossRate = userSettings?.stopLossRate ?? null
+    let userTargetPrice: number | null = null
+    let userStopLossPrice: number | null = null
+
+    if (averagePurchasePrice) {
+      if (targetReturnRate !== null) {
+        userTargetPrice = Math.round(averagePurchasePrice * (1 + targetReturnRate / 100))
+      }
+      if (stopLossRate !== null) {
+        userStopLossPrice = Math.round(averagePurchasePrice * (1 + stopLossRate / 100))
+      }
+    }
+
     // 分析データがない場合
     if (!portfolioStock.lastAnalysis) {
       return NextResponse.json(
@@ -105,7 +120,11 @@ export async function GET(
           sellCondition: null,
           // 損切りアラート用
           averagePurchasePrice,
-          stopLossRate: userSettings?.stopLossRate ?? null,
+          stopLossRate,
+          // ユーザー設定に基づく価格
+          targetReturnRate,
+          userTargetPrice,
+          userStopLossPrice,
         },
         { status: 200 }
       )
@@ -129,7 +148,11 @@ export async function GET(
       sellCondition: portfolioStock.sellCondition,
       // 損切りアラート用
       averagePurchasePrice,
-      stopLossRate: userSettings?.stopLossRate ?? null,
+      stopLossRate,
+      // ユーザー設定に基づく価格
+      targetReturnRate,
+      userTargetPrice,
+      userStopLossPrice,
     }
 
     return NextResponse.json(response, { status: 200 })
