@@ -188,7 +188,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           )}
         </div>
         <p className="text-sm text-gray-700">{data.buyTimingExplanation}</p>
-        {data.idealEntryPrice && (
+        {/* 「もう少し待とう」の場合のみ理想の買い値を表示 */}
+        {!data.shouldBuyToday && data.idealEntryPrice && (
           <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
             <span>理想の買い値: <strong className="text-gray-900">{data.idealEntryPrice.toLocaleString()}円</strong></span>
             {data.priceGap != null && (
