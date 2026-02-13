@@ -188,14 +188,26 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           )}
         </div>
         <p className="text-sm text-gray-700">{data.buyTimingExplanation}</p>
-        {/* 「もう少し待とう」の場合のみ理想の買い値を表示 */}
-        {!data.shouldBuyToday && data.idealEntryPrice && (
-          <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
-            <span>理想の買い値: <strong className="text-gray-900">{data.idealEntryPrice.toLocaleString()}円</strong></span>
-            {data.priceGap != null && (
-              <span className={data.priceGap < 0 ? "text-green-600" : "text-red-600"}>
-                （{data.priceGap < 0 ? "割安" : "割高"}: {Math.abs(data.priceGap).toLocaleString()}円）
-              </span>
+        {/* 理想の買い値を表示（買い時/待ちで説明を変える） */}
+        {data.idealEntryPrice && (
+          <div className="mt-2 text-xs text-gray-600">
+            {data.shouldBuyToday ? (
+              // 買い時の場合：なぜ今が買い時かを説明
+              <p className="text-green-700">
+                📊 現在価格が理想の買い値（<strong>{data.idealEntryPrice.toLocaleString()}円</strong>）
+                {data.priceGap != null && data.priceGap < 0 && (
+                  <>を<strong>{Math.abs(data.priceGap).toLocaleString()}円</strong>下回っています</>
+                )}
+                。今が買い時です！
+              </p>
+            ) : (
+              // 待ちの場合：目標価格を明示
+              <p className="text-yellow-700">
+                📊 理想の買い値: <strong>{data.idealEntryPrice.toLocaleString()}円</strong>
+                {data.priceGap != null && data.priceGap > 0 && (
+                  <>（あと<strong>{Math.abs(data.priceGap).toLocaleString()}円</strong>下がるまで待ちましょう）</>
+                )}
+              </p>
             )}
           </div>
         )}
