@@ -49,99 +49,88 @@ def get_openai_client() -> OpenAI | None:
     return OpenAI(api_key=api_key)
 
 
-def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | None:
-    """AIによるパフォーマンス分析インサイトを生成"""
-    client = get_openai_client()
-    if not client:
+def generate_single_insight(client: OpenAI, category: str, data: dict) -> str | None:
+    """単一カテゴリのAIインサイトを生成（1行）"""
+    if data["count"] == 0:
         return None
 
-    # データがない場合はスキップ
-    total_count = daily["count"] + purchase["count"] + analysis["count"]
-    if total_count == 0:
+    if category == "daily":
+        data_text = f"""おすすめ銘柄のパフォーマンス:
+- 分析件数: {data['count']}件
+- 平均リターン: {data['avgReturn']:+.2f}%
+- プラス率: {data['positiveRate']:.1f}%
+- 成功率(+3%以上): {data['successRate']:.1f}%"""
+        if data.get("best"):
+            best_items = [f"{b['name']}({b['performance']:+.1f}%)" for b in data['best'][:2]]
+            data_text += f"\n- ベスト: {', '.join(best_items)}"
+        if data.get("worst"):
+            worst_items = [f"{w['name']}({w['performance']:+.1f}%)" for w in data['worst'][:2]]
+            data_text += f"\n- ワースト: {', '.join(worst_items)}"
+
+    elif category == "purchase":
+        data_text = f"""購入推奨のパフォーマンス:
+- 分析件数: {data['count']}件
+- 判断成功率: {data['successRate']:.1f}%
+- 平均騰落率: {data['avgReturn']:+.2f}%"""
+        for rec, stats in data.get("byRecommendation", {}).items():
+            label = {"buy": "買い", "stay": "様子見", "remove": "見送り"}.get(rec, rec)
+            data_text += f"\n- {label}判断: {stats['successRate']:.0f}%的中 ({stats['count']}件)"
+
+    elif category == "analysis":
+        data_text = f"""ポートフォリオ分析（短期予測）のパフォーマンス:
+- 分析件数: {data['count']}件
+- 予測的中率: {data['successRate']:.1f}%
+- 平均騰落率: {data['avgReturn']:+.2f}%"""
+        for trend, stats in data.get("byTrend", {}).items():
+            label = {"up": "上昇予測", "down": "下落予測", "neutral": "横ばい予測"}.get(trend, trend)
+            data_text += f"\n- {label}: {stats['successRate']:.0f}%的中 ({stats['count']}件)"
+    else:
         return None
 
-    # プロンプト用データ整形
-    data_summary = f"""## パフォーマンスデータ（過去7日間）
+    prompt = f"""{data_text}
 
-### おすすめ銘柄
-- 分析件数: {daily['count']}件
-- 平均リターン: {daily['avgReturn']:+.2f}%
-- プラス率: {daily['positiveRate']:.1f}%
-- 成功率(+3%以上): {daily['successRate']:.1f}%
-"""
-    if daily["best"]:
-        best_items = [f"{b['name']}({b['performance']:+.1f}%)" for b in daily['best'][:3]]
-        data_summary += f"- ベスト: {', '.join(best_items)}\n"
-    if daily["worst"]:
-        worst_items = [f"{w['name']}({w['performance']:+.1f}%)" for w in daily['worst'][:3]]
-        data_summary += f"- ワースト: {', '.join(worst_items)}\n"
-
-    data_summary += f"""
-### 購入推奨（ウォッチリスト）
-- 分析件数: {purchase['count']}件
-- 判断成功率: {purchase['successRate']:.1f}%
-- 平均騰落率: {purchase['avgReturn']:+.2f}%
-"""
-    for rec, stats in purchase.get("byRecommendation", {}).items():
-        label = {"buy": "買い", "stay": "様子見", "remove": "見送り"}.get(rec, rec)
-        data_summary += f"- {label}判断: {stats['successRate']:.0f}%的中 ({stats['count']}件)\n"
-
-    data_summary += f"""
-### ポートフォリオ分析（短期予測）
-- 分析件数: {analysis['count']}件
-- 予測的中率: {analysis['successRate']:.1f}%
-- 平均騰落率: {analysis['avgReturn']:+.2f}%
-"""
-    for trend, stats in analysis.get("byTrend", {}).items():
-        label = {"up": "上昇予測", "down": "下落予測", "neutral": "横ばい予測"}.get(trend, trend)
-        data_summary += f"- {label}: {stats['successRate']:.0f}%的中 ({stats['count']}件)\n"
-
-    prompt = f"""あなたは株式投資AIの分析官です。
-以下のAI推奨システムのパフォーマンスデータを分析し、改善に向けたインサイトを提供してください。
-
-{data_summary}
-
-## 出力形式
-以下のJSON形式で回答してください:
-{{
-  "summary": "全体傾向の要約（1文）",
-  "findings": ["発見1", "発見2"],
-  "suggestion": "改善に向けた提案（1文）"
-}}
-
-注意:
-- 日本語で回答
-- 簡潔に（各項目50文字以内）
-- 具体的な数値を引用して説明"""
+上記データを分析し、1行（40文字以内）でインサイトを提供してください。
+具体的な数値を引用し、課題や傾向を簡潔に指摘してください。"""
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a stock analysis expert. Always respond in valid JSON format only."},
+                {"role": "system", "content": "あなたは株式投資AIの分析官です。簡潔に日本語で回答してください。"},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
-            max_tokens=500,
+            max_tokens=100,
         )
-
-        content = response.choices[0].message.content.strip()
-
-        # マークダウンコードブロックを削除
-        if content.startswith("```json"):
-            content = content[7:]
-        elif content.startswith("```"):
-            content = content[3:]
-        if content.endswith("```"):
-            content = content[:-3]
-        content = content.strip()
-
-        result = json.loads(content)
-        return result
-
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"  Warning: AI insight generation failed: {e}")
+        print(f"    Warning: {category} insight failed: {e}")
         return None
+
+
+def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | None:
+    """各カテゴリごとにAIインサイトを生成"""
+    client = get_openai_client()
+    if not client:
+        return None
+
+    total_count = daily["count"] + purchase["count"] + analysis["count"]
+    if total_count == 0:
+        return None
+
+    insights = {}
+
+    # 各カテゴリのインサイトを生成
+    if daily["count"] > 0:
+        insights["daily"] = generate_single_insight(client, "daily", daily)
+
+    if purchase["count"] > 0:
+        insights["purchase"] = generate_single_insight(client, "purchase", purchase)
+
+    if analysis["count"] > 0:
+        insights["analysis"] = generate_single_insight(client, "analysis", analysis)
+
+    return insights if any(insights.values()) else None
 
 
 def fetch_historical_prices(ticker_codes: list[str], start_date: datetime, end_date: datetime) -> dict:
@@ -488,6 +477,12 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": f"Best: {best_text} | Worst: {worst_text}"}]
             })
+        # AIインサイト（おすすめ）
+        if insights and insights.get("daily"):
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['daily']}_"}]
+            })
         blocks.append({"type": "divider"})
 
     # 2. 購入推奨
@@ -514,6 +509,12 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
             blocks.append({
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": " | ".join(rec_text)}]
+            })
+        # AIインサイト（購入推奨）
+        if insights and insights.get("purchase"):
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['purchase']}_"}]
             })
         blocks.append({"type": "divider"})
 
@@ -542,27 +543,12 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": " | ".join(trend_text)}]
             })
-
-    # AIインサイト
-    if insights:
-        blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "*💡 AIインサイト*"}
-        })
-
-        insight_text = f"_{insights.get('summary', '')}_\n\n"
-        findings = insights.get("findings", [])
-        for f in findings:
-            insight_text += f"• {f}\n"
-        suggestion = insights.get("suggestion", "")
-        if suggestion:
-            insight_text += f"\n📌 {suggestion}"
-
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": insight_text}
-        })
+        # AIインサイト（ポートフォリオ分析）
+        if insights and insights.get("analysis"):
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['analysis']}_"}]
+            })
 
     # フッター
     blocks.append({
@@ -669,7 +655,10 @@ def main():
         print("\n4. Generating AI insights...")
         insights = generate_ai_insights(daily_stats, purchase_stats, analysis_stats)
         if insights:
-            print(f"   Summary: {insights.get('summary', 'N/A')}")
+            for key, value in insights.items():
+                if value:
+                    label = {"daily": "おすすめ", "purchase": "購入推奨", "analysis": "分析"}.get(key, key)
+                    print(f"   {label}: {value[:50]}...")
         else:
             print("   Skipped (no API key or error)")
 
