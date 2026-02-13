@@ -145,11 +145,28 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
     if category == "daily":
         failure_text = "パフォーマンスが悪かったおすすめ銘柄:\n"
         for f in failures[:3]:
-            failure_text += f"- {f['name']} ({f['sector']}): {f['performance']:+.1f}%\n"
+            details = []
+            details.append(f['sector'])
+            if f.get('marketCapCategory') and f['marketCapCategory'] != "不明":
+                details.append(f['marketCapCategory'])
+            if f.get('valuation') and f['valuation'] != "不明":
+                details.append(f['valuation'])
+            if f.get('pricePosition') and f['pricePosition'] != "不明":
+                details.append(f['pricePosition'])
+            if f.get('volatility'):
+                details.append(f"ボラ{f['volatility']:.0f}%")
+            failure_text += f"- {f['name']} ({', '.join(details)}): {f['performance']:+.1f}%\n"
 
         prompt = f"""{failure_text}
-上記の銘柄選定を分析し、今後のおすすめ銘柄の精度を上げるための改善ポイントを1-2行（60文字以内）で提案してください。
-セクターの傾向なども考慮して、具体的で実践的なアドバイスをお願いします。"""
+上記の銘柄選定を多角的に分析してください。
+以下の観点から、今後の改善ポイントを1-2行（80文字以内）で提案してください：
+- セクター（業種）の傾向
+- 時価総額（大型/中型/小型）の傾向
+- バリュエーション（PER/PBR）の傾向
+- 株価位置（高値圏/安値圏）の傾向
+- ボラティリティの傾向
+
+具体的で実践的なアドバイスをお願いします。"""
 
     elif category == "purchase":
         failure_text = "外れた購入推奨:\n"
@@ -302,7 +319,7 @@ def get_price_at_date(prices: dict, ticker: str, target_date, today) -> tuple[fl
 # ===== おすすめ銘柄 (UserDailyRecommendation) =====
 
 def get_daily_recommendations(conn, days_ago: int = 7) -> list[dict]:
-    """おすすめ銘柄を取得"""
+    """おすすめ銘柄を取得（多角的分析用の追加情報含む）"""
     target_date = datetime.now(timezone.utc) - timedelta(days=days_ago)
 
     with conn.cursor() as cur:
@@ -311,7 +328,14 @@ def get_daily_recommendations(conn, days_ago: int = 7) -> list[dict]:
                 r.date,
                 s."tickerCode",
                 s.name,
-                s.sector
+                s.sector,
+                s."marketCap",
+                s.per,
+                s.pbr,
+                s.volatility,
+                s."fiftyTwoWeekHigh",
+                s."fiftyTwoWeekLow",
+                s."latestPrice"
             FROM "UserDailyRecommendation" r
             JOIN "Stock" s ON r."stockId" = s.id
             WHERE r.date >= %s
@@ -324,6 +348,13 @@ def get_daily_recommendations(conn, days_ago: int = 7) -> list[dict]:
                 "tickerCode": row[1],
                 "name": row[2],
                 "sector": row[3],
+                "marketCap": float(row[4]) if row[4] else None,
+                "per": float(row[5]) if row[5] else None,
+                "pbr": float(row[6]) if row[6] else None,
+                "volatility": float(row[7]) if row[7] else None,
+                "fiftyTwoWeekHigh": float(row[8]) if row[8] else None,
+                "fiftyTwoWeekLow": float(row[9]) if row[9] else None,
+                "latestPrice": float(row[10]) if row[10] else None,
             }
             for row in cur.fetchall()
         ]
@@ -388,13 +419,54 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
     top_sectors = sorted_sectors[:3] if len(sorted_sectors) >= 3 else sorted_sectors
     bottom_sectors = sorted_sectors[-3:] if len(sorted_sectors) >= 3 else []
 
-    # 失敗例を収集（-3%以下のもの）
+    # 失敗例を収集（-3%以下のもの）- 多角的分析用
+    def categorize_market_cap(mc):
+        if mc is None:
+            return "不明"
+        if mc >= 10000:
+            return "大型株"
+        if mc >= 1000:
+            return "中型株"
+        return "小型株"
+
+    def categorize_valuation(per, pbr):
+        if per is None and pbr is None:
+            return "不明"
+        issues = []
+        if per and per > 20:
+            issues.append("高PER")
+        if pbr and pbr > 2:
+            issues.append("高PBR")
+        if per and per < 10:
+            issues.append("低PER")
+        if pbr and pbr < 1:
+            issues.append("低PBR")
+        return "・".join(issues) if issues else "標準"
+
+    def categorize_price_position(latest, high, low):
+        if latest is None or high is None or low is None:
+            return "不明"
+        if high == low:
+            return "横ばい"
+        position = (latest - low) / (high - low) * 100
+        if position >= 80:
+            return "高値圏"
+        if position <= 20:
+            return "安値圏"
+        return "中間"
+
     failures = [
         {
             "name": v["name"],
             "tickerCode": v["tickerCode"],
             "sector": v.get("sector") or "その他",
             "performance": v["performance"],
+            "marketCapCategory": categorize_market_cap(v.get("marketCap")),
+            "valuation": categorize_valuation(v.get("per"), v.get("pbr")),
+            "pricePosition": categorize_price_position(
+                v.get("latestPrice"), v.get("fiftyTwoWeekHigh"), v.get("fiftyTwoWeekLow")
+            ),
+            "volatility": v.get("volatility"),
         }
         for v in valid
         if v["performance"] <= -3
