@@ -158,15 +158,8 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
             failure_text += f"- {f['name']} ({', '.join(details)}): {f['performance']:+.1f}%\n"
 
         prompt = f"""{failure_text}
-上記の銘柄選定を多角的に分析してください。
-以下の観点から、今後の改善ポイントを1-2行（80文字以内）で提案してください：
-- セクター（業種）の傾向
-- 時価総額（大型/中型/小型）の傾向
-- バリュエーション（PER/PBR）の傾向
-- 株価位置（高値圏/安値圏）の傾向
-- ボラティリティの傾向
-
-具体的で実践的なアドバイスをお願いします。"""
+上記の共通点を分析し、今後避けるべき銘柄特性を1文（50文字以内）で提案してください。
+例: 「小型の医薬品株は開発リスクが高く避けるべき」"""
 
     elif category == "purchase":
         failure_text = "外れた購入推奨:\n"
