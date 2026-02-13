@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/auth"
+import { verifyCronOrSession } from "@/lib/cron-auth"
 import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
@@ -126,34 +127,39 @@ export async function POST(
   { params }: { params: Promise<{ stockId: string }> }
 ) {
   const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authResult = verifyCronOrSession(request, session)
+
+  // 認証失敗の場合はエラーレスポンスを返す
+  if (authResult instanceof NextResponse) {
+    return authResult
   }
 
+  const { userId } = authResult
   const { stockId } = await params
-  const userId = session.user.id
 
   try {
-    // 銘柄情報とユーザー設定を並行取得
-    const [stock, userSettings] = await Promise.all([
-      prisma.stock.findUnique({
-        where: { id: stockId },
-        select: {
-          id: true,
-          tickerCode: true,
-          name: true,
-          sector: true,
-        },
-      }),
-      prisma.userSettings.findUnique({
-        where: { userId },
-        select: {
-          investmentPeriod: true,
-          riskTolerance: true,
-          investmentBudget: true,
-        },
-      }),
-    ])
+    // 銘柄情報を取得
+    const stock = await prisma.stock.findUnique({
+      where: { id: stockId },
+      select: {
+        id: true,
+        tickerCode: true,
+        name: true,
+        sector: true,
+      },
+    })
+
+    // ユーザー設定を取得（CRON経由の場合はスキップ）
+    const userSettings = userId
+      ? await prisma.userSettings.findUnique({
+          where: { userId },
+          select: {
+            investmentPeriod: true,
+            riskTolerance: true,
+            investmentBudget: true,
+          },
+        })
+      : null
 
     if (!stock) {
       return NextResponse.json(

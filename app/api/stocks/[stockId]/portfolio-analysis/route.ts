@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/auth"
+import { verifyCronOrSession } from "@/lib/cron-auth"
 import { OpenAI } from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
@@ -124,12 +125,26 @@ export async function POST(
   { params }: { params: Promise<{ stockId: string }> }
 ) {
   const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authResult = verifyCronOrSession(request, session)
+
+  // 認証失敗の場合はエラーレスポンスを返す
+  if (authResult instanceof NextResponse) {
+    return authResult
   }
 
-  const userId = session.user.id
   const { stockId } = await params
+
+  // CRON経由の場合はリクエストボディからuserIdを取得
+  let userId: string
+  if (authResult.isCron) {
+    const body = await request.json()
+    if (!body.userId) {
+      return NextResponse.json({ error: "userId is required for CRON requests" }, { status: 400 })
+    }
+    userId = body.userId
+  } else {
+    userId = authResult.userId!
+  }
 
   try {
     // ポートフォリオ銘柄と株式情報を取得

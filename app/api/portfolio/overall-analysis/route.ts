@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
+import { verifyCronOrSession } from "@/lib/cron-auth"
 import {
   getPortfolioOverallAnalysis,
   generatePortfolioOverallAnalysis,
@@ -32,15 +33,29 @@ export async function GET() {
  * POST /api/portfolio/overall-analysis
  * ポートフォリオ総評分析をオンデマンドで生成
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth()
+    const authResult = verifyCronOrSession(request, session)
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // 認証失敗の場合はエラーレスポンスを返す
+    if (authResult instanceof NextResponse) {
+      return authResult
     }
 
-    const result = await generatePortfolioOverallAnalysis(session.user.id)
+    // CRON経由の場合はリクエストボディからuserIdを取得
+    let userId: string
+    if (authResult.isCron) {
+      const body = await request.json()
+      if (!body.userId) {
+        return NextResponse.json({ error: "userId is required for CRON requests" }, { status: 400 })
+      }
+      userId = body.userId
+    } else {
+      userId = authResult.userId!
+    }
+
+    const result = await generatePortfolioOverallAnalysis(userId)
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error generating portfolio overall analysis:", error)

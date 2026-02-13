@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
+import { verifyCronOrSession } from "@/lib/cron-auth"
 import { prisma } from "@/lib/prisma"
 import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
@@ -27,14 +28,16 @@ interface FeaturedStockCandidate {
 
 /**
  * POST /api/featured-stocks/generate-for-user
- * ユーザーが手動で注目銘柄を生成
+ * ユーザーが手動で、またはCRONで注目銘柄を生成
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    // 認証チェック
+    // 認証チェック（セッションまたはCRON）
     const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
+    const authResult = verifyCronOrSession(request, session)
+
+    if (authResult instanceof NextResponse) {
+      return authResult
     }
 
     console.log("📊 Generating featured stocks for user...")
