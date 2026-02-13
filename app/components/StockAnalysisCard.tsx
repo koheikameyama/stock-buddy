@@ -43,9 +43,16 @@ interface PortfolioAnalysisData {
   sellCondition: string | null
 }
 
+interface PurchaseRecommendationData {
+  idealEntryPrice: number | null
+  idealEntryPriceExpiry: string | null
+  priceGap: number | null
+}
+
 export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
   const [prediction, setPrediction] = useState<PredictionData | null>(null)
   const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysisData | null>(null)
+  const [purchaseRecommendation, setPurchaseRecommendation] = useState<PurchaseRecommendationData | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [noData, setNoData] = useState(false)
@@ -55,10 +62,11 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
     setLoading(true)
     setError("")
     try {
-      // 両方のAPIを並列で取得
-      const [predictionRes, portfolioRes] = await Promise.all([
+      // 3つのAPIを並列で取得
+      const [predictionRes, portfolioRes, purchaseRecRes] = await Promise.all([
         fetch(`/api/stocks/${stockId}/analysis`),
         fetch(`/api/stocks/${stockId}/portfolio-analysis`),
+        fetch(`/api/stocks/${stockId}/purchase-recommendation`),
       ])
 
       // 価格帯予測データ
@@ -79,6 +87,16 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
         }
       } else if (portfolioRes.status === 404) {
         setNoData(true)
+      }
+
+      // 購入判断データ（理想の買い値）
+      if (purchaseRecRes.ok) {
+        const data = await purchaseRecRes.json()
+        setPurchaseRecommendation({
+          idealEntryPrice: data.idealEntryPrice,
+          idealEntryPriceExpiry: data.idealEntryPriceExpiry,
+          priceGap: data.priceGap,
+        })
       }
 
       // 両方とも取得できなかった場合
@@ -307,6 +325,24 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}
           </p>
+          {/* 買い推奨時に理想の買い値を表示 */}
+          {prediction.recommendation === "buy" && purchaseRecommendation?.idealEntryPrice && (
+            <div className="bg-green-50 rounded-lg p-3 mb-3">
+              <p className="text-sm text-gray-700">
+                📊 理想の買い値: <strong className="text-green-700">{purchaseRecommendation.idealEntryPrice.toLocaleString()}円</strong>
+                {purchaseRecommendation.idealEntryPriceExpiry && (
+                  <span className="text-gray-500 ml-1">
+                    （〜{new Date(purchaseRecommendation.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで）
+                  </span>
+                )}
+              </p>
+              {purchaseRecommendation.priceGap != null && (
+                <p className={`text-xs mt-1 ${purchaseRecommendation.priceGap < 0 ? "text-green-600" : "text-yellow-600"}`}>
+                  現在価格より{Math.abs(purchaseRecommendation.priceGap).toLocaleString()}円{purchaseRecommendation.priceGap < 0 ? "高い → 割安" : "安い → 様子見"}
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <div className="flex-1 bg-gray-200 rounded-full h-2">
               <div

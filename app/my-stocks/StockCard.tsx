@@ -73,7 +73,7 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     if (!recommendation) return null
 
     const displayMap = {
-      buy: { text: "買い時", color: "text-green-700", bg: "bg-green-50" },
+      buy: { text: "買い推奨", color: "text-green-700", bg: "bg-green-50" },
       hold: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
     }
 
