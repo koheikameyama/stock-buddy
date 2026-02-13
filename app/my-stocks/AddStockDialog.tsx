@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { toast } from "sonner"
 
 interface UserStock {
   id: string
@@ -233,8 +234,9 @@ export default function AddStockDialog({
       setAveragePrice("")
       setPurchaseDate(new Date().toISOString().split("T")[0])
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || "銘柄の追加に失敗しました")
+      const errorMessage = err.message || "銘柄の追加に失敗しました"
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

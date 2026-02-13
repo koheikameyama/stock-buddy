@@ -5,6 +5,7 @@ import GlobalChatWrapper from './components/GlobalChatWrapper'
 import AdSense from './components/AdSense'
 import GoogleAnalytics from './components/GoogleAnalytics'
 import { ChatProvider } from './contexts/ChatContext'
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
   title: 'Stock Buddy - AI投資アシスタント',
@@ -55,6 +56,7 @@ export default function RootLayout({
           <PWARegister />
           <GlobalChatWrapper />
           <AdSense />
+          <Toaster position="top-center" richColors />
         </ChatProvider>
       </body>
     </html>

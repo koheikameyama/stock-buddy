@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import StockCard from "./StockCard"
 import TrackedStockCard from "./TrackedStockCard"
 import SoldStockCard from "./SoldStockCard"
@@ -356,7 +357,7 @@ export default function MyStocksClient() {
       setActiveTab("watchlist")
     } catch (err) {
       console.error("Error adding to watchlist:", err)
-      alert(err instanceof Error ? err.message : "追加に失敗しました")
+      toast.error(err instanceof Error ? err.message : "追加に失敗しました")
     }
   }
 
@@ -383,7 +384,7 @@ export default function MyStocksClient() {
       setActiveTab("watchlist")
     } catch (err) {
       console.error("Error adding to watchlist:", err)
-      alert(err instanceof Error ? err.message : "追加に失敗しました")
+      toast.error(err instanceof Error ? err.message : "追加に失敗しました")
     }
   }
 

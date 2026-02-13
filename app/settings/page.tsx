@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { toast } from "sonner"
 
 type PushSubscriptionState = {
   supported: boolean
@@ -115,12 +116,13 @@ export default function SettingsPage() {
 
       if (response.ok) {
         setSettings(newSettings)
+        toast.success("設定を保存しました")
       } else {
-        alert("設定の保存に失敗しました")
+        toast.error("設定の保存に失敗しました")
       }
     } catch (error) {
       console.error("Error saving settings:", error)
-      alert("設定の保存に失敗しました")
+      toast.error("設定の保存に失敗しました")
     } finally {
       setSavingSettings(false)
     }
@@ -169,7 +171,7 @@ export default function SettingsPage() {
           })
         }
         setPushState({ ...pushState, subscribed: false, loading: false })
-        alert("プッシュ通知をオフにしました")
+        toast.success("プッシュ通知をオフにしました")
       } else {
         // Subscribe
         const response = await fetch("/api/push/subscribe")
@@ -187,11 +189,11 @@ export default function SettingsPage() {
         })
 
         setPushState({ ...pushState, subscribed: true, loading: false })
-        alert("プッシュ通知をオンにしました")
+        toast.success("プッシュ通知をオンにしました")
       }
     } catch (error) {
       console.error("Error toggling push notifications:", error)
-      alert("プッシュ通知の設定に失敗しました")
+      toast.error("プッシュ通知の設定に失敗しました")
       setPushState({ ...pushState, loading: false })
     }
   }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 
 interface UserStock {
   id: string
@@ -109,8 +110,9 @@ export default function AdditionalPurchaseDialog({
       const updatedStock = await response.json()
       onSuccess(updatedStock)
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || (isBuy ? "追加購入の登録に失敗しました" : "売却の登録に失敗しました"))
+      const errorMessage = err.message || (isBuy ? "追加購入の登録に失敗しました" : "売却の登録に失敗しました")
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
