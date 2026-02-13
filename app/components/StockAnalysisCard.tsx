@@ -325,14 +325,14 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
         )}
       </div>
 
-      {/* 損切りアラート */}
+      {/* 損切りアラート（ユーザーが損切りラインを設定している場合のみ表示） */}
       {(() => {
         const currentPrice = prediction?.currentPrice
         const avgPrice = portfolioAnalysis?.averagePurchasePrice
-        // デフォルト: -10%
-        const stopLossRate = portfolioAnalysis?.stopLossRate ?? -10
+        const stopLossRate = portfolioAnalysis?.stopLossRate
 
-        if (!currentPrice || !avgPrice) return null
+        // 損切りラインが未設定の場合は表示しない
+        if (!currentPrice || !avgPrice || stopLossRate === null || stopLossRate === undefined) return null
 
         const changePercent = ((currentPrice - avgPrice) / avgPrice) * 100
         const isStopLossReached = changePercent <= stopLossRate
@@ -341,34 +341,32 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
 
         return (
           <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-2 mb-3">
               <span className="text-2xl">⚠️</span>
-              <div className="flex-1">
-                <p className="font-bold text-red-800 mb-2">
-                  損切りライン到達（{changePercent.toFixed(1)}%）
-                </p>
-                <div className="bg-white rounded-lg p-3 mb-3">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">買値</span>
-                    <span className="font-semibold">{avgPrice.toLocaleString()}円</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm mt-1">
-                    <span className="text-gray-600">現在価格</span>
-                    <span className="font-semibold text-red-600">{currentPrice.toLocaleString()}円</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm mt-1">
-                    <span className="text-gray-600">設定した損切りライン</span>
-                    <span className="font-semibold">{stopLossRate}%</span>
-                  </div>
-                </div>
-                <div className="bg-amber-50 rounded-lg p-3 text-sm">
-                  <p className="font-semibold text-amber-800 mb-1">💡 損切りとは？</p>
-                  <p className="text-amber-700">
-                    損失を限定し、次の投資機会を守る判断です。
-                    プロは「損切りルールを守る」ことで資産を守っています。
-                  </p>
-                </div>
+              <p className="font-bold text-red-800">
+                損切りライン到達（{changePercent.toFixed(1)}%）
+              </p>
+            </div>
+            <div className="bg-white rounded-lg p-3 mb-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">買値</span>
+                <span className="font-semibold">{avgPrice.toLocaleString()}円</span>
               </div>
+              <div className="flex justify-between items-center text-sm mt-1">
+                <span className="text-gray-600">現在価格</span>
+                <span className="font-semibold text-red-600">{currentPrice.toLocaleString()}円</span>
+              </div>
+              <div className="flex justify-between items-center text-sm mt-1">
+                <span className="text-gray-600">設定した損切りライン</span>
+                <span className="font-semibold">{stopLossRate}%</span>
+              </div>
+            </div>
+            <div className="bg-amber-50 rounded-lg p-3 text-sm">
+              <p className="font-semibold text-amber-800 mb-1">💡 損切りとは？</p>
+              <p className="text-amber-700">
+                損失を限定し、次の投資機会を守る判断です。
+                プロは「損切りルールを守る」ことで資産を守っています。
+              </p>
             </div>
           </div>
         )
@@ -384,32 +382,41 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}
           </p>
-          {/* 指値・逆指値 */}
-          {(prediction.limitPrice || prediction.stopLossPrice) && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-              <p className="text-sm font-semibold text-gray-800 mb-2">🎯 AI推奨価格</p>
-              <div className="grid grid-cols-2 gap-3">
-                {prediction.limitPrice && (
-                  <div>
-                    <p className="text-xs text-gray-500">
-                      {prediction.recommendation === "buy" ? "買い指値" : "利確目標"}
-                    </p>
-                    <p className="text-base font-bold text-green-600">
-                      {formatPrice(prediction.limitPrice)}円
-                    </p>
-                  </div>
-                )}
-                {prediction.stopLossPrice && (
-                  <div>
-                    <p className="text-xs text-gray-500">逆指値（損切り）</p>
-                    <p className="text-base font-bold text-red-600">
-                      {formatPrice(prediction.stopLossPrice)}円
-                    </p>
-                  </div>
-                )}
+          {/* 指値・逆指値（推奨に応じて表示を切り替え） */}
+          {(() => {
+            // buy → 指値 + 逆指値、sell → 逆指値のみ、hold → 両方
+            const showLimitPrice = prediction.recommendation === "buy" || prediction.recommendation === "hold"
+            const showStopLossPrice = true // 全推奨で逆指値を表示
+            const hasPrice = (showLimitPrice && prediction.limitPrice) || (showStopLossPrice && prediction.stopLossPrice)
+
+            if (!hasPrice) return null
+
+            return (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                <p className="text-sm font-semibold text-gray-800 mb-2">🎯 AI推奨価格</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {showLimitPrice && prediction.limitPrice && (
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        {prediction.recommendation === "buy" ? "買い指値" : "利確目標"}
+                      </p>
+                      <p className="text-base font-bold text-green-600">
+                        {formatPrice(prediction.limitPrice)}円
+                      </p>
+                    </div>
+                  )}
+                  {showStopLossPrice && prediction.stopLossPrice && (
+                    <div>
+                      <p className="text-xs text-gray-500">逆指値（損切り）</p>
+                      <p className="text-base font-bold text-red-600">
+                        {formatPrice(prediction.stopLossPrice)}円
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
           {/* ユーザー設定に基づく目標価格 */}
           {(portfolioAnalysis?.userTargetPrice || portfolioAnalysis?.userStopLossPrice) && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
