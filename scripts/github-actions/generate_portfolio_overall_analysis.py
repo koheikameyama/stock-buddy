@@ -5,7 +5,7 @@
 ポートフォリオ + ウォッチリスト >= 3銘柄のユーザーに対して、
 全体の分析（セクター分散度、ボラティリティなど）を生成します。
 
-実行タイミング: 8:00 JST、15:30 JST
+実行タイミング: 15:30 JST（大引け後のみ）
 """
 
 import json
@@ -33,10 +33,10 @@ def get_database_url() -> str:
 
 
 def should_run() -> bool:
-    """実行すべき時間帯かどうかを判定（8:00または15:30のみ）"""
+    """実行すべき時間帯かどうかを判定（15:30のみ）"""
     # TIME_CONTEXTで判定
-    # morning = 8:00, close = 15:30
-    return TIME_CONTEXT in ("morning", "close")
+    # close = 15:30
+    return TIME_CONTEXT == "close"
 
 
 def fetch_eligible_users(conn) -> list[dict]:
@@ -246,7 +246,7 @@ def generate_analysis_with_ai(
         for s in watchlist_stocks
     ) if watchlist_stocks else "なし"
 
-    time_intro = "朝の分析です。" if TIME_CONTEXT == "morning" else "取引終了後のまとめです。"
+    time_intro = "取引終了後のまとめです。"
 
     prompt = f"""あなたは投資初心者向けのAIコーチです。
 {time_intro}以下のポートフォリオ情報を分析し、総評と指標別の解説を提供してください。
@@ -401,7 +401,7 @@ def main():
     # 実行時間帯チェック
     if not should_run():
         print(f"スキップ: TIME_CONTEXT={TIME_CONTEXT}は実行対象外です")
-        print("実行対象: morning (8:00), close (15:30)")
+        print("実行対象: close (15:30)のみ")
         return
 
     conn = psycopg2.connect(get_database_url())
