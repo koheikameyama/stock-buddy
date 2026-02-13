@@ -21,7 +21,14 @@ from openai import OpenAI
 CONFIG = {
     "MAX_PER_SECTOR": 5,       # 各セクターからの最大銘柄数
     "MAX_STOCKS_FOR_AI": 30,   # AIに渡す最大銘柄数
-    "MAX_VOLATILITY": 50,      # ボラティリティ上限（%）- 赤字 AND 高ボラの組み合わせで除外
+    "MAX_VOLATILITY": 50,      # ボラティリティ上限（%）- 赤字 AND 高ボラの組み合わせでペナルティ
+}
+
+# 赤字 AND 高ボラティリティ銘柄へのスコアペナルティ（投資スタイル別）
+RISK_PENALTY = {
+    "high": 0,      # 高リスク志向: ペナルティなし
+    "medium": -15,  # 中リスク志向: -15点
+    "low": -30,     # 低リスク志向: -30点
 }
 
 # 投資スタイル別のスコア配分（period × risk）
@@ -268,6 +275,11 @@ def calculate_stock_scores(
         "marketCap": normalize_values(stocks, "marketCap"),
     }
 
+    # 赤字 AND 高ボラ銘柄へのペナルティ
+    max_vol = CONFIG["MAX_VOLATILITY"]
+    penalty = RISK_PENALTY.get(risk or "medium", -15)
+    penalty_count = 0
+
     # スコア計算
     scored_stocks = []
     for stock in stocks:
@@ -287,11 +299,25 @@ def calculate_stock_scores(
                 total_score += component_score
                 score_breakdown[key] = round(component_score, 1)
 
+        # 赤字 AND 高ボラティリティの場合はペナルティを適用
+        is_high_risk_stock = (
+            stock.get("isProfitable") is False
+            and stock.get("volatility") is not None
+            and stock["volatility"] > max_vol
+        )
+        if is_high_risk_stock and penalty != 0:
+            total_score += penalty
+            score_breakdown["riskPenalty"] = penalty
+            penalty_count += 1
+
         scored_stocks.append({
             **stock,
             "score": round(total_score, 2),
             "scoreBreakdown": score_breakdown,
         })
+
+    if penalty_count > 0:
+        print(f"  Applied risk penalty ({penalty}) to {penalty_count} stocks (unprofitable AND volatility>{max_vol}%)")
 
     # スコア順にソート
     scored_stocks.sort(key=lambda x: x["score"], reverse=True)
@@ -319,37 +345,6 @@ def filter_stocks_by_budget(stocks: list[dict], budget: int | None) -> list[dict
     if not budget:
         return stocks
     return [s for s in stocks if s["latestPrice"] * 100 <= budget]
-
-
-def filter_risky_stocks(stocks: list[dict], risk_tolerance: str | None) -> list[dict]:
-    """リスクの高い銘柄を除外（赤字 AND 高ボラティリティの組み合わせ）
-
-    - 高リスク志向: フィルタなし
-    - 中・低リスク志向: 赤字 AND 高ボラの銘柄を除外
-    """
-    # 高リスク志向はフィルタなし
-    if risk_tolerance == "high":
-        print("  Risk filter: skipped (high risk tolerance)")
-        return stocks
-
-    max_vol = CONFIG["MAX_VOLATILITY"]
-    before = len(stocks)
-
-    # 赤字 AND 高ボラティリティの組み合わせのみ除外
-    filtered = [
-        s for s in stocks
-        if not (
-            s.get("isProfitable") is False
-            and s.get("volatility") is not None
-            and s["volatility"] > max_vol
-        )
-    ]
-
-    excluded = before - len(filtered)
-    if excluded > 0:
-        print(f"  Excluded {excluded} high-risk stocks (unprofitable AND volatility>{max_vol}%)")
-
-    return filtered
 
 
 def generate_recommendations_for_user(
@@ -496,7 +491,8 @@ def main():
     print(f"Config:")
     print(f"  - MAX_PER_SECTOR: {CONFIG['MAX_PER_SECTOR']}")
     print(f"  - MAX_STOCKS_FOR_AI: {CONFIG['MAX_STOCKS_FOR_AI']}")
-    print(f"  - MAX_VOLATILITY: {CONFIG['MAX_VOLATILITY']}% (for unprofitable AND high-vol filter)")
+    print(f"  - MAX_VOLATILITY: {CONFIG['MAX_VOLATILITY']}% (threshold for risk penalty)")
+    print(f"  - RISK_PENALTY: {RISK_PENALTY}")
     print()
 
     # クライアント初期化
@@ -542,24 +538,15 @@ def main():
                 error_count += 1
                 continue
 
-            # 2. リスクの高い銘柄を除外（赤字 AND 高ボラの組み合わせ、高リスク志向は除外しない）
-            filtered = filter_risky_stocks(filtered, risk)
-            print(f"  Stocks after risk filter: {len(filtered)}")
-
-            if not filtered:
-                print("  No stocks available after risk filter. Skipping.")
-                error_count += 1
-                continue
-
-            # 3. 投資スタイルに基づいてスコア計算
+            # 2. 投資スタイルに基づいてスコア計算（赤字 AND 高ボラにはペナルティ適用）
             scored = calculate_stock_scores(filtered, period, risk)
             print(f"  Top 3 scores: {[(s['tickerCode'], s['score']) for s in scored[:3]]}")
 
-            # 4. セクター分散を適用
+            # 3. セクター分散を適用
             diversified = apply_sector_diversification(scored)
             print(f"  After sector diversification: {len(diversified)} stocks")
 
-            # 5. ポートフォリオ・ウォッチリストの銘柄を除外（3件以下なら除外しない）
+            # 4. ポートフォリオ・ウォッチリストの銘柄を除外（3件以下なら除外しない）
             registered_ids = all_registered.get(user["userId"], set())
             if registered_ids:
                 candidates = [s for s in diversified if s["id"] not in registered_ids]
