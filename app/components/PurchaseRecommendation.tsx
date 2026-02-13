@@ -26,7 +26,7 @@ interface RecommendationData {
   stockName: string
   tickerCode: string
   currentPrice: number | null
-  recommendation: "buy" | "stay"
+  recommendation: "buy" | "stay" | "remove"
   confidence: number
   reason: string
   caution: string
@@ -342,6 +342,53 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             <div className="flex-1 bg-gray-200 rounded-full h-2">
               <div
                 className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${confidencePercent}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-600 whitespace-nowrap">信頼度 {confidencePercent}%</span>
+          </div>
+
+          <div className="text-center space-y-1">
+            <AnalysisTimestamp dateString={data.analyzedAt} />
+            <p className="text-xs text-gray-400">
+              更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 見送り推奨（remove）
+  if (data.recommendation === "remove") {
+    return (
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg shadow-md p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-2xl">🚫</span>
+            <h3 className="text-base sm:text-lg font-bold text-red-800">見送りをおすすめします</h3>
+          </div>
+
+          <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
+
+          <div className="bg-red-100 border-l-4 border-red-500 p-3 mb-4">
+            <p className="text-xs text-red-800 font-semibold">
+              この銘柄はリスクが高く、回復の見込みが低いと判断しました。
+              ウォッチリストから外すことを検討してください。
+            </p>
+          </div>
+
+          {/* B. 深掘り評価 */}
+          <DeepEvaluationSection />
+
+          <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
+            <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
+          </div>
+
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex-1 bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-red-500 h-2 rounded-full transition-all duration-500"
                 style={{ width: `${confidencePercent}%` }}
               />
             </div>

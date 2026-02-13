@@ -353,7 +353,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
-  "recommendation": "buy" | "stay",
+  "recommendation": "buy" | "stay" | "remove",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "caution": "注意点を1-2文",
@@ -392,6 +392,15 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
 - idealEntryPriceExpiryは市場状況に応じて1日〜2週間程度の範囲で設定（短期的な値動きが予想される場合は短め、安定している場合は長め）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
+
+【"remove"（見送り推奨）について】
+- "remove"はウォッチリストから外すことを推奨する判断です
+- 以下の条件が複数揃い、回復の見込みが極めて低い場合のみ使用してください:
+  * 赤字が継続し、業績改善の兆しがない
+  * 下落トレンドが継続している（テクニカル指標がすべてネガティブ）
+  * 悪材料が出ており、株価下落が続く見込み
+- "remove"を選ぶ場合は、confidence を 0.8 以上に設定してください
+- 迷う場合は "stay" を選んでください。"remove" は確信がある場合のみ使用
 `
 
     // OpenAI API呼び出し（Structured Outputs使用）
@@ -415,7 +424,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
           schema: {
             type: "object",
             properties: {
-              recommendation: { type: "string", enum: ["buy", "stay"] },
+              recommendation: { type: "string", enum: ["buy", "stay", "remove"] },
               confidence: { type: "number" },
               reason: { type: "string" },
               caution: { type: "string" },
@@ -451,6 +460,11 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 
     const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
+
+    // "remove" は confidence >= 0.8 の場合のみ許可（それ以下は "stay" にフォールバック）
+    if (result.recommendation === "remove" && result.confidence < 0.8) {
+      result.recommendation = "stay"
+    }
 
     // データベースに保存（upsert）
     const today = dayjs.utc().startOf("day").toDate()
