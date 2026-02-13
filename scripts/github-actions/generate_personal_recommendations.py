@@ -21,8 +21,7 @@ from openai import OpenAI
 CONFIG = {
     "MAX_PER_SECTOR": 5,       # 各セクターからの最大銘柄数
     "MAX_STOCKS_FOR_AI": 30,   # AIに渡す最大銘柄数
-    "EXCLUDE_UNPROFITABLE": True,  # 赤字企業を除外
-    "MAX_VOLATILITY": 50,      # ボラティリティ上限（%）
+    "MAX_VOLATILITY": 50,      # ボラティリティ上限（%）- 赤字 AND 高ボラの組み合わせで除外
 }
 
 # 投資スタイル別のスコア配分（period × risk）
@@ -322,29 +321,33 @@ def filter_stocks_by_budget(stocks: list[dict], budget: int | None) -> list[dict
     return [s for s in stocks if s["latestPrice"] * 100 <= budget]
 
 
-def filter_risky_stocks(stocks: list[dict]) -> list[dict]:
-    """リスクの高い銘柄を除外（赤字企業・高ボラティリティ）"""
-    filtered = stocks
+def filter_risky_stocks(stocks: list[dict], risk_tolerance: str | None) -> list[dict]:
+    """リスクの高い銘柄を除外（赤字 AND 高ボラティリティの組み合わせ）
 
-    # 赤字企業を除外
-    if CONFIG["EXCLUDE_UNPROFITABLE"]:
-        before = len(filtered)
-        filtered = [s for s in filtered if s.get("isProfitable") is True]
-        excluded = before - len(filtered)
-        if excluded > 0:
-            print(f"  Excluded {excluded} unprofitable stocks")
+    - 高リスク志向: フィルタなし
+    - 中・低リスク志向: 赤字 AND 高ボラの銘柄を除外
+    """
+    # 高リスク志向はフィルタなし
+    if risk_tolerance == "high":
+        print("  Risk filter: skipped (high risk tolerance)")
+        return stocks
 
-    # 高ボラティリティ銘柄を除外
     max_vol = CONFIG["MAX_VOLATILITY"]
-    if max_vol:
-        before = len(filtered)
-        filtered = [
-            s for s in filtered
-            if s.get("volatility") is None or s["volatility"] <= max_vol
-        ]
-        excluded = before - len(filtered)
-        if excluded > 0:
-            print(f"  Excluded {excluded} high-volatility stocks (>{max_vol}%)")
+    before = len(stocks)
+
+    # 赤字 AND 高ボラティリティの組み合わせのみ除外
+    filtered = [
+        s for s in stocks
+        if not (
+            s.get("isProfitable") is False
+            and s.get("volatility") is not None
+            and s["volatility"] > max_vol
+        )
+    ]
+
+    excluded = before - len(filtered)
+    if excluded > 0:
+        print(f"  Excluded {excluded} high-risk stocks (unprofitable AND volatility>{max_vol}%)")
 
     return filtered
 
@@ -493,8 +496,7 @@ def main():
     print(f"Config:")
     print(f"  - MAX_PER_SECTOR: {CONFIG['MAX_PER_SECTOR']}")
     print(f"  - MAX_STOCKS_FOR_AI: {CONFIG['MAX_STOCKS_FOR_AI']}")
-    print(f"  - EXCLUDE_UNPROFITABLE: {CONFIG['EXCLUDE_UNPROFITABLE']}")
-    print(f"  - MAX_VOLATILITY: {CONFIG['MAX_VOLATILITY']}%")
+    print(f"  - MAX_VOLATILITY: {CONFIG['MAX_VOLATILITY']}% (for unprofitable AND high-vol filter)")
     print()
 
     # クライアント初期化
@@ -540,8 +542,8 @@ def main():
                 error_count += 1
                 continue
 
-            # 2. リスクの高い銘柄を除外（赤字企業・高ボラティリティ）
-            filtered = filter_risky_stocks(filtered)
+            # 2. リスクの高い銘柄を除外（赤字 AND 高ボラの組み合わせ、高リスク志向は除外しない）
+            filtered = filter_risky_stocks(filtered, risk)
             print(f"  Stocks after risk filter: {len(filtered)}")
 
             if not filtered:
