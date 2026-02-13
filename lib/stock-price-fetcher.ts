@@ -38,6 +38,7 @@ export interface EarningsData {
   latestNetIncome?: number | null
   revenueGrowth?: number | null
   netIncomeGrowth?: number | null
+  eps?: number | null
   isProfitable?: boolean | null
   profitTrend?: string | null
   error?: string

@@ -99,6 +99,7 @@ interface PortfolioStockData {
   profitTrend: string | null
   revenueGrowth: number | null
   netIncomeGrowth: number | null
+  eps: number | null
 }
 
 interface WatchlistStockData {
@@ -111,6 +112,7 @@ interface WatchlistStockData {
   profitTrend: string | null
   revenueGrowth: number | null
   netIncomeGrowth: number | null
+  eps: number | null
 }
 
 function getOpenAIClient() {
@@ -228,13 +230,18 @@ async function generateAnalysisWithAI(
     .map(s => `${s.sector}: ${s.percentage.toFixed(1)}%（${s.count}銘柄）`)
     .join("\n")
 
-  const formatEarningsInfo = (s: { isProfitable: boolean | null; profitTrend: string | null; netIncomeGrowth: number | null }) => {
+  const formatEarningsInfo = (s: { isProfitable: boolean | null; profitTrend: string | null; netIncomeGrowth: number | null; eps: number | null }) => {
     if (s.isProfitable === null) return ""
-    const status = s.isProfitable ? "黒字" : "赤字"
+    const status = s.isProfitable ? "黒字" : "⚠️赤字"
     const trend = s.profitTrend === "increasing" ? "増益" : s.profitTrend === "decreasing" ? "減益" : "横ばい"
     const growth = s.netIncomeGrowth !== null ? `${s.netIncomeGrowth >= 0 ? "+" : ""}${s.netIncomeGrowth.toFixed(1)}%` : ""
-    return `【業績: ${status}・${trend}${growth ? `（前年比${growth}）` : ""}】`
+    const epsInfo = s.eps !== null ? `EPS: ¥${s.eps.toFixed(2)}` : ""
+    return `【業績: ${status}・${trend}${growth ? `（前年比${growth}）` : ""}${epsInfo ? ` / ${epsInfo}` : ""}】`
   }
+
+  // リスクフィルタリング: 赤字銘柄を特定
+  const unprofitablePortfolioStocks = portfolioStocks.filter(s => s.isProfitable === false)
+  const unprofitableWatchlistStocks = watchlistStocks.filter(s => s.isProfitable === false)
 
   const portfolioStocksText = portfolioStocks
     .map(s => `- ${s.name}（${s.tickerCode}）: ${s.sector || "その他"}、評価額 ¥${Math.round(s.value).toLocaleString()} ${formatEarningsInfo(s)}`)
@@ -275,6 +282,14 @@ ${sectorBreakdownText}
 ${hasEarningsData ? `- 黒字銘柄: ${profitableCount}/${portfolioStocks.length}銘柄
 - 増益傾向: ${increasingCount}銘柄
 - 減益傾向: ${decreasingCount}銘柄` : "業績データなし"}
+
+【⚠️ リスク警告: 赤字銘柄】
+${unprofitablePortfolioStocks.length > 0
+  ? `ポートフォリオ: ${unprofitablePortfolioStocks.map(s => s.name).join("、")}（${unprofitablePortfolioStocks.length}銘柄が赤字）`
+  : "ポートフォリオ: 赤字銘柄なし"}
+${unprofitableWatchlistStocks.length > 0
+  ? `ウォッチリスト: ${unprofitableWatchlistStocks.map(s => s.name).join("、")}（${unprofitableWatchlistStocks.length}銘柄が赤字）`
+  : "ウォッチリスト: 赤字銘柄なし"}
 
 【ウォッチリスト銘柄】
 ${watchlistStocksText}
@@ -537,6 +552,7 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
       profitTrend: earnings?.profitTrend ?? null,
       revenueGrowth: earnings?.revenueGrowth ?? null,
       netIncomeGrowth: earnings?.netIncomeGrowth ?? null,
+      eps: earnings?.eps ?? null,
     })
 
     totalValue += value
@@ -555,6 +571,7 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
       profitTrend: earnings?.profitTrend ?? null,
       revenueGrowth: earnings?.revenueGrowth ?? null,
       netIncomeGrowth: earnings?.netIncomeGrowth ?? null,
+      eps: earnings?.eps ?? null,
     }
   })
 

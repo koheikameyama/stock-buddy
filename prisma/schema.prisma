@@ -125,6 +125,7 @@ model Stock {
   latestNetIncome        Decimal?           @db.Decimal(18, 0) // 直近通期純利益（円）
   revenueGrowth          Decimal?           @db.Decimal(8, 2)  // 売上高前年比（%）
   netIncomeGrowth        Decimal?           @db.Decimal(8, 2)  // 純利益前年比（%）
+  eps                    Decimal?           @db.Decimal(12, 2) // 1株当たり利益（EPS）
   isProfitable           Boolean?           // 黒字かどうか
   profitTrend            String?            // 'increasing' | 'decreasing' | 'stable'
   earningsUpdatedAt      DateTime?          // 業績データ更新日時

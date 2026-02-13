@@ -9,6 +9,7 @@ yfinanceから損益計算書データを取得し、Stockテーブルの業績�
 - latestNetIncome: 直近通期純利益
 - revenueGrowth: 売上高前年比（%）
 - netIncomeGrowth: 純利益前年比（%）
+- eps: 1株当たり利益（EPS）
 - isProfitable: 黒字かどうか
 - profitTrend: 'increasing' | 'decreasing' | 'stable'
 """
@@ -83,6 +84,19 @@ def fetch_earnings_data(ticker_code: str) -> dict | None:
             latest_net_income = float(income.loc["Net Income", years[0]]) if len(years) > 0 else None
             prev_net_income = float(income.loc["Net Income", years[1]]) if len(years) > 1 else None
 
+        # EPS（1株当たり利益）- Basic EPSを優先、なければDiluted EPS
+        eps = None
+        if "Basic EPS" in income.index and len(years) > 0:
+            try:
+                eps = float(income.loc["Basic EPS", years[0]])
+            except:
+                pass
+        if eps is None and "Diluted EPS" in income.index and len(years) > 0:
+            try:
+                eps = float(income.loc["Diluted EPS", years[0]])
+            except:
+                pass
+
         # 前年比計算
         revenue_growth = None
         if latest_revenue and prev_revenue and prev_revenue != 0:
@@ -110,6 +124,7 @@ def fetch_earnings_data(ticker_code: str) -> dict | None:
             "latestNetIncome": latest_net_income,
             "revenueGrowth": revenue_growth,
             "netIncomeGrowth": net_income_growth,
+            "eps": eps,
             "isProfitable": is_profitable,
             "profitTrend": profit_trend,
         }
@@ -129,6 +144,7 @@ def update_earnings_data(conn, stock_id: str, data: dict):
                 "latestNetIncome" = %s,
                 "revenueGrowth" = %s,
                 "netIncomeGrowth" = %s,
+                "eps" = %s,
                 "isProfitable" = %s,
                 "profitTrend" = %s,
                 "earningsUpdatedAt" = NOW()
@@ -138,6 +154,7 @@ def update_earnings_data(conn, stock_id: str, data: dict):
             data.get("latestNetIncome"),
             data.get("revenueGrowth"),
             data.get("netIncomeGrowth"),
+            data.get("eps"),
             data.get("isProfitable"),
             data.get("profitTrend"),
             stock_id,
@@ -185,13 +202,15 @@ def main():
                 # 結果表示
                 revenue = data.get("latestRevenue")
                 net_income = data.get("latestNetIncome")
+                eps = data.get("eps")
                 trend = data.get("profitTrend")
                 profitable = "黒字" if data.get("isProfitable") else "赤字"
 
                 revenue_str = f"{revenue/1e12:.2f}兆円" if revenue and revenue >= 1e12 else f"{revenue/1e8:.0f}億円" if revenue else "-"
                 income_str = f"{net_income/1e12:.2f}兆円" if net_income and abs(net_income) >= 1e12 else f"{net_income/1e8:.0f}億円" if net_income else "-"
+                eps_str = f"EPS: ¥{eps:.2f}" if eps else "EPS: -"
 
-                print(f"  -> 売上: {revenue_str}, 純利益: {income_str} ({profitable}, {trend})")
+                print(f"  -> 売上: {revenue_str}, 純利益: {income_str} ({profitable}, {trend}), {eps_str}")
                 success_count += 1
 
             except Exception as e:

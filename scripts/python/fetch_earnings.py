@@ -43,6 +43,19 @@ def fetch_earnings(ticker_codes: list[str]) -> list[dict]:
                 latest_net_income = float(income.loc["Net Income", years[0]]) if len(years) > 0 else None
                 prev_net_income = float(income.loc["Net Income", years[1]]) if len(years) > 1 else None
 
+            # EPS（1株当たり利益）- Basic EPSを優先、なければDiluted EPS
+            eps = None
+            if "Basic EPS" in income.index and len(years) > 0:
+                try:
+                    eps = float(income.loc["Basic EPS", years[0]])
+                except:
+                    pass
+            if eps is None and "Diluted EPS" in income.index and len(years) > 0:
+                try:
+                    eps = float(income.loc["Diluted EPS", years[0]])
+                except:
+                    pass
+
             # 前年比計算
             revenue_growth = None
             if latest_revenue and prev_revenue and prev_revenue != 0:
@@ -72,6 +85,7 @@ def fetch_earnings(ticker_codes: list[str]) -> list[dict]:
                 "latestNetIncome": latest_net_income,
                 "revenueGrowth": round(revenue_growth, 2) if revenue_growth else None,
                 "netIncomeGrowth": round(net_income_growth, 2) if net_income_growth else None,
+                "eps": round(eps, 2) if eps else None,
                 "isProfitable": is_profitable,
                 "profitTrend": profit_trend,
             })
