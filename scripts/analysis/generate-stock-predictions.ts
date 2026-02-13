@@ -14,6 +14,15 @@ import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 const prisma = new PrismaClient()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+interface SupportResistance {
+  support1: number // 直近サポート（20日安値）
+  support2: number // 長期サポート（60日安値）
+  resistance1: number // 直近レジスタンス（20日高値）
+  resistance2: number // 長期レジスタンス（60日高値）
+  sma20: number // 20日移動平均線
+  sma60: number | null // 60日移動平均線
+}
+
 interface BaselineData {
   currentPrice: number
   weeklyTrend: "up" | "neutral" | "down"
@@ -22,6 +31,7 @@ interface BaselineData {
   volatility: number
   candlestickPattern: { description: string; signal: string; strength: number } | null
   recentPatterns: { buySignals: number; sellSignals: number } | null
+  supportResistance: SupportResistance | null
 }
 
 interface PriceHistory {
@@ -163,6 +173,44 @@ async function getBaselineData(tickerCode: string): Promise<BaselineData | null>
     const candlestickPattern = priceHistory.length > 0 ? analyzeCandlestick(priceHistory[0]) : null
     const recentPatterns = priceHistory.length >= 5 ? getRecentPatternSummary(priceHistory.slice(0, 5)) : null
 
+    // サポート・レジスタンス計算
+    let supportResistance: SupportResistance | null = null
+    if (priceHistory.length >= 20) {
+      const recent20 = priceHistory.slice(0, 20)
+      const recent60 = priceHistory.slice(0, Math.min(60, priceHistory.length))
+
+      // 直近20日の高値・安値
+      const highs20 = recent20.map((p) => p.high)
+      const lows20 = recent20.map((p) => p.low)
+      const support1 = Math.min(...lows20)
+      const resistance1 = Math.max(...highs20)
+
+      // 60日（または全期間）の高値・安値
+      const highs60 = recent60.map((p) => p.high)
+      const lows60 = recent60.map((p) => p.low)
+      const support2 = Math.min(...lows60)
+      const resistance2 = Math.max(...highs60)
+
+      // 移動平均線
+      const closes20 = recent20.map((p) => p.close)
+      const sma20 = closes20.reduce((a, b) => a + b, 0) / closes20.length
+
+      let sma60: number | null = null
+      if (priceHistory.length >= 60) {
+        const closes60 = recent60.map((p) => p.close)
+        sma60 = closes60.reduce((a, b) => a + b, 0) / closes60.length
+      }
+
+      supportResistance = {
+        support1,
+        support2,
+        resistance1,
+        resistance2,
+        sma20,
+        sma60,
+      }
+    }
+
     return {
       currentPrice,
       weeklyTrend,
@@ -171,6 +219,7 @@ async function getBaselineData(tickerCode: string): Promise<BaselineData | null>
       volatility,
       candlestickPattern,
       recentPatterns,
+      supportResistance,
     }
   } catch (error) {
     console.log(`Error fetching baseline data for ${tickerCode}: ${error}`)
@@ -185,6 +234,8 @@ interface PredictionResult {
   recommendation: string
   advice: string
   confidence: number
+  limitPrice: number | null // 指値（理想の買値）
+  stopLossPrice: number | null // 逆指値（損切りライン）
 }
 
 async function generateAIPrediction(
@@ -218,6 +269,19 @@ ${formatNewsForPrompt(relatedNews)}
     }
   }
 
+  let supportResistanceContext = ""
+  if (baseline.supportResistance) {
+    const sr = baseline.supportResistance
+    supportResistanceContext = `
+
+【サポート・レジスタンス分析】
+- 直近サポート（20日安値）: ${sr.support1.toFixed(2)}円
+- 長期サポート（60日安値）: ${sr.support2.toFixed(2)}円
+- 直近レジスタンス（20日高値）: ${sr.resistance1.toFixed(2)}円
+- 長期レジスタンス（60日高値）: ${sr.resistance2.toFixed(2)}円
+- 20日移動平均線: ${sr.sma20.toFixed(2)}円${sr.sma60 ? `\n- 60日移動平均線: ${sr.sma60.toFixed(2)}円` : ""}`
+  }
+
   const prompt = `あなたは株式投資の初心者向けアドバイザーです。
 以下の銘柄について、今後の動向予測とアドバイスを生成してください。
 
@@ -234,7 +298,7 @@ ${formatNewsForPrompt(relatedNews)}
 
 【ボラティリティ（価格変動幅）】
 ${baseline.volatility.toFixed(2)}円
-${patternContext}${newsContext}
+${patternContext}${supportResistanceContext}${newsContext}
 ---
 
 以下の形式でJSON形式で回答してください：
@@ -257,7 +321,9 @@ ${patternContext}${newsContext}
   },
   "recommendation": "buy" | "hold" | "sell",
   "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で、ニュース情報があれば参考にする）",
-  "confidence": 0.0〜1.0の信頼度
+  "confidence": 0.0〜1.0の信頼度,
+  "limitPrice": 数値またはnull（買い推奨時の理想的な買値。サポートライン付近を参考に設定。holdやsellの場合はnull）,
+  "stopLossPrice": 数値またはnull（損切りライン。サポートラインを少し下回る価格に設定。holdやsellの場合はnull）
 }
 
 注意事項:
@@ -266,7 +332,12 @@ ${patternContext}${newsContext}
 - 価格予測は現在価格とボラティリティを考慮した現実的な範囲にする
 - アドバイスは具体的で分かりやすく
 - 断定的な表現は避け、「〜が期待できます」「〜の可能性があります」など柔らかい表現を使う
-- 投資判断は最終的にユーザー自身が行うことを前提にする`
+- 投資判断は最終的にユーザー自身が行うことを前提にする
+
+指値・逆指値の設定ガイド:
+- 指値（limitPrice）: サポートライン（直近安値や移動平均線）付近が理想。現在価格より数%安い水準で押し目買いを狙う
+- 逆指値（stopLossPrice）: サポートラインを明確に下回った水準。サポートを割り込んだら損切りする想定
+- サポート・レジスタンスの情報がない場合は、現在価格を基準に5-10%のレンジで設定`
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -382,12 +453,16 @@ async function main(): Promise<void> {
             recommendation: prediction.recommendation,
             advice: prediction.advice,
             confidence: prediction.confidence,
+            limitPrice: prediction.limitPrice,
+            stopLossPrice: prediction.stopLossPrice,
             analyzedAt: new Date(),
           },
         })
 
         success++
-        console.log(`  Saved (recommendation: ${prediction.recommendation})`)
+        const limitInfo = prediction.limitPrice ? `, 指値: ¥${prediction.limitPrice}` : ""
+        const stopLossInfo = prediction.stopLossPrice ? `, 逆指値: ¥${prediction.stopLossPrice}` : ""
+        console.log(`  Saved (recommendation: ${prediction.recommendation}${limitInfo}${stopLossInfo})`)
       } catch (error) {
         console.log(`  Error: ${error}`)
         failed++

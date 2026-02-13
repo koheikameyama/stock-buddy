@@ -189,6 +189,10 @@ model StockAnalysis {
   advice              String   @db.Text // AI生成のアドバイス
   confidence          Float    // 0.0 - 1.0
 
+  // 指値・逆指値
+  limitPrice          Decimal? @db.Decimal(12, 2) // 指値（理想の買値）
+  stopLossPrice       Decimal? @db.Decimal(12, 2) // 逆指値（損切りライン）
+
   analyzedAt          DateTime @default(now())
   createdAt           DateTime @default(now())
 
