@@ -40,24 +40,33 @@ export async function GET(
 
     const userId = session.user.id
 
-    // ポートフォリオ分析を取得
-    const portfolioStock = await prisma.portfolioStock.findFirst({
-      where: {
-        userId,
-        stockId,
-      },
-      select: {
-        shortTerm: true,
-        mediumTerm: true,
-        longTerm: true,
-        lastAnalysis: true,
-        emotionalCoaching: true,
-        simpleStatus: true,
-        statusType: true,
-        suggestedSellPrice: true,
-        sellCondition: true,
-      },
-    })
+    // ポートフォリオ分析とユーザー設定を取得
+    const [portfolioStock, userSettings] = await Promise.all([
+      prisma.portfolioStock.findFirst({
+        where: {
+          userId,
+          stockId,
+        },
+        select: {
+          shortTerm: true,
+          mediumTerm: true,
+          longTerm: true,
+          lastAnalysis: true,
+          emotionalCoaching: true,
+          simpleStatus: true,
+          statusType: true,
+          suggestedSellPrice: true,
+          sellCondition: true,
+          transactions: {
+            orderBy: { transactionDate: "asc" },
+          },
+        },
+      }),
+      prisma.userSettings.findUnique({
+        where: { userId },
+        select: { stopLossRate: true },
+      }),
+    ])
 
     if (!portfolioStock) {
       return NextResponse.json(
@@ -65,6 +74,17 @@ export async function GET(
         { status: 404 }
       )
     }
+
+    // 買値（平均取得単価）を計算
+    let totalBuyCost = 0
+    let totalBuyQuantity = 0
+    for (const tx of portfolioStock.transactions) {
+      if (tx.type === "buy") {
+        totalBuyCost += Number(tx.totalAmount)
+        totalBuyQuantity += tx.quantity
+      }
+    }
+    const averagePurchasePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : null
 
     // 日本時間で今日の00:00:00を取得
     const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
@@ -83,6 +103,9 @@ export async function GET(
           statusType: null,
           suggestedSellPrice: null,
           sellCondition: null,
+          // 損切りアラート用
+          averagePurchasePrice,
+          stopLossRate: userSettings?.stopLossRate ?? null,
         },
         { status: 200 }
       )
@@ -104,6 +127,9 @@ export async function GET(
       statusType: portfolioStock.statusType,
       suggestedSellPrice: portfolioStock.suggestedSellPrice ? Number(portfolioStock.suggestedSellPrice) : null,
       sellCondition: portfolioStock.sellCondition,
+      // 損切りアラート用
+      averagePurchasePrice,
+      stopLossRate: userSettings?.stopLossRate ?? null,
     }
 
     return NextResponse.json(response, { status: 200 })
@@ -317,6 +343,7 @@ ${newsContext}${marketContext}
   "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で",
   "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で",
   "suggestedSellPrice": 具体的な売却目標価格（数値のみ、円単位）,
+  "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、平均取得単価の-5%〜-15%程度）,
   "sellCondition": "売却の条件や考え方（例：「+10%で半分利確、決算発表後に全売却検討」）",
   "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
   "simpleStatus": "現状を一言で表すステータス（好調/順調/様子見/注意/要確認のいずれか）",
@@ -457,6 +484,8 @@ ${newsContext}${marketContext}
           recommendation: result.recommendation,
           advice: result.advice || result.emotionalCoaching || "",
           confidence: result.confidence || 0.7,
+          limitPrice: result.suggestedSellPrice || null,
+          stopLossPrice: result.suggestedStopLossPrice || null,
           analyzedAt: now,
         },
       }),
