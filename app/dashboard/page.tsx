@@ -105,7 +105,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-gray-500 mb-1 sm:mb-1.5">あなたの投資スタイル</div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 w-fit">
                         {user.settings.investmentPeriod === "short"
                           ? "短期（〜1年）"
@@ -123,6 +123,16 @@ export default async function DashboardPage() {
                       {user.settings.investmentBudget && (
                         <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 w-fit">
                           資金 {(user.settings.investmentBudget / 10000).toLocaleString()}万円
+                        </span>
+                      )}
+                      {user.settings.targetReturnRate && (
+                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 w-fit">
+                          利確 +{user.settings.targetReturnRate}%
+                        </span>
+                      )}
+                      {user.settings.stopLossRate && (
+                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 w-fit">
+                          損切り {user.settings.stopLossRate}%
                         </span>
                       )}
                     </div>
