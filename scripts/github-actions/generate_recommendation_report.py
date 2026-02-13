@@ -66,6 +66,12 @@ def generate_single_insight(client: OpenAI, category: str, data: dict) -> str | 
         if data.get("worst"):
             worst_items = [f"{w['name']}({w['performance']:+.1f}%)" for w in data['worst'][:2]]
             data_text += f"\n- ワースト: {', '.join(worst_items)}"
+        if data.get("topSectors"):
+            top_text = ", ".join([f"{s}({d['avgReturn']:+.1f}%)" for s, d in data['topSectors'][:2]])
+            data_text += f"\n- 好調セクター: {top_text}"
+        if data.get("bottomSectors"):
+            bottom_text = ", ".join([f"{s}({d['avgReturn']:+.1f}%)" for s, d in data['bottomSectors'][:2]])
+            data_text += f"\n- 不調セクター: {bottom_text}"
 
     elif category == "purchase":
         data_text = f"""購入推奨のパフォーマンス:
@@ -75,6 +81,12 @@ def generate_single_insight(client: OpenAI, category: str, data: dict) -> str | 
         for rec, stats in data.get("byRecommendation", {}).items():
             label = {"buy": "買い", "stay": "様子見", "remove": "見送り"}.get(rec, rec)
             data_text += f"\n- {label}判断: {stats['successRate']:.0f}%的中 ({stats['count']}件)"
+        if data.get("topSectors"):
+            top_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in data['topSectors'][:2]])
+            data_text += f"\n- 的中率高いセクター: {top_text}"
+        if data.get("bottomSectors"):
+            bottom_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in data['bottomSectors'][:2]])
+            data_text += f"\n- 的中率低いセクター: {bottom_text}"
 
     elif category == "analysis":
         data_text = f"""ポートフォリオ分析（短期予測）のパフォーマンス:
@@ -84,6 +96,12 @@ def generate_single_insight(client: OpenAI, category: str, data: dict) -> str | 
         for trend, stats in data.get("byTrend", {}).items():
             label = {"up": "上昇予測", "down": "下落予測", "neutral": "横ばい予測"}.get(trend, trend)
             data_text += f"\n- {label}: {stats['successRate']:.0f}%的中 ({stats['count']}件)"
+        if data.get("topSectors"):
+            top_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in data['topSectors'][:2]])
+            data_text += f"\n- 予測精度高いセクター: {top_text}"
+        if data.get("bottomSectors"):
+            bottom_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in data['bottomSectors'][:2]])
+            data_text += f"\n- 予測精度低いセクター: {bottom_text}"
     else:
         return None
 
@@ -271,6 +289,26 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
         if len(unique_worst) >= 3:
             break
 
+    # セクター別分析
+    by_sector = defaultdict(list)
+    for v in valid:
+        sector = v.get("sector") or "その他"
+        by_sector[sector].append(v["performance"])
+
+    sector_stats = {}
+    for sector, perfs_list in by_sector.items():
+        if len(perfs_list) >= 2:  # 2件以上のみ
+            sector_stats[sector] = {
+                "count": len(perfs_list),
+                "avgReturn": sum(perfs_list) / len(perfs_list),
+                "successRate": sum(1 for p in perfs_list if p > 0) / len(perfs_list) * 100,
+            }
+
+    # 成績順にソート
+    sorted_sectors = sorted(sector_stats.items(), key=lambda x: x[1]["avgReturn"], reverse=True)
+    top_sectors = sorted_sectors[:3] if len(sorted_sectors) >= 3 else sorted_sectors
+    bottom_sectors = sorted_sectors[-3:] if len(sorted_sectors) >= 3 else []
+
     return {
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
@@ -278,6 +316,8 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
         "successRate": sum(1 for p in perfs if p >= 3) / len(perfs) * 100,
         "best": unique_best,
         "worst": unique_worst,
+        "topSectors": top_sectors,
+        "bottomSectors": bottom_sectors,
     }
 
 
@@ -351,11 +391,32 @@ def analyze_purchase_recommendations(data: list[dict], prices: dict) -> dict:
             "successRate": sum(1 for r in results if r) / len(results) * 100 if results else 0
         }
 
+    # セクター別分析
+    by_sector = defaultdict(list)
+    for v in valid:
+        if v["isSuccess"] is not None:
+            sector = v.get("sector") or "その他"
+            by_sector[sector].append(v["isSuccess"])
+
+    sector_stats = {}
+    for sector, results in by_sector.items():
+        if len(results) >= 2:
+            sector_stats[sector] = {
+                "count": len(results),
+                "successRate": sum(1 for r in results if r) / len(results) * 100,
+            }
+
+    sorted_sectors = sorted(sector_stats.items(), key=lambda x: x[1]["successRate"], reverse=True)
+    top_sectors = sorted_sectors[:3] if len(sorted_sectors) >= 3 else sorted_sectors
+    bottom_sectors = sorted_sectors[-3:] if len(sorted_sectors) >= 3 else []
+
     return {
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
         "successRate": sum(1 for s in successes if s) / len(successes) * 100 if successes else 0,
         "byRecommendation": by_rec_stats,
+        "topSectors": top_sectors,
+        "bottomSectors": bottom_sectors,
     }
 
 
@@ -431,11 +492,32 @@ def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
             "successRate": sum(1 for r in results if r) / len(results) * 100 if results else 0
         }
 
+    # セクター別分析
+    by_sector = defaultdict(list)
+    for v in valid:
+        if v["isSuccess"] is not None:
+            sector = v.get("sector") or "その他"
+            by_sector[sector].append(v["isSuccess"])
+
+    sector_stats = {}
+    for sector, results in by_sector.items():
+        if len(results) >= 2:
+            sector_stats[sector] = {
+                "count": len(results),
+                "successRate": sum(1 for r in results if r) / len(results) * 100,
+            }
+
+    sorted_sectors = sorted(sector_stats.items(), key=lambda x: x[1]["successRate"], reverse=True)
+    top_sectors = sorted_sectors[:3] if len(sorted_sectors) >= 3 else sorted_sectors
+    bottom_sectors = sorted_sectors[-3:] if len(sorted_sectors) >= 3 else []
+
     return {
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
         "successRate": sum(1 for s in successes if s) / len(successes) * 100 if successes else 0,
         "byTrend": by_trend_stats,
+        "topSectors": top_sectors,
+        "bottomSectors": bottom_sectors,
     }
 
 
@@ -477,6 +559,20 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": f"Best: {best_text} | Worst: {worst_text}"}]
             })
+        # セクター分析
+        if daily.get("topSectors") or daily.get("bottomSectors"):
+            sector_parts = []
+            if daily.get("topSectors"):
+                top_text = ", ".join([f"{s}({d['avgReturn']:+.1f}%)" for s, d in daily["topSectors"][:2]])
+                sector_parts.append(f"🔥好調: {top_text}")
+            if daily.get("bottomSectors"):
+                bottom_text = ", ".join([f"{s}({d['avgReturn']:+.1f}%)" for s, d in daily["bottomSectors"][:2]])
+                sector_parts.append(f"🧊不調: {bottom_text}")
+            if sector_parts:
+                blocks.append({
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": " | ".join(sector_parts)}]
+                })
         # AIインサイト（おすすめ）
         if insights and insights.get("daily"):
             blocks.append({
@@ -510,6 +606,20 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": " | ".join(rec_text)}]
             })
+        # セクター分析
+        if purchase.get("topSectors") or purchase.get("bottomSectors"):
+            sector_parts = []
+            if purchase.get("topSectors"):
+                top_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in purchase["topSectors"][:2]])
+                sector_parts.append(f"🎯的中: {top_text}")
+            if purchase.get("bottomSectors"):
+                bottom_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in purchase["bottomSectors"][:2]])
+                sector_parts.append(f"❌外れ: {bottom_text}")
+            if sector_parts:
+                blocks.append({
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": " | ".join(sector_parts)}]
+                })
         # AIインサイト（購入推奨）
         if insights and insights.get("purchase"):
             blocks.append({
@@ -543,6 +653,20 @@ def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights
                 "type": "context",
                 "elements": [{"type": "mrkdwn", "text": " | ".join(trend_text)}]
             })
+        # セクター分析
+        if analysis.get("topSectors") or analysis.get("bottomSectors"):
+            sector_parts = []
+            if analysis.get("topSectors"):
+                top_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in analysis["topSectors"][:2]])
+                sector_parts.append(f"🎯的中: {top_text}")
+            if analysis.get("bottomSectors"):
+                bottom_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in analysis["bottomSectors"][:2]])
+                sector_parts.append(f"❌外れ: {bottom_text}")
+            if sector_parts:
+                blocks.append({
+                    "type": "context",
+                    "elements": [{"type": "mrkdwn", "text": " | ".join(sector_parts)}]
+                })
         # AIインサイト（ポートフォリオ分析）
         if insights and insights.get("analysis"):
             blocks.append({
