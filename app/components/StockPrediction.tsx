@@ -30,6 +30,8 @@ interface PredictionData {
   recommendation: string
   advice: string
   confidence: number
+  limitPrice: string | null
+  stopLossPrice: string | null
   analyzedAt: string
 }
 
@@ -158,6 +160,41 @@ export default function StockPrediction({ stockId }: StockPredictionProps) {
         </div>
         {getRecommendationBadge(prediction.recommendation)}
       </div>
+
+      {/* 指値・逆指値 */}
+      {(prediction.limitPrice || prediction.stopLossPrice) && (
+        <div className="bg-white rounded-lg p-4 border-l-4 border-yellow-500">
+          <p className="font-semibold text-gray-800 mb-3">🎯 推奨価格</p>
+          <div className="grid grid-cols-2 gap-4">
+            {prediction.limitPrice && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">
+                  {prediction.recommendation === "buy" ? "買い指値" : "利確目標"}
+                </p>
+                <p className="text-lg font-bold text-green-600">
+                  {formatPrice(prediction.limitPrice)}円
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {prediction.recommendation === "buy"
+                    ? "この価格以下で買えると理想的"
+                    : "この価格で利益確定を検討"}
+                </p>
+              </div>
+            )}
+            {prediction.stopLossPrice && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">逆指値（損切り）</p>
+                <p className="text-lg font-bold text-red-600">
+                  {formatPrice(prediction.stopLossPrice)}円
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  この価格を下回ったら売却検討
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {/* 短期予測 */}

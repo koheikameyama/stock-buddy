@@ -68,6 +68,8 @@ export async function GET(
       recommendation: analysis.recommendation,
       advice: analysis.advice,
       confidence: analysis.confidence,
+      limitPrice: analysis.limitPrice,
+      stopLossPrice: analysis.stopLossPrice,
       analyzedAt: analysis.analyzedAt,
     })
   } catch (error) {
