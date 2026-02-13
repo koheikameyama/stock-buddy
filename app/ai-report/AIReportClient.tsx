@@ -13,12 +13,18 @@ import {
   Legend,
 } from "recharts"
 
+interface ImprovementData {
+  target: string
+  action: string
+  reason: string
+}
+
 interface CategoryData {
   count: number | null
   avgReturn: number | null
   plusRate?: number | null
   successRate: number | null
-  improvement?: string | null
+  improvement?: string | ImprovementData | null
 }
 
 interface DetailData {
@@ -72,6 +78,21 @@ function formatPercent(value: number | null): string {
   if (value === null) return "-"
   const sign = value >= 0 ? "+" : ""
   return `${sign}${value.toFixed(1)}%`
+}
+
+function renderImprovement(improvement: string | ImprovementData | null | undefined): string {
+  if (!improvement) return ""
+  if (typeof improvement === "string") {
+    // 旧形式（文字列）または新形式のJSON文字列をパース
+    try {
+      const parsed = JSON.parse(improvement) as ImprovementData
+      return `${parsed.target}を${parsed.action}します（${parsed.reason}）`
+    } catch {
+      return improvement
+    }
+  }
+  // 新形式（オブジェクト）
+  return `${improvement.target}を${improvement.action}します（${improvement.reason}）`
 }
 
 export default function AIReportClient() {
@@ -420,19 +441,19 @@ export default function AIReportClient() {
             {latest.daily.improvement && (
               <div className="text-sm text-amber-700">
                 <span className="font-medium">おすすめ銘柄:</span>{" "}
-                <span>{latest.daily.improvement}</span>
+                <span>{renderImprovement(latest.daily.improvement)}</span>
               </div>
             )}
             {latest.purchase.improvement && (
               <div className="text-sm text-amber-700">
                 <span className="font-medium">購入判断:</span>{" "}
-                <span>{latest.purchase.improvement}</span>
+                <span>{renderImprovement(latest.purchase.improvement)}</span>
               </div>
             )}
             {latest.analysis.improvement && (
               <div className="text-sm text-amber-700">
                 <span className="font-medium">銘柄分析:</span>{" "}
-                <span>{latest.analysis.improvement}</span>
+                <span>{renderImprovement(latest.analysis.improvement)}</span>
               </div>
             )}
           </div>
