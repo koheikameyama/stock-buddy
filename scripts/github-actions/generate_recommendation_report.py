@@ -2,7 +2,7 @@
 """
 AI分析パフォーマンス週次レポート
 
-毎週日曜に過去7日間の3種類のAI分析パフォーマンスを集計してSlackに通知する。
+毎週日曜に過去7日間の3種類のAI分析パフォーマンスを集計してDBに保存する。
 - おすすめ銘柄 (UserDailyRecommendation)
 - 購入推奨 (PurchaseRecommendation)
 - ポートフォリオ分析 (StockAnalysis)
@@ -21,7 +21,6 @@ import json
 import psycopg2
 import pandas as pd
 import yfinance as yf
-import requests
 from openai import OpenAI
 
 # .envファイルから環境変数を読み込む（ローカル実行用）
@@ -39,14 +38,6 @@ def get_database_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
         print("Error: DATABASE_URL not set")
-        sys.exit(1)
-    return url
-
-
-def get_slack_webhook() -> str:
-    url = os.environ.get("REPORT_SLACK_WEBHOOK_URL")
-    if not url:
-        print("Error: REPORT_SLACK_WEBHOOK_URL not set")
         sys.exit(1)
     return url
 
@@ -734,240 +725,6 @@ def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
 
 # ===== Slack通知 =====
 
-def generate_slack_message(daily: dict, purchase: dict, analysis: dict, insights: dict | None = None) -> dict:
-    """Slack通知用メッセージを生成"""
-    blocks = [
-        {
-            "type": "header",
-            "text": {"type": "plain_text", "text": "📊 AI分析 週次パフォーマンスレポート", "emoji": True}
-        },
-        {
-            "type": "context",
-            "elements": [{"type": "mrkdwn", "text": f"集計期間: 過去7日間 | 生成日時: {datetime.now().strftime('%Y-%m-%d %H:%M')}"}]
-        },
-        {"type": "divider"},
-    ]
-
-    # 1. おすすめ銘柄
-    if daily["count"] > 0:
-        emoji = "🟢" if daily["avgReturn"] > 0 else "🔴"
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*{emoji} おすすめ銘柄* ({daily['count']}件)"}
-        })
-        blocks.append({
-            "type": "section",
-            "fields": [
-                {"type": "mrkdwn", "text": f"平均リターン: *{daily['avgReturn']:+.2f}%*"},
-                {"type": "mrkdwn", "text": f"プラス率: *{daily['positiveRate']:.1f}%*"},
-                {"type": "mrkdwn", "text": f"成功率(+3%以上): *{daily['successRate']:.1f}%*"},
-            ]
-        })
-        if daily["best"]:
-            best_text = " / ".join([f"{b['name']}({b['performance']:+.1f}%)" for b in daily["best"][:2]])
-            worst_text = " / ".join([f"{w['name']}({w['performance']:+.1f}%)" for w in daily["worst"][:2]])
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": f"Best: {best_text} | Worst: {worst_text}"}]
-            })
-        # セクター分析
-        if daily.get("topSectors") or daily.get("bottomSectors"):
-            sector_parts = []
-            if daily.get("topSectors"):
-                top_text = ", ".join([f"{s}({d['avgReturn']:+.1f}%)" for s, d in daily["topSectors"][:2]])
-                sector_parts.append(f"🔥好調: {top_text}")
-            if daily.get("bottomSectors"):
-                bottom_text = ", ".join([f"{s}({d['avgReturn']:+.1f}%)" for s, d in daily["bottomSectors"][:2]])
-                sector_parts.append(f"🧊不調: {bottom_text}")
-            if sector_parts:
-                blocks.append({
-                    "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": " | ".join(sector_parts)}]
-                })
-        # AIインサイト（おすすめ）
-        if insights and insights.get("daily"):
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['daily']}_"}]
-            })
-        # 失敗例（おすすめ銘柄）
-        if daily.get("failures"):
-            failure_lines = []
-            for f in daily["failures"][:2]:
-                failure_lines.append(f"• {f['name']} ({f['sector']}): {f['performance']:+.1f}%")
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": "📝 *パフォーマンス不振:*\n" + "\n".join(failure_lines)}]
-            })
-            # 改善ポイント（おすすめ銘柄）
-            if insights and insights.get("dailyImprovement"):
-                blocks.append({
-                    "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": f"🔧 *改善ポイント:* {insights['dailyImprovement']}"}]
-                })
-        blocks.append({"type": "divider"})
-
-    # 2. 購入推奨
-    if purchase["count"] > 0:
-        emoji = "🟢" if purchase["successRate"] > 50 else "🔴"
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*{emoji} 購入推奨* ({purchase['count']}件)"}
-        })
-
-        rec_text = []
-        for rec, stats in purchase["byRecommendation"].items():
-            label = {"buy": "買い", "stay": "様子見", "remove": "見送り"}.get(rec, rec)
-            rec_text.append(f"{label}: {stats['successRate']:.0f}% ({stats['count']}件)")
-
-        blocks.append({
-            "type": "section",
-            "fields": [
-                {"type": "mrkdwn", "text": f"判断成功率: *{purchase['successRate']:.1f}%*"},
-                {"type": "mrkdwn", "text": f"平均騰落率: *{purchase['avgReturn']:+.2f}%*"},
-            ]
-        })
-        if rec_text:
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": " | ".join(rec_text)}]
-            })
-        # セクター分析
-        if purchase.get("topSectors") or purchase.get("bottomSectors"):
-            sector_parts = []
-            if purchase.get("topSectors"):
-                top_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in purchase["topSectors"][:2]])
-                sector_parts.append(f"🎯的中: {top_text}")
-            if purchase.get("bottomSectors"):
-                bottom_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in purchase["bottomSectors"][:2]])
-                sector_parts.append(f"❌外れ: {bottom_text}")
-            if sector_parts:
-                blocks.append({
-                    "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": " | ".join(sector_parts)}]
-                })
-        # AIインサイト（購入推奨）
-        if insights and insights.get("purchase"):
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['purchase']}_"}]
-            })
-        # 失敗例（購入推奨）
-        if purchase.get("failures"):
-            failure_lines = []
-            for f in purchase["failures"][:2]:
-                rec_label = {"buy": "買い→", "stay": "様子見→"}.get(f["recommendation"], "")
-                reason_short = f["reason"][:30] + "..." if len(f["reason"]) > 30 else f["reason"]
-                failure_lines.append(f"• {f['name']}: {rec_label}{f['performance']:+.1f}%「{reason_short}」")
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": "📝 *外れた判断:*\n" + "\n".join(failure_lines)}]
-            })
-            # 改善ポイント（購入推奨）
-            if insights and insights.get("purchaseImprovement"):
-                blocks.append({
-                    "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": f"🔧 *改善ポイント:* {insights['purchaseImprovement']}"}]
-                })
-        blocks.append({"type": "divider"})
-
-    # 3. ポートフォリオ分析
-    if analysis["count"] > 0:
-        emoji = "🟢" if analysis["successRate"] > 50 else "🔴"
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*{emoji} ポートフォリオ分析* ({analysis['count']}件)"}
-        })
-
-        trend_text = []
-        for trend, stats in analysis["byTrend"].items():
-            label = {"up": "上昇予測", "down": "下落予測", "neutral": "横ばい予測"}.get(trend, trend)
-            trend_text.append(f"{label}: {stats['successRate']:.0f}% ({stats['count']}件)")
-
-        blocks.append({
-            "type": "section",
-            "fields": [
-                {"type": "mrkdwn", "text": f"予測的中率: *{analysis['successRate']:.1f}%*"},
-                {"type": "mrkdwn", "text": f"平均騰落率: *{analysis['avgReturn']:+.2f}%*"},
-            ]
-        })
-        if trend_text:
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": " | ".join(trend_text)}]
-            })
-        # セクター分析
-        if analysis.get("topSectors") or analysis.get("bottomSectors"):
-            sector_parts = []
-            if analysis.get("topSectors"):
-                top_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in analysis["topSectors"][:2]])
-                sector_parts.append(f"🎯的中: {top_text}")
-            if analysis.get("bottomSectors"):
-                bottom_text = ", ".join([f"{s}({d['successRate']:.0f}%)" for s, d in analysis["bottomSectors"][:2]])
-                sector_parts.append(f"❌外れ: {bottom_text}")
-            if sector_parts:
-                blocks.append({
-                    "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": " | ".join(sector_parts)}]
-                })
-        # AIインサイト（ポートフォリオ分析）
-        if insights and insights.get("analysis"):
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": f"💡 _{insights['analysis']}_"}]
-            })
-        # 失敗例（ポートフォリオ分析）
-        if analysis.get("failures"):
-            failure_lines = []
-            for f in analysis["failures"][:2]:
-                trend_label = {"up": "上昇予測→", "down": "下落予測→", "neutral": "横ばい予測→"}.get(f["shortTermTrend"], "")
-                advice_short = f["advice"][:30] + "..." if len(f["advice"]) > 30 else f["advice"]
-                failure_lines.append(f"• {f['name']}: {trend_label}{f['performance']:+.1f}%「{advice_short}」")
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": "📝 *外れた予測:*\n" + "\n".join(failure_lines)}]
-            })
-            # 改善ポイント（ポートフォリオ分析）
-            if insights and insights.get("analysisImprovement"):
-                blocks.append({
-                    "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": f"🔧 *改善ポイント:* {insights['analysisImprovement']}"}]
-                })
-
-    # フッター
-    blocks.append({
-        "type": "context",
-        "elements": [{"type": "mrkdwn", "text": "Stock Buddy | 週次自動レポート"}]
-    })
-
-    # データがない場合
-    total_count = daily["count"] + purchase["count"] + analysis["count"]
-    if total_count == 0:
-        return {
-            "text": "AI分析パフォーマンスレポート",
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": "*AI分析パフォーマンスレポート*\n\n過去7日間の分析データがありませんでした。"}
-                }
-            ]
-        }
-
-    return {
-        "text": f"AI分析パフォーマンスレポート: {total_count}件分析",
-        "blocks": blocks
-    }
-
-
-def send_slack_notification(webhook_url: str, message: dict):
-    """Slackに通知を送信"""
-    response = requests.post(webhook_url, json=message, timeout=30)
-    if response.status_code != 200:
-        print(f"Slack notification failed: {response.status_code} {response.text}")
-        sys.exit(1)
-    print("Slack notification sent successfully")
-
-
 def save_report_to_db(
     conn,
     daily: dict,
@@ -1161,11 +918,6 @@ def main():
         # 6. DBに保存
         print("\n5. Saving report to database...")
         save_report_to_db(conn, daily_stats, purchase_stats, analysis_stats, insights)
-
-        # 7. Slack通知
-        print("\n6. Sending Slack notification...")
-        message = generate_slack_message(daily_stats, purchase_stats, analysis_stats, insights)
-        send_slack_notification(get_slack_webhook(), message)
 
         print("\n" + "=" * 60)
         print("Report completed!")
