@@ -67,21 +67,22 @@ jobs:
       - name: Generate purchase recommendations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TIME_CONTEXT: ${{ steps.time.outputs.context }}
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: python scripts/github-actions/generate_purchase_recommendations.py
 
       - name: Generate portfolio analysis
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TIME_CONTEXT: ${{ steps.time.outputs.context }}
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: python scripts/github-actions/generate_portfolio_analysis.py
 
       - name: Generate portfolio overall analysis
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           TIME_CONTEXT: ${{ steps.time.outputs.context }}
         run: python scripts/github-actions/generate_portfolio_overall_analysis.py
 

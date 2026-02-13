@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-ポートフォリオ総評分析を生成するスクリプト
+ポートフォリオ総評を生成するスクリプト
 
 ポートフォリオ + ウォッチリスト >= 3銘柄のユーザーに対して、
 全体の分析（セクター分散度、ボラティリティなど）を生成します。
-APIエンドポイントを呼び出すことで、手動実行と同じロジックを使用します。
+APIエンドポイントを呼び出してバッチ処理を実行します。
 
 実行タイミング: 15:30 JST（大引け後のみ）
 """
@@ -75,7 +75,7 @@ def fetch_eligible_users(conn) -> list[dict]:
 
 
 def generate_analysis_for_user(app_url: str, cron_secret: str, user_id: str) -> dict | None:
-    """APIを呼び出してポートフォリオ総評分析を生成"""
+    """APIを呼び出してポートフォリオ総評を生成"""
     try:
         response = requests.post(
             f"{app_url}/api/portfolio/overall-analysis",
@@ -102,7 +102,7 @@ def generate_analysis_for_user(app_url: str, cron_secret: str, user_id: str) -> 
 
 def main():
     print("=" * 60)
-    print("ポートフォリオ総評分析の生成を開始")
+    print("ポートフォリオ総評の生成を開始")
     print(f"TIME_CONTEXT: {TIME_CONTEXT}")
     print("=" * 60)
 

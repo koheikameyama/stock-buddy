@@ -66,7 +66,8 @@ jobs:
       - name: Generate featured stocks (morning/afternoon)
         if: steps.session.outputs.session != 'evening'
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: python scripts/github-actions/generate_featured_stocks.py
 
       - name: Generate user recommendations

@@ -181,7 +181,6 @@ export default function PortfolioOverallAnalysis({
 }: Props) {
   const [data, setData] = useState<OverallAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
 
   const totalCount = portfolioCount + watchlistCount
 
@@ -206,21 +205,6 @@ export default function PortfolioOverallAnalysis({
     fetchData()
   }, [totalCount])
 
-  const handleGenerate = async () => {
-    setGenerating(true)
-    try {
-      const res = await fetch("/api/portfolio/overall-analysis", {
-        method: "POST",
-      })
-      const result = await res.json()
-      setData(result)
-    } catch (error) {
-      console.error("Error generating overall analysis:", error)
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   // 銘柄数不足の場合
   if (totalCount < 3) {
     const remaining = 3 - totalCount
@@ -232,7 +216,7 @@ export default function PortfolioOverallAnalysis({
           </div>
           <div className="flex-1">
             <div className="text-sm font-semibold text-gray-900 mb-1">
-              ポートフォリオ総評分析
+              ポートフォリオ総評
             </div>
             <p className="text-xs text-gray-600 mb-2">
               あと{remaining}銘柄追加すると、ポートフォリオ全体の分析が見られます
@@ -286,56 +270,21 @@ export default function PortfolioOverallAnalysis({
     )
   }
 
-  // 分析がない場合（生成ボタンを表示）
+  // 分析がない場合
   if (!data?.hasAnalysis) {
     return (
-      <div className="mb-6 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-4 border border-amber-200">
+      <div className="mb-6 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-4 border border-gray-200">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
             <span className="text-xl">📊</span>
           </div>
           <div className="flex-1">
             <div className="text-sm font-semibold text-gray-900 mb-1">
-              ポートフォリオ総評分析
+              ポートフォリオ総評
             </div>
-            <p className="text-xs text-gray-600 mb-3">
-              ポートフォリオ全体の分析を生成して、セクター分散度やボラティリティなどの指標を確認しましょう
+            <p className="text-xs text-gray-600">
+              総評は毎日15:30頃に自動生成されます
             </p>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generating ? (
-                <>
-                  <svg
-                    className="w-4 h-4 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  分析中...
-                </>
-              ) : (
-                <>
-                  <span>✨</span>
-                  今すぐ分析する
-                </>
-              )}
-            </button>
           </div>
         </div>
       </div>
@@ -401,71 +350,20 @@ export default function PortfolioOverallAnalysis({
         <WatchlistSimulationCard simulation={data.watchlistSimulation} />
       )}
 
-      {/* 分析日時と更新ボタン */}
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-        <div className="text-xs text-gray-500">
-          {data.analyzedAt && (
-            <>
-              分析日時:{" "}
-              {new Date(data.analyzedAt).toLocaleString("ja-JP", {
-                month: "numeric",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </>
-          )}
+      {/* 分析日時 */}
+      {data.analyzedAt && (
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="text-xs text-gray-500">
+            分析日時:{" "}
+            {new Date(data.analyzedAt).toLocaleString("ja-JP", {
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
         </div>
-        {!data.isToday && (
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 disabled:opacity-50"
-          >
-            {generating ? (
-              <>
-                <svg
-                  className="w-3 h-3 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                更新中...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                今日の分析を生成
-              </>
-            )}
-          </button>
-        )}
-      </div>
+      )}
     </div>
   )
 }
