@@ -70,6 +70,17 @@ def cleanup_old_data():
         print("\n" + "=" * 50)
         print(f"Cleanup completed! Total deleted: {total_deleted} records")
 
+        # VACUUMで空き領域を回収（削除後のディスク領域を再利用可能に）
+        if total_deleted > 0:
+            print("\nRunning VACUUM to reclaim disk space...")
+            conn.autocommit = True  # VACUUMはトランザクション外で実行
+            with conn.cursor() as cur:
+                cur.execute('VACUUM ANALYZE "StockAnalysis"')
+                cur.execute('VACUUM ANALYZE "PurchaseRecommendation"')
+                cur.execute('VACUUM ANALYZE "UserDailyRecommendation"')
+                cur.execute('VACUUM ANALYZE "MarketNews"')
+            print("VACUUM completed!")
+
     except Exception as e:
         print(f"Error during cleanup: {e}")
         sys.exit(1)
