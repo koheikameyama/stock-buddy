@@ -281,7 +281,7 @@ def generate_portfolio_analysis(
 - ティッカーコード: {stock['tickerCode']}
 - セクター: {stock['sector'] or '不明'}
 - 保有数量: {quantity}株
-- 購入時単価: {average_price:,.0f}円
+- 平均取得単価: {average_price:,.0f}円
 - 現在価格: {f'{current_price:,.0f}円' if current_price else '不明'}
 - 損益: {profit_label}{target_info}
 

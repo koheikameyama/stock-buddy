@@ -187,7 +187,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">購入時単価</span>
+                <span className="text-gray-600">平均取得単価</span>
                 <span className="font-semibold text-gray-900">
                   ¥{averagePrice.toLocaleString()}
                 </span>

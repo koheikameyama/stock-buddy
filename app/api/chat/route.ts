@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
         return `- ${ps.stock.name}（${ps.stock.tickerCode}）
   保有: ${quantity}株
-  購入時単価: ${averagePrice.toLocaleString()}円
+  平均取得単価: ${averagePrice.toLocaleString()}円
   現在価格: ${currentPrice.toLocaleString()}円
   損益: ${profit >= 0 ? "+" : ""}${profit.toLocaleString()}円（${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%）`
       })

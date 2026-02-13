@@ -283,7 +283,7 @@ ${weeklyChangePercent !== null ? `- 直近1週間: ${weeklyChangePercent >= 0 ? 
 - ティッカーコード: ${stock.tickerCode}
 - セクター: ${stock.sector || "不明"}
 - 保有数量: ${quantity}株
-- 購入時単価: ${averagePrice.toFixed(0)}円
+- 平均取得単価: ${averagePrice.toFixed(0)}円
 - 現在価格: ${currentPrice ? currentPrice.toLocaleString() : "不明"}円
 - 損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}
 
