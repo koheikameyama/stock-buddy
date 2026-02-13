@@ -27,14 +27,14 @@ jobs:
       - name: Generate and send report
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.REPORT_SLACK_WEBHOOK_URL }}
         run: python scripts/github-actions/generate_recommendation_report.py
 
       - name: Notify Slack on failure
         if: failure()
         uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK: ${{ secrets.REPORT_SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "❌ 週次レポート生成に失敗しました"
           SLACK_MESSAGE: "推奨銘柄パフォーマンスレポートの生成中にエラーが発生しました"
           SLACK_COLOR: danger
