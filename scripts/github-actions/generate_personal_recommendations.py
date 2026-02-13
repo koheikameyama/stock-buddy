@@ -279,6 +279,7 @@ def calculate_stock_scores(
     max_vol = CONFIG["MAX_VOLATILITY"]
     penalty = RISK_PENALTY.get(risk or "medium", -15)
     penalty_count = 0
+    excluded_count = 0
 
     # スコア計算
     scored_stocks = []
@@ -299,6 +300,20 @@ def calculate_stock_scores(
                 total_score += component_score
                 score_breakdown[key] = round(component_score, 1)
 
+        # 赤字 AND 高ボラティリティ AND 急騰の場合は完全除外（投機的すぎる）
+        # 例: 窪田製薬 (4596) - 赤字、ボラ60%、週間+52%
+        is_speculative_stock = (
+            stock.get("isProfitable") is False
+            and stock.get("volatility") is not None
+            and stock["volatility"] > max_vol
+            and stock.get("weekChangeRate") is not None
+            and stock["weekChangeRate"] > 30  # 週間+30%超
+        )
+        if is_speculative_stock:
+            # スキップ（scored_stocksに追加しない）
+            excluded_count += 1
+            continue
+
         # 赤字 AND 高ボラティリティの場合はペナルティを適用
         is_high_risk_stock = (
             stock.get("isProfitable") is False
@@ -316,6 +331,8 @@ def calculate_stock_scores(
             "scoreBreakdown": score_breakdown,
         })
 
+    if excluded_count > 0:
+        print(f"  Excluded {excluded_count} speculative stocks (unprofitable AND volatility>{max_vol}% AND weekChange>30%)")
     if penalty_count > 0:
         print(f"  Applied risk penalty ({penalty}) to {penalty_count} stocks (unprofitable AND volatility>{max_vol}%)")
 
