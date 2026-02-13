@@ -57,13 +57,6 @@ jobs:
       - name: Install Python dependencies
         run: pip install yfinance psycopg2-binary openai numpy
 
-      # 一時的なクリーンアップ（日付計算方式変更に伴う移行）
-      # TODO: 次回のバッチ実行後に削除
-      - name: Cleanup old date format data
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/cleanup_date_migration.py
-
       - name: Fetch all stock prices (afternoon/evening)
         if: steps.session.outputs.session != 'morning'
         env:
