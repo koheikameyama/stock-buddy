@@ -347,6 +347,7 @@ model PurchaseRecommendation {
   // A. 買い時判断
   shouldBuyToday       Boolean?              // 今日買うべき？
   idealEntryPrice      Decimal? @db.Decimal(12, 2) // 理想の買い値
+  idealEntryPriceExpiry DateTime?            // 理想の買い値の有効期限
   priceGap             Decimal? @db.Decimal(12, 2) // 現在価格との差（マイナス=割安）
   buyTimingExplanation String?  @db.Text    // 買い時の説明
 

@@ -94,6 +94,9 @@ export async function GET(
       idealEntryPrice: recommendation.idealEntryPrice
         ? Number(recommendation.idealEntryPrice)
         : null,
+      idealEntryPriceExpiry: recommendation.idealEntryPriceExpiry
+        ? recommendation.idealEntryPriceExpiry.toISOString()
+        : null,
       priceGap: recommendation.priceGap
         ? Number(recommendation.priceGap)
         : null,
@@ -362,6 +365,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   // A. 買い時判断
   "shouldBuyToday": true | false,
   "idealEntryPrice": 理想の買い値（整数）,
+  "idealEntryPriceExpiry": "理想の買い値の有効期限（ISO 8601形式、例: 2026-02-20）",
   "priceGap": 現在価格との差（マイナス=割安、プラス=割高）,
   "buyTimingExplanation": "買い時の説明（例: あと50円下がったら最高の買い時です / 今が買い時です！）",
 
@@ -387,6 +391,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - チャートパターンが検出された場合は、reasonやbuyTimingExplanationで言及する
 - positives、concernsは箇条書き形式（・で始める）
 - idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
+- idealEntryPriceExpiryは市場状況に応じて1日〜2週間程度の範囲で設定（短期的な値動きが予想される場合は短め、安定している場合は長め）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
 `
 
@@ -447,6 +452,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         // A. 買い時判断
         shouldBuyToday: result.shouldBuyToday ?? null,
         idealEntryPrice: result.idealEntryPrice || null,
+        idealEntryPriceExpiry: result.idealEntryPriceExpiry ? new Date(result.idealEntryPriceExpiry) : null,
         priceGap: result.priceGap ?? null,
         buyTimingExplanation: result.buyTimingExplanation || null,
         // B. 深掘り評価
@@ -474,6 +480,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         // A. 買い時判断
         shouldBuyToday: result.shouldBuyToday ?? null,
         idealEntryPrice: result.idealEntryPrice || null,
+        idealEntryPriceExpiry: result.idealEntryPriceExpiry ? new Date(result.idealEntryPriceExpiry) : null,
         priceGap: result.priceGap ?? null,
         buyTimingExplanation: result.buyTimingExplanation || null,
         // B. 深掘り評価
@@ -505,6 +512,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
       // A. 買い時判断
       shouldBuyToday: result.shouldBuyToday ?? null,
       idealEntryPrice: result.idealEntryPrice || null,
+      idealEntryPriceExpiry: result.idealEntryPriceExpiry || null,
       priceGap: result.priceGap ?? null,
       buyTimingExplanation: result.buyTimingExplanation || null,
       // B. 深掘り評価
