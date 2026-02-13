@@ -11,6 +11,9 @@ type PushSubscriptionState = {
 }
 
 type UserSettings = {
+  investmentPeriod: string | null
+  riskTolerance: string | null
+  investmentBudget: number | null
   targetReturnRate: number | null
   stopLossRate: number | null
 }
@@ -30,6 +33,25 @@ const STOP_LOSS_OPTIONS = [
   { value: -20, label: "-20%", description: "長期・変動許容" },
 ]
 
+const INVESTMENT_PERIOD_OPTIONS = [
+  { value: "short", label: "短期", description: "〜1年", icon: "📅" },
+  { value: "medium", label: "中期", description: "1〜3年", icon: "📆" },
+  { value: "long", label: "長期", description: "3年〜", icon: "🗓️" },
+]
+
+const RISK_TOLERANCE_OPTIONS = [
+  { value: "low", label: "低", description: "安定重視", icon: "🛡️" },
+  { value: "medium", label: "中", description: "バランス", icon: "⚖️" },
+  { value: "high", label: "高", description: "成長重視", icon: "🚀" },
+]
+
+const BUDGET_OPTIONS = [
+  { value: 100000, label: "10万円", description: "少額から" },
+  { value: 300000, label: "30万円", description: "手軽に" },
+  { value: 500000, label: "50万円", description: "しっかり" },
+  { value: 1000000, label: "100万円", description: "本格的に" },
+]
+
 export default function SettingsPage() {
   const router = useRouter()
   const [pushState, setPushState] = useState<PushSubscriptionState>({
@@ -38,6 +60,9 @@ export default function SettingsPage() {
     loading: true,
   })
   const [settings, setSettings] = useState<UserSettings>({
+    investmentPeriod: null,
+    riskTolerance: null,
+    investmentBudget: null,
     targetReturnRate: null,
     stopLossRate: null,
   })
@@ -56,6 +81,9 @@ export default function SettingsPage() {
         const data = await response.json()
         if (data.settings) {
           setSettings({
+            investmentPeriod: data.settings.investmentPeriod,
+            riskTolerance: data.settings.riskTolerance,
+            investmentBudget: data.settings.investmentBudget,
             targetReturnRate: data.settings.targetReturnRate,
             stopLossRate: data.settings.stopLossRate,
           })
@@ -68,32 +96,25 @@ export default function SettingsPage() {
     }
   }
 
-  const saveTargetSettings = async (
-    targetReturnRate: number | null,
-    stopLossRate: number | null
-  ) => {
+  const saveSettings = async (updates: Partial<UserSettings>) => {
     setSavingSettings(true)
     try {
-      // まず現在の全設定を取得
-      const getResponse = await fetch("/api/settings")
-      const currentData = await getResponse.json()
-      const currentSettings = currentData.settings || {}
+      const newSettings = { ...settings, ...updates }
 
-      // 目標設定だけ更新
       const response = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          investmentPeriod: currentSettings.investmentPeriod || "medium",
-          riskTolerance: currentSettings.riskTolerance || "medium",
-          investmentBudget: currentSettings.investmentBudget,
-          targetReturnRate,
-          stopLossRate,
+          investmentPeriod: newSettings.investmentPeriod || "medium",
+          riskTolerance: newSettings.riskTolerance || "medium",
+          investmentBudget: newSettings.investmentBudget,
+          targetReturnRate: newSettings.targetReturnRate,
+          stopLossRate: newSettings.stopLossRate,
         }),
       })
 
       if (response.ok) {
-        setSettings({ targetReturnRate, stopLossRate })
+        setSettings(newSettings)
       } else {
         alert("設定の保存に失敗しました")
       }
@@ -271,6 +292,134 @@ export default function SettingsPage() {
             {/* 区切り線 */}
             <hr className="border-gray-200" />
 
+            {/* 投資スタイル設定 */}
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+                投資スタイル
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                あなたに合った銘柄をおすすめするために使います
+              </p>
+
+              {settingsLoading ? (
+                <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50 text-center">
+                  <p className="text-gray-600">読み込み中...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* 投資期間 */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="text-lg">⏱️</span>
+                      <span>投資期間</span>
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {INVESTMENT_PERIOD_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => saveSettings({ investmentPeriod: option.value })}
+                          disabled={savingSettings}
+                          className={`p-3 rounded-lg border-2 text-center transition-all ${
+                            settings.investmentPeriod === option.value
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-gray-200 hover:border-gray-300 bg-white"
+                          } disabled:opacity-50`}
+                        >
+                          <div className="text-lg mb-1">{option.icon}</div>
+                          <div className={`font-bold text-sm ${
+                            settings.investmentPeriod === option.value
+                              ? "text-blue-600"
+                              : "text-gray-900"
+                          }`}>
+                            {option.label}
+                          </div>
+                          <div className="text-xs text-gray-500">{option.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* リスク許容度 */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="text-lg">📊</span>
+                      <span>リスク許容度</span>
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {RISK_TOLERANCE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => saveSettings({ riskTolerance: option.value })}
+                          disabled={savingSettings}
+                          className={`p-3 rounded-lg border-2 text-center transition-all ${
+                            settings.riskTolerance === option.value
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-gray-200 hover:border-gray-300 bg-white"
+                          } disabled:opacity-50`}
+                        >
+                          <div className="text-lg mb-1">{option.icon}</div>
+                          <div className={`font-bold text-sm ${
+                            settings.riskTolerance === option.value
+                              ? "text-blue-600"
+                              : "text-gray-900"
+                          }`}>
+                            {option.label}
+                          </div>
+                          <div className="text-xs text-gray-500">{option.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 投資資金 */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="text-lg">💰</span>
+                      <span>投資にまわせる資金</span>
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {BUDGET_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => saveSettings({ investmentBudget: option.value })}
+                          disabled={savingSettings}
+                          className={`p-3 rounded-lg border-2 text-center transition-all ${
+                            settings.investmentBudget === option.value
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-gray-200 hover:border-gray-300 bg-white"
+                          } disabled:opacity-50`}
+                        >
+                          <div className={`font-bold text-sm ${
+                            settings.investmentBudget === option.value
+                              ? "text-blue-600"
+                              : "text-gray-900"
+                          }`}>
+                            {option.label}
+                          </div>
+                          <div className="text-xs text-gray-500">{option.description}</div>
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => saveSettings({ investmentBudget: null })}
+                        disabled={savingSettings}
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                          settings.investmentBudget === null
+                            ? "border-gray-500 bg-gray-100"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        } disabled:opacity-50`}
+                      >
+                        <div className="font-bold text-sm text-gray-600">未定</div>
+                        <div className="text-xs text-gray-500">あとで決める</div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 区切り線 */}
+            <hr className="border-gray-200" />
+
             {/* 売却目標設定 */}
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
@@ -296,7 +445,7 @@ export default function SettingsPage() {
                       {TARGET_RETURN_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => saveTargetSettings(option.value, settings.stopLossRate)}
+                          onClick={() => saveSettings({ targetReturnRate: option.value })}
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-left transition-all ${
                             settings.targetReturnRate === option.value
@@ -315,7 +464,7 @@ export default function SettingsPage() {
                         </button>
                       ))}
                       <button
-                        onClick={() => saveTargetSettings(null, settings.stopLossRate)}
+                        onClick={() => saveSettings({ targetReturnRate: null })}
                         disabled={savingSettings}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
                           settings.targetReturnRate === null
@@ -339,7 +488,7 @@ export default function SettingsPage() {
                       {STOP_LOSS_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => saveTargetSettings(settings.targetReturnRate, option.value)}
+                          onClick={() => saveSettings({ stopLossRate: option.value })}
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-left transition-all ${
                             settings.stopLossRate === option.value
@@ -358,7 +507,7 @@ export default function SettingsPage() {
                         </button>
                       ))}
                       <button
-                        onClick={() => saveTargetSettings(settings.targetReturnRate, null)}
+                        onClick={() => saveSettings({ stopLossRate: null })}
                         disabled={savingSettings}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
                           settings.stopLossRate === null

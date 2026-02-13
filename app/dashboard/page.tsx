@@ -43,19 +43,11 @@ export default async function DashboardPage() {
   }
 
   const hasHoldings = user.portfolioStocks.length > 0
-  const hasWatchlist = user.watchlistStocks.length > 0
 
   return (
     <>
       <Header />
-      <DashboardClient
-        hasHoldings={hasHoldings}
-        hasWatchlist={hasWatchlist}
-        hasInvestmentStyle={!!user.settings}
-        investmentPeriod={user.settings?.investmentPeriod}
-        riskTolerance={user.settings?.riskTolerance}
-        investmentBudget={user.settings?.investmentBudget}
-      />
+      <DashboardClient />
       <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
           {/* ページタイトル */}
@@ -69,7 +61,7 @@ export default async function DashboardPage() {
           {/* 投資スタイル未設定の場合のプロンプト */}
           {!user.settings && (
             <Link
-              href="/dashboard?editStyle=true"
+              href="/settings"
               className="block mb-4 sm:mb-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 sm:p-5 shadow-md hover:shadow-lg transition-shadow"
             >
               <div className="flex items-center gap-3 sm:gap-4">
@@ -137,7 +129,7 @@ export default async function DashboardPage() {
                   </div>
                 </div>
                 <Link
-                  href="/dashboard?editStyle=true"
+                  href="/settings"
                   className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 transition-colors shrink-0"
                   title="投資スタイルを編集"
                 >
