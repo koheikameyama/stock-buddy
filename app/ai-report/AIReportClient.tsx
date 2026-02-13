@@ -411,10 +411,11 @@ export default function AIReportClient() {
       {/* 改善ポイント */}
       {(latest.daily.improvement || latest.purchase.improvement || latest.analysis.improvement) && (
         <div className="bg-amber-50 rounded-xl p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-amber-800 mb-4 flex items-center gap-2">
-            <span>💡</span>
-            AIからの改善ポイント
+          <h2 className="text-lg font-bold text-amber-800 mb-2 flex items-center gap-2">
+            <span>🔧</span>
+            今後の改善予定
           </h2>
+          <p className="text-sm text-amber-600 mb-4">AIのパフォーマンス向上のため、以下の改善を行います</p>
           <div className="space-y-3">
             {latest.daily.improvement && (
               <div className="text-sm text-amber-700">
