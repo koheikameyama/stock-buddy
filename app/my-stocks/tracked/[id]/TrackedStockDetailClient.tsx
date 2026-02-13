@@ -30,6 +30,14 @@ interface TrackedStockData {
     roe: number | null
     operatingCF: number | null
     freeCF: number | null
+    // Earnings data
+    isProfitable: boolean | null
+    profitTrend: string | null
+    revenueGrowth: number | null
+    netIncomeGrowth: number | null
+    eps: number | null
+    latestRevenue: number | null
+    latestNetIncome: number | null
   }
   createdAt: string
 }
@@ -142,7 +150,7 @@ export default function TrackedStockDetailClient({ stock }: { stock: TrackedStoc
       </section>
 
       {/* Earnings Info Section */}
-      {price?.earnings && <EarningsInfo earnings={price.earnings} />}
+      <EarningsInfo earnings={stock.stock} />
 
       {/* Related News Section */}
       <RelatedNews stockId={stock.stockId} />

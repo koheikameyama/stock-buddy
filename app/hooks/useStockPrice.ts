@@ -2,22 +2,11 @@
 
 import { useEffect, useState } from "react"
 
-export interface StockEarnings {
-  isProfitable: boolean | null
-  profitTrend: string | null
-  revenueGrowth: number | null
-  netIncomeGrowth: number | null
-  eps: number | null
-  latestRevenue: number | null
-  latestNetIncome: number | null
-}
-
 export interface StockPrice {
   currentPrice: number
   previousClose: number
   change: number
   changePercent: number
-  earnings?: StockEarnings | null
 }
 
 interface UseStockPriceResult {

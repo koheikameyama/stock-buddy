@@ -84,6 +84,22 @@ async function TrackedStockContent({
         ? Number(trackedStock.stock.operatingCF)
         : null,
       freeCF: trackedStock.stock.freeCF ? Number(trackedStock.stock.freeCF) : null,
+      // Earnings data
+      isProfitable: trackedStock.stock.isProfitable,
+      profitTrend: trackedStock.stock.profitTrend,
+      revenueGrowth: trackedStock.stock.revenueGrowth
+        ? Number(trackedStock.stock.revenueGrowth)
+        : null,
+      netIncomeGrowth: trackedStock.stock.netIncomeGrowth
+        ? Number(trackedStock.stock.netIncomeGrowth)
+        : null,
+      eps: trackedStock.stock.eps ? Number(trackedStock.stock.eps) : null,
+      latestRevenue: trackedStock.stock.latestRevenue
+        ? Number(trackedStock.stock.latestRevenue)
+        : null,
+      latestNetIncome: trackedStock.stock.latestNetIncome
+        ? Number(trackedStock.stock.latestNetIncome)
+        : null,
     },
     createdAt: trackedStock.createdAt.toISOString(),
   }
