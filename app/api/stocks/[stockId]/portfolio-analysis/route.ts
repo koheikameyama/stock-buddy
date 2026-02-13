@@ -387,7 +387,7 @@ ${newsContext}${marketContext}
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.5,
+      temperature: 0.3,
       max_tokens: 600,
     })
 
