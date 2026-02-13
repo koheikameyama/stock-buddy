@@ -154,6 +154,30 @@ def get_users_with_settings(conn) -> list[dict]:
     return users
 
 
+def get_all_user_registered_stock_ids(conn) -> dict[str, set[str]]:
+    """全ユーザーのポートフォリオとウォッチリストにある銘柄IDを一括取得"""
+    result: dict[str, set[str]] = {}
+
+    with conn.cursor() as cur:
+        # ポートフォリオの銘柄を一括取得
+        cur.execute('SELECT "userId", "stockId" FROM "PortfolioStock"')
+        for row in cur.fetchall():
+            user_id, stock_id = row[0], row[1]
+            if user_id not in result:
+                result[user_id] = set()
+            result[user_id].add(stock_id)
+
+        # ウォッチリストの銘柄を一括取得
+        cur.execute('SELECT "userId", "stockId" FROM "WatchlistStock"')
+        for row in cur.fetchall():
+            user_id, stock_id = row[0], row[1]
+            if user_id not in result:
+                result[user_id] = set()
+            result[user_id].add(stock_id)
+
+    return result
+
+
 def get_stocks_with_prices(conn) -> list[dict]:
     """DBから株価データを取得（スコアリング用の指標を含む）"""
     with conn.cursor() as cur:
@@ -461,6 +485,10 @@ def main():
         # ticker → stockId のマップ
         stock_map = {s["tickerCode"]: s["id"] for s in all_stocks}
 
+        # 全ユーザーの登録済み銘柄を一括取得
+        all_registered = get_all_user_registered_stock_ids(conn)
+        print(f"Loaded registered stocks for {len(all_registered)} users")
+
         success_count = 0
         error_count = 0
 
@@ -475,7 +503,7 @@ def main():
             print(f"  Stocks after budget filter: {len(filtered)}/{len(all_stocks)}")
 
             if not filtered:
-                print("  No stocks within budget. Skipping.")
+                print("  No stocks available. Skipping.")
                 error_count += 1
                 continue
 
@@ -486,6 +514,16 @@ def main():
             # 3. セクター分散を適用
             diversified = apply_sector_diversification(scored)
             print(f"  After sector diversification: {len(diversified)} stocks")
+
+            # 4. ポートフォリオ・ウォッチリストの銘柄を除外（3件以下なら除外しない）
+            registered_ids = all_registered.get(user["userId"], set())
+            if registered_ids:
+                candidates = [s for s in diversified if s["id"] not in registered_ids]
+                if len(candidates) > 5:
+                    diversified = candidates
+                    print(f"  After excluding registered: {len(diversified)} stocks (excluded {len(registered_ids)})")
+                else:
+                    print(f"  Keeping registered stocks (would be {len(candidates)} after exclusion)")
 
             # AI生成
             recommendations = generate_recommendations_for_user(
