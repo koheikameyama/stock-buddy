@@ -7,6 +7,7 @@
 APIエンドポイントを呼び出してバッチ処理を実行します。
 
 実行タイミング: 15:30 JST（大引け後のみ）
+※ ワークフローのジョブレベルで実行条件を制御
 """
 
 import os
@@ -15,10 +16,6 @@ from datetime import datetime
 
 import psycopg2
 import requests
-
-
-# 環境変数
-TIME_CONTEXT = os.environ.get("TIME_CONTEXT", "morning")
 
 
 def get_database_url() -> str:
@@ -43,11 +40,6 @@ def get_cron_secret() -> str:
         print("Error: CRON_SECRET environment variable not set")
         sys.exit(1)
     return secret
-
-
-def should_run() -> bool:
-    """実行すべき時間帯かどうかを判定（15:30のみ）"""
-    return TIME_CONTEXT == "close"
 
 
 def fetch_eligible_users(conn) -> list[dict]:
@@ -103,14 +95,7 @@ def generate_analysis_for_user(app_url: str, cron_secret: str, user_id: str) -> 
 def main():
     print("=" * 60)
     print("ポートフォリオ総評の生成を開始")
-    print(f"TIME_CONTEXT: {TIME_CONTEXT}")
     print("=" * 60)
-
-    # 実行時間帯チェック
-    if not should_run():
-        print(f"スキップ: TIME_CONTEXT={TIME_CONTEXT}は実行対象外です")
-        print("実行対象: close (15:30)のみ")
-        return
 
     app_url = get_app_url()
     cron_secret = get_cron_secret()

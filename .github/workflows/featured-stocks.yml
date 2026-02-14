@@ -25,13 +25,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  generate-featured-stocks:
+  determine-session:
     runs-on: ubuntu-latest
-
+    outputs:
+      session: ${{ steps.session.outputs.session }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Determine session
         id: session
         run: |
@@ -49,6 +47,57 @@ jobs:
           fi
           echo "Session: $(cat $GITHUB_OUTPUT)"
 
+  fetch-stock-prices:
+    needs: determine-session
+    if: needs.determine-session.outputs.session != 'morning'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install yfinance psycopg2-binary
+
+      - name: Fetch all stock prices
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/github-actions/fetch_stock_prices.py
+
+  featured-stocks:
+    needs: determine-session
+    if: needs.determine-session.outputs.session != 'evening'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install yfinance psycopg2-binary openai numpy requests
+
+      - name: Generate featured stocks
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python scripts/github-actions/generate_featured_stocks.py
+
+  personal-recommendations:
+    needs: [determine-session, fetch-stock-prices, featured-stocks]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -57,38 +106,30 @@ jobs:
       - name: Install Python dependencies
         run: pip install yfinance psycopg2-binary openai numpy
 
-      - name: Fetch all stock prices (afternoon/evening)
-        if: steps.session.outputs.session != 'morning'
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/github-actions/fetch_stock_prices.py
-
-      - name: Generate featured stocks (morning/afternoon)
-        if: steps.session.outputs.session != 'evening'
-        env:
-          APP_URL: ${{ secrets.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: python scripts/github-actions/generate_featured_stocks.py
-
       - name: Generate user recommendations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          SESSION: ${{ steps.session.outputs.session }}
+          SESSION: ${{ needs.determine-session.outputs.session }}
         run: python scripts/github-actions/generate_personal_recommendations.py
 
+  notify:
+    needs: [determine-session, fetch-stock-prices, featured-stocks, personal-recommendations]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
       - name: Notify Slack on success
-        if: success()
+        if: needs.personal-recommendations.result == 'success'
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ 注目銘柄の生成に成功しました（${{ steps.session.outputs.session }}）"
+          SLACK_TITLE: "✅ 注目銘柄の生成に成功しました（${{ needs.determine-session.outputs.session }}）"
           SLACK_MESSAGE: "ユーザーおすすめを更新しました"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
       - name: Notify Slack on failure
-        if: failure()
+        if: contains(needs.*.result, 'failure')
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}

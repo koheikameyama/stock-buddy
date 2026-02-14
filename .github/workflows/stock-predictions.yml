@@ -8,20 +8,18 @@ on:
     - cron: '30 3 * * 1-5'   # 12:30 JST - 昼休み
     - cron: '0 5 * * 1-5'    # 14:00 JST - 後場
     - cron: '30 6 * * 1-5'   # 15:30 JST - 大引け
-  workflow_dispatch: # 手動実行も可能
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  generate-predictions:
+  determine-time:
     runs-on: ubuntu-latest
-
+    outputs:
+      context: ${{ steps.time.outputs.context }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Determine time context
         id: time
         run: |
@@ -35,13 +33,12 @@ jobs:
           fi
           echo "Time context: $(cat $GITHUB_OUTPUT)"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Python dependencies
-        run: pip install yfinance psycopg2-binary openai requests
+  fetch-news:
+    needs: determine-time
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -58,11 +55,42 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: npx tsx scripts/news/fetch-news.ts
 
+  stock-predictions:
+    needs: fetch-news
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Generate stock predictions
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: npx tsx scripts/analysis/generate-stock-predictions.ts
+
+  purchase-recommendations:
+    needs: stock-predictions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install yfinance psycopg2-binary openai requests
 
       - name: Generate purchase recommendations
         env:
@@ -71,6 +99,21 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: python scripts/github-actions/generate_purchase_recommendations.py
 
+  portfolio-analysis:
+    needs: stock-predictions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install psycopg2-binary requests
+
       - name: Generate portfolio analysis
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -78,16 +121,47 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: python scripts/github-actions/generate_portfolio_analysis.py
 
+  portfolio-overall:
+    needs: [determine-time, portfolio-analysis]
+    if: needs.determine-time.outputs.context == 'close'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install psycopg2-binary requests
+
       - name: Generate portfolio overall analysis
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          TIME_CONTEXT: ${{ steps.time.outputs.context }}
         run: python scripts/github-actions/generate_portfolio_overall_analysis.py
 
+  notify:
+    needs: [purchase-recommendations, portfolio-analysis, portfolio-overall]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
       - name: Send push notification
-        if: success()
+        if: needs.purchase-recommendations.result == 'success' || needs.portfolio-analysis.result == 'success'
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -98,24 +172,21 @@ jobs:
             --url "/my-stocks"
 
       - name: Notify Slack on success
-        if: success()
+        if: needs.purchase-recommendations.result == 'success' && needs.portfolio-analysis.result == 'success'
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "✅ 株価予測の生成に成功しました"
-          SLACK_MESSAGE: |
-            株価予測・ポートフォリオ分析・購入レコメンドを更新しました ✅
+          SLACK_MESSAGE: "株価予測・ポートフォリオ分析・購入レコメンドを更新しました"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
       - name: Notify Slack on failure
-        if: failure()
+        if: contains(needs.*.result, 'failure')
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "❌ 株価予測の生成に失敗しました"
-          SLACK_MESSAGE: |
-            株価予測生成中にエラーが発生しました
-            詳細はGitHub Actionsログを確認してください
+          SLACK_MESSAGE: "詳細はGitHub Actionsログを確認してください"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"

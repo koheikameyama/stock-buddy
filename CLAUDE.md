@@ -149,6 +149,68 @@ git push origin main
 
 ## GitHub Actions
 
+### ワークフローのジョブ設計
+
+**複数のタスクを実行するワークフローは、ジョブ（jobs）を分割してください。**
+
+#### 理由
+
+1. **再実行性**: 失敗したジョブから再実行できる（Re-run failed jobs）
+2. **依存関係の明確化**: `needs` で実行順序を定義
+3. **並列実行**: 独立したジョブは並列で実行される
+
+#### 基本パターン
+
+```yaml
+jobs:
+  task-a:
+    runs-on: ubuntu-latest
+    steps: ...
+
+  task-b:
+    needs: task-a  # task-a の完了後に実行
+    runs-on: ubuntu-latest
+    steps: ...
+
+  task-c:
+    needs: task-a  # task-b と並列実行可能
+    runs-on: ubuntu-latest
+    steps: ...
+
+  notify:
+    needs: [task-b, task-c]
+    if: always()  # 前のジョブが失敗しても実行
+    runs-on: ubuntu-latest
+    steps: ...
+```
+
+#### 条件付き実行
+
+```yaml
+jobs:
+  determine-context:
+    runs-on: ubuntu-latest
+    outputs:
+      context: ${{ steps.check.outputs.context }}
+    steps:
+      - id: check
+        run: echo "context=close" >> $GITHUB_OUTPUT
+
+  conditional-job:
+    needs: determine-context
+    if: needs.determine-context.outputs.context == 'close'
+    runs-on: ubuntu-latest
+    steps: ...
+```
+
+#### チェックリスト
+
+新しいワークフロー作成時：
+- [ ] 1つのジョブに複数の独立したタスクを詰め込まない
+- [ ] `needs` で依存関係を定義
+- [ ] 通知ジョブは `if: always()` で常に実行
+- [ ] 条件付き実行が必要な場合は出力変数を使用
+
 ### スクリプト言語の選択
 
 **GitHub Actionsでスクリプトを作成する場合は必ずPythonを使用してください。**
