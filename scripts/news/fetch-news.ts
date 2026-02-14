@@ -224,6 +224,8 @@ async function main(): Promise<void> {
     sector: string | null
     sentiment: string | null
     publishedAt: Date
+    market: string
+    region: string
   }[] = []
 
   let ruleBasedCount = 0
@@ -294,6 +296,8 @@ async function main(): Promise<void> {
           sector,
           sentiment,
           publishedAt,
+          market: "JP",
+          region: "日本",
         })
       }
     }
