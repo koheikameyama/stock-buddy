@@ -8,6 +8,7 @@ import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
 import PortfolioOverallAnalysis from "./PortfolioOverallAnalysis"
 import NikkeiSummary from "./NikkeiSummary"
+import MarketMovers from "./MarketMovers"
 import LatestNews from "./LatestNews"
 
 export default async function DashboardPage() {
@@ -168,6 +169,9 @@ export default async function DashboardPage() {
 
           {/* 日経平均株価 */}
           <NikkeiSummary />
+
+          {/* 値上がり・値下がりランキング */}
+          <MarketMovers />
 
           {/* マイ銘柄へのリンク */}
           <Link
