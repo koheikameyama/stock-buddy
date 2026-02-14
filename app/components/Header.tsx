@@ -1,4 +1,5 @@
 import { auth, signOut } from "@/auth"
+import Image from "next/image"
 import Link from "next/link"
 import HamburgerMenu from "./HamburgerMenu"
 
@@ -16,7 +17,13 @@ export default async function Header() {
         <div className="flex justify-between items-center">
           {/* ロゴ・タイトル */}
           <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="text-2xl">📊</span>
+            <Image
+              src="/favicon.png"
+              alt="Stock Buddy"
+              width={32}
+              height={32}
+              className="rounded"
+            />
             <span className="text-xl font-bold text-gray-900">Stock Buddy</span>
           </Link>
 
