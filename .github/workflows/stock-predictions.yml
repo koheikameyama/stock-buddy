@@ -122,8 +122,30 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: python scripts/github-actions/generate_portfolio_overall_analysis.py
 
+  gainers-losers:
+    needs: [determine-time, stock-predictions]
+    if: needs.determine-time.outputs.context == 'close'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Generate gainers/losers analysis
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python scripts/github-actions/generate_gainers_losers_analysis.py
+
   notify:
-    needs: [purchase-recommendations, portfolio-analysis, portfolio-overall]
+    needs: [purchase-recommendations, portfolio-analysis, portfolio-overall, gainers-losers]
     if: always()
     runs-on: ubuntu-latest
     steps:

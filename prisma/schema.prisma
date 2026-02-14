@@ -112,6 +112,7 @@ model Stock {
   // 最新株価データ（バッチ更新用）
   latestPrice       Decimal?           @db.Decimal(12, 2) // 最新株価
   latestVolume      BigInt?            // 最新出来高
+  dailyChangeRate   Decimal?           @db.Decimal(8, 2)  // 前日比変化率（%）
   weekChangeRate    Decimal?           @db.Decimal(8, 2)  // 週間変化率（%）
   volatility        Decimal?           @db.Decimal(8, 2)  // 30日間ボラティリティ（%）
   volumeRatio       Decimal?           @db.Decimal(8, 2)  // 出来高比率（直近3日/4-30日前）
@@ -141,6 +142,7 @@ model Stock {
   purchaseRecommendations PurchaseRecommendation[]
   userDailyRecommendations UserDailyRecommendation[]
   trackedStocks           TrackedStock[]
+  dailyMarketMovers       DailyMarketMover[]
   createdAt               DateTime @default(now())
 
   @@index([tickerCode])
@@ -504,4 +506,23 @@ model WeeklyAIReport {
 
   @@unique([weekStart])
   @@index([weekStart])
+}
+
+// 日次上昇/下落ランキング（場後に生成）
+model DailyMarketMover {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  stockId     String
+  stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  type        String   // 'gainer' | 'loser'
+  position    Int      // 表示順序（1-5）
+  changeRate  Decimal  @db.Decimal(8, 2)  // 前日比変化率（%）
+  analysis    String   @db.Text           // AI原因分析
+  relatedNews Json?                       // 関連ニュース [{title, url, sentiment}]
+  createdAt   DateTime @default(now())
+
+  @@unique([date, type, position])
+  @@index([date(sort: Desc)])
+  @@index([stockId])
+  @@index([date, type])
 }
