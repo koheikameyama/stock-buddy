@@ -157,10 +157,13 @@ model MarketNews {
   sentiment   String?  // 'positive' | 'negative' | 'neutral'
   publishedAt DateTime
   createdAt   DateTime @default(now())
+  market      String   @default("JP") // "JP" or "US"
+  region      String?  // "日本", "米国" など（表示用）
 
   @@index([publishedAt(sort: Desc)])
   @@index([sector])
   @@index([source])
+  @@index([market])
 }
 
 // 銘柄分析（AI予測機能）

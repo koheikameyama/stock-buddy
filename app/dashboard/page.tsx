@@ -8,6 +8,7 @@ import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
 import PortfolioOverallAnalysis from "./PortfolioOverallAnalysis"
 import NikkeiSummary from "./NikkeiSummary"
+import LatestNews from "./LatestNews"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -226,6 +227,9 @@ export default async function DashboardPage() {
             <FeaturedStocksByCategory userId={user.id} />
           </div>
         )}
+
+        {/* 最新のニュース */}
+        <LatestNews userId={user.id} />
       </div>
     </main>
     </>
