@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#2563eb" rx="96"/>
+
+  <!-- Speech bubble -->
+  <rect x="80" y="70" width="352" height="280" rx="40" fill="white"/>
+  <!-- Speech bubble tail -->
+  <path d="M 140 350 L 110 410 L 200 350" fill="white"/>
+
+  <!-- Chart inside the bubble -->
+  <!-- Grid lines (subtle) -->
+  <line x1="130" y1="160" x2="380" y2="160" stroke="#dbeafe" stroke-width="2"/>
+  <line x1="130" y1="210" x2="380" y2="210" stroke="#dbeafe" stroke-width="2"/>
+  <line x1="130" y1="260" x2="380" y2="260" stroke="#dbeafe" stroke-width="2"/>
+
+  <!-- Upward trend chart line -->
+  <path d="M 140 290 L 190 240 L 240 260 L 290 190 L 340 150 L 380 120"
+        stroke="#2563eb"
+        stroke-width="14"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Area fill under the chart -->
+  <path d="M 140 290 L 190 240 L 240 260 L 290 190 L 340 150 L 380 120 L 380 300 L 140 300 Z"
+        fill="#2563eb"
+        opacity="0.1"/>
+
+  <!-- Data points -->
+  <circle cx="190" cy="240" r="8" fill="#2563eb"/>
+  <circle cx="240" cy="260" r="8" fill="#2563eb"/>
+  <circle cx="290" cy="190" r="8" fill="#2563eb"/>
+  <circle cx="340" cy="150" r="8" fill="#2563eb"/>
+  <circle cx="380" cy="120" r="8" fill="#2563eb"/>
+
+  <!-- Three dots indicating AI typing (below the bubble) -->
+  <circle cx="160" cy="430" r="14" fill="white" opacity="0.6"/>
+  <circle cx="210" cy="440" r="14" fill="white" opacity="0.45"/>
+  <circle cx="260" cy="450" r="14" fill="white" opacity="0.3"/>
+</svg>

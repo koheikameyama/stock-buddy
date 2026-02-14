@@ -1,0 +1,51 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#2563eb" rx="96"/>
+
+  <!-- Shield shape -->
+  <path d="M 256 60
+           L 420 130
+           C 420 130 430 300 256 450
+           C 82 300 92 130 92 130
+           Z"
+        fill="white"
+        opacity="0.95"/>
+
+  <!-- Inner shield border (subtle depth) -->
+  <path d="M 256 85
+           L 395 145
+           C 395 145 404 290 256 420
+           C 108 290 117 145 117 145
+           Z"
+        fill="none"
+        stroke="#dbeafe"
+        stroke-width="3"/>
+
+  <!-- Chart line inside shield -->
+  <path d="M 160 320 L 210 260 L 260 285 L 310 210 L 360 160"
+        stroke="#2563eb"
+        stroke-width="14"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Area fill -->
+  <path d="M 160 320 L 210 260 L 260 285 L 310 210 L 360 160 L 360 340 L 160 340 Z"
+        fill="#2563eb"
+        opacity="0.1"/>
+
+  <!-- Data points -->
+  <circle cx="210" cy="260" r="8" fill="#2563eb"/>
+  <circle cx="260" cy="285" r="8" fill="#2563eb"/>
+  <circle cx="310" cy="210" r="8" fill="#2563eb"/>
+  <circle cx="360" cy="160" r="8" fill="#2563eb"/>
+
+  <!-- Checkmark at top of shield -->
+  <circle cx="256" cy="140" r="24" fill="#22c55e"/>
+  <path d="M 243 140 L 252 149 L 270 131"
+        stroke="white"
+        stroke-width="5"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

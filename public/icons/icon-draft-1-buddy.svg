@@ -1,0 +1,44 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#2563eb" rx="96"/>
+
+  <!-- Chart line (upward trend) -->
+  <path d="M 80 360 L 160 280 L 240 310 L 320 220 L 400 160"
+        stroke="white"
+        stroke-width="16"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.9"/>
+
+  <!-- Data points -->
+  <circle cx="160" cy="280" r="10" fill="white" opacity="0.9"/>
+  <circle cx="240" cy="310" r="10" fill="white" opacity="0.9"/>
+  <circle cx="320" cy="220" r="10" fill="white" opacity="0.9"/>
+
+  <!-- Buddy bird sitting on the chart endpoint -->
+  <!-- Body -->
+  <ellipse cx="400" cy="138" rx="42" ry="36" fill="white"/>
+  <!-- Head -->
+  <circle cx="420" cy="108" r="26" fill="white"/>
+  <!-- Eye -->
+  <circle cx="428" cy="103" r="5" fill="#2563eb"/>
+  <!-- Eye highlight -->
+  <circle cx="430" cy="101" r="2" fill="white"/>
+  <!-- Beak -->
+  <polygon points="446,108 460,104 446,100" fill="#fbbf24"/>
+  <!-- Wing -->
+  <ellipse cx="385" cy="140" rx="22" ry="14" fill="#dbeafe" transform="rotate(-15, 385, 140)"/>
+  <!-- Tail feathers -->
+  <path d="M 365 150 Q 345 140 340 155" stroke="#dbeafe" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <path d="M 365 155 Q 348 148 345 165" stroke="#dbeafe" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- Feet gripping chart line -->
+  <path d="M 393 170 L 390 160 L 395 165" stroke="#fbbf24" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M 407 170 L 404 160 L 409 165" stroke="#fbbf24" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Sparkle near the bird -->
+  <g fill="white" opacity="0.7">
+    <path d="M 450 75 L 453 65 L 456 75 L 466 78 L 456 81 L 453 91 L 450 81 L 440 78 Z"/>
+    <path d="M 340 90 L 342 84 L 344 90 L 350 92 L 344 94 L 342 100 L 340 94 L 334 92 Z" transform="scale(0.7) translate(160, 40)"/>
+  </g>
+</svg>
