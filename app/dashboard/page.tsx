@@ -169,9 +169,6 @@ export default async function DashboardPage() {
           {/* 日経平均株価 */}
           <NikkeiSummary />
 
-          {/* 最新のニュース */}
-          <LatestNews userId={user.id} />
-
           {/* マイ銘柄へのリンク */}
           <Link
             href="/my-stocks"
@@ -230,6 +227,9 @@ export default async function DashboardPage() {
             <FeaturedStocksByCategory userId={user.id} />
           </div>
         )}
+
+        {/* 最新のニュース */}
+        <LatestNews userId={user.id} />
       </div>
     </main>
     </>
