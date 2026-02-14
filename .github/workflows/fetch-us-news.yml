@@ -2,8 +2,8 @@ name: Fetch US Market News
 
 on:
   schedule:
-    # 朝7時 JST = 22時 UTC（前日）- 月〜金
-    - cron: '0 22 * * 0-4'
+    # 朝7時 JST = 22時 UTC（前日）- 毎日
+    - cron: '0 22 * * *'
   workflow_dispatch:
 
 concurrency:
