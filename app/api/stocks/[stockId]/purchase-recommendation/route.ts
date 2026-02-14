@@ -389,8 +389,9 @@ ${bollingerInterpretation ? `- ボリンジャーバンド（値動きの範囲�
       fundamentals.push(`- 業績: 赤字${stock.profitTrend === "decreasing" ? "（赤字拡大傾向）" : ""}`)
     }
     if (stock.per) {
-      const perEval = stock.per > 30 ? "（割高感あり）" : stock.per < 10 ? "（割安感あり）" : "（標準的）"
-      fundamentals.push(`- PER（株価収益率）: ${Number(stock.per).toFixed(1)}倍${perEval}`)
+      const perVal = Number(stock.per)
+      const perEval = perVal > 30 ? "（割高感あり）" : perVal < 10 ? "（割安感あり）" : "（標準的）"
+      fundamentals.push(`- PER（株価収益率）: ${perVal.toFixed(1)}倍${perEval}`)
     }
     if (stock.pbr) {
       const pbrEval = Number(stock.pbr) > 3 ? "（割高感あり）" : Number(stock.pbr) < 1 ? "（割安感あり）" : "（標準的）"

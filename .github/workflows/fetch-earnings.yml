@@ -1,8 +1,8 @@
-name: Fetch Earnings Data
+name: Fetch Financial Data
 
 on:
   schedule:
-    # 毎週日曜 10:00 JST（01:00 UTC）- 決算は頻繁に更新されないので週1回
+    # 毎週日曜 10:00 JST（01:00 UTC）- 財務指標は週次で更新
     - cron: '0 1 * * 0'
   workflow_dispatch:
 
@@ -36,8 +36,8 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ 業績データの取得に成功しました"
-          SLACK_MESSAGE: "ユーザー関連銘柄の業績データを更新しました"
+          SLACK_TITLE: "✅ 財務データの取得に成功しました"
+          SLACK_MESSAGE: "全銘柄の業績・財務指標（PBR/PER/ROE/52週高値安値等）を更新しました"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -46,7 +46,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ 業績データの取得に失敗しました"
-          SLACK_MESSAGE: "業績データ取得中にエラーが発生しました"
+          SLACK_TITLE: "❌ 財務データの取得に失敗しました"
+          SLACK_MESSAGE: "財務データ取得中にエラーが発生しました"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"

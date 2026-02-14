@@ -11,11 +11,13 @@ DBの株価データを使って、パーソナライズされたおすすめ3�
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
+import yfinance as yf
 from openai import OpenAI
 
 # 設定
@@ -412,6 +414,57 @@ def filter_stocks_by_budget(stocks: list[dict], budget: int | None) -> list[dict
     return [s for s in stocks if s["latestPrice"] * 100 <= budget]
 
 
+def fetch_financial_metrics_from_yfinance(ticker_code: str) -> dict | None:
+    """yfinanceから最新の財務指標を取得"""
+    try:
+        stock = yf.Ticker(ticker_code)
+        info = stock.info
+
+        return {
+            "pbr": info.get("priceToBook"),
+            "per": info.get("trailingPE") or info.get("forwardPE"),
+            "roe": info.get("returnOnEquity"),
+            "fiftyTwoWeekHigh": info.get("fiftyTwoWeekHigh"),
+            "fiftyTwoWeekLow": info.get("fiftyTwoWeekLow"),
+            "targetMeanPrice": info.get("targetMeanPrice"),  # アナリスト目標株価
+            "recommendationKey": info.get("recommendationKey"),  # buy/hold/sell
+        }
+    except Exception:
+        return None
+
+
+def enrich_stocks_with_yfinance(stocks: list[dict]) -> list[dict]:
+    """AIに渡す銘柄リストにyfinanceから最新財務指標を追加（並列処理）"""
+    if not stocks:
+        return stocks
+
+    print(f"  yfinanceから{len(stocks)}銘柄の財務指標を取得中...")
+
+    def fetch_for_stock(stock):
+        metrics = fetch_financial_metrics_from_yfinance(stock["tickerCode"])
+        return stock["tickerCode"], metrics
+
+    metrics_map = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(fetch_for_stock, s): s for s in stocks}
+        for future in as_completed(futures):
+            ticker, metrics = future.result()
+            if metrics:
+                metrics_map[ticker] = metrics
+
+    # 銘柄リストに財務指標を追加
+    enriched = []
+    for stock in stocks:
+        s = stock.copy()
+        metrics = metrics_map.get(stock["tickerCode"])
+        if metrics:
+            s.update(metrics)
+        enriched.append(s)
+
+    print(f"  取得完了: {len(metrics_map)}/{len(stocks)}銘柄")
+    return enriched
+
+
 def generate_recommendations_for_user(
     client: OpenAI,
     session: str,
@@ -425,8 +478,10 @@ def generate_recommendations_for_user(
     risk_label = RISK_LABELS.get(user["riskTolerance"] or "", "不明")
     budget_label = f"{user['investmentBudget']:,}円" if user["investmentBudget"] else "未設定"
 
-    # 銘柄リスト（最大30件）
+    # 銘柄リスト（最大30件）にyfinanceから最新財務指標を追加
     stock_list = stocks[:CONFIG["MAX_STOCKS_FOR_AI"]]
+    stock_list = enrich_stocks_with_yfinance(stock_list)
+
     stock_summaries = []
     for s in stock_list:
         summary = (
@@ -446,6 +501,43 @@ def generate_recommendations_for_user(
             extras.append("赤字")
         if s.get("volatility") is not None:
             extras.append(f"変動率{s['volatility']:.0f}%")
+
+        # yfinanceから取得した財務指標を追加
+        if s.get("pbr") is not None:
+            pbr = s["pbr"]
+            if pbr < 1:
+                extras.append("PBR割安")
+            elif pbr > 2:
+                extras.append("PBR割高")
+        if s.get("per") is not None:
+            per = s["per"]
+            if 0 < per < 15:
+                extras.append("PER割安")
+            elif per > 25:
+                extras.append("PER割高")
+        if s.get("roe") is not None:
+            roe = s["roe"] * 100
+            if roe >= 15:
+                extras.append(f"ROE優秀{roe:.0f}%")
+            elif roe >= 10:
+                extras.append(f"ROE良好{roe:.0f}%")
+        if s.get("fiftyTwoWeekHigh") and s.get("fiftyTwoWeekLow") and s.get("latestPrice"):
+            high = s["fiftyTwoWeekHigh"]
+            low = s["fiftyTwoWeekLow"]
+            price = s["latestPrice"]
+            if high > low:
+                position = (price - low) / (high - low) * 100
+                if position < 30:
+                    extras.append("52週安値圏")
+                elif position > 80:
+                    extras.append("52週高値圏")
+        if s.get("targetMeanPrice") and s.get("latestPrice"):
+            target = s["targetMeanPrice"]
+            price = s["latestPrice"]
+            upside = (target - price) / price * 100
+            if upside > 10:
+                extras.append(f"目標株価+{upside:.0f}%")
+
         if extras:
             summary += f" ({', '.join(extras)})"
         stock_summaries.append(summary)
