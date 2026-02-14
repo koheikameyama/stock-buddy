@@ -33,30 +33,8 @@ jobs:
           fi
           echo "Time context: $(cat $GITHUB_OUTPUT)"
 
-  fetch-news:
-    needs: determine-time
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Fetch latest news
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: npx tsx scripts/news/fetch-news.ts
-
   stock-predictions:
-    needs: fetch-news
+    needs: determine-time
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
