@@ -7,7 +7,7 @@ import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
-import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
+import { calculateRSI, calculateMACD, calculateBollingerBands } from "@/lib/technical-indicators"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 
 function getOpenAIClient() {
@@ -135,7 +135,7 @@ export async function POST(
   const { stockId } = await params
 
   try {
-    // 銘柄情報を取得
+    // 銘柄情報を取得（ファンダメンタルズ情報も含む）
     const stock = await prisma.stock.findUnique({
       where: { id: stockId },
       select: {
@@ -143,6 +143,13 @@ export async function POST(
         tickerCode: true,
         name: true,
         sector: true,
+        isProfitable: true,
+        profitTrend: true,
+        per: true,
+        pbr: true,
+        dividendYield: true,
+        marketCap: true,
+        volatility: true,
       },
     })
 
@@ -215,7 +222,7 @@ export async function POST(
 `
     }
 
-    // テクニカル指標の計算（RSI/MACD）
+    // テクニカル指標の計算（RSI/MACD/ボリンジャーバンド）
     let technicalContext = ""
     if (prices.length >= 26) {
       // RSI/MACD計算用に価格データを古い順に並べ替え
@@ -223,6 +230,7 @@ export async function POST(
 
       const rsi = calculateRSI(pricesForCalc, 14)
       const macd = calculateMACD(pricesForCalc)
+      const bollinger = calculateBollingerBands(pricesForCalc, 20, 2)
 
       // RSIの初心者向け解釈
       let rsiInterpretation = ""
@@ -256,12 +264,51 @@ export async function POST(
         }
       }
 
-      if (rsi !== null || macd.histogram !== null) {
+      // ボリンジャーバンドの初心者向け解釈
+      let bollingerInterpretation = ""
+      if (bollinger.upper !== null && bollinger.lower !== null && bollinger.middle !== null) {
+        const latestClose = prices[0].close
+        if (latestClose >= bollinger.upper) {
+          bollingerInterpretation = `上限バンド(${bollinger.upper.toFixed(0)}円)を超え → 過熱感あり、調整の可能性`
+        } else if (latestClose <= bollinger.lower) {
+          bollingerInterpretation = `下限バンド(${bollinger.lower.toFixed(0)}円)を下回り → 売られすぎ、反発の可能性`
+        } else if (latestClose > bollinger.middle) {
+          bollingerInterpretation = `中心線(${bollinger.middle.toFixed(0)}円)より上 → やや強気圏`
+        } else {
+          bollingerInterpretation = `中心線(${bollinger.middle.toFixed(0)}円)より下 → やや弱気圏`
+        }
+      }
+
+      if (rsi !== null || macd.histogram !== null || bollingerInterpretation) {
         technicalContext = `
 【テクニカル指標】
 ${rsi !== null ? `- 売られすぎ/買われすぎ度合い: ${rsiInterpretation}` : ""}
 ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : ""}
+${bollingerInterpretation ? `- ボリンジャーバンド（値動きの範囲を示す指標）: ${bollingerInterpretation}` : ""}
 `
+      }
+    }
+
+    // 出来高分析
+    let volumeContext = ""
+    if (prices.length >= 7) {
+      const recentVolumes = prices.slice(0, 7).map(p => p.volume).filter((v): v is number => v != null && v > 0)
+      const allVolumes = prices.map(p => p.volume).filter((v): v is number => v != null && v > 0)
+      if (recentVolumes.length > 0 && allVolumes.length > 7) {
+        const recentAvg = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length
+        const allAvg = allVolumes.reduce((a, b) => a + b, 0) / allVolumes.length
+        const volumeRatio = allAvg > 0 ? recentAvg / allAvg : 1
+        let volumeInterpretation = ""
+        if (volumeRatio >= 2.0) {
+          volumeInterpretation = `通常の${volumeRatio.toFixed(1)}倍（非常に注目度が高い。急騰・急落に注意）`
+        } else if (volumeRatio >= 1.5) {
+          volumeInterpretation = `通常の${volumeRatio.toFixed(1)}倍（注目度が上昇中）`
+        } else if (volumeRatio <= 0.5) {
+          volumeInterpretation = `通常の${volumeRatio.toFixed(1)}倍（関心が低下。流動性リスクに注意）`
+        } else {
+          volumeInterpretation = `通常の${volumeRatio.toFixed(1)}倍（通常水準）`
+        }
+        volumeContext = `\n【出来高分析（取引の活発さ）】\n- 直近7日の出来高: ${volumeInterpretation}`
       }
     }
 
@@ -333,19 +380,52 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 `
       : ""
 
+    // ファンダメンタルズ情報
+    let fundamentalsContext = ""
+    const fundamentals: string[] = []
+    if (stock.isProfitable === true) {
+      fundamentals.push(`- 業績: 黒字${stock.profitTrend === "increasing" ? "（増益傾向）" : stock.profitTrend === "decreasing" ? "（減益傾向）" : ""}`)
+    } else if (stock.isProfitable === false) {
+      fundamentals.push(`- 業績: 赤字${stock.profitTrend === "decreasing" ? "（赤字拡大傾向）" : ""}`)
+    }
+    if (stock.per) {
+      const perEval = stock.per > 30 ? "（割高感あり）" : stock.per < 10 ? "（割安感あり）" : "（標準的）"
+      fundamentals.push(`- PER（株価収益率）: ${Number(stock.per).toFixed(1)}倍${perEval}`)
+    }
+    if (stock.pbr) {
+      const pbrEval = Number(stock.pbr) > 3 ? "（割高感あり）" : Number(stock.pbr) < 1 ? "（割安感あり）" : "（標準的）"
+      fundamentals.push(`- PBR（株価純資産倍率）: ${Number(stock.pbr).toFixed(2)}倍${pbrEval}`)
+    }
+    if (stock.dividendYield && Number(stock.dividendYield) > 0) {
+      const divEval = Number(stock.dividendYield) >= 3 ? "（高配当）" : Number(stock.dividendYield) >= 1.5 ? "（標準的）" : "（低め）"
+      fundamentals.push(`- 配当利回り: ${Number(stock.dividendYield).toFixed(2)}%${divEval}`)
+    }
+    if (stock.marketCap) {
+      const mcBillion = Number(stock.marketCap)
+      const mcLabel = mcBillion >= 10000 ? "大型株" : mcBillion >= 1000 ? "中型株" : "小型株"
+      fundamentals.push(`- 時価総額: ${mcBillion.toLocaleString()}億円（${mcLabel}）`)
+    }
+    if (stock.volatility) {
+      const volEval = Number(stock.volatility) > 40 ? "（値動きが非常に激しい）" : Number(stock.volatility) > 25 ? "（値動きがやや大きい）" : "（安定的）"
+      fundamentals.push(`- ボラティリティ: ${Number(stock.volatility).toFixed(1)}%${volEval}`)
+    }
+    if (fundamentals.length > 0) {
+      fundamentalsContext = `\n【ファンダメンタルズ（企業の基礎情報）】\n${fundamentals.join("\n")}`
+    }
+
     const prompt = `あなたは投資を学びたい人向けのAIコーチです。
-以下の銘柄について、詳細な購入判断をしてください。
-テクニカル分析の結果を活用し、専門用語は解説を添えて使ってください。
+以下の銘柄について、テクニカル分析とファンダメンタルズの両面から多角的に購入判断をしてください。
+専門用語は解説を添えて使ってください。
 
 【銘柄情報】
 - 名前: ${stock.name}
 - ティッカーコード: ${stock.tickerCode}
 - セクター: ${stock.sector || "不明"}
 - 現在価格: ${currentPrice}円
-${userContext}${predictionContext}
+${userContext}${fundamentalsContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${patternContext}${technicalContext}${chartPatternContext}${newsContext}
+${patternContext}${technicalContext}${volumeContext}${chartPatternContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -390,15 +470,29 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - idealEntryPriceExpiryは市場状況に応じて1日〜2週間程度の範囲で設定（短期的な値動きが予想される場合は短め、安定している場合は長め）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
 
-【テクニカル指標の重視】
-- RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
-- 複数の指標が同じ方向を示している場合（例: RSI売られすぎ + MACD上昇転換）は信頼度を高める
-- 指標間で矛盾がある場合（例: RSI買われすぎ だが MACD上昇中）は慎重な判断とし、その旨をcautionで言及する
+【多角的分析の実施】
+テクニカル分析だけでなく、ファンダメンタルズ・市場環境・出来高を総合的に評価してください:
+
+1. テクニカル分析:
+   - RSI・MACD・ボリンジャーバンドなどの指標が提供されている場合は、必ず判断根拠として活用する
+   - 複数の指標が同じ方向を示している場合（例: RSI売られすぎ + MACD上昇転換）は信頼度を高める
+   - 指標間で矛盾がある場合（例: RSI買われすぎ だが MACD上昇中）は慎重な判断とし、その旨をcautionで言及する
+
+2. ファンダメンタルズ分析:
+   - PER・PBRが提供されている場合は、割高/割安の判断に活用する
+   - 業績（黒字/赤字、増益/減益）は購入判断の重要な要素として扱う
+   - 赤字+減益の銘柄は、テクニカルが良くても慎重に判断する
+   - 配当利回りが高い銘柄は長期保有の観点で言及する
+
+3. 出来高・市場環境:
+   - 出来高が急増している場合は、その理由（好材料/悪材料）を考慮する
+   - 出来高が極端に少ない場合は流動性リスクに言及する
 
 【過去の価格動向とボラティリティの考慮】
 - 直近の価格変動幅（ボラティリティ）が大きい銘柄は、リスクが高いことをconcernsで必ず言及する
 - 急騰・急落した銘柄は、反動リスクがあることを伝える
 - 過去30日の値動きパターン（上昇トレンド/下落トレンド/横ばい）を判断に反映する
+- ボリンジャーバンドの上限/下限への接近は重要なシグナルとして活用する
 
 【"remove"（見送り推奨）について】
 - "remove"はウォッチリストから外すことを推奨する判断です

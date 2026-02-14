@@ -32,65 +32,82 @@ RISK_PENALTY = {
     "low": -30,     # 低リスク志向: -30点
 }
 
+# 黒字・増益銘柄へのスコアボーナス（投資スタイル別）
+PROFITABILITY_BONUS = {
+    "high": {"profitable": 3, "increasing": 5},      # 高リスク志向: 小さめのボーナス
+    "medium": {"profitable": 5, "increasing": 8},     # 中リスク志向: 中程度のボーナス
+    "low": {"profitable": 8, "increasing": 12},       # 低リスク志向: 大きめのボーナス
+}
+
 # 投資スタイル別のスコア配分（period × risk）
 # 各指標の重み（合計100）
+# 改善: dividendYieldを追加し、短期モメンタム偏重を是正
 SCORE_WEIGHTS = {
     # 短期
     ("short", "high"): {
-        "weekChangeRate": 40,  # モメンタム重視
-        "volumeRatio": 30,     # 注目度
+        "weekChangeRate": 30,  # モメンタム（40→30に抑制: 過度なモメンタム追従を緩和）
+        "volumeRatio": 25,     # 注目度
         "volatility": 20,      # 高ボラ歓迎
-        "marketCap": 10,
+        "marketCap": 15,       # 安定性（10→15に増加）
+        "dividendYield": 10,   # 配当（短期でも最低限考慮）
     },
     ("short", "medium"): {
-        "weekChangeRate": 35,
-        "volumeRatio": 25,
+        "weekChangeRate": 25,  # 35→25に抑制
+        "volumeRatio": 20,
         "volatility": 15,
         "marketCap": 25,
+        "dividendYield": 15,
     },
     ("short", "low"): {
-        "weekChangeRate": 25,
-        "volumeRatio": 20,
+        "weekChangeRate": 15,  # 25→15に抑制
+        "volumeRatio": 15,
         "volatility": 15,      # 低ボラ重視（反転）
-        "marketCap": 40,
+        "marketCap": 35,
+        "dividendYield": 20,   # 低リスクは配当重視
     },
     # 中期
     ("medium", "high"): {
-        "weekChangeRate": 30,
-        "volumeRatio": 25,
+        "weekChangeRate": 20,  # 30→20に抑制
+        "volumeRatio": 20,
         "volatility": 20,
         "marketCap": 25,
+        "dividendYield": 15,
     },
     ("medium", "medium"): {
-        "weekChangeRate": 25,
-        "volumeRatio": 25,
-        "volatility": 25,
+        "weekChangeRate": 15,  # 25→15に抑制
+        "volumeRatio": 20,
+        "volatility": 20,
         "marketCap": 25,
+        "dividendYield": 20,
     },
     ("medium", "low"): {
-        "weekChangeRate": 15,
-        "volumeRatio": 15,
-        "volatility": 30,      # 低ボラ重視（反転）
-        "marketCap": 40,
+        "weekChangeRate": 10,  # 15→10に抑制
+        "volumeRatio": 10,
+        "volatility": 25,      # 低ボラ重視（反転）
+        "marketCap": 30,
+        "dividendYield": 25,   # 中期低リスクは配当重視
     },
     # 長期
     ("long", "high"): {
-        "weekChangeRate": 20,
-        "volumeRatio": 20,
-        "volatility": 25,
-        "marketCap": 35,
+        "weekChangeRate": 10,  # 20→10に抑制（長期は短期モメンタム不要）
+        "volumeRatio": 15,
+        "volatility": 20,
+        "marketCap": 30,
+        "dividendYield": 25,
     },
     ("long", "medium"): {
-        "weekChangeRate": 15,
-        "volumeRatio": 15,
-        "volatility": 30,      # 低ボラ重視（反転）
-        "marketCap": 40,
+        "weekChangeRate": 5,   # 15→5に大幅抑制
+        "volumeRatio": 10,
+        "volatility": 25,      # 低ボラ重視（反転）
+        "marketCap": 30,
+        "dividendYield": 30,   # 長期は配当最重視
     },
     ("long", "low"): {
-        "weekChangeRate": 10,
-        "volumeRatio": 10,
-        "volatility": 35,      # 低ボラ最重視（反転）
-        "marketCap": 45,
+        "weekChangeRate": 5,   # 10→5に抑制
+        "volumeRatio": 5,
+        "volatility": 25,      # 低ボラ最重視（反転）
+        "marketCap": 30,
+        "dividendYield": 35,   # 長期低リスクは配当最重視
     },
 }
 
@@ -203,7 +220,8 @@ def get_stocks_with_prices(conn) -> list[dict]:
                 "volatility",
                 "volumeRatio",
                 "dividendYield",
-                "isProfitable"
+                "isProfitable",
+                "profitTrend"
             FROM "Stock"
             WHERE "priceUpdatedAt" IS NOT NULL
               AND "latestPrice" IS NOT NULL
@@ -224,6 +242,7 @@ def get_stocks_with_prices(conn) -> list[dict]:
             "volumeRatio": float(row[9]) if row[9] else None,
             "dividendYield": float(row[10]) if row[10] else 0,
             "isProfitable": row[11],
+            "profitTrend": row[12],
         }
         for row in rows
     ]
@@ -274,6 +293,7 @@ def calculate_stock_scores(
         "volumeRatio": normalize_values(stocks, "volumeRatio"),
         "volatility": normalize_values(stocks, "volatility", reverse=is_low_risk),
         "marketCap": normalize_values(stocks, "marketCap"),
+        "dividendYield": normalize_values(stocks, "dividendYield"),
     }
 
     # 赤字 AND 高ボラ銘柄へのペナルティ
@@ -281,6 +301,10 @@ def calculate_stock_scores(
     penalty = RISK_PENALTY.get(risk or "medium", -15)
     penalty_count = 0
     excluded_count = 0
+    bonus_count = 0
+
+    # 収益性ボーナスの設定
+    profit_bonus = PROFITABILITY_BONUS.get(risk or "medium", PROFITABILITY_BONUS["medium"])
 
     # スコア計算
     scored_stocks = []
@@ -333,6 +357,20 @@ def calculate_stock_scores(
             score_breakdown["riskPenalty"] = penalty
             penalty_count += 1
 
+        # 黒字・増益銘柄へのボーナス（リスクとリターンのバランス改善）
+        if stock.get("isProfitable") is True:
+            if stock.get("profitTrend") == "increasing":
+                # 黒字+増益: 最大ボーナス
+                bonus = profit_bonus["increasing"]
+                total_score += bonus
+                score_breakdown["profitBonus"] = bonus
+            else:
+                # 黒字のみ: 基本ボーナス
+                bonus = profit_bonus["profitable"]
+                total_score += bonus
+                score_breakdown["profitBonus"] = bonus
+            bonus_count += 1
+
         scored_stocks.append({
             **stock,
             "score": round(total_score, 2),
@@ -343,6 +381,8 @@ def calculate_stock_scores(
         print(f"  Excluded {excluded_count} speculative stocks (weekChange>50% OR unprofitable+highVol+surge)")
     if penalty_count > 0:
         print(f"  Applied risk penalty ({penalty}) to {penalty_count} stocks (unprofitable AND volatility>{max_vol}%)")
+    if bonus_count > 0:
+        print(f"  Applied profitability bonus to {bonus_count} stocks")
 
     # スコア順にソート
     scored_stocks.sort(key=lambda x: x["score"], reverse=True)
@@ -387,12 +427,28 @@ def generate_recommendations_for_user(
 
     # 銘柄リスト（最大30件）
     stock_list = stocks[:CONFIG["MAX_STOCKS_FOR_AI"]]
-    stock_summaries = [
-        f"- {s['name']}（{s['tickerCode']}）: 株価{s['latestPrice']:,.0f}円, "
-        f"1週間{'+' if s['weekChangeRate'] >= 0 else ''}{s['weekChangeRate']}%, "
-        f"{s['sector'] or '不明'}"
-        for s in stock_list
-    ]
+    stock_summaries = []
+    for s in stock_list:
+        summary = (
+            f"- {s['name']}（{s['tickerCode']}）: 株価{s['latestPrice']:,.0f}円, "
+            f"1週間{'+' if s['weekChangeRate'] >= 0 else ''}{s['weekChangeRate']}%, "
+            f"{s['sector'] or '不明'}"
+        )
+        extras = []
+        if s.get("dividendYield") and s["dividendYield"] > 0:
+            extras.append(f"配当{s['dividendYield']:.1f}%")
+        if s.get("isProfitable") is True:
+            if s.get("profitTrend") == "increasing":
+                extras.append("黒字+増益")
+            else:
+                extras.append("黒字")
+        elif s.get("isProfitable") is False:
+            extras.append("赤字")
+        if s.get("volatility") is not None:
+            extras.append(f"変動率{s['volatility']:.0f}%")
+        if extras:
+            summary += f" ({', '.join(extras)})"
+        stock_summaries.append(summary)
 
     prompt = f"""あなたは投資初心者を優しくサポートするAIコーチです。
 {prompts['intro']}
@@ -412,6 +468,9 @@ def generate_recommendations_for_user(
 - 理由は中学生でも分かる言葉で書いてください
 - 専門用語（ROE、PER、ボラティリティ等）は使わないでください
 - 「安定している」「成長が期待できる」「みんなが知ってる会社」のような表現を使ってください
+- ボラティリティが高い銘柄（変動率30%以上）は、リターンが期待できても損失リスクも大きいことを考慮してください
+- 赤字企業よりも黒字・増益企業を優先してください
+- 配当がある銘柄は中長期投資のユーザーに適しています
 
 【回答形式】
 以下のJSON配列で回答してください。JSON以外のテキストは含めないでください。

@@ -10,6 +10,7 @@ import { PrismaClient } from "@prisma/client"
 import OpenAI from "openai"
 import { getRelatedNews, formatNewsForPrompt } from "../lib/news-fetcher"
 import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
+import { calculateRSI, calculateMACD, calculateBollingerBands } from "../../lib/technical-indicators"
 
 const prisma = new PrismaClient()
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -23,15 +24,30 @@ interface SupportResistance {
   sma60: number | null // 60日移動平均線
 }
 
+interface TechnicalIndicators {
+  rsi: number | null
+  macd: { macd: number | null; signal: number | null; histogram: number | null }
+  bollinger: { upper: number | null; middle: number | null; lower: number | null }
+}
+
+interface VolumeAnalysis {
+  recentAvgVolume: number
+  totalAvgVolume: number
+  volumeRatio: number // 直近7日 / 全期間の出来高比率
+}
+
 interface BaselineData {
   currentPrice: number
   weeklyTrend: "up" | "neutral" | "down"
   monthlyTrend: "up" | "neutral" | "down"
   quarterlyTrend: "up" | "neutral" | "down"
   volatility: number
+  volatilityPercent: number // %ベースのボラティリティ
   candlestickPattern: { description: string; signal: string; strength: number } | null
   recentPatterns: { buySignals: number; sellSignals: number } | null
   supportResistance: SupportResistance | null
+  technicalIndicators: TechnicalIndicators | null
+  volumeAnalysis: VolumeAnalysis | null
 }
 
 interface PriceHistory {
@@ -168,10 +184,40 @@ async function getBaselineData(tickerCode: string): Promise<BaselineData | null>
     // ボラティリティ計算（直近30日）
     const prices = priceHistory.slice(0, 30).map((p) => p.close)
     const volatility = calculateVolatility(prices)
+    const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length
+    const volatilityPercent = avgPrice > 0 ? (volatility / avgPrice) * 100 : 0
 
     // ローソク足パターン分析
     const candlestickPattern = priceHistory.length > 0 ? analyzeCandlestick(priceHistory[0]) : null
     const recentPatterns = priceHistory.length >= 5 ? getRecentPatternSummary(priceHistory.slice(0, 5)) : null
+
+    // テクニカル指標計算（RSI/MACD/ボリンジャーバンド）
+    let technicalIndicators: TechnicalIndicators | null = null
+    if (priceHistory.length >= 26) {
+      const pricesForCalc = [...priceHistory].reverse().map(p => ({ close: p.close }))
+      technicalIndicators = {
+        rsi: calculateRSI(pricesForCalc, 14),
+        macd: calculateMACD(pricesForCalc),
+        bollinger: calculateBollingerBands(pricesForCalc, 20, 2),
+      }
+    }
+
+    // 出来高分析
+    let volumeAnalysis: VolumeAnalysis | null = null
+    if (historicalData.length >= 7) {
+      const sortedByDate = [...historicalData].sort((a, b) => b.date.localeCompare(a.date))
+      const recentVolumes = sortedByDate.slice(0, 7).map(p => p.volume).filter((v): v is number => v != null && v > 0)
+      const allVolumes = sortedByDate.map(p => p.volume).filter((v): v is number => v != null && v > 0)
+      if (recentVolumes.length > 0 && allVolumes.length > 7) {
+        const recentAvgVolume = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length
+        const totalAvgVolume = allVolumes.reduce((a, b) => a + b, 0) / allVolumes.length
+        volumeAnalysis = {
+          recentAvgVolume,
+          totalAvgVolume,
+          volumeRatio: totalAvgVolume > 0 ? recentAvgVolume / totalAvgVolume : 1,
+        }
+      }
+    }
 
     // サポート・レジスタンス計算
     let supportResistance: SupportResistance | null = null
@@ -217,9 +263,12 @@ async function getBaselineData(tickerCode: string): Promise<BaselineData | null>
       monthlyTrend,
       quarterlyTrend,
       volatility,
+      volatilityPercent,
       candlestickPattern,
       recentPatterns,
       supportResistance,
+      technicalIndicators,
+      volumeAnalysis,
     }
   } catch (error) {
     console.log(`Error fetching baseline data for ${tickerCode}: ${error}`)
@@ -239,7 +288,17 @@ interface PredictionResult {
 }
 
 async function generateAIPrediction(
-  stock: { name: string; tickerCode: string; sector: string | null },
+  stock: {
+    name: string
+    tickerCode: string
+    sector: string | null
+    isProfitable?: boolean | null
+    profitTrend?: string | null
+    per?: unknown
+    pbr?: unknown
+    dividendYield?: unknown
+    marketCap?: unknown
+  },
   baseline: BaselineData,
   relatedNews: Awaited<ReturnType<typeof getRelatedNews>>
 ): Promise<PredictionResult> {
@@ -282,8 +341,93 @@ ${formatNewsForPrompt(relatedNews)}
 - 20日移動平均線: ${sr.sma20.toFixed(2)}円${sr.sma60 ? `\n- 60日移動平均線: ${sr.sma60.toFixed(2)}円` : ""}`
   }
 
+  // テクニカル指標コンテキスト
+  let technicalContext = ""
+  if (baseline.technicalIndicators) {
+    const ti = baseline.technicalIndicators
+    const parts: string[] = []
+    if (ti.rsi !== null) {
+      let rsiInterpretation = ""
+      if (ti.rsi <= 30) rsiInterpretation = "（売られすぎ → 反発の可能性）"
+      else if (ti.rsi <= 40) rsiInterpretation = "（やや売られすぎ）"
+      else if (ti.rsi >= 70) rsiInterpretation = "（買われすぎ → 調整の可能性）"
+      else if (ti.rsi >= 60) rsiInterpretation = "（やや買われすぎ）"
+      else rsiInterpretation = "（通常範囲）"
+      parts.push(`- RSI（相対力指数）: ${ti.rsi.toFixed(1)}${rsiInterpretation}`)
+    }
+    if (ti.macd.histogram !== null) {
+      let macdInterpretation = ""
+      if (ti.macd.histogram > 1) macdInterpretation = "上昇トレンド（勢いあり）"
+      else if (ti.macd.histogram > 0) macdInterpretation = "やや上昇傾向"
+      else if (ti.macd.histogram < -1) macdInterpretation = "下落トレンド（勢いあり）"
+      else if (ti.macd.histogram < 0) macdInterpretation = "やや下落傾向"
+      else macdInterpretation = "横ばい"
+      parts.push(`- MACD（トレンドの方向性）: ${macdInterpretation}`)
+    }
+    if (ti.bollinger.upper !== null && ti.bollinger.lower !== null && ti.bollinger.middle !== null) {
+      let bollingerInterpretation = ""
+      if (baseline.currentPrice >= ti.bollinger.upper) {
+        bollingerInterpretation = `上限バンド(${ti.bollinger.upper.toFixed(0)}円)を超え → 過熱感、調整リスクあり`
+      } else if (baseline.currentPrice <= ti.bollinger.lower) {
+        bollingerInterpretation = `下限バンド(${ti.bollinger.lower.toFixed(0)}円)を下回り → 売られすぎ、反発の可能性`
+      } else if (baseline.currentPrice > ti.bollinger.middle) {
+        bollingerInterpretation = `中心線(${ti.bollinger.middle.toFixed(0)}円)より上 → やや強気圏`
+      } else {
+        bollingerInterpretation = `中心線(${ti.bollinger.middle.toFixed(0)}円)より下 → やや弱気圏`
+      }
+      parts.push(`- ボリンジャーバンド: ${bollingerInterpretation}`)
+    }
+    if (parts.length > 0) {
+      technicalContext = `\n\n【テクニカル指標】\n${parts.join("\n")}`
+    }
+  }
+
+  // 出来高分析コンテキスト
+  let volumeContext = ""
+  if (baseline.volumeAnalysis) {
+    const va = baseline.volumeAnalysis
+    let interpretation = ""
+    if (va.volumeRatio >= 2.0) interpretation = `通常の${va.volumeRatio.toFixed(1)}倍（非常に注目度が高い）`
+    else if (va.volumeRatio >= 1.5) interpretation = `通常の${va.volumeRatio.toFixed(1)}倍（注目度上昇中）`
+    else if (va.volumeRatio <= 0.5) interpretation = `通常の${va.volumeRatio.toFixed(1)}倍（関心低下、流動性リスク）`
+    else interpretation = `通常の${va.volumeRatio.toFixed(1)}倍（通常水準）`
+    volumeContext = `\n\n【出来高分析】\n- 直近7日の出来高: ${interpretation}`
+  }
+
+  // ファンダメンタルズコンテキスト
+  let fundamentalsContext = ""
+  const fundamentals: string[] = []
+  if (stock.isProfitable === true) {
+    fundamentals.push(`- 業績: 黒字${stock.profitTrend === "increasing" ? "（増益傾向）" : stock.profitTrend === "decreasing" ? "（減益傾向）" : ""}`)
+  } else if (stock.isProfitable === false) {
+    fundamentals.push(`- 業績: 赤字${stock.profitTrend === "decreasing" ? "（赤字拡大傾向）" : ""}`)
+  }
+  if (stock.per) {
+    const perVal = Number(stock.per)
+    const perEval = perVal > 30 ? "（割高感あり）" : perVal < 10 ? "（割安感あり）" : "（標準的）"
+    fundamentals.push(`- PER（株価収益率）: ${perVal.toFixed(1)}倍${perEval}`)
+  }
+  if (stock.pbr) {
+    const pbrVal = Number(stock.pbr)
+    const pbrEval = pbrVal > 3 ? "（割高感あり）" : pbrVal < 1 ? "（割安感あり）" : "（標準的）"
+    fundamentals.push(`- PBR（株価純資産倍率）: ${pbrVal.toFixed(2)}倍${pbrEval}`)
+  }
+  if (stock.dividendYield && Number(stock.dividendYield) > 0) {
+    const divVal = Number(stock.dividendYield)
+    const divEval = divVal >= 3 ? "（高配当）" : divVal >= 1.5 ? "（標準的）" : "（低め）"
+    fundamentals.push(`- 配当利回り: ${divVal.toFixed(2)}%${divEval}`)
+  }
+  if (stock.marketCap) {
+    const mcBillion = Number(stock.marketCap)
+    const mcLabel = mcBillion >= 10000 ? "大型株" : mcBillion >= 1000 ? "中型株" : "小型株"
+    fundamentals.push(`- 時価総額: ${mcBillion.toLocaleString()}億円（${mcLabel}）`)
+  }
+  if (fundamentals.length > 0) {
+    fundamentalsContext = `\n\n【ファンダメンタルズ（企業の基礎情報）】\n${fundamentals.join("\n")}`
+  }
+
   const prompt = `あなたは株式投資の初心者向けアドバイザーです。
-以下の銘柄について、今後の動向予測とアドバイスを生成してください。
+以下の銘柄について、テクニカル分析・ファンダメンタルズ・市場環境を総合的に考慮した動向予測とアドバイスを生成してください。
 
 【銘柄情報】
 名称: ${stock.name}
@@ -297,8 +441,8 @@ ${formatNewsForPrompt(relatedNews)}
 - 3ヶ月: ${trendLabels[baseline.quarterlyTrend]}
 
 【ボラティリティ（価格変動幅）】
-${baseline.volatility.toFixed(2)}円
-${patternContext}${supportResistanceContext}${newsContext}
+${baseline.volatility.toFixed(2)}円（変動率: ${baseline.volatilityPercent.toFixed(1)}%${baseline.volatilityPercent > 40 ? " - 非常に高い" : baseline.volatilityPercent > 25 ? " - やや高い" : " - 安定的"}）
+${patternContext}${supportResistanceContext}${technicalContext}${volumeContext}${fundamentalsContext}${newsContext}
 ---
 
 以下の形式でJSON形式で回答してください：
@@ -333,6 +477,15 @@ ${patternContext}${supportResistanceContext}${newsContext}
 - アドバイスは具体的で分かりやすく
 - 断定的な表現は避け、「〜が期待できます」「〜の可能性があります」など柔らかい表現を使う
 - 投資判断は最終的にユーザー自身が行うことを前提にする
+
+多角的分析の指示:
+- テクニカル指標（RSI, MACD, ボリンジャーバンド）が提供されている場合は、必ず判断根拠に含める
+- ファンダメンタルズ（PER, PBR, 配当利回り, 業績）が提供されている場合は、バリュエーション判断に活用する
+- 複数の指標が同じ方向を示す場合は信頼度（confidence）を高くする
+- 指標間で矛盾がある場合は信頼度を下げ、慎重な予測にする
+- 赤字企業や減益傾向の場合は、テクニカルが良くても慎重な予測をする
+- 出来高が急変している場合は、その意味を考慮して予測に反映する
+- ボラティリティが高い銘柄は価格レンジを広めに設定する
 
 指値・逆指値の設定ガイド:
 【buy推奨時】
@@ -441,6 +594,12 @@ async function main(): Promise<void> {
         tickerCode: true,
         name: true,
         sector: true,
+        isProfitable: true,
+        profitTrend: true,
+        per: true,
+        pbr: true,
+        dividendYield: true,
+        marketCap: true,
       },
     })
 

@@ -72,18 +72,46 @@ export function calculateMACD(prices: PriceData[]): {
     return { macd: null, signal: null, histogram: null }
   }
 
-  const ema12 = calculateEMA(prices, 12)
-  const ema26 = calculateEMA(prices, 26)
+  // MACD値の履歴を計算するため、各時点でのEMA12とEMA26を求める
+  const k12 = 2 / (12 + 1)
+  const k26 = 2 / (26 + 1)
+  const k9 = 2 / (9 + 1)
 
-  if (!ema12 || !ema26) {
+  // 最初の26日のSMAをEMAの初期値にする
+  const sma12Init = prices.slice(prices.length - 12).reduce((sum, p) => sum + p.close, 0) / 12
+  const sma26Init = prices.slice(prices.length - 26).reduce((sum, p) => sum + p.close, 0) / 26
+
+  let ema12 = sma12Init
+  let ema26 = sma26Init
+  const macdValues: number[] = []
+
+  // 古い方から順にEMAを計算
+  for (let i = prices.length - 26; i >= 0; i--) {
+    ema12 = prices[i].close * k12 + ema12 * (1 - k12)
+    ema26 = prices[i].close * k26 + ema26 * (1 - k26)
+    macdValues.push(ema12 - ema26)
+  }
+
+  if (macdValues.length === 0) {
     return { macd: null, signal: null, histogram: null }
   }
 
-  const macd = ema12 - ema26
+  const macd = macdValues[macdValues.length - 1]
 
-  // シグナルライン（MACDの9日EMA）は簡易的にMACDのみで計算
-  // 本来はMACD値の履歴からEMAを計算すべき
-  const signal = macd * 0.9 // 簡易計算
+  // シグナルライン: MACD値の9日EMA
+  let signal: number
+  if (macdValues.length >= 9) {
+    // 最初の9つのMACD値のSMAをシグナルの初期値にする
+    const signalInit = macdValues.slice(0, 9).reduce((sum, v) => sum + v, 0) / 9
+    let signalEma = signalInit
+    for (let i = 9; i < macdValues.length; i++) {
+      signalEma = macdValues[i] * k9 + signalEma * (1 - k9)
+    }
+    signal = signalEma
+  } else {
+    // データ不足の場合はMACD値の平均をシグナルとする
+    signal = macdValues.reduce((sum, v) => sum + v, 0) / macdValues.length
+  }
 
   const histogram = macd - signal
 
