@@ -127,23 +127,24 @@ function detectSentimentByKeywords(text: string): string | null {
   return null
 }
 
-async function analyzeWithOpenAI(title: string, content: string): Promise<{ sector: string | null; sentiment: string | null }> {
+async function analyzeWithOpenAI(title: string, content: string): Promise<{ sector: string | null; sentiment: string | null; isStockRelated: boolean }> {
   try {
     if (!process.env.OPENAI_API_KEY) {
       console.log("OPENAI_API_KEY not found, skipping AI analysis")
-      return { sector: null, sentiment: null }
+      return { sector: null, sentiment: null, isStockRelated: true }
     }
 
-    const prompt = `以下のニュースを分析して、セクターとセンチメントを判定してください。
+    const prompt = `以下のニュースを分析してください。
 
 タイトル: ${title}
 内容: ${content}
 
-セクター候補: 半導体・電子部品、自動車、金融、医薬品、通信、小売、不動産、エネルギー、素材、IT・サービス
-センチメント候補: positive、neutral、negative
-
-回答形式（JSON）:
-{"sector": "セクター名 or null", "sentiment": "positive/neutral/negative or null"}`
+以下の3項目を判定してください:
+1. is_stock_related: このニュースが株式・投資・金融市場に関連するかどうか（true/false）
+   - 株価、企業業績、市場動向、経済指標、金融政策などに関するニュースはtrue
+   - スポーツ、芸能、事件、天気など株式市場と無関係なニュースはfalse
+2. sector: セクター（半導体・電子部品、自動車、金融、医薬品、通信、小売、不動産、エネルギー、素材、IT・サービス、またはnull）
+3. sentiment: センチメント（positive、neutral、negative、またはnull）`
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -157,10 +158,11 @@ async function analyzeWithOpenAI(title: string, content: string): Promise<{ sect
           schema: {
             type: "object",
             properties: {
+              is_stock_related: { type: "boolean" },
               sector: { type: ["string", "null"] },
               sentiment: { type: ["string", "null"], enum: ["positive", "neutral", "negative", null] },
             },
-            required: ["sector", "sentiment"],
+            required: ["is_stock_related", "sector", "sentiment"],
             additionalProperties: false,
           },
         },
@@ -171,10 +173,11 @@ async function analyzeWithOpenAI(title: string, content: string): Promise<{ sect
     return {
       sector: result.sector || null,
       sentiment: result.sentiment || null,
+      isStockRelated: result.is_stock_related ?? true,
     }
   } catch (error) {
     console.log(`OpenAI API error: ${error}`)
-    return { sector: null, sentiment: null }
+    return { sector: null, sentiment: null, isStockRelated: true }
   }
 }
 
@@ -230,6 +233,7 @@ async function main(): Promise<void> {
 
   let ruleBasedCount = 0
   let aiBasedCount = 0
+  let skippedCount = 0
 
   try {
     // 各RSSフィードを取得
@@ -277,6 +281,14 @@ async function main(): Promise<void> {
         // ルールベースで判定できなかった場合はAI分析
         if (sector === null || sentiment === null) {
           const aiResult = await analyzeWithOpenAI(entry.title, entry.contentSnippet || "")
+
+          // セクターがルールベースで検出できず、AIも株式関連でないと判断した場合はスキップ
+          if (sector === null && !aiResult.isStockRelated) {
+            skippedCount++
+            console.log(`  Skipped (not stock-related): ${entry.title}`)
+            continue
+          }
+
           if (sector === null) sector = aiResult.sector
           if (sentiment === null) sentiment = aiResult.sentiment
           aiBasedCount++
@@ -307,6 +319,7 @@ async function main(): Promise<void> {
       console.log(`\nAnalyzing ${newsToSave.length} new entries...`)
       console.log(`  Rule-based: ${ruleBasedCount} entries`)
       console.log(`  AI-based: ${aiBasedCount} entries`)
+      console.log(`  Skipped (not stock-related): ${skippedCount} entries`)
 
       // バッチ作成
       const created = await prisma.marketNews.createMany({
