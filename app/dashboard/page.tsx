@@ -8,6 +8,7 @@ import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
 import PortfolioOverallAnalysis from "./PortfolioOverallAnalysis"
 import NikkeiSummary from "./NikkeiSummary"
+import LatestNews from "./LatestNews"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -167,6 +168,9 @@ export default async function DashboardPage() {
 
           {/* 日経平均株価 */}
           <NikkeiSummary />
+
+          {/* 最新のニュース */}
+          <LatestNews userId={user.id} />
 
           {/* マイ銘柄へのリンク */}
           <Link
