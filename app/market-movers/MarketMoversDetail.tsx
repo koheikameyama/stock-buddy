@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import BackButton from "@/app/components/BackButton"
+import AddStockDialog from "@/app/my-stocks/AddStockDialog"
 
 interface RelatedNewsItem {
   title: string
@@ -19,6 +21,7 @@ interface MoverStock {
     tickerCode: string
     name: string
     sector: string | null
+    market?: string
     latestPrice: number | null
   }
 }
@@ -34,6 +37,15 @@ export default function MarketMoversDetail() {
   const [data, setData] = useState<MoversData | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [dialogType, setDialogType] = useState<"watchlist" | "tracked" | null>(null)
+  const [dialogStock, setDialogStock] = useState<{
+    id: string
+    tickerCode: string
+    name: string
+    market: string
+    sector: string | null
+    latestPrice: number | null
+  } | null>(null)
 
   useEffect(() => {
     async function fetchMovers() {
@@ -55,6 +67,21 @@ export default function MarketMoversDetail() {
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id)
+  }
+
+  const handleAddStock = (
+    type: "watchlist" | "tracked",
+    stock: MoverStock["stock"]
+  ) => {
+    setDialogStock({
+      id: stock.id,
+      tickerCode: stock.tickerCode,
+      name: stock.name,
+      market: stock.market || "プライム",
+      sector: stock.sector,
+      latestPrice: stock.latestPrice,
+    })
+    setDialogType(type)
   }
 
   if (loading) {
@@ -142,6 +169,7 @@ export default function MarketMoversDetail() {
                 type="gainer"
                 isExpanded={expandedId === `gainer-${mover.position}`}
                 onToggle={() => toggleExpand(`gainer-${mover.position}`)}
+                onAddStock={handleAddStock}
               />
             ))}
           </div>
@@ -166,6 +194,7 @@ export default function MarketMoversDetail() {
                 type="loser"
                 isExpanded={expandedId === `loser-${mover.position}`}
                 onToggle={() => toggleExpand(`loser-${mover.position}`)}
+                onAddStock={handleAddStock}
               />
             ))}
           </div>
@@ -175,6 +204,28 @@ export default function MarketMoversDetail() {
       <p className="text-xs text-gray-400 text-center mt-4">
         ※ 出来高10万株以上の銘柄が対象です。場後に毎日更新されます。
       </p>
+
+      {/* ウォッチリスト / 追跡 追加ダイアログ */}
+      {dialogType && dialogStock && (
+        <AddStockDialog
+          isOpen={true}
+          onClose={() => {
+            setDialogType(null)
+            setDialogStock(null)
+          }}
+          onSuccess={() => {
+            setDialogType(null)
+            setDialogStock(null)
+            toast.success(
+              dialogType === "watchlist"
+                ? "ウォッチリストに追加しました"
+                : "追跡リストに追加しました"
+            )
+          }}
+          defaultType={dialogType}
+          initialStock={dialogStock}
+        />
+      )}
     </>
   )
 }
@@ -184,11 +235,13 @@ function MoverCard({
   type,
   isExpanded,
   onToggle,
+  onAddStock,
 }: {
   mover: MoverStock
   type: "gainer" | "loser"
   isExpanded: boolean
   onToggle: () => void
+  onAddStock: (type: "watchlist" | "tracked", stock: MoverStock["stock"]) => void
 }) {
   const isGainer = type === "gainer"
   const changeColor = isGainer ? "text-red-600" : "text-blue-600"
@@ -259,7 +312,7 @@ function MoverCard({
 
           {/* 関連ニュース */}
           {news.length > 0 && (
-            <div>
+            <div className="mb-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <span className="text-sm">📰</span>
                 <span className="text-xs font-semibold text-gray-700">関連ニュース</span>
@@ -327,6 +380,22 @@ function MoverCard({
               </div>
             </div>
           )}
+
+          {/* アクションボタン（ウォッチリスト詳細と同じパターン） */}
+          <div className="flex gap-2 pt-2 border-t border-gray-100">
+            <button
+              onClick={() => onAddStock("watchlist", mover.stock)}
+              className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            >
+              +気になる
+            </button>
+            <button
+              onClick={() => onAddStock("tracked", mover.stock)}
+              className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            >
+              +追跡
+            </button>
+          </div>
         </div>
       )}
     </div>
