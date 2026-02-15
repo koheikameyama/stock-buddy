@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 
 interface PortfolioSummaryData {
   totalValue: number
@@ -100,63 +101,73 @@ export default function PortfolioSummary({ hasHoldings }: PortfolioSummaryProps)
   const isOutperforming = comparison !== null && comparison > 0
 
   return (
-    <div className="mb-6 bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-          <span className="text-lg">💰</span>
-        </div>
-        <span className="text-sm font-semibold text-gray-900">資産状況</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">総資産額</div>
-          <div className="text-base sm:text-lg font-bold text-gray-900">
-            ¥{Math.round(summary.totalValue).toLocaleString()}
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">含み損益</div>
-          <div
-            className={`text-base sm:text-lg font-bold ${
-              summary.unrealizedGain >= 0 ? "text-green-600" : "text-red-600"
-            }`}
-          >
-            {summary.unrealizedGain >= 0 ? "+" : ""}
-            ¥{Math.round(summary.unrealizedGain).toLocaleString()}
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">損益率</div>
-          <div
-            className={`text-base sm:text-lg font-bold ${
-              summary.unrealizedGainPercent >= 0 ? "text-green-600" : "text-red-600"
-            }`}
-          >
-            {summary.unrealizedGainPercent >= 0 ? "+" : ""}
-            {summary.unrealizedGainPercent.toFixed(1)}%
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">市場比較</div>
-          {nikkei ? (
-            <div className="flex flex-col items-center">
-              <div
-                className={`text-base sm:text-lg font-bold ${
-                  isOutperforming ? "text-green-600" : "text-orange-500"
-                }`}
-              >
-                {comparison !== null && comparison >= 0 ? "+" : ""}
-                {comparison?.toFixed(1)}%
-              </div>
-              <div className="text-[10px] text-gray-400">
-                vs 日経平均
-              </div>
+    <Link href="/my-stocks" className="block mb-6">
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+              <span className="text-lg">💰</span>
             </div>
-          ) : (
-            <div className="text-sm text-gray-400">-</div>
-          )}
+            <span className="text-sm font-semibold text-gray-900">資産状況</span>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <span>マイ銘柄へ</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="text-center">
+            <div className="text-xs text-gray-500 mb-1">総資産額</div>
+            <div className="text-base sm:text-lg font-bold text-gray-900">
+              ¥{Math.round(summary.totalValue).toLocaleString()}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500 mb-1">含み損益</div>
+            <div
+              className={`text-base sm:text-lg font-bold ${
+                summary.unrealizedGain >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {summary.unrealizedGain >= 0 ? "+" : ""}
+              ¥{Math.round(summary.unrealizedGain).toLocaleString()}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500 mb-1">損益率</div>
+            <div
+              className={`text-base sm:text-lg font-bold ${
+                summary.unrealizedGainPercent >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {summary.unrealizedGainPercent >= 0 ? "+" : ""}
+              {summary.unrealizedGainPercent.toFixed(1)}%
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500 mb-1">市場比較</div>
+            {nikkei ? (
+              <div className="flex flex-col items-center">
+                <div
+                  className={`text-base sm:text-lg font-bold ${
+                    isOutperforming ? "text-green-600" : "text-orange-500"
+                  }`}
+                >
+                  {comparison !== null && comparison >= 0 ? "+" : ""}
+                  {comparison?.toFixed(1)}%
+                </div>
+                <div className="text-[10px] text-gray-400">
+                  vs 日経平均
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400">-</div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }

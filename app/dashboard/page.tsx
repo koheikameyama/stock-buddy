@@ -6,10 +6,7 @@ import Header from "@/app/components/Header"
 import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
-import PortfolioOverallAnalysis from "./PortfolioOverallAnalysis"
 import NikkeiSummary from "./NikkeiSummary"
-import MarketMovers from "./MarketMovers"
-import LatestNews from "./LatestNews"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -170,70 +167,13 @@ export default async function DashboardPage() {
           {/* 日経平均株価 */}
           <NikkeiSummary />
 
-          {/* 値上がり・値下がりランキング */}
-          <MarketMovers />
-
-          {/* マイ銘柄へのリンク */}
-          <Link
-            href="/my-stocks"
-            className="block mb-6 bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">マイ銘柄</div>
-                <div className="text-xs text-gray-500">保有銘柄と気になる銘柄を管理</div>
-              </div>
-              <div className="ml-auto">
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </div>
-            </div>
-          </Link>
-
-          {/* 損益サマリー */}
+          {/* 損益サマリー（クリックでマイ銘柄へ） */}
           <PortfolioSummary hasHoldings={hasHoldings} />
 
-          {/* ポートフォリオ総評分析 */}
-          <PortfolioOverallAnalysis
-            portfolioCount={user.portfolioStocks.length}
-            watchlistCount={user.watchlistStocks.length}
-          />
-
-        {/* 今日の注目銘柄（カテゴリ別） */}
-        {user && (
-          <div className="mb-4 sm:mb-8 mt-4 sm:mt-8">
+          {/* 今日の注目銘柄（カテゴリ別） */}
+          <div className="mt-4 sm:mt-6">
             <FeaturedStocksByCategory userId={user.id} />
           </div>
-        )}
-
-        {/* 最新のニュース */}
-        <LatestNews userId={user.id} />
       </div>
     </main>
     </>
