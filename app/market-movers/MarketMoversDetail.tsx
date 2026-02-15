@@ -382,18 +382,19 @@ function MoverCard({
           )}
 
           {/* アクションボタン（ウォッチリスト詳細と同じパターン） */}
-          <div className="flex gap-2 pt-2 border-t border-gray-100">
+          {/* アクションボタン */}
+          <div className="flex gap-2 pt-3">
             <button
               onClick={() => onAddStock("watchlist", mover.stock)}
-              className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors bg-blue-600 text-white hover:bg-blue-700"
             >
-              +気になる
+              気になる
             </button>
             <button
               onClick={() => onAddStock("tracked", mover.stock)}
-              className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+              className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
             >
-              +追跡
+              追跡
             </button>
           </div>
         </div>
