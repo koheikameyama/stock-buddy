@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { UPDATE_SCHEDULES } from "@/lib/constants"
 
 interface FeaturedStock {
@@ -381,28 +382,36 @@ export default function FeaturedStocksByCategory({
           </div>
         )}
 
-        {stock.isRegistered ? (
-          <div className="w-full px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm text-center bg-gray-300 text-gray-500">
-            登録済み
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleAddToWatchlist(stock)}
-              disabled={addingStockId === stock.id}
-              className={`flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${addingStockId === stock.id ? "" : theme.button}`}
-            >
-              {addingStockId === stock.id && addingType === "watchlist" ? "追加中..." : "気になる"}
-            </button>
-            <button
-              onClick={() => handleAddToTracked(stock)}
-              disabled={addingStockId === stock.id}
-              className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
-            >
-              {addingStockId === stock.id && addingType === "tracked" ? "追加中..." : "追跡"}
-            </button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Link
+            href={`/recommendations/${stock.stockId}`}
+            className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm text-center transition-colors bg-gray-800 text-white hover:bg-gray-900"
+          >
+            詳しく見る
+          </Link>
+          {stock.isRegistered ? (
+            <div className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm text-center bg-gray-300 text-gray-500">
+              登録済み
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => handleAddToWatchlist(stock)}
+                disabled={addingStockId === stock.id}
+                className={`flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed ${addingStockId === stock.id ? "" : theme.button}`}
+              >
+                {addingStockId === stock.id && addingType === "watchlist" ? "追加中..." : "気になる"}
+              </button>
+              <button
+                onClick={() => handleAddToTracked(stock)}
+                disabled={addingStockId === stock.id}
+                className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+              >
+                {addingStockId === stock.id && addingType === "tracked" ? "追加中..." : "追跡"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     )
   }
