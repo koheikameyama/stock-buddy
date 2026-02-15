@@ -313,9 +313,22 @@ export default function FeaturedStocksByCategory({
 
         <Link
           href={`/recommendations/${stock.stockId}`}
-          className="block w-full px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm text-center transition-colors bg-gray-800 text-white hover:bg-gray-900"
+          className="flex items-center justify-end text-blue-600 pt-2 mt-2 border-t border-gray-100"
         >
-          詳しく見る
+          <span className="text-sm font-medium">詳細を見る</span>
+          <svg
+            className="w-4 h-4 ml-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
         </Link>
       </div>
     )
