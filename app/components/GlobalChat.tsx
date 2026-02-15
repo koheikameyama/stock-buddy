@@ -222,12 +222,12 @@ export default function GlobalChat() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - ボトムナビの上に配置 */}
       <button
         onClick={toggleChat}
-        className={`fixed bottom-6 right-6 w-14 h-14 ${
+        className={`fixed bottom-24 right-4 w-14 h-14 ${
           stockContext ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
-        } text-white rounded-full shadow-lg flex items-center justify-center transition-all z-50`}
+        } text-white rounded-full shadow-lg flex items-center justify-center transition-all z-40`}
         title={chatTitle}
       >
         {isOpen ? (
@@ -261,9 +261,9 @@ export default function GlobalChat() {
         )}
       </button>
 
-      {/* Chat Panel */}
+      {/* Chat Panel - ボトムナビの上に配置 */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-8rem)] bg-white rounded-xl shadow-2xl flex flex-col z-50 border border-gray-200">
+        <div className="fixed bottom-40 right-4 w-96 max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-12rem)] bg-white rounded-xl shadow-2xl flex flex-col z-40 border border-gray-200">
           {/* Header */}
           <div className={`${
             stockContext ? "bg-green-600" : "bg-blue-600"
