@@ -1,8 +1,5 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
 import EarningsInfo from "@/app/components/EarningsInfo"
 import StockChart from "@/app/components/StockChart"
@@ -10,6 +7,7 @@ import PriceHistory from "@/app/components/PriceHistory"
 import RelatedNews from "@/app/components/RelatedNews"
 import StockDetailLayout from "@/app/components/StockDetailLayout"
 import CurrentPriceCard from "@/app/components/CurrentPriceCard"
+import StockActionButtons from "@/app/components/StockActionButtons"
 import { useStockPrice } from "@/app/hooks/useStockPrice"
 
 interface StockData {
@@ -49,63 +47,7 @@ interface Props {
 }
 
 export default function MarketMoverDetailClient({ stock, mover }: Props) {
-  const router = useRouter()
   const { price, loading } = useStockPrice(stock.tickerCode)
-  const [addingToWatchlist, setAddingToWatchlist] = useState(false)
-  const [addingToTracked, setAddingToTracked] = useState(false)
-
-  const handleAddToWatchlist = async () => {
-    setAddingToWatchlist(true)
-    try {
-      const response = await fetch("/api/user-stocks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tickerCode: stock.tickerCode,
-          type: "watchlist",
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "追加に失敗しました")
-      }
-
-      toast.success("気になるに追加しました")
-      router.push("/my-stocks")
-    } catch (err: unknown) {
-      const error = err as Error
-      toast.error(error.message || "追加に失敗しました")
-    } finally {
-      setAddingToWatchlist(false)
-    }
-  }
-
-  const handleAddToTracked = async () => {
-    setAddingToTracked(true)
-    try {
-      const response = await fetch("/api/tracked-stocks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tickerCode: stock.tickerCode,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "追加に失敗しました")
-      }
-
-      toast.success("追跡に追加しました")
-      router.push("/my-stocks")
-    } catch (err: unknown) {
-      const error = err as Error
-      toast.error(error.message || "追加に失敗しました")
-    } finally {
-      setAddingToTracked(false)
-    }
-  }
 
   const isGainer = mover?.type === "gainer"
   const dateLabel = mover?.date
@@ -130,24 +72,7 @@ export default function MarketMoverDetailClient({ stock, mover }: Props) {
             loading={loading}
             fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
             fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
-            actions={
-              <>
-                <button
-                  onClick={handleAddToWatchlist}
-                  disabled={addingToWatchlist || addingToTracked}
-                  className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
-                >
-                  {addingToWatchlist ? "追加中..." : "+気になる"}
-                </button>
-                <button
-                  onClick={handleAddToTracked}
-                  disabled={addingToWatchlist || addingToTracked}
-                  className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                >
-                  {addingToTracked ? "追加中..." : "+追跡"}
-                </button>
-              </>
-            }
+            actions={<StockActionButtons tickerCode={stock.tickerCode} />}
           />
 
           {/* AI Analysis Section (from Market Mover) */}
