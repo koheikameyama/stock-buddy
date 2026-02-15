@@ -516,6 +516,11 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
             <div className="bg-green-50 rounded-lg p-3 mb-3">
               <p className="text-sm text-gray-700">
                 📊 理想の買い値: <strong className="text-green-700">{purchaseRecommendation.idealEntryPrice.toLocaleString()}円</strong>
+                {purchaseRecommendation.idealEntryPriceExpiry && (
+                  <span className="text-gray-500 ml-1">
+                    （〜{new Date(purchaseRecommendation.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで）
+                  </span>
+                )}
               </p>
               {purchaseRecommendation.priceGap != null && (
                 <p className={`text-xs mt-1 ${purchaseRecommendation.priceGap < 0 ? "text-green-600" : "text-yellow-600"}`}>
