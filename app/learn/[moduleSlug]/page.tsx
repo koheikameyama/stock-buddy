@@ -1,0 +1,43 @@
+import { Suspense } from "react"
+import { auth } from "@/auth"
+import { redirect } from "next/navigation"
+import Header from "@/app/components/Header"
+import ModuleDetail from "./ModuleDetail"
+import { LessonSkeleton } from "@/components/skeletons/lesson-skeleton"
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ moduleSlug: string }>
+}) {
+  const { moduleSlug } = await params
+  return {
+    title: `${moduleSlug} | 学ぶ | Stock Buddy`,
+  }
+}
+
+export default async function ModulePage({
+  params,
+}: {
+  params: Promise<{ moduleSlug: string }>
+}) {
+  const session = await auth()
+  const { moduleSlug } = await params
+
+  if (!session?.user?.email) {
+    redirect("/login")
+  }
+
+  return (
+    <>
+      <Header />
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+        <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+          <Suspense fallback={<LessonSkeleton />}>
+            <ModuleDetail moduleSlug={moduleSlug} />
+          </Suspense>
+        </div>
+      </main>
+    </>
+  )
+}
