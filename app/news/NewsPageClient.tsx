@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react"
 import { getRelativeTime, getMarketFlag } from "@/lib/news"
 import type { NewsItem } from "@/lib/news"
+import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 
 type MarketFilter = "ALL" | "JP" | "US"
 
 export default function NewsPageClient() {
+  // ページ訪問時に閲覧済みをマーク
+  useMarkPageSeen("news")
+
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<MarketFilter>("ALL")

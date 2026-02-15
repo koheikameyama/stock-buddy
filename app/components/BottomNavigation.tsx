@@ -2,11 +2,20 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useBadges } from "@/app/contexts/BadgeContext"
 
-const navItems = [
+type BadgeKey = "dashboard" | "my-stocks" | "news" | "menu"
+
+const navItems: {
+  href: string
+  label: string
+  badgeKey: BadgeKey
+  icon: JSX.Element
+}[] = [
   {
     href: "/dashboard",
     label: "ホーム",
+    badgeKey: "dashboard",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -21,6 +30,7 @@ const navItems = [
   {
     href: "/my-stocks",
     label: "マイ銘柄",
+    badgeKey: "my-stocks",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -35,6 +45,7 @@ const navItems = [
   {
     href: "/news",
     label: "ニュース",
+    badgeKey: "news",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -49,6 +60,7 @@ const navItems = [
   {
     href: "/menu",
     label: "その他",
+    badgeKey: "menu",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -64,6 +76,7 @@ const navItems = [
 
 export default function BottomNavigation() {
   const pathname = usePathname()
+  const { badges } = useBadges()
 
   // アクティブ状態の判定
   const isActive = (href: string) => {
@@ -94,15 +107,21 @@ export default function BottomNavigation() {
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
         {navItems.map((item) => {
           const active = isActive(item.href)
+          const hasBadge = badges[item.badgeKey]
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${
+              className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${
                 active ? "text-blue-600" : "text-gray-500"
               }`}
             >
-              {item.icon}
+              <div className="relative">
+                {item.icon}
+                {hasBadge && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+                )}
+              </div>
               <span className="text-[10px] font-medium">{item.label}</span>
             </Link>
           )

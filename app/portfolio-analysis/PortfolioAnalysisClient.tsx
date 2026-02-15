@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import PortfolioOverallAnalysis from "@/app/dashboard/PortfolioOverallAnalysis"
+import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 
 interface Props {
   portfolioCount: number
@@ -12,6 +13,9 @@ export default function PortfolioAnalysisClient({
   portfolioCount,
   watchlistCount,
 }: Props) {
+  // ページ訪問時に閲覧済みをマーク
+  useMarkPageSeen("portfolio-analysis")
+
   return (
     <div className="space-y-6">
       {/* ヘッダー */}

@@ -9,6 +9,7 @@ import SoldStockCard from "./SoldStockCard"
 import AddStockDialog from "./AddStockDialog"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
 import { UPDATE_SCHEDULES } from "@/lib/constants"
+import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 
 interface UserStock {
   id: string
@@ -108,6 +109,8 @@ const MAX_USER_STOCKS = 5
 
 export default function MyStocksClient() {
   const router = useRouter()
+  // ページ訪問時に閲覧済みをマーク
+  useMarkPageSeen("my-stocks")
   const [userStocks, setUserStocks] = useState<UserStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})

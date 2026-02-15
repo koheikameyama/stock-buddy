@@ -5,6 +5,7 @@ import GlobalChatWrapper from './components/GlobalChatWrapper'
 import AdSense from './components/AdSense'
 import GoogleAnalytics from './components/GoogleAnalytics'
 import { ChatProvider } from './contexts/ChatContext'
+import { BadgeProvider } from './contexts/BadgeContext'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
@@ -51,12 +52,14 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ChatProvider>
-          <GoogleAnalytics />
-          {children}
-          <PWARegister />
-          <GlobalChatWrapper />
-          <AdSense />
-          <Toaster position="top-center" richColors />
+          <BadgeProvider>
+            <GoogleAnalytics />
+            {children}
+            <PWARegister />
+            <GlobalChatWrapper />
+            <AdSense />
+            <Toaster position="top-center" richColors />
+          </BadgeProvider>
         </ChatProvider>
       </body>
     </html>

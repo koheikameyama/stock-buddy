@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
+import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 
 interface ImprovementData {
   target: string
@@ -96,6 +97,9 @@ function renderImprovement(improvement: string | ImprovementData | null | undefi
 }
 
 export default function AIReportClient() {
+  // ページ訪問時に閲覧済みをマーク
+  useMarkPageSeen("ai-report")
+
   const [data, setData] = useState<AIAccuracyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
