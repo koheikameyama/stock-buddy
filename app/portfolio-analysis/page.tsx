@@ -1,9 +1,7 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import Header from "@/app/components/Header"
-import Footer from "@/app/components/Footer"
-import BottomNavigation from "@/app/components/BottomNavigation"
+import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
 import PortfolioAnalysisClient from "./PortfolioAnalysisClient"
 
 export default async function PortfolioAnalysisPage() {
@@ -26,18 +24,11 @@ export default async function PortfolioAnalysisPage() {
   }
 
   return (
-    <>
-      <Header />
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-          <PortfolioAnalysisClient
-            portfolioCount={user.portfolioStocks.length}
-            watchlistCount={user.watchlistStocks.length}
-          />
-        </div>
-      </main>
-      <Footer />
-      <BottomNavigation />
-    </>
+    <AuthenticatedLayout maxWidth="6xl">
+      <PortfolioAnalysisClient
+        portfolioCount={user.portfolioStocks.length}
+        watchlistCount={user.watchlistStocks.length}
+      />
+    </AuthenticatedLayout>
   )
 }

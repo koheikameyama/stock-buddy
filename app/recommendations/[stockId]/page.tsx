@@ -2,9 +2,7 @@ import { Suspense } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import Header from "@/app/components/Header"
-import Footer from "@/app/components/Footer"
-import BottomNavigation from "@/app/components/BottomNavigation"
+import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
 import RecommendationDetailClient from "./RecommendationDetailClient"
 import { StockDetailSkeleton } from "@/components/skeletons"
 
@@ -29,14 +27,11 @@ export default async function RecommendationDetailPage({
   }
 
   return (
-    <>
-      <Header />
+    <AuthenticatedLayout maxWidth="6xl">
       <Suspense fallback={<StockDetailSkeleton />}>
         <RecommendationDetailContent stockId={stockId} userId={user.id} />
       </Suspense>
-      <Footer />
-      <BottomNavigation />
-    </>
+    </AuthenticatedLayout>
   )
 }
 
