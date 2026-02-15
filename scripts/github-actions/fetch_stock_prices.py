@@ -138,6 +138,10 @@ def _compute_price_data(hist) -> dict | None:
     latest_price = float(latest["Close"])
     volume = int(latest["Volume"]) if not np.isnan(latest["Volume"]) else 0
 
+    # 前日比変化率
+    prev_price = float(hist.iloc[-2]["Close"])
+    daily_change_rate = ((latest_price - prev_price) / prev_price) * 100 if prev_price > 0 else 0
+
     # 1週間前（5営業日前）の株価
     week_ago_idx = min(4, len(hist) - 1)
     week_ago_price = float(hist.iloc[-(week_ago_idx + 1)]["Close"])
@@ -169,6 +173,7 @@ def _compute_price_data(hist) -> dict | None:
     return {
         "latestPrice": latest_price,
         "latestVolume": volume,
+        "dailyChangeRate": round(daily_change_rate, 2),
         "weekChangeRate": round(change_rate, 2),
         "volatility": volatility,
         "volumeRatio": volume_ratio,
@@ -186,6 +191,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
             (
                 u["latestPrice"],
                 u["latestVolume"],
+                u["dailyChangeRate"],
                 u["weekChangeRate"],
                 u.get("volatility"),
                 u.get("volumeRatio"),
@@ -200,6 +206,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
             UPDATE "Stock"
             SET "latestPrice" = %s,
                 "latestVolume" = %s,
+                "dailyChangeRate" = %s,
                 "weekChangeRate" = %s,
                 "volatility" = %s,
                 "volumeRatio" = %s,
