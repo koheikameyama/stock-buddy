@@ -161,16 +161,16 @@ export default function RecommendationDetailClient({ stock, recommendation }: Pr
             <button
               onClick={handleAddToWatchlist}
               disabled={addingToWatchlist || addingToTracked}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
+              className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
             >
-              {addingToWatchlist ? "追加中..." : "気になる"}
+              {addingToWatchlist ? "追加中..." : "+気になる"}
             </button>
             <button
               onClick={handleAddToTracked}
               disabled={addingToWatchlist || addingToTracked}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors disabled:opacity-50"
+              className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
             >
-              {addingToTracked ? "追加中..." : "追跡"}
+              {addingToTracked ? "追加中..." : "+追跡"}
             </button>
           </>
         }
