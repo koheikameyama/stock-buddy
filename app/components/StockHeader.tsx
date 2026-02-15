@@ -3,14 +3,15 @@ interface StockHeaderProps {
   tickerCode: string
   sector?: string | null
   badge?: string
+  badgeClassName?: string
 }
 
-export default function StockHeader({ name, tickerCode, sector, badge }: StockHeaderProps) {
+export default function StockHeader({ name, tickerCode, sector, badge, badgeClassName }: StockHeaderProps) {
   return (
     <div className="mb-6 sm:mb-8">
       {badge && (
         <div className="flex items-center gap-2 mb-1">
-          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClassName || "bg-gray-100 text-gray-600"}`}>
             {badge}
           </span>
         </div>

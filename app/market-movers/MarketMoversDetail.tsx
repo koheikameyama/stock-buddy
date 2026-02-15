@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import BackButton from "@/app/components/BackButton"
 import AddStockDialog from "@/app/my-stocks/AddStockDialog"
@@ -381,9 +382,14 @@ function MoverCard({
             </div>
           )}
 
-          {/* アクションボタン（ウォッチリスト詳細と同じパターン） */}
           {/* アクションボタン */}
           <div className="flex gap-2 pt-3">
+            <Link
+              href={`/market-movers/${mover.stock.id}`}
+              className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm text-center transition-colors bg-gray-800 text-white hover:bg-gray-900"
+            >
+              詳しく見る
+            </Link>
             <button
               onClick={() => onAddStock("watchlist", mover.stock)}
               className="flex-1 px-2 sm:px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors bg-blue-600 text-white hover:bg-blue-700"

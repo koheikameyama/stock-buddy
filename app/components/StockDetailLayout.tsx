@@ -7,6 +7,7 @@ interface StockDetailLayoutProps {
   tickerCode: string
   sector?: string | null
   badge?: string
+  badgeClassName?: string
   backHref?: string
   children: ReactNode
 }
@@ -16,6 +17,7 @@ export default function StockDetailLayout({
   tickerCode,
   sector,
   badge,
+  badgeClassName,
   backHref = "/my-stocks",
   children,
 }: StockDetailLayoutProps) {
@@ -28,6 +30,7 @@ export default function StockDetailLayout({
           tickerCode={tickerCode}
           sector={sector}
           badge={badge}
+          badgeClassName={badgeClassName}
         />
         {children}
       </div>
