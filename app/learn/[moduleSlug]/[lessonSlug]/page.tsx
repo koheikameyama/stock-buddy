@@ -2,6 +2,8 @@ import { Suspense } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import Header from "@/app/components/Header"
+import Footer from "@/app/components/Footer"
+import BottomNavigation from "@/app/components/BottomNavigation"
 import LessonContent from "./LessonContent"
 import { LessonSkeleton } from "@/components/skeletons/lesson-skeleton"
 
@@ -31,13 +33,15 @@ export default async function LessonPage({
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
         <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
           <Suspense fallback={<LessonSkeleton />}>
             <LessonContent moduleSlug={moduleSlug} lessonSlug={lessonSlug} />
           </Suspense>
         </div>
       </main>
+      <Footer />
+      <BottomNavigation />
     </>
   )
 }

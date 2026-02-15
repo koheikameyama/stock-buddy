@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
+import Footer from "@/app/components/Footer"
 import BottomNavigation from "@/app/components/BottomNavigation"
 
 type PushSubscriptionState = {
@@ -200,7 +201,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* シンプルなヘッダー */}
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
@@ -546,6 +547,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      <Footer />
       <BottomNavigation />
     </div>
   )

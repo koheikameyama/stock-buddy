@@ -1,6 +1,7 @@
 import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
 import Header from "@/app/components/Header"
+import Footer from "@/app/components/Footer"
 import BottomNavigation from "@/app/components/BottomNavigation"
 import MenuClient from "./MenuClient"
 
@@ -19,7 +20,7 @@ export default async function MenuPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-20">
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50">
         <div className="max-w-lg mx-auto px-4 py-6">
           <h1 className="text-xl font-bold text-gray-900 mb-6">その他</h1>
 
@@ -49,6 +50,7 @@ export default async function MenuPage() {
           </form>
         </div>
       </main>
+      <Footer />
       <BottomNavigation />
     </>
   )
