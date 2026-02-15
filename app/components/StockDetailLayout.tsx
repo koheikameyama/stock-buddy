@@ -22,18 +22,16 @@ export default function StockDetailLayout({
   children,
 }: StockDetailLayoutProps) {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
-      <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-        <BackButton href={backHref} />
-        <StockHeader
-          name={name}
-          tickerCode={tickerCode}
-          sector={sector}
-          badge={badge}
-          badgeClassName={badgeClassName}
-        />
-        {children}
-      </div>
-    </main>
+    <>
+      <BackButton href={backHref} />
+      <StockHeader
+        name={name}
+        tickerCode={tickerCode}
+        sector={sector}
+        badge={badge}
+        badgeClassName={badgeClassName}
+      />
+      {children}
+    </>
   )
 }

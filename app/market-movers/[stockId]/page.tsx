@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import Header from "@/app/components/Header"
+import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
 import MarketMoverDetailClient from "./MarketMoverDetailClient"
 import { StockDetailSkeleton } from "@/components/skeletons"
 
@@ -19,12 +19,11 @@ export default async function MarketMoverDetailPage({
   }
 
   return (
-    <>
-      <Header />
+    <AuthenticatedLayout maxWidth="4xl">
       <Suspense fallback={<StockDetailSkeleton />}>
         <MarketMoverDetailContent stockId={stockId} />
       </Suspense>
-    </>
+    </AuthenticatedLayout>
   )
 }
 

@@ -1,8 +1,6 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
-import Header from "@/app/components/Header"
-import Footer from "@/app/components/Footer"
-import BottomNavigation from "@/app/components/BottomNavigation"
+import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
 import MyStocksClient from "./MyStocksClient"
 
 export default async function MyStocksPage() {
@@ -13,11 +11,8 @@ export default async function MyStocksPage() {
   }
 
   return (
-    <>
-      <Header />
+    <AuthenticatedLayout maxWidth="6xl">
       <MyStocksClient />
-      <Footer />
-      <BottomNavigation />
-    </>
+    </AuthenticatedLayout>
   )
 }

@@ -438,21 +438,16 @@ export default function MyStocksClient() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-20">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
-          </div>
-        </div>
-      </main>
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
+        <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
+      </div>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-20">
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
-        {/* 戻るボタン */}
+    <>
+      {/* 戻るボタン */}
         <div className="mb-4 sm:mb-6">
           <button
             onClick={() => router.push('/dashboard')}
@@ -718,7 +713,6 @@ export default function MyStocksClient() {
             </>
           )}
         </section>
-      </div>
 
       {/* Dialogs */}
       <AddStockDialog
@@ -777,6 +771,6 @@ export default function MyStocksClient() {
         onSuccess={handleTransactionSuccess}
         transactionType={transactionType}
       />
-    </main>
+    </>
   )
 }

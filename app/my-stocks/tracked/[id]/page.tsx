@@ -2,9 +2,7 @@ import { Suspense } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import Header from "@/app/components/Header"
-import Footer from "@/app/components/Footer"
-import BottomNavigation from "@/app/components/BottomNavigation"
+import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
 import TrackedStockDetailClient from "./TrackedStockDetailClient"
 import { StockDetailSkeleton } from "@/components/skeletons"
 
@@ -21,14 +19,11 @@ export default async function TrackedStockDetailPage({
   }
 
   return (
-    <>
-      <Header />
+    <AuthenticatedLayout maxWidth="4xl">
       <Suspense fallback={<StockDetailSkeleton />}>
         <TrackedStockContent email={session.user.email} stockId={id} />
       </Suspense>
-      <Footer />
-      <BottomNavigation />
-    </>
+    </AuthenticatedLayout>
   )
 }
 
