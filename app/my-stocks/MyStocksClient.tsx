@@ -435,7 +435,7 @@ export default function MyStocksClient() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-20">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
@@ -447,7 +447,7 @@ export default function MyStocksClient() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-20">
       <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
         {/* 戻るボタン */}
         <div className="mb-4 sm:mb-6">
@@ -473,13 +473,27 @@ export default function MyStocksClient() {
         </div>
 
         {/* Page Header */}
-        <div className="mb-4 sm:mb-8">
-          <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
-            マイ銘柄
-          </h1>
-          <p className="text-xs sm:text-base text-gray-600 mt-1">
-            気になる銘柄と保有銘柄を一覧管理
-          </p>
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
+                マイ銘柄
+              </h1>
+              <p className="text-xs sm:text-base text-gray-600 mt-1">
+                気になる銘柄と保有銘柄を一覧管理
+              </p>
+            </div>
+            <button
+              onClick={() => router.push('/portfolio-analysis')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-blue-300 transition-all shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>総評</span>
+            </button>
+          </div>
         </div>
 
         {/* Error Display */}

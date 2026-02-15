@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import Header from "@/app/components/Header"
+import BottomNavigation from "@/app/components/BottomNavigation"
 import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
     <>
       <Header />
       <DashboardClient />
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-8">
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 pb-20">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
           {/* ページタイトル */}
           <div className="mb-4 sm:mb-8">
@@ -176,6 +177,7 @@ export default async function DashboardPage() {
           </div>
       </div>
     </main>
+      <BottomNavigation />
     </>
   )
 }

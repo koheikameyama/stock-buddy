@@ -1,6 +1,7 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import Header from "@/app/components/Header"
+import BottomNavigation from "@/app/components/BottomNavigation"
 import MyStocksClient from "./MyStocksClient"
 
 export default async function MyStocksPage() {
@@ -14,6 +15,7 @@ export default async function MyStocksPage() {
     <>
       <Header />
       <MyStocksClient />
+      <BottomNavigation />
     </>
   )
 }
