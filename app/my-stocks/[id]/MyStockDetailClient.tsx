@@ -419,9 +419,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                     }
                   }}
                   disabled={trackingStock}
-                  className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                  className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                 >
-                  {trackingStock ? "処理中..." : "追跡へ移動"}
+                  {trackingStock ? "処理中..." : "+追跡"}
                 </button>
               </>
             }

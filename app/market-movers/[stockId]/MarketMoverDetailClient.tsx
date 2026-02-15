@@ -135,7 +135,7 @@ export default function MarketMoverDetailClient({ stock, mover }: Props) {
                 <button
                   onClick={handleAddToWatchlist}
                   disabled={addingToWatchlist || addingToTracked}
-                  className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                  className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
                 >
                   {addingToWatchlist ? "追加中..." : "+気になる"}
                 </button>
