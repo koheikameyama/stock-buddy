@@ -266,11 +266,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           <div className="mt-2 text-xs text-gray-600">
             <p>
               📊 理想の買い値: <strong className="text-gray-900">{data.idealEntryPrice.toLocaleString()}円</strong>
-              {data.idealEntryPriceExpiry && (
-                <span className="text-gray-500 ml-1">
-                  （〜{new Date(data.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで）
-                </span>
-              )}
               {data.priceGap != null && (
                 <span className={data.priceGap < 0 ? "text-green-600 ml-2" : "text-yellow-600 ml-2"}>
                   （現在価格より{Math.abs(data.priceGap).toLocaleString()}円{data.priceGap < 0 ? "高い → 割安" : "安い → 様子見"}）

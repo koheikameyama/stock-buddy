@@ -745,7 +745,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - チャートパターンが検出された場合は、reasonやbuyTimingExplanationで言及する
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
-- idealEntryPriceExpiryは市場状況に応じて1日〜2週間程度の範囲で設定（短期的な値動きが予想される場合は短め、安定している場合は長め）
+- idealEntryPriceExpiryは今日から1週間以内（最大7日後）の日付を設定する。短期的な買いタイミングの目安として使用される
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
 
 【テクニカル指標の重視】
