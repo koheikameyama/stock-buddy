@@ -304,7 +304,11 @@ export default function FeaturedStocksByCategory({
         </div>
 
         {stock.reason && (
-          <div className="mb-2 sm:mb-3">
+          <div className="mb-2 sm:mb-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-xs">🤖</span>
+              <span className="text-[10px] font-medium text-gray-500">AI分析</span>
+            </div>
             <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">
               {stock.reason}
             </p>
