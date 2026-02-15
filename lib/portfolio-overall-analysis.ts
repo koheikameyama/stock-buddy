@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { OpenAI } from "openai"
+import { getOpenAIClient } from "@/lib/openai"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -112,12 +112,6 @@ interface WatchlistStockData {
   revenueGrowth: number | null
   netIncomeGrowth: number | null
   eps: number | null
-}
-
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
 }
 
 /**

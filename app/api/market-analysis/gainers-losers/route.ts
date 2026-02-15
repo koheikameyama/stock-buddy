@@ -3,9 +3,7 @@ import { verifyCronAuth } from "@/lib/cron-auth"
 import { prisma } from "@/lib/prisma"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { getTodayForDB } from "@/lib/date-utils"
-import OpenAI from "openai"
-
-const openai = new OpenAI()
+import { getOpenAIClient } from "@/lib/openai"
 
 const MOVERS_COUNT = 5 // 上昇/下落それぞれ5銘柄
 
@@ -290,7 +288,7 @@ async function analyzeMovers(
 
     // OpenAIで原因分析
     try {
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAIClient().chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {

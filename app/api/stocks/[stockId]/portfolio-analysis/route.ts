@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/auth"
 import { verifyCronOrSession } from "@/lib/cron-auth"
-import { OpenAI } from "openai"
+import { getOpenAIClient } from "@/lib/openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
@@ -11,12 +11,6 @@ import timezone from "dayjs/plugin/timezone"
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
-
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-}
 
 /**
  * GET /api/stocks/[stockId]/portfolio-analysis

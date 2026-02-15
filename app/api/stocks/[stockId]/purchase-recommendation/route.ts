@@ -2,19 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/auth"
 import { verifyCronOrSession } from "@/lib/cron-auth"
-import { OpenAI } from "openai"
+import { getOpenAIClient } from "@/lib/openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
-
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-}
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation

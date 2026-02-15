@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { OpenAI } from "openai"
+import { getOpenAIClient } from "@/lib/openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
@@ -12,12 +12,6 @@ import timezone from "dayjs/plugin/timezone"
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
-
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-}
 
 /**
  * ポートフォリオ分析ジョブを実行
