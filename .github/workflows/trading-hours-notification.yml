@@ -16,6 +16,11 @@ on:
         options:
           - open
           - close
+      notify:
+        description: 'Push通知を送信する'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   send-notification:
@@ -47,7 +52,7 @@ jobs:
           fi
 
       - name: Send market open notification
-        if: steps.notification.outputs.type == 'open'
+        if: steps.notification.outputs.type == 'open' && (github.event_name != 'workflow_dispatch' || inputs.notify)
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -58,7 +63,7 @@ jobs:
             --url "/dashboard"
 
       - name: Send market close notification
-        if: steps.notification.outputs.type == 'close'
+        if: steps.notification.outputs.type == 'close' && (github.event_name != 'workflow_dispatch' || inputs.notify)
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

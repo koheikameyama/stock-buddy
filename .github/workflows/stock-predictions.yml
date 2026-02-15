@@ -9,6 +9,12 @@ on:
     - cron: '0 5 * * 1-5'    # 14:00 JST - 後場
     - cron: '30 6 * * 1-5'   # 15:30 JST - 大引け
   workflow_dispatch:
+    inputs:
+      notify:
+        description: 'Push通知を送信する'
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -169,7 +175,7 @@ jobs:
         run: pip install requests
 
       - name: Send push notification
-        if: needs.purchase-recommendations.result == 'success' || needs.portfolio-analysis.result == 'success'
+        if: (needs.purchase-recommendations.result == 'success' || needs.portfolio-analysis.result == 'success') && (github.event_name != 'workflow_dispatch' || inputs.notify)
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
