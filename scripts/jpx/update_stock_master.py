@@ -16,10 +16,16 @@ import json
 import os
 import re
 import sys
+import uuid
 from pathlib import Path
 
 import psycopg2
 import psycopg2.extras
+
+
+def generate_cuid() -> str:
+    """CUIDの代わりにUUIDベースのIDを生成"""
+    return str(uuid.uuid4())
 
 # バッチサイズ
 BATCH_SIZE = 100
@@ -114,12 +120,13 @@ def update_stock_master(conn, stocks: list[dict]) -> dict:
                     psycopg2.extras.execute_values(
                         cur,
                         """
-                        INSERT INTO "Stock" ("tickerCode", name, market, sector, "createdAt")
+                        INSERT INTO "Stock" (id, "tickerCode", name, market, sector, "createdAt")
                         VALUES %s
                         ON CONFLICT ("tickerCode") DO NOTHING
                         """,
                         [
                             (
+                                generate_cuid(),
                                 s["ticker"],
                                 s["name"],
                                 "TSE",
@@ -127,7 +134,7 @@ def update_stock_master(conn, stocks: list[dict]) -> dict:
                             )
                             for s in to_create
                         ],
-                        template="(%s, %s, %s, %s, NOW())",
+                        template="(%s, %s, %s, %s, %s, NOW())",
                         page_size=BATCH_SIZE,
                     )
                     added += len(to_create)
