@@ -329,18 +329,6 @@ export default function MyStocksClient() {
     fetchSoldStocks()
   }, [activeTab, soldStocks.length])
 
-  const handleRemoveTrackedStock = async (id: string) => {
-    try {
-      const response = await fetch(`/api/tracked-stocks/${id}`, {
-        method: "DELETE",
-      })
-      if (!response.ok) throw new Error("Failed to remove tracking")
-      setTrackedStocks((prev) => prev.filter((ts) => ts.id !== id))
-    } catch (err) {
-      console.error("Error removing tracked stock:", err)
-    }
-  }
-
   // 追跡銘柄をウォッチリストに追加
   const handleTrackedToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
     try {
@@ -607,7 +595,6 @@ export default function MyStocksClient() {
                     <TrackedStockCard
                       key={ts.id}
                       trackedStock={ts}
-                      onRemove={handleRemoveTrackedStock}
                       onMoveToWatchlist={handleTrackedToWatchlist}
                       onPurchase={handleTrackedToPurchase}
                     />

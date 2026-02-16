@@ -26,12 +26,11 @@ interface Signal {
 
 interface TrackedStockCardProps {
   trackedStock: TrackedStock
-  onRemove: (id: string) => void
   onMoveToWatchlist: (stockId: string, tickerCode: string, name: string) => void
   onPurchase: (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => void
 }
 
-export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatchlist, onPurchase }: TrackedStockCardProps) {
+export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPurchase }: TrackedStockCardProps) {
   const router = useRouter()
   const { stock, currentPrice, changePercent } = trackedStock
   const [signal, setSignal] = useState<Signal | null>(null)
@@ -77,7 +76,7 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
       {/* シグナルバッジ - 右上 */}
       {signal && (
         <span
-          className={`absolute top-3 right-10 sm:top-4 sm:right-12 px-2 py-0.5 rounded-full text-xs font-semibold ${
+          className={`absolute top-3 right-3 sm:top-4 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold ${
             signal.signal === "buy"
               ? "bg-green-100 text-green-700"
               : signal.signal === "sell"
@@ -93,7 +92,7 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
 
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="pr-20">
+        <div className="pr-24">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900">
             {stock.name}
           </h3>
@@ -102,18 +101,6 @@ export default function TrackedStockCard({ trackedStock, onRemove, onMoveToWatch
             {stock.sector && ` • ${stock.sector}`}
           </p>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onRemove(trackedStock.id)
-          }}
-          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-          title="追跡をやめる"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
 
       {/* Price Info */}
