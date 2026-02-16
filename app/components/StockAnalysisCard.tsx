@@ -53,16 +53,9 @@ interface PortfolioAnalysisData {
   userStopLossPrice: number | null
 }
 
-interface PurchaseRecommendationData {
-  idealEntryPrice: number | null
-  idealEntryPriceExpiry: string | null
-  priceGap: number | null
-}
-
 export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
   const [prediction, setPrediction] = useState<PredictionData | null>(null)
   const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysisData | null>(null)
-  const [purchaseRecommendation, setPurchaseRecommendation] = useState<PurchaseRecommendationData | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [noData, setNoData] = useState(false)
@@ -128,11 +121,10 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
         }
       }
 
-      // 3つのAPIを並列で取得
-      const [predictionRes, portfolioRes, purchaseRecRes] = await Promise.all([
+      // 2つのAPIを並列で取得
+      const [predictionRes, portfolioRes] = await Promise.all([
         fetch(`/api/stocks/${stockId}/analysis`),
         fetch(`/api/stocks/${stockId}/portfolio-analysis`),
-        fetch(`/api/stocks/${stockId}/purchase-recommendation`),
       ])
 
       // 価格帯予測データ
@@ -153,16 +145,6 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
         }
       } else if (portfolioRes.status === 404) {
         setNoData(true)
-      }
-
-      // 購入判断データ（理想の買い値）
-      if (purchaseRecRes.ok) {
-        const data = await purchaseRecRes.json()
-        setPurchaseRecommendation({
-          idealEntryPrice: data.idealEntryPrice,
-          idealEntryPriceExpiry: data.idealEntryPriceExpiry,
-          priceGap: data.priceGap,
-        })
       }
 
       // 両方とも取得できなかった場合
@@ -591,41 +573,6 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
                   </div>
                 )}
               </div>
-            </div>
-          )}
-          {/* 買い推奨時に理想の買い値を表示 */}
-          {prediction.recommendation === "buy" && purchaseRecommendation?.idealEntryPrice && (
-            <div className="bg-green-50 rounded-lg p-3 mb-3">
-              {(() => {
-                const currentPrice = prediction.currentPrice
-                const idealPrice = purchaseRecommendation.idealEntryPrice
-                const isNowBuyTime = currentPrice && currentPrice <= idealPrice
-
-                if (isNowBuyTime) {
-                  return (
-                    <p className="text-sm text-gray-700">
-                      📊 <strong className="text-green-700">今が買い時</strong>
-                      <span className="text-gray-500 ml-1">（成行で購入OK）</span>
-                    </p>
-                  )
-                }
-
-                const priceDiff = currentPrice ? currentPrice - idealPrice : 0
-                const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : 0
-
-                return (
-                  <>
-                    <p className="text-sm text-gray-700">
-                      📊 理想の買い値: <strong className="text-green-700">{idealPrice.toLocaleString()}円</strong>
-                    </p>
-                    {currentPrice && priceDiff > 0 && (
-                      <p className="text-xs mt-1 text-yellow-600">
-                        あと{priceDiff.toLocaleString()}円 / {priceDiffPercent}%下がったら買い
-                      </p>
-                    )}
-                  </>
-                )
-              })()}
             </div>
           )}
           <div className="flex items-center gap-2">

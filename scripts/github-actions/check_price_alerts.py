@@ -2,12 +2,11 @@
 """
 株価アラートチェックスクリプト
 
-ウォッチリスト・ポートフォリオの銘柄を監視し、条件達成時に通知を送信する。
+ポートフォリオの銘柄を監視し、条件達成時に通知を送信する。
 
 通知トリガー:
 - 急騰（+5%以上）：ポートフォリオ
 - 急落（-5%以下）：ポートフォリオ
-- 理想買値到達：ウォッチリスト
 - 指値到達（ポートフォリオ）
 - 逆指値到達（ストップロス）
 """
@@ -40,63 +39,6 @@ def get_env_variable(name: str, required: bool = True) -> str | None:
         logger.error(f"Error: {name} environment variable not set")
         sys.exit(1)
     return value
-
-
-def fetch_watchlist_ideal_entry_alerts(conn) -> list[dict]:
-    """
-    ウォッチリスト銘柄の理想買値到達アラートをチェック
-
-    条件:
-    - 現在価格 <= 理想の買い値（idealEntryPrice）
-    - 有効期限内（idealEntryPriceExpiryが設定されている場合）
-    - AIが「買い推奨」と判断している（recommendation = 'buy'）
-    """
-    alerts = []
-
-    with conn.cursor() as cur:
-        cur.execute('''
-            SELECT
-                w."userId",
-                s.id as "stockId",
-                s.name as "stockName",
-                s."tickerCode",
-                s."latestPrice",
-                pr."idealEntryPrice",
-                pr."idealEntryPriceExpiry",
-                w.id as "watchlistStockId"
-            FROM "WatchlistStock" w
-            JOIN "Stock" s ON w."stockId" = s.id
-            JOIN LATERAL (
-                SELECT "idealEntryPrice", "idealEntryPriceExpiry", "recommendation"
-                FROM "PurchaseRecommendation"
-                WHERE "stockId" = s.id
-                  AND "idealEntryPrice" IS NOT NULL
-                ORDER BY "date" DESC
-                LIMIT 1
-            ) pr ON true
-            WHERE s."latestPrice" IS NOT NULL
-              AND s."latestPrice" <= pr."idealEntryPrice"
-              AND (pr."idealEntryPriceExpiry" IS NULL OR pr."idealEntryPriceExpiry" >= CURRENT_DATE)
-              AND pr."recommendation" = 'buy'
-        ''')
-
-        for row in cur.fetchall():
-            latest_price = float(row[4]) if row[4] else 0
-            ideal_price = float(row[5]) if row[5] else 0
-            discount_percent = ((ideal_price - latest_price) / ideal_price * 100) if ideal_price > 0 else 0
-
-            alerts.append({
-                "userId": row[0],
-                "stockId": row[1],
-                "stockName": row[2],
-                "tickerCode": row[3],
-                "latestPrice": latest_price,
-                "idealEntryPrice": ideal_price,
-                "discountPercent": discount_percent,
-                "watchlistStockId": row[8],
-            })
-
-    return alerts
 
 
 def fetch_portfolio_surge_plunge_alerts(conn, surge_threshold: float, plunge_threshold: float) -> list[dict]:
@@ -425,24 +367,7 @@ def main():
                     "changeRate": alert["changeRate"],
                 })
 
-        # 2. ウォッチリスト: 理想買値到達
-        logger.info("Checking watchlist ideal entry price alerts...")
-        ideal_entry_alerts = fetch_watchlist_ideal_entry_alerts(conn)
-        logger.info(f"  Found {len(ideal_entry_alerts)} ideal entry price alerts")
-
-        for alert in ideal_entry_alerts:
-            notifications.append({
-                "userId": alert["userId"],
-                "type": "ideal_entry_price",
-                "stockId": alert["stockId"],
-                "title": f"💰 {alert['stockName']}が買い時です",
-                "body": f"現在 {alert['latestPrice']:,.0f}円（理想の買値 {alert['idealEntryPrice']:,.0f}円以下）",
-                "url": f"/recommendations/{alert['stockId']}",
-                "triggerPrice": alert["latestPrice"],
-                "targetPrice": alert["idealEntryPrice"],
-            })
-
-        # 3. ポートフォリオ: 指値到達
+        # 2. ポートフォリオ: 指値到達
         logger.info("Checking portfolio sell target alerts...")
         sell_target_alerts = fetch_portfolio_sell_target_alerts(conn)
         logger.info(f"  Found {len(sell_target_alerts)} sell target alerts")
@@ -466,7 +391,7 @@ def main():
                 "changeRate": alert.get("gainPercent"),
             })
 
-        # 4. ポートフォリオ: 逆指値（ストップロス）到達
+        # 3. ポートフォリオ: 逆指値（ストップロス）到達
         logger.info("Checking portfolio stop loss alerts...")
         stop_loss_alerts = fetch_portfolio_stop_loss_alerts(conn)
         logger.info(f"  Found {len(stop_loss_alerts)} stop loss alerts")
@@ -490,7 +415,7 @@ def main():
                 "changeRate": alert["lossPercent"],
             })
 
-        # 5. 通知送信
+        # 4. 通知送信
         logger.info(f"Total notifications to send: {len(notifications)}")
 
         if notifications:

@@ -261,41 +261,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           )}
         </div>
         <p className="text-sm text-gray-700">{data.buyTimingExplanation}</p>
-        {/* 理想の買い値を表示（買い推奨の場合のみ） */}
-        {data.idealEntryPrice && data.recommendation === "buy" && (
-          <div className="mt-2 text-xs text-gray-600">
-            {(() => {
-              const currentPrice = data.currentPrice
-              const idealPrice = data.idealEntryPrice
-              // 現在価格が理想の買い値以下なら「今が買い時」
-              const isNowBuyTime = currentPrice && currentPrice <= idealPrice
-
-              if (isNowBuyTime) {
-                return (
-                  <p>
-                    📊 <strong className="text-green-700">今が買い時</strong>
-                    <span className="text-gray-500 ml-1">（成行で購入OK）</span>
-                  </p>
-                )
-              }
-
-              // リアルタイムで差額を計算
-              const priceDiff = currentPrice ? currentPrice - idealPrice : 0
-              const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : 0
-
-              return (
-                <p>
-                  📊 <strong className="text-gray-900">{idealPrice.toLocaleString()}円まで下がったら買い</strong>
-                  {currentPrice && priceDiff > 0 && (
-                    <span className="text-yellow-600 ml-2">
-                      （あと{priceDiff.toLocaleString()}円 / {priceDiffPercent}%）
-                    </span>
-                  )}
-                </p>
-              )
-            })()}
-          </div>
-        )}
       </div>
     )
   }
