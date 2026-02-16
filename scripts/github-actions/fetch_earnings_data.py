@@ -4,7 +4,8 @@
 
 yfinanceから損益計算書データを取得し、Stockテーブルの業績カラムを更新する。
 
-毎日700銘柄ずつ取得し、約7日で全銘柄をローテーション。
+全銘柄をROTATION_DAYS日（デフォルト7日）で取得できるよう、
+銘柄数から動的に1日の取得数を計算。
 earningsUpdatedAtがNULLまたは古い順に取得。
 
 取得データ:
@@ -17,6 +18,7 @@ earningsUpdatedAtがNULLまたは古い順に取得。
 - profitTrend: 'increasing' | 'decreasing' | 'stable'
 """
 
+import math
 import os
 import sys
 import time
@@ -28,7 +30,7 @@ import yfinance as yf
 
 # 設定
 CONFIG = {
-    "DAILY_LIMIT": 700,    # 毎日取得する銘柄数（約7日で全銘柄）
+    "ROTATION_DAYS": 7,     # 全銘柄を取得するのに何日かけるか
     "SLEEP_INTERVAL": 0.5,  # リクエスト間隔（秒）
 }
 
@@ -40,6 +42,18 @@ def get_database_url() -> str:
         print("Error: DATABASE_URL environment variable not set")
         sys.exit(1)
     return url
+
+
+def get_total_stock_count(conn) -> int:
+    """全銘柄数を取得"""
+    with conn.cursor() as cur:
+        cur.execute('SELECT COUNT(*) FROM "Stock"')
+        return cur.fetchone()[0]
+
+
+def calculate_daily_limit(total_stocks: int, rotation_days: int) -> int:
+    """1日の取得数を計算（全銘柄をrotation_days日で取得）"""
+    return math.ceil(total_stocks / rotation_days)
 
 
 def fetch_stocks_to_update(conn, limit: int) -> list[dict]:
@@ -170,18 +184,24 @@ def update_earnings_data(conn, stock_id: str, data: dict | None):
 
 
 def main():
-    daily_limit = CONFIG["DAILY_LIMIT"]
+    rotation_days = CONFIG["ROTATION_DAYS"]
     sleep_interval = CONFIG["SLEEP_INTERVAL"]
-
-    print("=" * 60)
-    print("業績データの分散取得を開始")
-    print(f"開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"今日の取得数: {daily_limit}銘柄")
-    print("=" * 60)
 
     conn = psycopg2.connect(get_database_url())
 
     try:
+        # 全銘柄数から1日の取得数を計算
+        total_stocks = get_total_stock_count(conn)
+        daily_limit = calculate_daily_limit(total_stocks, rotation_days)
+
+        print("=" * 60)
+        print("業績データの分散取得を開始")
+        print(f"開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"全銘柄数: {total_stocks}銘柄")
+        print(f"ローテーション: {rotation_days}日")
+        print(f"今日の取得数: {daily_limit}銘柄")
+        print("=" * 60)
+
         # 更新が必要な銘柄を取得
         stocks = fetch_stocks_to_update(conn, daily_limit)
         print(f"\n対象銘柄数: {len(stocks)}")

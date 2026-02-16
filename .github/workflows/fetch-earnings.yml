@@ -2,7 +2,7 @@ name: Fetch Earnings Data
 
 on:
   schedule:
-    # 毎日 06:00 JST（21:00 UTC前日）- 700銘柄ずつ分散取得
+    # 毎日 06:00 JST（21:00 UTC前日）- 銘柄数に応じて分散取得
     - cron: '0 21 * * *'
   workflow_dispatch:
 
@@ -38,7 +38,7 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "✅ 業績データの分散取得に成功しました"
-          SLACK_MESSAGE: "700銘柄の業績データを更新しました（約7日で全銘柄ローテーション）"
+          SLACK_MESSAGE: "業績データを更新しました（7日ローテーションで全銘柄を取得）"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
