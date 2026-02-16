@@ -6,6 +6,7 @@ import { Decimal } from "@prisma/client/runtime/library"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { MAX_WATCHLIST_STOCKS, MAX_PORTFOLIO_STOCKS } from "@/lib/constants"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { runPurchaseRecommendation, runPortfolioAnalysis } from "@/lib/analysis-job-runner"
 
 // Types
 export interface UserStockResponse {
@@ -403,6 +404,21 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      // 非同期でAI分析（購入判断）を実行（レスポンスをブロックしない）
+      const analysisJob = await prisma.analysisJob.create({
+        data: {
+          userId,
+          type: "purchase-recommendation",
+          targetId: stock.id,
+          status: "pending",
+        },
+      })
+      Promise.resolve().then(async () => {
+        await runPurchaseRecommendation(analysisJob.id, userId, stock.id)
+      }).catch((error) => {
+        console.error("Failed to run purchase recommendation analysis:", error)
+      })
+
       // リアルタイム株価を取得
       const prices = await fetchStockPrices([watchlistStock.stock.tickerCode])
       const currentPrice = prices[0]?.currentPrice ?? null
@@ -568,6 +584,21 @@ export async function POST(request: NextRequest) {
           allTransactions: [txResult.transaction],
         }
       }
+
+      // 非同期でAI分析（ポートフォリオ分析）を実行（レスポンスをブロックしない）
+      const analysisJob = await prisma.analysisJob.create({
+        data: {
+          userId,
+          type: "portfolio-analysis",
+          targetId: stock.id,
+          status: "pending",
+        },
+      })
+      Promise.resolve().then(async () => {
+        await runPortfolioAnalysis(analysisJob.id, userId, stock.id)
+      }).catch((error) => {
+        console.error("Failed to run portfolio analysis:", error)
+      })
 
       // リアルタイム株価を取得
       const prices = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
