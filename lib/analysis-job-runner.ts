@@ -534,6 +534,33 @@ export async function runPurchaseRecommendation(
       throw new Error("価格データがありません")
     }
 
+    // 週間変化率の計算（急騰銘柄対策）
+    let weekChangeRate: number | null = null
+    let weekChangeContext = ""
+    if (prices.length >= 5) {
+      const latestClose = Number(prices[0].close)
+      const weekAgoClose = Number(prices[Math.min(4, prices.length - 1)].close)
+      weekChangeRate = ((latestClose - weekAgoClose) / weekAgoClose) * 100
+
+      if (weekChangeRate >= 30) {
+        weekChangeContext = `
+【警告: 急騰銘柄】
+- 週間変化率: +${weekChangeRate.toFixed(1)}%（非常に高い）
+- 急騰後は反落リスクが高いため、今買うのは危険な可能性があります
+- 「上がりきった銘柄」を避けるため、stayまたはavoidを検討してください`
+      } else if (weekChangeRate >= 20) {
+        weekChangeContext = `
+【注意: 上昇率が高い】
+- 週間変化率: +${weekChangeRate.toFixed(1)}%
+- すでに上昇している可能性があるため、追加上昇余地を慎重に判断してください`
+      } else if (weekChangeRate <= -20) {
+        weekChangeContext = `
+【注意: 大幅下落】
+- 週間変化率: ${weekChangeRate.toFixed(1)}%
+- 大幅下落後は反発の可能性もありますが、下落トレンドが続く可能性もあります`
+      }
+    }
+
     // ローソク足パターン分析
     let patternContext = ""
     if (prices.length >= 1) {
@@ -719,7 +746,7 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 ${userContext}${predictionContext}${previousAnalysisContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${patternContext}${technicalContext}${chartPatternContext}${newsContext}
+${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -768,6 +795,13 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - 直近の価格変動幅（ボラティリティ）が大きい銘柄は、リスクが高いことをconcernsで必ず言及する
 - 急騰・急落した銘柄は、反動リスクがあることを伝える
 - 過去30日の値動きパターン（上昇トレンド/下落トレンド/横ばい）を判断に反映する
+
+【急騰銘柄への対応 - 重要】
+- 週間変化率が+20%以上の銘柄は「上がりきった銘柄」の可能性が高い
+- 週間変化率が+30%以上の銘柄は、原則として"buy"ではなく"stay"を推奨する
+- 「今から買っても遅い」「すでに上昇している」という観点を必ず考慮する
+- cautionで「急騰後の反落リスク」について必ず言及する
+- RSIが70以上（買われすぎ）の場合は、特に慎重な判断をする
 
 【"avoid"（見送り推奨）について】
 - "avoid"は購入を見送り、ウォッチリストから外すことを検討する判断です
@@ -835,6 +869,12 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
     // "avoid" は confidence >= 0.8 の場合のみ許可（それ以下は "stay" にフォールバック）
     if (result.recommendation === "avoid" && result.confidence < 0.8) {
       result.recommendation = "stay"
+    }
+
+    // 急騰銘柄の強制補正: 週間+30%以上でbuyの場合はstayに変更
+    if (weekChangeRate !== null && weekChangeRate >= 30 && result.recommendation === "buy") {
+      result.recommendation = "stay"
+      result.caution = `週間+${weekChangeRate.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`
     }
 
     // データベースに保存（upsert）
