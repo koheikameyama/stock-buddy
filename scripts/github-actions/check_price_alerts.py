@@ -49,6 +49,7 @@ def fetch_watchlist_ideal_entry_alerts(conn) -> list[dict]:
     条件:
     - 現在価格 <= 理想の買い値（idealEntryPrice）
     - 有効期限内（idealEntryPriceExpiryが設定されている場合）
+    - AIが「買い推奨」と判断している（recommendation = 'buy'）
     """
     alerts = []
 
@@ -66,7 +67,7 @@ def fetch_watchlist_ideal_entry_alerts(conn) -> list[dict]:
             FROM "WatchlistStock" w
             JOIN "Stock" s ON w."stockId" = s.id
             JOIN LATERAL (
-                SELECT "idealEntryPrice", "idealEntryPriceExpiry"
+                SELECT "idealEntryPrice", "idealEntryPriceExpiry", "recommendation"
                 FROM "PurchaseRecommendation"
                 WHERE "stockId" = s.id
                   AND "idealEntryPrice" IS NOT NULL
@@ -76,6 +77,7 @@ def fetch_watchlist_ideal_entry_alerts(conn) -> list[dict]:
             WHERE s."latestPrice" IS NOT NULL
               AND s."latestPrice" <= pr."idealEntryPrice"
               AND (pr."idealEntryPriceExpiry" IS NULL OR pr."idealEntryPriceExpiry" >= CURRENT_DATE)
+              AND pr."recommendation" = 'buy'
         ''')
 
         for row in cur.fetchall():
