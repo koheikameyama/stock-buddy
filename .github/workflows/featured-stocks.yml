@@ -49,7 +49,7 @@ jobs:
 
   fetch-stock-prices:
     needs: determine-session
-    # 全セッションで実行（featured-stocksの前に株価データを最新化）
+    # 全セッションで実行（personal-recommendationsの前に株価データを最新化）
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -68,31 +68,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/github-actions/fetch_stock_prices.py
 
-  featured-stocks:
-    needs: [determine-session, fetch-stock-prices]
-    if: needs.determine-session.outputs.session != 'evening'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Python dependencies
-        run: pip install yfinance psycopg2-binary openai numpy requests
-
-      - name: Generate featured stocks
-        env:
-          APP_URL: ${{ secrets.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: python scripts/github-actions/generate_featured_stocks.py
-
   personal-recommendations:
-    needs: [determine-session, fetch-stock-prices, featured-stocks]
-    if: always() && !cancelled()
+    needs: [determine-session, fetch-stock-prices]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -114,7 +91,7 @@ jobs:
         run: python scripts/github-actions/generate_personal_recommendations.py
 
   notify:
-    needs: [determine-session, fetch-stock-prices, featured-stocks, personal-recommendations]
+    needs: [determine-session, fetch-stock-prices, personal-recommendations]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -123,7 +100,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ 注目銘柄の生成に成功しました（${{ needs.determine-session.outputs.session }}）"
+          SLACK_TITLE: "✅ おすすめ銘柄の生成に成功しました（${{ needs.determine-session.outputs.session }}）"
           SLACK_MESSAGE: "ユーザーおすすめを更新しました"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
@@ -133,7 +110,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ 注目銘柄の生成に失敗しました"
+          SLACK_TITLE: "❌ おすすめ銘柄の生成に失敗しました"
           SLACK_MESSAGE: "おすすめ生成中にエラーが発生しました"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"

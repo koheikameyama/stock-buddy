@@ -23,72 +23,13 @@ interface FeaturedStock {
   }
 }
 
-// カテゴリのバッジ表示用
-const categoryBadges: Record<string, { label: string; className: string }> = {
-  surge: { label: "急騰", className: "bg-red-100 text-red-800" },
-  stable: { label: "安定", className: "bg-blue-100 text-blue-800" },
-}
-
 export default function FeaturedStocksByCategory() {
   const [personalRecommendations, setPersonalRecommendations] = useState<FeaturedStock[]>([])
-  const [trendingStocks, setTrendingStocks] = useState<FeaturedStock[]>([])
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     fetchFeaturedStocks()
-    // ページ読み込み時に処理中のジョブがあるかチェック
-    checkPendingJob()
   }, [])
-
-  // 処理中のジョブがあるか確認
-  const checkPendingJob = async () => {
-    try {
-      const response = await fetch("/api/analysis-jobs?type=featured-stocks")
-      const data = await response.json()
-      if (data.job) {
-        setGenerating(true)
-        pollJob(data.job.jobId)
-      }
-    } catch (error) {
-      console.error("Error checking pending job:", error)
-    }
-  }
-
-  // ジョブの完了をポーリングで監視
-  const pollJob = async (jobId: string) => {
-    const maxAttempts = 120 // 4分（2秒×120回）- 50銘柄の処理に時間がかかる
-    let attempts = 0
-
-    while (attempts < maxAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      try {
-        const response = await fetch(`/api/analysis-jobs/${jobId}`)
-        const job = await response.json()
-
-        if (job.status === "completed") {
-          await fetchFeaturedStocks()
-          setGenerating(false)
-          return
-        }
-
-        if (job.status === "failed") {
-          alert(job.error || "生成に失敗しました")
-          setGenerating(false)
-          return
-        }
-      } catch (error) {
-        console.error("Error polling job:", error)
-      }
-
-      attempts++
-    }
-
-    // タイムアウト
-    alert("処理がタイムアウトしました。ページを更新してください。")
-    setGenerating(false)
-  }
 
   // 株価を非同期で取得
   const fetchPrices = async (stocks: FeaturedStock[]) => {
@@ -114,15 +55,6 @@ export default function FeaturedStocksByCategory() {
           },
         }))
       )
-      setTrendingStocks((prev) =>
-        prev.map((s) => ({
-          ...s,
-          stock: {
-            ...s.stock,
-            currentPrice: priceMap.get(s.stock.tickerCode) ?? s.stock.currentPrice,
-          },
-        }))
-      )
     } catch (error) {
       console.error("Error fetching prices:", error)
     }
@@ -136,13 +68,10 @@ export default function FeaturedStocksByCategory() {
 
       if (response.ok) {
         const personal = data.personalRecommendations || []
-        const trending = data.trendingStocks || []
         setPersonalRecommendations(personal)
-        setTrendingStocks(trending)
 
         // 株価を非同期で取得（表示後にバックグラウンドで）
-        const allStocks = [...personal, ...trending]
-        fetchPrices(allStocks)
+        fetchPrices(personal)
       } else {
         console.error("Error fetching featured stocks:", data.error)
       }
@@ -152,8 +81,6 @@ export default function FeaturedStocksByCategory() {
       setLoading(false)
     }
   }
-
-  const hasAnyStocks = personalRecommendations.length > 0 || trendingStocks.length > 0
 
   if (loading) {
     return (
@@ -167,35 +94,7 @@ export default function FeaturedStocksByCategory() {
     )
   }
 
-  const handleGenerate = async () => {
-    try {
-      setGenerating(true)
-
-      // 非同期ジョブを作成
-      const response = await fetch("/api/analysis-jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "featured-stocks" }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        alert(data.error || "生成の開始に失敗しました")
-        setGenerating(false)
-        return
-      }
-
-      // ポーリングでジョブの完了を待つ
-      pollJob(data.jobId)
-    } catch (error) {
-      console.error("Error generating featured stocks:", error)
-      alert("生成に失敗しました")
-      setGenerating(false)
-    }
-  }
-
-  if (!hasAnyStocks) {
+  if (personalRecommendations.length === 0) {
     return (
       <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
         <div className="flex items-center gap-2 mb-4">
@@ -205,30 +104,11 @@ export default function FeaturedStocksByCategory() {
         <div className="text-center py-6 sm:py-8">
           <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🔍</div>
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-            注目銘柄がまだありません
+            おすすめ銘柄がまだありません
           </h3>
-          <p className="text-xs sm:text-sm text-gray-600 mb-4">
-            AIが毎日注目銘柄を発見します
+          <p className="text-xs sm:text-sm text-gray-600">
+            AIが毎日あなたに合った銘柄をおすすめします
           </p>
-          {generating ? (
-            <div className="flex flex-col items-center gap-2">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-400 text-white rounded-lg font-semibold text-sm cursor-not-allowed">
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                生成中...
-              </div>
-              <p className="text-xs text-gray-500">50銘柄を分析しています（数分かかる場合があります）</p>
-            </div>
-          ) : (
-            <button
-              onClick={handleGenerate}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-colors"
-            >
-              今すぐ生成する
-            </button>
-          )}
         </div>
       </div>
     )
@@ -243,36 +123,16 @@ export default function FeaturedStocksByCategory() {
           : s
       )
     setPersonalRecommendations(updateFn)
-    setTrendingStocks(updateFn)
   }
 
-  const renderStockCard = (stock: FeaturedStock, colorTheme: "blue" | "purple") => {
-    const themes = {
-      blue: {
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        button: "bg-blue-600 text-white hover:bg-blue-700",
-      },
-      purple: {
-        bg: "bg-purple-50",
-        border: "border-purple-200",
-        button: "bg-purple-600 text-white hover:bg-purple-700",
-      },
-    }
-    const theme = themes[colorTheme]
-
+  const renderStockCard = (stock: FeaturedStock) => {
     return (
       <div
         key={stock.id}
-        className={`relative flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 ${theme.border} ${theme.bg} hover:shadow-md transition-shadow`}
+        className="relative flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 border-blue-200 bg-blue-50 hover:shadow-md transition-shadow"
       >
-        {/* バッジ - 右上（縦並び） */}
+        {/* バッジ - 右上 */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-          {stock.category && categoryBadges[stock.category] && (
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${categoryBadges[stock.category].className}`}>
-              {categoryBadges[stock.category].label}
-            </span>
-          )}
           {stock.isOwned ? (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
               保有中
@@ -365,56 +225,26 @@ export default function FeaturedStocksByCategory() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* あなたへのおすすめ */}
-      {personalRecommendations.length > 0 && (
-        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
-          <div className="mb-4 sm:mb-5">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl sm:text-2xl">⭐</span>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">あなたへのおすすめ</h3>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <p className="text-xs sm:text-sm text-gray-600">
-                投資スタイルと予算に合わせてAIが選びました
-              </p>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span>更新 {UPDATE_SCHEDULES.PERSONAL_RECOMMENDATIONS}（平日）</span>
-              </div>
-            </div>
-          </div>
-          <div className="overflow-x-auto pb-2 -mx-1 px-1">
-            <div className="flex gap-3 sm:gap-4" style={{ minWidth: "min-content" }}>
-              {personalRecommendations.map((stock) => renderStockCard(stock, "blue"))}
-            </div>
+    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
+      <div className="mb-4 sm:mb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xl sm:text-2xl">⭐</span>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900">あなたへのおすすめ</h3>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <p className="text-xs sm:text-sm text-gray-600">
+            投資スタイルと予算に合わせてAIが選びました
+          </p>
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span>更新 {UPDATE_SCHEDULES.PERSONAL_RECOMMENDATIONS}（平日）</span>
           </div>
         </div>
-      )}
-
-      {/* みんなが注目 */}
-      {trendingStocks.length > 0 && (
-        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md">
-          <div className="mb-4 sm:mb-5">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl sm:text-2xl">🔥</span>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">みんなが注目</h3>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <p className="text-xs sm:text-sm text-gray-600">
-                いま話題になっている銘柄です
-              </p>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span>更新 {UPDATE_SCHEDULES.FEATURED_STOCKS}（平日）</span>
-              </div>
-            </div>
-          </div>
-          <div className="overflow-x-auto pb-2 -mx-1 px-1">
-            <div className="flex gap-3 sm:gap-4" style={{ minWidth: "min-content" }}>
-              {trendingStocks.map((stock) => renderStockCard(stock, "purple"))}
-            </div>
-          </div>
+      </div>
+      <div className="overflow-x-auto pb-2 -mx-1 px-1">
+        <div className="flex gap-3 sm:gap-4" style={{ minWidth: "min-content" }}>
+          {personalRecommendations.map((stock) => renderStockCard(stock))}
         </div>
-      )}
+      </div>
     </div>
   )
 }

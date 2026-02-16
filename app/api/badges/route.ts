@@ -66,24 +66,16 @@ async function getDashboardBadge(
 
   const lastSeenDate = new Date(lastSeen)
 
-  // ユーザー向けおすすめ or 今日の注目銘柄が更新されているか
-  const [userRec, featuredStock] = await Promise.all([
-    prisma.userDailyRecommendation.findFirst({
-      where: {
-        userId,
-        createdAt: { gt: lastSeenDate },
-      },
-      select: { id: true },
-    }),
-    prisma.dailyFeaturedStock.findFirst({
-      where: {
-        createdAt: { gt: lastSeenDate },
-      },
-      select: { id: true },
-    }),
-  ])
+  // ユーザー向けおすすめが更新されているか
+  const userRec = await prisma.userDailyRecommendation.findFirst({
+    where: {
+      userId,
+      createdAt: { gt: lastSeenDate },
+    },
+    select: { id: true },
+  })
 
-  return !!(userRec || featuredStock)
+  return !!userRec
 }
 
 // マイ銘柄: 新しい分析があるか

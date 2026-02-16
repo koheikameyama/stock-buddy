@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { runPortfolioAnalysis, runPurchaseRecommendation, runFeaturedStocksGeneration } from "@/lib/analysis-job-runner"
+import { runPortfolioAnalysis, runPurchaseRecommendation } from "@/lib/analysis-job-runner"
 
 /**
  * GET /api/analysis-jobs
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "typeは必須です" }, { status: 400 })
     }
 
-    const validTypes = ["portfolio-analysis", "purchase-recommendation", "overall-analysis", "featured-stocks"]
+    const validTypes = ["portfolio-analysis", "purchase-recommendation", "overall-analysis"]
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: "無効なtypeです" }, { status: 400 })
     }
@@ -98,8 +98,6 @@ export async function POST(request: NextRequest) {
           await runPortfolioAnalysis(job.id, userId, targetId)
         } else if (type === "purchase-recommendation" && targetId) {
           await runPurchaseRecommendation(job.id, userId, targetId)
-        } else if (type === "featured-stocks") {
-          await runFeaturedStocksGeneration(job.id, userId)
         }
         // 他のtypeも将来的にここに追加
       } catch (error) {
