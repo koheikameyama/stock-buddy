@@ -419,7 +419,37 @@ export default function MyStocksClient() {
 
   // Filter stocks by type
   // quantity > 0 のものだけを保有中として表示（0株は「過去の保有」に表示される）
-  const portfolioStocks = userStocks.filter((s) => s.type === "portfolio" && (s.quantity ?? 0) > 0)
+  // ポートフォリオを売り推奨順に並び替え
+  // 1. 売り推奨の銘柄を上に
+  // 2. 売り推奨同士は損益率の悪い順
+  // 3. それ以外は保有金額の大きい順
+  const portfolioStocks = useMemo(() => {
+    const filtered = userStocks.filter((s) => s.type === "portfolio" && (s.quantity ?? 0) > 0)
+    return filtered.sort((a, b) => {
+      const isSellA = a.recommendation === "sell"
+      const isSellB = b.recommendation === "sell"
+
+      // 売り推奨を上に
+      if (isSellA && !isSellB) return -1
+      if (!isSellA && isSellB) return 1
+
+      // 損益率を計算（現在価格がない場合は0）
+      const priceA = prices[a.stock.tickerCode]?.currentPrice ?? a.averagePurchasePrice ?? 0
+      const priceB = prices[b.stock.tickerCode]?.currentPrice ?? b.averagePurchasePrice ?? 0
+      const profitRateA = a.averagePurchasePrice ? (priceA - a.averagePurchasePrice) / a.averagePurchasePrice : 0
+      const profitRateB = b.averagePurchasePrice ? (priceB - b.averagePurchasePrice) / b.averagePurchasePrice : 0
+
+      // 両方売り推奨の場合は損益率の悪い順（損失が大きい方が上）
+      if (isSellA && isSellB) {
+        return profitRateA - profitRateB
+      }
+
+      // それ以外は保有金額の大きい順
+      const holdingA = (a.quantity ?? 0) * priceA
+      const holdingB = (b.quantity ?? 0) * priceB
+      return holdingB - holdingA
+    })
+  }, [userStocks, prices])
 
   // ウォッチリストを買い推奨順に並び替え
   // 1. 買い推奨の銘柄を上に
