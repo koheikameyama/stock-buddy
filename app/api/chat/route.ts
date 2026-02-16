@@ -1,39 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { GoogleGenAI } from "@google/genai"
+import OpenAI from "openai"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { fetchStockPrices, type StockPrice } from "@/lib/stock-price-fetcher"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { getRelatedNews, formatNewsForPrompt, formatNewsReferences, type RelatedNews } from "@/lib/news-rag"
 import dayjs from "dayjs"
 
-function getGeminiClient() {
-  return new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
   })
-}
-
-// グラウンディングメタデータから参照ソースを整形
-function formatGroundingSources(
-  groundingMetadata: {
-    groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>
-  } | undefined
-): string {
-  if (!groundingMetadata?.groundingChunks?.length) {
-    return ""
-  }
-
-  const sources = groundingMetadata.groundingChunks
-    .filter((chunk) => chunk.web?.uri)
-    .slice(0, 5) // 最大5件
-    .map((chunk) => `• ${chunk.web?.title || "参考記事"}\n  ${chunk.web?.uri}`)
-    .join("\n")
-
-  if (!sources) {
-    return ""
-  }
-
-  return `\n\n---\n📰 参考にした情報:\n${sources}`
 }
 
 interface StockContext {
@@ -533,70 +510,59 @@ ${
 9. 回答は簡潔に（300字以内を目安）
 10. 具体的な数字を引用して説得力を持たせる（例: 「現在価格は52週安値から+15%の位置です」）`
 
-    // Gemini APIを呼び出し
-    const ai = getGeminiClient()
+    // OpenAI APIを呼び出し
+    const openai = getOpenAIClient()
 
     // 会話履歴を構築
-    const contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = []
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = []
 
-    // システムプロンプトを最初のユーザーメッセージとして追加
-    contents.push({
-      role: "user",
-      parts: [{ text: systemPrompt }],
-    })
-    contents.push({
-      role: "model",
-      parts: [{ text: "はい、投資初心者向けのAIコーチとしてお手伝いします。ユーザーの情報を把握しました。何でもお気軽にご質問ください！" }],
+    // システムプロンプトを追加
+    messages.push({
+      role: "system",
+      content: systemPrompt,
     })
 
     // 会話履歴を追加（最大4件）
     if (conversationHistory && Array.isArray(conversationHistory)) {
       conversationHistory.slice(-4).forEach((msg: { role: string; content: string }) => {
         if (msg.role === "user") {
-          contents.push({
+          messages.push({
             role: "user",
-            parts: [{ text: msg.content }],
+            content: msg.content,
           })
         } else if (msg.role === "assistant") {
-          contents.push({
-            role: "model",
-            parts: [{ text: msg.content }],
+          messages.push({
+            role: "assistant",
+            content: msg.content,
           })
         }
       })
     }
 
     // ユーザーの質問を追加
-    contents.push({
+    messages.push({
       role: "user",
-      parts: [{ text: message }],
+      content: message,
     })
 
-    // 銘柄固有の質問 → DBニュースを利用（グラウンディングなし）
-    // 一般的な質問 → Google Searchグラウンディングを利用
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents,
-      config: {
-        ...(isStockSpecificQuery ? {} : { tools: [{ googleSearch: {} }] }),
-        temperature: 0.7,
-        maxOutputTokens: 3000,
-      },
+    // OpenAI APIを呼び出し
+    const result = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0.7,
+      max_tokens: 3000,
     })
 
     const aiResponse =
-      result.text ||
+      result.choices[0]?.message?.content ||
       "申し訳ございません。回答を生成できませんでした。"
 
-    // ソース情報を追加
-    // 銘柄固有 → DBニュースの参照を追加
-    // 一般的な質問 → グラウンディングソースを追加
+    // ソース情報を追加（銘柄固有の質問の場合はDBニュースの参照を追加）
     let response: string
     if (isStockSpecificQuery && relatedNews.length > 0) {
       response = aiResponse + formatNewsReferences(relatedNews)
     } else {
-      const groundingMetadata = result.candidates?.[0]?.groundingMetadata
-      response = aiResponse + formatGroundingSources(groundingMetadata)
+      response = aiResponse
     }
 
     return NextResponse.json({
