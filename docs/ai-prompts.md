@@ -72,10 +72,6 @@ You are a helpful investment coach for beginners.
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "caution": "注意点を1-2文",
 
-  // A. 買い時判断
-  "shouldBuyToday": true | false,
-  "buyTimingExplanation": "購入タイミングの説明",
-
   // B. 深掘り評価
   "positives": "・良い点1\n・良い点2\n・良い点3",
   "concerns": "・不安な点1\n・不安な点2\n・不安な点3",

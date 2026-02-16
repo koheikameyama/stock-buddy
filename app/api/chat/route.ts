@@ -221,9 +221,6 @@ export async function POST(request: NextRequest) {
           推奨: string
           信頼度: number
           理由: string
-          今日買うべきか?: boolean
-          理想の買い値?: number
-          タイミング解説?: string
           良い点?: string
           懸念点?: string
           注意事項?: string
@@ -345,8 +342,6 @@ export async function POST(request: NextRequest) {
           信頼度: Math.round(purchaseRecommendation.confidence * 100),
           理由: purchaseRecommendation.reason,
         }
-        if (purchaseRecommendation.shouldBuyToday !== null) stockData.購入判断.今日買うべきか = purchaseRecommendation.shouldBuyToday
-        if (purchaseRecommendation.buyTimingExplanation) stockData.購入判断.タイミング解説 = purchaseRecommendation.buyTimingExplanation
         if (purchaseRecommendation.positives) stockData.購入判断.良い点 = purchaseRecommendation.positives
         if (purchaseRecommendation.concerns) stockData.購入判断.懸念点 = purchaseRecommendation.concerns
         if (purchaseRecommendation.caution) stockData.購入判断.注意事項 = purchaseRecommendation.caution

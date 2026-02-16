@@ -713,10 +713,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "caution": "注意点を1-2文",
 
-  // A. 買い時判断
-  "shouldBuyToday": true | false,
-  "buyTimingExplanation": "購入タイミングの説明（例: 今が購入を検討できるタイミングです / もう少し様子を見たほうが良いでしょう）",
-
   // B. 深掘り評価（文字列で返す。配列ではない）
   "positives": "・良い点1\n・良い点2\n・良い点3",
   "concerns": "・不安な点1\n・不安な点2\n・不安な点3",
@@ -739,7 +735,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - 専門用語（RSI、MACD、チャートパターン名など）は使ってOKだが、必ず簡単な解説を添える
   例: 「RSI（売られすぎ・買われすぎを判断する指標）が30を下回り…」
   例: 「ダブルボトム（2回底を打って反転する形）が形成され…」
-- チャートパターンが検出された場合は、reasonやbuyTimingExplanationで言及する
+- チャートパターンが検出された場合は、reasonで言及する
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
 
@@ -788,9 +784,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
               confidence: { type: "number" },
               reason: { type: "string" },
               caution: { type: "string" },
-              // A. 買い時判断
-              shouldBuyToday: { type: "boolean" },
-              buyTimingExplanation: { type: ["string", "null"] },
               // B. 深掘り評価
               positives: { type: ["string", "null"] },
               concerns: { type: ["string", "null"] },
@@ -804,7 +797,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
             },
             required: [
               "recommendation", "confidence", "reason", "caution",
-              "shouldBuyToday", "buyTimingExplanation",
               "positives", "concerns", "suitableFor",
               "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
             ],
@@ -837,9 +829,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         confidence: result.confidence,
         reason: result.reason,
         caution: result.caution,
-        // A. 買い時判断
-        shouldBuyToday: result.shouldBuyToday ?? null,
-        buyTimingExplanation: result.buyTimingExplanation || null,
         // B. 深掘り評価
         positives: result.positives || null,
         concerns: result.concerns || null,
@@ -859,9 +848,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         confidence: result.confidence,
         reason: result.reason,
         caution: result.caution,
-        // A. 買い時判断
-        shouldBuyToday: result.shouldBuyToday ?? null,
-        buyTimingExplanation: result.buyTimingExplanation || null,
         // B. 深掘り評価
         positives: result.positives || null,
         concerns: result.concerns || null,
@@ -890,8 +876,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
           confidence: result.confidence,
           reason: result.reason,
           caution: result.caution,
-          shouldBuyToday: result.shouldBuyToday ?? null,
-          buyTimingExplanation: result.buyTimingExplanation || null,
           positives: result.positives || null,
           concerns: result.concerns || null,
           suitableFor: result.suitableFor || null,

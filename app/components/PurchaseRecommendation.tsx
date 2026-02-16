@@ -30,9 +30,6 @@ interface RecommendationData {
   confidence: number
   reason: string
   caution: string
-  // A. 買い時判断
-  shouldBuyToday?: boolean | null
-  buyTimingExplanation?: string | null
   // B. 深掘り評価
   positives?: string | null
   concerns?: string | null
@@ -239,29 +236,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 信頼度パーセンテージ
   const confidencePercent = Math.round(data.confidence * 100)
 
-  // 買い時判断セクション（A）
-  const BuyTimingSection = () => {
-    if (!data?.buyTimingExplanation) return null
-    return (
-      <div className="bg-white rounded-lg p-3 sm:p-4 mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-lg">⏰</span>
-          <span className="text-sm font-semibold text-gray-800">買い時判断</span>
-          {data.shouldBuyToday !== null && (
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              data.shouldBuyToday
-                ? "bg-green-100 text-green-800"
-                : "bg-yellow-100 text-yellow-800"
-            }`}>
-              {data.shouldBuyToday ? "買い推奨" : "タイミング待ち"}
-            </span>
-          )}
-        </div>
-        <p className="text-sm text-gray-700">{data.buyTimingExplanation}</p>
-      </div>
-    )
-  }
-
   // 深掘り評価セクション（B）
   const DeepEvaluationSection = () => {
     if (!data?.positives && !data?.concerns && !data?.suitableFor) return null
@@ -405,9 +379,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
           <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
 
-          {/* A. 買い時判断 */}
-          <BuyTimingSection />
-
           {/* D. パーソナライズ */}
           <PersonalizedSection />
 
@@ -498,9 +469,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         </div>
 
         <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
-
-        {/* A. 買い時判断 */}
-        <BuyTimingSection />
 
         {/* D. パーソナライズ */}
         <PersonalizedSection />
