@@ -309,7 +309,7 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 【警告: 急騰銘柄】
 - 週間変化率: +${weekChangeRate.toFixed(1)}%（非常に高い）
 - 急騰後は反落リスクが高いため、今買うのは危険な可能性があります
-- 「上がりきった銘柄」を避けるため、stayまたはremoveを検討してください`
+- 「上がりきった銘柄」を避けるため、stayまたはavoidを検討してください`
       } else if (weekChangeRate >= 20) {
         weekChangeContext = `
 【注意: 上昇率が高い】
@@ -361,7 +361,7 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
-  "recommendation": "buy" | "stay" | "remove",
+  "recommendation": "buy" | "stay" | "avoid",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "caution": "注意点を1-2文",
@@ -396,7 +396,7 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
 - チャートパターンが検出された場合は、reasonで言及する
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
-- buyConditionはrecommendationが"stay"の場合のみ具体的な条件を記載し、"buy"や"remove"の場合はnullにする
+- buyConditionはrecommendationが"stay"の場合のみ具体的な条件を記載し、"buy"や"avoid"の場合はnullにする
 
 【テクニカル指標の重視】
 - RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
@@ -415,14 +415,14 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
 - cautionで「急騰後の反落リスク」について必ず言及する
 - RSIが70以上（買われすぎ）の場合は、特に慎重な判断をする
 
-【"remove"（見送り推奨）について】
-- "remove"はウォッチリストから外すことを推奨する判断です
+【"avoid"（見送り推奨）について】
+- "avoid"は購入を見送り、ウォッチリストから外すことを検討する判断です
 - 以下の条件が複数揃い、回復の見込みが極めて低い場合のみ使用してください:
   * 赤字が継続し、業績改善の兆しがない
   * 下落トレンドが継続している（テクニカル指標がすべてネガティブ）
   * 悪材料が出ており、株価下落が続く見込み
-- "remove"を選ぶ場合は、confidence を 0.8 以上に設定してください
-- 迷う場合は "stay" を選んでください。"remove" は確信がある場合のみ使用
+- "avoid"を選ぶ場合は、confidence を 0.8 以上に設定してください
+- 迷う場合は "stay" を選んでください。"avoid" は確信がある場合のみ使用
 `
 
     // OpenAI API呼び出し（Structured Outputs使用）
@@ -446,7 +446,7 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
           schema: {
             type: "object",
             properties: {
-              recommendation: { type: "string", enum: ["buy", "stay", "remove"] },
+              recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
               confidence: { type: "number" },
               reason: { type: "string" },
               caution: { type: "string" },
@@ -478,9 +478,15 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
     const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
 
-    // "remove" は confidence >= 0.8 の場合のみ許可（それ以下は "stay" にフォールバック）
-    if (result.recommendation === "remove" && result.confidence < 0.8) {
+    // "avoid" は confidence >= 0.8 の場合のみ許可（それ以下は "stay" にフォールバック）
+    if (result.recommendation === "avoid" && result.confidence < 0.8) {
       result.recommendation = "stay"
+    }
+
+    // 急騰銘柄の強制補正: 週間+30%以上でbuyの場合はstayに変更
+    if (weekChangeRate !== null && weekChangeRate >= 30 && result.recommendation === "buy") {
+      result.recommendation = "stay"
+      result.caution = `週間+${weekChangeRate.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`
     }
 
     // データベースに保存（upsert）

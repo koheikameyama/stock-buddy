@@ -13,7 +13,7 @@ interface RecommendationData {
   stockName: string
   tickerCode: string
   currentPrice: number | null
-  recommendation: "buy" | "stay" | "remove"
+  recommendation: "buy" | "stay" | "avoid"
   confidence: number
   reason: string
   caution: string
@@ -379,8 +379,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     )
   }
 
-  // 見送り推奨（remove）
-  if (data.recommendation === "remove") {
+  // 見送り推奨（avoid）
+  if (data.recommendation === "avoid") {
     return (
       <div className="mt-4 pt-4 border-t border-gray-200">
         <ReanalyzeHeader />

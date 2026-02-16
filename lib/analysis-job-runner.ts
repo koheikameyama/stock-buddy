@@ -724,7 +724,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
-  "recommendation": "buy" | "stay" | "remove",
+  "recommendation": "buy" | "stay" | "avoid",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "caution": "注意点を1-2文",
@@ -757,7 +757,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - チャートパターンが検出された場合は、reasonで言及する
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
-- buyConditionはrecommendationが"stay"の場合のみ具体的な条件を記載し、"buy"や"remove"の場合はnullにする
+- buyConditionはrecommendationが"stay"の場合のみ具体的な条件を記載し、"buy"や"avoid"の場合はnullにする
 
 【テクニカル指標の重視】
 - RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
@@ -769,14 +769,14 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - 急騰・急落した銘柄は、反動リスクがあることを伝える
 - 過去30日の値動きパターン（上昇トレンド/下落トレンド/横ばい）を判断に反映する
 
-【"remove"（見送り推奨）について】
-- "remove"はウォッチリストから外すことを推奨する判断です
+【"avoid"（見送り推奨）について】
+- "avoid"は購入を見送り、ウォッチリストから外すことを検討する判断です
 - 以下の条件が複数揃い、回復の見込みが極めて低い場合のみ使用してください:
   * 赤字が継続し、業績改善の兆しがない
   * 下落トレンドが継続している（テクニカル指標がすべてネガティブ）
   * 悪材料が出ており、株価下落が続く見込み
-- "remove"を選ぶ場合は、confidence を 0.8 以上に設定してください
-- 迷う場合は "stay" を選んでください。"remove" は確信がある場合のみ使用
+- "avoid"を選ぶ場合は、confidence を 0.8 以上に設定してください
+- 迷う場合は "stay" を選んでください。"avoid" は確信がある場合のみ使用
 `
 
     // OpenAI API呼び出し（Structured Outputs使用）
@@ -800,7 +800,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
           schema: {
             type: "object",
             properties: {
-              recommendation: { type: "string", enum: ["buy", "stay", "remove"] },
+              recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
               confidence: { type: "number" },
               reason: { type: "string" },
               caution: { type: "string" },
@@ -832,8 +832,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
     const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
 
-    // "remove" は confidence >= 0.8 の場合のみ許可（それ以下は "stay" にフォールバック）
-    if (result.recommendation === "remove" && result.confidence < 0.8) {
+    // "avoid" は confidence >= 0.8 の場合のみ許可（それ以下は "stay" にフォールバック）
+    if (result.recommendation === "avoid" && result.confidence < 0.8) {
       result.recommendation = "stay"
     }
 
