@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { UPDATE_SCHEDULES } from "@/lib/constants"
+import { CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import StockActionButtons from "@/app/components/StockActionButtons"
 
 interface FeaturedStock {
@@ -328,10 +329,10 @@ export default function FeaturedStocksByCategory({
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
+        <div className={CARD_FOOTER_STYLES.container}>
           {/* アクションボタン（保有中以外で表示） */}
           {!stock.isOwned && (
-            <div className="flex items-center gap-1">
+            <div className={CARD_FOOTER_STYLES.actionGroup}>
               <StockActionButtons
                 tickerCode={stock.stock.tickerCode}
                 showWatchlist={!stock.isRegistered && !stock.isTracked}
@@ -347,9 +348,9 @@ export default function FeaturedStocksByCategory({
 
           <Link
             href={`/recommendations/${stock.stockId}`}
-            className="flex items-center text-blue-600"
+            className={CARD_FOOTER_STYLES.detailLink}
           >
-            <span className="text-sm font-medium">詳細を見る</span>
+            <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
             <svg
               className="w-4 h-4 ml-1"
               fill="none"

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
 
 interface TrackedStock {
   id: string
@@ -122,26 +123,26 @@ export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPu
       </div>
 
       {/* Footer: Actions + Detail Link */}
-      <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+      <div className={CARD_FOOTER_STYLES.containerLarge} onClick={(e) => e.stopPropagation()}>
         {/* Action Buttons */}
-        <div className="flex items-center gap-1">
+        <div className={CARD_FOOTER_STYLES.actionGroup}>
           <button
             onClick={() => onMoveToWatchlist(stock.id, stock.tickerCode, stock.name)}
-            className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+            className={getActionButtonClass("watchlist")}
           >
-            +気になる
+            {ACTION_BUTTON_LABELS.watchlist}
           </button>
           <button
             onClick={() => onPurchase(stock.id, stock.tickerCode, stock.name, stock.market, stock.sector)}
-            className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+            className={getActionButtonClass("purchase")}
           >
-            +購入
+            {ACTION_BUTTON_LABELS.purchase}
           </button>
         </div>
 
         {/* Detail Link */}
-        <div className="flex items-center text-blue-600">
-          <span className="text-sm font-medium">詳細を見る</span>
+        <div className={CARD_FOOTER_STYLES.detailLink}>
+          <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
           <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { formatAnalysisTime } from "@/lib/analysis-time"
+import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
 
 interface UserStock {
   id: string
@@ -232,18 +233,18 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
         )}
 
         {/* Footer: Actions + Detail Link */}
-        <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
+        <div className={CARD_FOOTER_STYLES.container}>
           {/* Action Buttons */}
-          <div className="flex items-center gap-1">
+          <div className={CARD_FOOTER_STYLES.actionGroup}>
             {isHolding && onAdditionalPurchase && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   onAdditionalPurchase()
                 }}
-                className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                className={getActionButtonClass("additionalPurchase")}
               >
-                +追加購入
+                {ACTION_BUTTON_LABELS.additionalPurchase}
               </button>
             )}
             {isHolding && onSell && quantity > 0 && (
@@ -252,9 +253,9 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                   e.stopPropagation()
                   onSell()
                 }}
-                className="px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                className={getActionButtonClass("sell")}
               >
-                +売却
+                {ACTION_BUTTON_LABELS.sell}
               </button>
             )}
             {isWatchlist && onPurchase && (
@@ -263,16 +264,16 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                   e.stopPropagation()
                   onPurchase()
                 }}
-                className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+                className={getActionButtonClass("purchase")}
               >
-                +購入
+                {ACTION_BUTTON_LABELS.purchase}
               </button>
             )}
           </div>
 
           {/* Detail Link */}
-          <div className="flex items-center text-blue-600">
-            <span className="text-sm font-medium">詳細を見る</span>
+          <div className={CARD_FOOTER_STYLES.detailLink}>
+            <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
             <svg
               className="w-4 h-4 ml-1"
               fill="none"

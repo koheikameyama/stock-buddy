@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { getActionButtonClass, ACTION_BUTTON_LABELS } from "@/lib/ui-config"
 
 interface StockActionButtonsProps {
   tickerCode: string
@@ -104,39 +105,39 @@ export default function StockActionButtons({
       {showWatchlist && (
         isInWatchlist ? (
           <span className="px-2 py-1 text-xs font-medium text-gray-400">
-            気になる済
+            {ACTION_BUTTON_LABELS.watchlistDone}
           </span>
         ) : !isAlreadyRegistered ? (
           <button
             onClick={handleAddToWatchlist}
             disabled={isDisabled}
-            className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+            className={getActionButtonClass("watchlist", { disabled: true })}
           >
-            {addingToWatchlist ? "追加中..." : "+気になる"}
+            {addingToWatchlist ? "追加中..." : ACTION_BUTTON_LABELS.watchlist}
           </button>
         ) : null
       )}
       {showTracked && (
         isTracked ? (
           <span className="px-2 py-1 text-xs font-medium text-gray-400">
-            追跡済
+            {ACTION_BUTTON_LABELS.trackedDone}
           </span>
         ) : !isAlreadyRegistered ? (
           <button
             onClick={handleAddToTracked}
             disabled={isDisabled}
-            className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+            className={getActionButtonClass("tracked", { disabled: true })}
           >
-            {addingToTracked ? "追加中..." : "+追跡"}
+            {addingToTracked ? "追加中..." : ACTION_BUTTON_LABELS.tracked}
           </button>
         ) : null
       )}
       {showPurchase && onPurchaseClick && (
         <button
           onClick={onPurchaseClick}
-          className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+          className={getActionButtonClass("purchase")}
         >
-          +購入
+          {ACTION_BUTTON_LABELS.purchase}
         </button>
       )}
     </>

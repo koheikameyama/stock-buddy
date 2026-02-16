@@ -1,5 +1,7 @@
 "use client"
 
+import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
+
 interface SoldStock {
   id: string
   stockId: string
@@ -122,23 +124,23 @@ export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchas
 
       {/* Footer: Actions */}
       {(onAddToWatchlist || onRepurchase) && (
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+        <div className={CARD_FOOTER_STYLES.containerSold}>
           {/* Action Buttons */}
-          <div className="flex items-center gap-1">
+          <div className={CARD_FOOTER_STYLES.actionGroup}>
             {onAddToWatchlist && (
               <button
                 onClick={() => onAddToWatchlist(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name)}
-                className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+                className={getActionButtonClass("watchlist")}
               >
-                +気になる
+                {ACTION_BUTTON_LABELS.watchlist}
               </button>
             )}
             {onRepurchase && (
               <button
                 onClick={() => onRepurchase(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name, soldStock.stock.market, soldStock.stock.sector)}
-                className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+                className={getActionButtonClass("purchase")}
               >
-                +購入
+                {ACTION_BUTTON_LABELS.purchase}
               </button>
             )}
           </div>
