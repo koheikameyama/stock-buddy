@@ -110,13 +110,15 @@ def generate_single_insight(client: OpenAI, category: str, data: dict) -> str | 
     prompt = f"""{data_text}
 
 上記データを分析し、1行（40文字以内）でインサイトを提供してください。
-具体的な数値を引用し、課題や傾向を簡潔に指摘してください。"""
+具体的な数値を引用し、課題や傾向を簡潔に指摘してください。
+
+【重要】提供されたデータのみを使用してください。外部情報や推測は含めないでください。"""
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "あなたは株式投資AIの分析官です。簡潔に日本語で回答してください。"},
+                {"role": "system", "content": "あなたは株式投資AIの分析官です。簡潔に日本語で回答してください。提供されたデータのみを使用し、外部情報や推測は含めないでください。"},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
@@ -199,13 +201,15 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
 上記の失敗パターンを分析し、今後の改善アクションを提案してください。
 - target: 具体的な改善対象（何を改善するか）
 - action: アクションの種類（厳格化/見直し/強化/調整/改善/追加のいずれか）
-- reason: なぜその改善が必要か（失敗の原因に基づいて）"""
+- reason: なぜその改善が必要か（失敗の原因に基づいて）
+
+【重要】提供されたデータのみに基づいて提案してください。外部情報や推測は含めないでください。"""
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "あなたは株式投資AIの分析改善アドバイザーです。失敗パターンを分析し、具体的な改善提案を行ってください。"},
+                {"role": "system", "content": "あなたは株式投資AIの分析改善アドバイザーです。失敗パターンを分析し、具体的な改善提案を行ってください。提供されたデータのみを使用し、外部情報や推測は含めないでください。"},
                 {"role": "user", "content": prompt},
             ],
             response_format=IMPROVEMENT_SCHEMA,

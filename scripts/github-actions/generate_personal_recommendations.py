@@ -413,6 +413,12 @@ def generate_recommendations_for_user(
 - 専門用語（ROE、PER、ボラティリティ等）は使わないでください
 - 「安定している」「成長が期待できる」「みんなが知ってる会社」のような表現を使ってください
 
+【重要: ハルシネーション防止】
+- 提供された銘柄一覧のみから選んでください
+- 決算発表、業績予想、ニュースなど、提供されていない情報を創作しないでください
+- 「最近○○を発表した」「○○で注目されている」など事実でない情報を理由に含めないでください
+- 理由は銘柄一覧に含まれる情報（株価、週間変化率、セクター）のみを参考にしてください
+
 【回答形式】
 以下のJSON配列で回答してください。JSON以外のテキストは含めないでください。
 
@@ -430,7 +436,7 @@ def generate_recommendations_for_user(
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful investment coach for beginners. Always respond in valid JSON format only.",
+                    "content": "You are a helpful investment coach for beginners. Always respond in valid JSON format only. IMPORTANT: Only use information provided in the prompt. Do not create or assume any news, earnings reports, or other facts not explicitly given.",
                 },
                 {"role": "user", "content": prompt},
             ],
