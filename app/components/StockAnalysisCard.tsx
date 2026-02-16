@@ -487,12 +487,39 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
                 <div className="grid grid-cols-2 gap-3">
                   {showLimitPrice && prediction.limitPrice && (
                     <div>
-                      <p className="text-xs text-gray-500">
-                        {prediction.recommendation === "buy" ? "買い指値" : "利確目標"}
-                      </p>
-                      <p className="text-base font-bold text-green-600">
-                        {formatPrice(prediction.limitPrice)}円
-                      </p>
+                      {(() => {
+                        const limitPriceNum = parseFloat(prediction.limitPrice)
+                        const currentPrice = prediction.currentPrice
+                        const isBuy = prediction.recommendation === "buy"
+
+                        if (isBuy) {
+                          // buy推奨時: 現在価格と比較
+                          const isNowBuyTime = currentPrice && Math.abs(limitPriceNum - currentPrice) / currentPrice < 0.01 // 1%以内なら「今が買い時」
+                          return (
+                            <>
+                              <p className="text-xs text-gray-500">
+                                {isNowBuyTime ? "今が買い時" : `${formatPrice(prediction.limitPrice)}円まで下がったら買い`}
+                              </p>
+                              <p className="text-base font-bold text-green-600">
+                                {isNowBuyTime ? "成行で購入OK" : `${formatPrice(prediction.limitPrice)}円`}
+                              </p>
+                            </>
+                          )
+                        } else {
+                          // sell推奨時: 利確目標
+                          const isNowSellTime = currentPrice && Math.abs(limitPriceNum - currentPrice) / currentPrice < 0.01
+                          return (
+                            <>
+                              <p className="text-xs text-gray-500">
+                                {isNowSellTime ? "今が売り時" : "利確目標"}
+                              </p>
+                              <p className="text-base font-bold text-green-600">
+                                {isNowSellTime ? "成行で売却OK" : `${formatPrice(prediction.limitPrice)}円`}
+                              </p>
+                            </>
+                          )
+                        }
+                      })()}
                     </div>
                   )}
                   {showStopLossPrice && prediction.stopLossPrice && (

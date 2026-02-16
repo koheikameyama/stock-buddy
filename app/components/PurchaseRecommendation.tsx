@@ -264,19 +264,42 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         {/* 理想の買い値を表示 */}
         {data.idealEntryPrice && (
           <div className="mt-2 text-xs text-gray-600">
-            <p>
-              📊 理想の買い値: <strong className="text-gray-900">{data.idealEntryPrice.toLocaleString()}円</strong>
-              {data.idealEntryPriceExpiry && (
-                <span className="text-gray-500 ml-1">
-                  （〜{new Date(data.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで）
-                </span>
-              )}
-              {data.priceGap != null && (
-                <span className={data.priceGap < 0 ? "text-green-600 ml-2" : "text-yellow-600 ml-2"}>
-                  （現在価格より{Math.abs(data.priceGap).toLocaleString()}円{data.priceGap < 0 ? "高い → 割安" : "安い → 様子見"}）
-                </span>
-              )}
-            </p>
+            {(() => {
+              const currentPrice = data.currentPrice
+              const idealPrice = data.idealEntryPrice
+              // 現在価格と理想の買い値が1%以内なら「今が買い時」
+              const isNowBuyTime = currentPrice && Math.abs(idealPrice - currentPrice) / currentPrice < 0.01
+
+              if (isNowBuyTime) {
+                return (
+                  <p>
+                    📊 <strong className="text-green-700">今が買い時</strong>
+                    <span className="text-gray-500 ml-1">（成行で購入OK）</span>
+                    {data.idealEntryPriceExpiry && (
+                      <span className="text-gray-500 ml-1">
+                        〜{new Date(data.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで
+                      </span>
+                    )}
+                  </p>
+                )
+              }
+
+              return (
+                <p>
+                  📊 <strong className="text-gray-900">{idealPrice.toLocaleString()}円まで下がったら買い</strong>
+                  {data.idealEntryPriceExpiry && (
+                    <span className="text-gray-500 ml-1">
+                      （〜{new Date(data.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで）
+                    </span>
+                  )}
+                  {data.priceGap != null && data.priceGap > 0 && (
+                    <span className="text-yellow-600 ml-2">
+                      （あと{Math.abs(data.priceGap).toLocaleString()}円）
+                    </span>
+                  )}
+                </p>
+              )
+            })()}
           </div>
         )}
       </div>
