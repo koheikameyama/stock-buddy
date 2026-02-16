@@ -40,10 +40,12 @@ export async function GET() {
         select: { stockId: true },
       }),
     ])
-    // 保有中 = ポートフォリオにある銘柄のみ
+    // 保有中 = ポートフォリオにある銘柄
     const portfolioStockIds = portfolio.map((s) => s.stockId)
-    // 登録済み = ウォッチリスト、ポートフォリオ、または追跡中にある銘柄
-    const registeredStockIds = [...watchlist, ...portfolio, ...tracked].map((s) => s.stockId)
+    // ウォッチリスト = 気になる銘柄
+    const watchlistStockIds = watchlist.map((s) => s.stockId)
+    // 追跡中
+    const trackedStockIds = tracked.map((s) => s.stockId)
 
     // --- あなたへのおすすめ（ユーザーごとのAI生成） ---
     let personalRecommendations: {
@@ -53,6 +55,7 @@ export async function GET() {
       category: string | null
       isOwned: boolean
       isRegistered: boolean
+      isTracked: boolean
       stock: {
         id: string
         tickerCode: string
@@ -111,7 +114,8 @@ export async function GET() {
         reason: r.reason,
         category: null, // UserDailyRecommendation にはカテゴリがない
         isOwned: portfolioStockIds.includes(r.stockId),
-        isRegistered: registeredStockIds.includes(r.stockId),
+        isRegistered: watchlistStockIds.includes(r.stockId),
+        isTracked: trackedStockIds.includes(r.stockId),
         stock: {
           id: r.stock.id,
           tickerCode: r.stock.tickerCode,
@@ -130,6 +134,7 @@ export async function GET() {
       category: string
       isOwned: boolean
       isRegistered: boolean
+      isTracked: boolean
       stock: {
         id: string
         tickerCode: string
@@ -190,7 +195,8 @@ export async function GET() {
         reason: t.reason,
         category: t.category,
         isOwned: portfolioStockIds.includes(t.stockId),
-        isRegistered: registeredStockIds.includes(t.stockId),
+        isRegistered: watchlistStockIds.includes(t.stockId),
+        isTracked: trackedStockIds.includes(t.stockId),
         stock: {
           id: t.stock.id,
           tickerCode: t.stock.tickerCode,

@@ -10,7 +10,8 @@ interface FeaturedStock {
   category: string | null
   reason: string | null
   isOwned: boolean // ポートフォリオにある場合
-  isRegistered: boolean // ウォッチリストまたはポートフォリオにある場合
+  isRegistered: boolean // ウォッチリストにある場合
+  isTracked: boolean // 追跡中の場合
   stock: {
     id: string
     tickerCode: string
@@ -272,6 +273,10 @@ export default function FeaturedStocksByCategory({
           ) : stock.isRegistered ? (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
               気になる
+            </span>
+          ) : stock.isTracked ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+              追跡中
             </span>
           ) : null}
         </div>

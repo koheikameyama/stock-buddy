@@ -43,6 +43,8 @@ interface RecommendationData {
 interface Props {
   stock: StockData
   recommendation: RecommendationData | null
+  isInWatchlist: boolean
+  isTracked: boolean
 }
 
 // Category badge labels and styles
@@ -52,7 +54,7 @@ const categoryBadges: Record<string, { label: string; className: string }> = {
   trending: { label: "話題", className: "bg-yellow-100 text-yellow-700" },
 }
 
-export default function RecommendationDetailClient({ stock, recommendation }: Props) {
+export default function RecommendationDetailClient({ stock, recommendation, isInWatchlist, isTracked }: Props) {
   const { price, loading } = useStockPrice(stock.tickerCode)
 
   const dateLabel = recommendation?.date
@@ -98,7 +100,7 @@ export default function RecommendationDetailClient({ stock, recommendation }: Pr
         loading={loading}
         fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
         fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
-        actions={<StockActionButtons tickerCode={stock.tickerCode} />}
+        actions={<StockActionButtons tickerCode={stock.tickerCode} isInWatchlist={isInWatchlist} isTracked={isTracked} />}
       />
 
       {/* AI Recommendation Section */}

@@ -11,6 +11,8 @@ interface StockActionButtonsProps {
   showTracked?: boolean
   showPurchase?: boolean
   onPurchaseClick?: () => void
+  isInWatchlist?: boolean
+  isTracked?: boolean
 }
 
 export default function StockActionButtons({
@@ -20,6 +22,8 @@ export default function StockActionButtons({
   showTracked = true,
   showPurchase = false,
   onPurchaseClick,
+  isInWatchlist = false,
+  isTracked = false,
 }: StockActionButtonsProps) {
   const router = useRouter()
   const [addingToWatchlist, setAddingToWatchlist] = useState(false)
@@ -80,25 +84,40 @@ export default function StockActionButtons({
     }
   }
 
+  // どちらかに登録済みなら両方非活性
+  const isAlreadyRegistered = isInWatchlist || isTracked
+
   return (
     <>
       {showWatchlist && (
-        <button
-          onClick={handleAddToWatchlist}
-          disabled={isDisabled}
-          className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
-        >
-          {addingToWatchlist ? "追加中..." : "+気になる"}
-        </button>
+        isInWatchlist ? (
+          <span className="px-2 py-1 text-xs font-medium text-gray-400">
+            気になる済
+          </span>
+        ) : !isAlreadyRegistered ? (
+          <button
+            onClick={handleAddToWatchlist}
+            disabled={isDisabled}
+            className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+          >
+            {addingToWatchlist ? "追加中..." : "+気になる"}
+          </button>
+        ) : null
       )}
       {showTracked && (
-        <button
-          onClick={handleAddToTracked}
-          disabled={isDisabled}
-          className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-        >
-          {addingToTracked ? "追加中..." : "+追跡"}
-        </button>
+        isTracked ? (
+          <span className="px-2 py-1 text-xs font-medium text-gray-400">
+            追跡済
+          </span>
+        ) : !isAlreadyRegistered ? (
+          <button
+            onClick={handleAddToTracked}
+            disabled={isDisabled}
+            className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+          >
+            {addingToTracked ? "追加中..." : "+追跡"}
+          </button>
+        ) : null
       )}
       {showPurchase && onPurchaseClick && (
         <button

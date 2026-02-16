@@ -43,7 +43,7 @@ async function RecommendationDetailContent({
   userId: string
 }) {
   // Fetch stock and its recommendation data
-  const [stock, personalRec, featuredStock] = await Promise.all([
+  const [stock, personalRec, featuredStock, watchlistEntry, trackedEntry] = await Promise.all([
     prisma.stock.findUnique({
       where: { id: stockId },
     }),
@@ -56,6 +56,14 @@ async function RecommendationDetailContent({
     prisma.dailyFeaturedStock.findFirst({
       where: { stockId },
       orderBy: { date: "desc" },
+    }),
+    // Check if user has this stock in watchlist
+    prisma.watchlistStock.findFirst({
+      where: { stockId, userId },
+    }),
+    // Check if user has this stock in tracked
+    prisma.trackedStock.findFirst({
+      where: { stockId, userId },
     }),
   ])
 
@@ -103,5 +111,12 @@ async function RecommendationDetailContent({
       }
     : null
 
-  return <RecommendationDetailClient stock={stockData} recommendation={recommendation} />
+  return (
+    <RecommendationDetailClient
+      stock={stockData}
+      recommendation={recommendation}
+      isInWatchlist={!!watchlistEntry}
+      isTracked={!!trackedEntry}
+    />
+  )
 }
