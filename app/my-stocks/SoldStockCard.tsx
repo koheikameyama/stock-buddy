@@ -120,25 +120,29 @@ export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchas
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Footer: Actions */}
       {(onAddToWatchlist || onRepurchase) && (
-        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
-          {onAddToWatchlist && (
-            <button
-              onClick={() => onAddToWatchlist(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name)}
-              className="flex-1 px-3 py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-            >
-              気になるに追加
-            </button>
-          )}
-          {onRepurchase && (
-            <button
-              onClick={() => onRepurchase(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name, soldStock.stock.market, soldStock.stock.sector)}
-              className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              再購入する
-            </button>
-          )}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1">
+            {onAddToWatchlist && (
+              <button
+                onClick={() => onAddToWatchlist(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name)}
+                className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+              >
+                +気になる
+              </button>
+            )}
+            {onRepurchase && (
+              <button
+                onClick={() => onRepurchase(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name, soldStock.stock.market, soldStock.stock.sector)}
+                className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+              >
+                +購入
+              </button>
+            )}
+          </div>
+          <div />
         </div>
       )}
     </div>

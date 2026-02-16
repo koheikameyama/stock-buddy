@@ -121,28 +121,31 @@ export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPu
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={() => onMoveToWatchlist(stock.id, stock.tickerCode, stock.name)}
-          className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
-        >
-          気になるへ
-        </button>
-        <button
-          onClick={() => onPurchase(stock.id, stock.tickerCode, stock.name, stock.market, stock.sector)}
-          className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
-        >
-          購入
-        </button>
-      </div>
+      {/* Footer: Actions + Detail Link */}
+      <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onMoveToWatchlist(stock.id, stock.tickerCode, stock.name)}
+            className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+          >
+            +気になる
+          </button>
+          <button
+            onClick={() => onPurchase(stock.id, stock.tickerCode, stock.name, stock.market, stock.sector)}
+            className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
+          >
+            +購入
+          </button>
+        </div>
 
-      {/* Detail Link */}
-      <div className="flex items-center justify-end text-blue-600 pt-3 mt-3 border-t border-gray-100">
-        <span className="text-sm font-medium">詳細を見る</span>
-        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
+        {/* Detail Link */}
+        <div className="flex items-center text-blue-600">
+          <span className="text-sm font-medium">詳細を見る</span>
+          <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
       </div>
     </div>
   )
