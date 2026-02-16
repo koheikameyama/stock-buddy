@@ -8,7 +8,7 @@ import TrackedStockCard from "./TrackedStockCard"
 import SoldStockCard from "./SoldStockCard"
 import AddStockDialog from "./AddStockDialog"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
-import { UPDATE_SCHEDULES } from "@/lib/constants"
+import { UPDATE_SCHEDULES, MAX_PORTFOLIO_STOCKS, MAX_WATCHLIST_STOCKS } from "@/lib/constants"
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 
 interface UserStock {
@@ -104,8 +104,6 @@ interface SoldStock {
 }
 
 type TabType = "portfolio" | "watchlist" | "tracked" | "sold"
-
-const MAX_USER_STOCKS = 5
 
 export default function MyStocksClient() {
   const router = useRouter()
@@ -638,7 +636,7 @@ export default function MyStocksClient() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    現在 {displayStocks.length}/{MAX_USER_STOCKS} 銘柄
+                    現在 {displayStocks.length} 銘柄
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     AI分析更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
@@ -646,7 +644,7 @@ export default function MyStocksClient() {
                 </div>
                 <button
                   onClick={handleAddStock}
-                  disabled={displayStocks.length >= MAX_USER_STOCKS}
+                  disabled={displayStocks.length >= (activeTab === "portfolio" ? MAX_PORTFOLIO_STOCKS : MAX_WATCHLIST_STOCKS)}
                   className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <svg

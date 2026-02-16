@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-
-const MAX_TRACKED_STOCKS = 10
+import { MAX_TRACKED_STOCKS } from "@/lib/constants"
 
 /**
  * GET /api/tracked-stocks

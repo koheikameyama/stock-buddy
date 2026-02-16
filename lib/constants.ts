@@ -2,9 +2,10 @@
  * アプリケーション全体で使用する定数
  */
 
-// 銘柄管理の制限（一時的に解除中）
+// 銘柄管理の制限
 export const MAX_PORTFOLIO_STOCKS = 100
 export const MAX_WATCHLIST_STOCKS = 100
+export const MAX_TRACKED_STOCKS = 10
 
 // データ取得の制限
 export const MAX_PASSED_STOCKS_RETRIEVE = 20
