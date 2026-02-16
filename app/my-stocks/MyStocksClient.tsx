@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import StockCard from "./StockCard"
@@ -420,7 +420,34 @@ export default function MyStocksClient() {
   // Filter stocks by type
   // quantity > 0 のものだけを保有中として表示（0株は「過去の保有」に表示される）
   const portfolioStocks = userStocks.filter((s) => s.type === "portfolio" && (s.quantity ?? 0) > 0)
-  const watchlistStocks = userStocks.filter((s) => s.type === "watchlist")
+
+  // ウォッチリストを買い推奨順に並び替え
+  // 1. 買い推奨の銘柄を上に
+  // 2. 買い推奨同士はconfidence（スコア）の高い順
+  // 3. それ以外は追加日時の新しい順
+  const watchlistStocks = useMemo(() => {
+    const filtered = userStocks.filter((s) => s.type === "watchlist")
+    return filtered.sort((a, b) => {
+      const recA = recommendations[a.stockId]
+      const recB = recommendations[b.stockId]
+
+      const isBuyA = recA?.recommendation === "buy"
+      const isBuyB = recB?.recommendation === "buy"
+
+      // 買い推奨を上に
+      if (isBuyA && !isBuyB) return -1
+      if (!isBuyA && isBuyB) return 1
+
+      // 両方買い推奨の場合はconfidenceで並べる
+      if (isBuyA && isBuyB) {
+        return (recB?.confidence ?? 0) - (recA?.confidence ?? 0)
+      }
+
+      // それ以外は追加日時の新しい順
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+  }, [userStocks, recommendations])
+
   const displayStocks = activeTab === "portfolio" ? portfolioStocks : watchlistStocks
 
   if (loading) {
