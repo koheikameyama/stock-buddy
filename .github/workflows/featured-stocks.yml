@@ -49,7 +49,7 @@ jobs:
 
   fetch-stock-prices:
     needs: determine-session
-    if: needs.determine-session.outputs.session != 'morning'
+    # 全セッションで実行（featured-stocksの前に株価データを最新化）
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -69,7 +69,7 @@ jobs:
         run: python scripts/github-actions/fetch_stock_prices.py
 
   featured-stocks:
-    needs: determine-session
+    needs: [determine-session, fetch-stock-prices]
     if: needs.determine-session.outputs.session != 'evening'
     runs-on: ubuntu-latest
     steps:

@@ -2,20 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { verifyCronOrSession } from "@/lib/cron-auth"
 import { prisma } from "@/lib/prisma"
-import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import { getTodayForDB } from "@/lib/date-utils"
+import { Decimal } from "@prisma/client/runtime/library"
 
-interface StockWithPrices {
+interface StockWithMetrics {
   id: string
   tickerCode: string
   name: string
   isProfitable: boolean | null
   profitTrend: string | null
-  prices: {
-    date: string
-    close: number
-    volume: number
-  }[]
+  weekChangeRate: Decimal | null
+  volatility: Decimal | null
+  volumeRatio: Decimal | null
 }
 
 interface FeaturedStockCandidate {
@@ -28,6 +26,8 @@ interface FeaturedStockCandidate {
 /**
  * POST /api/featured-stocks/generate-for-user
  * ユーザーが手動で、またはCRONで注目銘柄を生成
+ *
+ * 事前にfetch-stock-pricesジョブで更新されたDBデータを使用
  */
 export async function POST(request: NextRequest) {
   try {
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
       return authResult
     }
 
-    // 銘柄と株価データを取得
-    const stocks = await getStocksWithPrices()
+    // 銘柄と事前計算済み指標を取得
+    const stocks = await getStocksWithMetrics()
 
     if (stocks.length === 0) {
       return NextResponse.json(
@@ -83,13 +83,19 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 全銘柄と過去30日分の株価データを取得（yfinanceからリアルタイム取得）
+ * 全銘柄と事前計算済み指標を取得（DBから直接取得）
+ *
+ * fetch-stock-pricesジョブで更新された以下のフィールドを使用:
+ * - weekChangeRate: 週間変化率（%）
+ * - volatility: 30日間ボラティリティ（%）
+ * - volumeRatio: 出来高比率（直近3日/4-30日前）
  */
-async function getStocksWithPrices(): Promise<StockWithPrices[]> {
-  // 上位50銘柄を取得（全銘柄だと時間がかかりすぎる）
+async function getStocksWithMetrics(): Promise<StockWithMetrics[]> {
+  // priceUpdatedAtが存在する銘柄のみ取得（株価データが更新済み）
   // 赤字企業は除外（初心者向けに安全な銘柄のみ）
   const stocks = await prisma.stock.findMany({
     where: {
+      priceUpdatedAt: { not: null },
       OR: [
         { isProfitable: true },
         { isProfitable: null }, // 業績データがない場合は除外しない
@@ -101,62 +107,31 @@ async function getStocksWithPrices(): Promise<StockWithPrices[]> {
       name: true,
       isProfitable: true,
       profitTrend: true,
+      weekChangeRate: true,
+      volatility: true,
+      volumeRatio: true,
     },
     orderBy: {
-      tickerCode: "asc",
+      marketCap: "desc",
     },
-    take: 50,
   })
 
-  // 各銘柄のヒストリカルデータをyfinanceから取得
-  const stocksWithPrices: StockWithPrices[] = []
-
-  for (const stock of stocks) {
-    try {
-      const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m")
-
-      if (historicalPrices.length >= 7) {
-        // 新しい順に並べ替え
-        const sortedPrices = [...historicalPrices].reverse()
-        stocksWithPrices.push({
-          id: stock.id,
-          tickerCode: stock.tickerCode,
-          name: stock.name,
-          isProfitable: stock.isProfitable,
-          profitTrend: stock.profitTrend,
-          prices: sortedPrices.map((p) => ({
-            date: p.date,
-            close: p.close,
-            volume: p.volume,
-          })),
-        })
-      }
-    } catch (error) {
-      console.error(`Error fetching prices for ${stock.tickerCode}:`, error)
-    }
-  }
-
-  return stocksWithPrices
+  return stocks
 }
 
 /**
  * surge（短期急騰）銘柄を抽出
- * 条件: 7日間の株価上昇率+5%以上
+ * 条件: 週間上昇率+5%以上
  */
 function calculateSurgeStocks(
-  stocks: StockWithPrices[]
+  stocks: StockWithMetrics[]
 ): FeaturedStockCandidate[] {
-  const candidates: { stock: StockWithPrices; changeRate: number }[] = []
+  const candidates: { stock: StockWithMetrics; changeRate: number }[] = []
 
   for (const stock of stocks) {
-    if (stock.prices.length < 7) continue
+    if (stock.weekChangeRate === null) continue
 
-    const latestPrice = Number(stock.prices[0].close)
-    const weekAgoPrice = Number(stock.prices[6].close)
-
-    if (weekAgoPrice === 0) continue
-
-    const changeRate = ((latestPrice - weekAgoPrice) / weekAgoPrice) * 100
+    const changeRate = Number(stock.weekChangeRate)
 
     if (changeRate >= 5.0) {
       candidates.push({ stock, changeRate })
@@ -187,24 +162,14 @@ function calculateSurgeStocks(
  * 条件: 30日間のボラティリティ15%以下
  */
 function calculateStableStocks(
-  stocks: StockWithPrices[]
+  stocks: StockWithMetrics[]
 ): FeaturedStockCandidate[] {
-  const candidates: { stock: StockWithPrices; volatility: number }[] = []
+  const candidates: { stock: StockWithMetrics; volatility: number }[] = []
 
   for (const stock of stocks) {
-    if (stock.prices.length < 30) continue
+    if (stock.volatility === null) continue
 
-    // ボラティリティを計算
-    const closePrices = stock.prices.map((p) => Number(p.close))
-    const avgPrice = closePrices.reduce((a, b) => a + b, 0) / closePrices.length
-    const variance =
-      closePrices.reduce((sum, p) => sum + Math.pow(p - avgPrice, 2), 0) /
-      closePrices.length
-    const stdDev = Math.sqrt(variance)
-
-    if (avgPrice === 0) continue
-
-    const volatility = (stdDev / avgPrice) * 100
+    const volatility = Number(stock.volatility)
 
     if (volatility <= 15.0) {
       candidates.push({ stock, volatility })
@@ -232,40 +197,17 @@ function calculateStableStocks(
 
 /**
  * trending（話題）銘柄を抽出
- * 条件: 7日間の平均取引高 > 過去30日間の平均取引高 × 1.5倍
+ * 条件: 出来高比率1.5倍以上
  */
 function calculateTrendingStocks(
-  stocks: StockWithPrices[]
+  stocks: StockWithMetrics[]
 ): FeaturedStockCandidate[] {
-  const candidates: { stock: StockWithPrices; volumeRatio: number }[] = []
+  const candidates: { stock: StockWithMetrics; volumeRatio: number }[] = []
 
   for (const stock of stocks) {
-    if (stock.prices.length < 30) continue
+    if (stock.volumeRatio === null) continue
 
-    // 直近7日の平均取引高
-    const recentVolumes = stock.prices
-      .slice(0, 7)
-      .map((p) => (p.volume ? Number(p.volume) : 0))
-      .filter((v) => v > 0)
-
-    if (recentVolumes.length === 0) continue
-
-    const recentAvgVolume =
-      recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length
-
-    // 過去30日の平均取引高
-    const allVolumes = stock.prices
-      .map((p) => (p.volume ? Number(p.volume) : 0))
-      .filter((v) => v > 0)
-
-    if (allVolumes.length === 0) continue
-
-    const totalAvgVolume =
-      allVolumes.reduce((a, b) => a + b, 0) / allVolumes.length
-
-    if (totalAvgVolume === 0) continue
-
-    const volumeRatio = recentAvgVolume / totalAvgVolume
+    const volumeRatio = Number(stock.volumeRatio)
 
     if (volumeRatio >= 1.5) {
       candidates.push({ stock, volumeRatio })
