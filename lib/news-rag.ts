@@ -165,21 +165,37 @@ export function formatNewsReferences(news: RelatedNews[]): string {
 
 /**
  * システムプロンプト用にニュース情報をフォーマットする
+ * 日付の新しさを強調して、直近のニュースを重視するよう促す
  */
 export function formatNewsForPrompt(news: RelatedNews[]): string {
   if (news.length === 0) {
     return "（最新のニュース情報はありません）"
   }
 
+  const now = dayjs.utc()
+
   return news
-    .map(
-      (n) => `
+    .map((n) => {
+      const publishedAt = dayjs(n.publishedAt)
+      const daysAgo = now.diff(publishedAt, "day")
+
+      // 日付の重要度を示すラベル
+      let freshnessLabel = ""
+      if (daysAgo === 0) freshnessLabel = "【本日】"
+      else if (daysAgo === 1) freshnessLabel = "【昨日】"
+      else if (daysAgo <= 3) freshnessLabel = "【直近3日】"
+      else if (daysAgo <= 7) freshnessLabel = "【今週】"
+      else freshnessLabel = `【${daysAgo}日前】`
+
+      return `
+${freshnessLabel}
 - タイトル: ${n.title}
-- 日付: ${dayjs(n.publishedAt).format("YYYY-MM-DD")}
+- 日付: ${publishedAt.format("YYYY-MM-DD")}
 - センチメント: ${n.sentiment || "不明"}
 - 内容: ${n.content.substring(0, 300)}${n.content.length > 300 ? "..." : ""}
 - URL: ${n.url || "(URLなし)"}
+- 重要度: ${daysAgo <= 3 ? "高（直近のニュースは特に重視してください）" : "通常"}
 `
-    )
+    })
     .join("\n")
 }

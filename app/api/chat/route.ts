@@ -3,8 +3,9 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { GoogleGenAI } from "@google/genai"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { fetchStockPrices, type StockPrice } from "@/lib/stock-price-fetcher"
 import { getRelatedNews, formatNewsForPrompt, formatNewsReferences, type RelatedNews } from "@/lib/news-rag"
+import dayjs from "dayjs"
 
 function getGeminiClient() {
   return new GoogleGenAI({
@@ -175,13 +176,16 @@ export async function POST(request: NextRequest) {
           : null,
       ])
 
+      // リアルタイム株価を取得（この銘柄の詳細情報）
+      const tickerCode = stockContext.tickerCode.replace(".T", "")
+      const [stockPriceData] = await fetchStockPrices([tickerCode])
+
       // 構造化データを作成
       interface StockData {
         基本情報: {
           銘柄名: string
           証券コード: string
           セクター: string
-          現在価格: number | null
           種別: string
           保有状況?: {
             保有株数: number
@@ -190,17 +194,39 @@ export async function POST(request: NextRequest) {
             評価損益率: string
           }
         }
+        リアルタイム情報: {
+          現在価格: number
+          前日終値: number
+          前日比: number
+          前日比率: string
+          本日高値: number
+          本日安値: number
+          出来高: number
+          価格位置?: {
+            週52高値: number
+            週52安値: number
+            高値からの乖離率: string
+            安値からの乖離率: string
+            位置評価: string
+          }
+          予想価格帯との比較?: {
+            短期予想下限: number
+            短期予想上限: number
+            位置: string
+            評価: string
+          }
+        }
         財務指標?: {
           PBR?: { 値: number; 評価: string }
           PER?: { 値: number; 評価: string }
           ROE?: { 値: number; 評価: string }
           営業キャッシュフロー?: { 値: number; 評価: string }
           フリーキャッシュフロー?: { 値: number; 評価: string }
-          週52高値?: number
-          週52安値?: number
         }
         AI売買分析?: {
           分析日: string
+          分析からの経過日数: number
+          分析の鮮度: string
           短期予測: { トレンド: string; 予想価格帯: { 下限: number; 上限: number } }
           中期予測: { トレンド: string; 予想価格帯: { 下限: number; 上限: number } }
           長期予測: { トレンド: string; 予想価格帯: { 下限: number; 上限: number } }
@@ -218,6 +244,8 @@ export async function POST(request: NextRequest) {
         }
         購入判断?: {
           判断日: string
+          判断からの経過日数: number
+          判断の鮮度: string
           推奨: string
           信頼度: number
           理由: string
@@ -250,14 +278,65 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // リアルタイム価格情報を取得
+      const currentPrice = stockPriceData?.currentPrice ?? stockContext.currentPrice ?? 0
+      const previousClose = stockPriceData?.previousClose ?? 0
+      const priceChange = stockPriceData?.change ?? 0
+      const priceChangePercent = stockPriceData?.changePercent ?? 0
+      const todayHigh = stockPriceData?.high ?? 0
+      const todayLow = stockPriceData?.low ?? 0
+      const volume = stockPriceData?.volume ?? 0
+
+      // 52週高値/安値
+      const fiftyTwoWeekHigh = stockDetails?.fiftyTwoWeekHigh ? Number(stockDetails.fiftyTwoWeekHigh) : null
+      const fiftyTwoWeekLow = stockDetails?.fiftyTwoWeekLow ? Number(stockDetails.fiftyTwoWeekLow) : null
+
+      // 鮮度を計算するヘルパー
+      const getFreshness = (daysAgo: number): string => {
+        if (daysAgo <= 1) return "最新（本日または昨日）"
+        if (daysAgo <= 3) return "新しい（3日以内）"
+        if (daysAgo <= 7) return "やや古い（1週間以内）"
+        return "古い（再分析をおすすめ）"
+      }
+
       const stockData: StockData = {
         基本情報: {
           銘柄名: stockContext.name,
           証券コード: stockContext.tickerCode,
           セクター: stockContext.sector || "不明",
-          現在価格: stockContext.currentPrice,
           種別: stockContext.type === "portfolio" ? "保有中" : "ウォッチリスト",
         },
+        リアルタイム情報: {
+          現在価格: currentPrice,
+          前日終値: previousClose,
+          前日比: priceChange,
+          前日比率: `${priceChangePercent >= 0 ? "+" : ""}${priceChangePercent.toFixed(2)}%`,
+          本日高値: todayHigh,
+          本日安値: todayLow,
+          出来高: volume,
+        },
+      }
+
+      // 価格位置（52週高値/安値との比較）
+      if (fiftyTwoWeekHigh && fiftyTwoWeekLow && currentPrice > 0) {
+        const fromHigh = ((currentPrice - fiftyTwoWeekHigh) / fiftyTwoWeekHigh) * 100
+        const fromLow = ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100
+        const range = fiftyTwoWeekHigh - fiftyTwoWeekLow
+        const position = range > 0 ? ((currentPrice - fiftyTwoWeekLow) / range) * 100 : 50
+
+        let positionEval = "中間"
+        if (position >= 80) positionEval = "高値圏（過熱感に注意）"
+        else if (position >= 60) positionEval = "やや高め"
+        else if (position <= 20) positionEval = "安値圏（割安の可能性）"
+        else if (position <= 40) positionEval = "やや安め"
+
+        stockData.リアルタイム情報.価格位置 = {
+          週52高値: fiftyTwoWeekHigh,
+          週52安値: fiftyTwoWeekLow,
+          高値からの乖離率: `${fromHigh.toFixed(1)}%`,
+          安値からの乖離率: `+${fromLow.toFixed(1)}%`,
+          位置評価: positionEval,
+        }
       }
 
       // 保有状況
@@ -293,18 +372,17 @@ export async function POST(request: NextRequest) {
           const fcf = Number(stockDetails.freeCF)
           stockData.財務指標.フリーキャッシュフロー = { 値: fcf, 評価: fcf > 0 ? "余裕あり" : "注意" }
         }
-        if (stockDetails.fiftyTwoWeekHigh !== null) {
-          stockData.財務指標.週52高値 = Number(stockDetails.fiftyTwoWeekHigh)
-        }
-        if (stockDetails.fiftyTwoWeekLow !== null) {
-          stockData.財務指標.週52安値 = Number(stockDetails.fiftyTwoWeekLow)
-        }
       }
 
       // AI分析
       if (latestAnalysis) {
+        const analysisDate = new Date(latestAnalysis.analyzedAt)
+        const daysAgo = dayjs().diff(dayjs(analysisDate), "day")
+
         stockData.AI売買分析 = {
-          分析日: new Date(latestAnalysis.analyzedAt).toLocaleDateString("ja-JP"),
+          分析日: analysisDate.toLocaleDateString("ja-JP"),
+          分析からの経過日数: daysAgo,
+          分析の鮮度: getFreshness(daysAgo),
           短期予測: {
             トレンド: getTrendText(latestAnalysis.shortTermTrend),
             予想価格帯: { 下限: Number(latestAnalysis.shortTermPriceLow), 上限: Number(latestAnalysis.shortTermPriceHigh) },
@@ -321,6 +399,34 @@ export async function POST(request: NextRequest) {
           信頼度: Math.round(latestAnalysis.confidence * 100),
           アドバイス: latestAnalysis.advice,
         }
+
+        // 予想価格帯との比較
+        const shortTermLow = Number(latestAnalysis.shortTermPriceLow)
+        const shortTermHigh = Number(latestAnalysis.shortTermPriceHigh)
+        if (currentPrice > 0 && shortTermLow > 0 && shortTermHigh > 0) {
+          let position = "予想価格帯内"
+          let evaluation = "想定通りの推移"
+          if (currentPrice < shortTermLow) {
+            position = "予想下限を下回っている"
+            evaluation = "想定以上に下落中"
+          } else if (currentPrice > shortTermHigh) {
+            position = "予想上限を上回っている"
+            evaluation = "想定以上に上昇中"
+          } else {
+            const range = shortTermHigh - shortTermLow
+            const relPos = range > 0 ? ((currentPrice - shortTermLow) / range) * 100 : 50
+            if (relPos >= 70) position = "予想価格帯の上部"
+            else if (relPos <= 30) position = "予想価格帯の下部"
+            else position = "予想価格帯の中央付近"
+          }
+
+          stockData.リアルタイム情報.予想価格帯との比較 = {
+            短期予想下限: shortTermLow,
+            短期予想上限: shortTermHigh,
+            位置: position,
+            評価: evaluation,
+          }
+        }
       }
 
       // ポートフォリオ詳細
@@ -336,8 +442,13 @@ export async function POST(request: NextRequest) {
 
       // 購入推奨
       if (purchaseRecommendation) {
+        const recDate = new Date(purchaseRecommendation.date)
+        const daysAgo = dayjs().diff(dayjs(recDate), "day")
+
         stockData.購入判断 = {
-          判断日: purchaseRecommendation.date.toLocaleDateString("ja-JP"),
+          判断日: recDate.toLocaleDateString("ja-JP"),
+          判断からの経過日数: daysAgo,
+          判断の鮮度: getFreshness(daysAgo),
           推奨: getRecommendationText(purchaseRecommendation.recommendation, "purchase"),
           信頼度: Math.round(purchaseRecommendation.confidence * 100),
           理由: purchaseRecommendation.reason,
@@ -347,19 +458,28 @@ export async function POST(request: NextRequest) {
         if (purchaseRecommendation.caution) stockData.購入判断.注意事項 = purchaseRecommendation.caution
       }
 
+      // 分析が古い場合の警告メッセージ
+      const analysisWarning = latestAnalysis
+        ? dayjs().diff(dayjs(latestAnalysis.analyzedAt), "day") > 7
+          ? "\n⚠️ AI分析が1週間以上前のものです。最新の判断には再分析をおすすめします。"
+          : ""
+        : "\n⚠️ AI分析データがありません。銘柄詳細ページで「今すぐ分析する」を実行してください。"
+
       stockContextInfo = `
 ## 質問対象の銘柄データ（JSON形式）
 以下のJSONデータを解析し、この銘柄についての質問に回答してください。
+${analysisWarning}
 
 \`\`\`json
 ${JSON.stringify(stockData, null, 2)}
 \`\`\`
 
-## 回答時の注意
-- 上記JSONに含まれる全てのデータ（財務指標、AI分析結果、予測、スコアなど）を考慮して回答してください
-- 特に「AI売買分析」「保有者向け分析」「購入判断」のデータは既存のAI分析結果なので、これを踏まえて回答してください
-- 財務指標の「評価」フィールドは客観的な評価基準に基づいています
-- 数値データを具体的に引用して回答すると説得力が増します
+## 回答時の重要ポイント
+1. **リアルタイム情報を最優先**: 本日の価格変動、前日比、52週高値/安値との位置を踏まえて判断してください
+2. **予想価格帯との比較**: 現在価格が予想価格帯のどこにいるかを考慮してください
+3. **分析の鮮度を考慮**: 分析が古い場合はその点を踏まえて回答し、再分析を促してください
+4. **最新ニュースを重視**: 直近のニュースは特に重要な判断材料です
+5. 数値データを具体的に引用して回答すると説得力が増します
 `
     }
 
@@ -402,16 +522,16 @@ ${
 }
 
 ## 回答のルール
-1. 専門用語（PER、ROE、移動平均線など）は使わない
-2. 「成長性」「安定性」「割安」など平易な言葉を使う
-3. 断定的な表現は避け、「〜と考えられます」「〜の可能性があります」を使う
-4. ユーザーの投資スタイルに合わせたアドバイスをする
-5. 最終判断はユーザー自身が行うことを促す
-6. 投資にはリスクがあることを適度に伝える
-7. 親しみやすく丁寧な「ですます調」で話す
-8. 回答は簡潔に（300字以内を目安に）
-9. ユーザーが保有していない銘柄については、一般的なアドバイスをする
-10. 最新のニュースや市場情報を踏まえて回答する`
+1. **リアルタイム情報を最優先**: 本日の株価変動、前日比、52週高値/安値との位置関係を必ず踏まえて回答する
+2. 予想価格帯との比較を活用: 現在価格が予想範囲内か、上回っているか、下回っているかを判断材料にする
+3. 分析の鮮度を考慮: 分析が古い（7日以上前）場合は「最新の判断には再分析をおすすめします」と伝える
+4. 最新ニュースを重視: 直近のニュースは特に重要な判断材料として回答に反映する
+5. 専門用語は使わず、「上がりそう」「下がりそう」「今が買い時かも」など分かりやすい言葉で
+6. 断定的な表現は避け、「〜と考えられます」「〜の可能性があります」を使う
+7. ユーザーの投資スタイルに合わせたアドバイスをする
+8. 親しみやすく丁寧な「ですます調」で話す
+9. 回答は簡潔に（300字以内を目安）
+10. 具体的な数字を引用して説得力を持たせる（例: 「現在価格は52週安値から+15%の位置です」）`
 
     // Gemini APIを呼び出し
     const ai = getGeminiClient()
