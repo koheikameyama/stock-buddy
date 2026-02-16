@@ -209,59 +209,6 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               </div>
             )}
 
-            {/* Transaction Buttons */}
-            {(onAdditionalPurchase || onSell) && (
-              <div className="flex gap-2">
-                {onAdditionalPurchase && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onAdditionalPurchase()
-                    }}
-                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    追加購入
-                  </button>
-                )}
-                {onSell && quantity > 0 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSell()
-                    }}
-                    className="flex-1 px-3 py-2 bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M20 12H4"
-                      />
-                    </svg>
-                    売却
-                  </button>
-                )}
-              </div>
-            )}
           </>
         )}
 
@@ -288,6 +235,28 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
         <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
           {/* Action Buttons */}
           <div className="flex items-center gap-1">
+            {isHolding && onAdditionalPurchase && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAdditionalPurchase()
+                }}
+                className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              >
+                +追加購入
+              </button>
+            )}
+            {isHolding && onSell && quantity > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSell()
+                }}
+                className="px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 rounded transition-colors"
+              >
+                +売却
+              </button>
+            )}
             {isWatchlist && onPurchase && (
               <button
                 onClick={(e) => {
