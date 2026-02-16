@@ -495,19 +495,28 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
                         if (isBuy) {
                           // buy推奨時: 現在価格と比較
                           const isNowBuyTime = currentPrice && Math.abs(limitPriceNum - currentPrice) / currentPrice < 0.01 // 1%以内なら「今が買い時」
+                          const priceDiff = currentPrice ? limitPriceNum - currentPrice : 0
+                          const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
                           return (
                             <>
                               <p className="text-xs text-gray-500">
-                                {isNowBuyTime ? "今が買い時" : `${formatPrice(prediction.limitPrice)}円まで下がったら買い`}
+                                {isNowBuyTime ? "今が買い時" : "指値（買い）"}
                               </p>
                               <p className="text-base font-bold text-green-600">
                                 {isNowBuyTime ? "成行で購入OK" : `${formatPrice(prediction.limitPrice)}円`}
                               </p>
+                              {!isNowBuyTime && currentPrice && priceDiff < 0 && (
+                                <p className="text-xs text-yellow-600">
+                                  あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で到達
+                                </p>
+                              )}
                             </>
                           )
                         } else {
-                          // sell推奨時: 利確目標
+                          // hold推奨時: 利確目標
                           const isNowSellTime = currentPrice && Math.abs(limitPriceNum - currentPrice) / currentPrice < 0.01
+                          const priceDiff = currentPrice ? limitPriceNum - currentPrice : 0
+                          const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
                           return (
                             <>
                               <p className="text-xs text-gray-500">
@@ -516,6 +525,11 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
                               <p className="text-base font-bold text-green-600">
                                 {isNowSellTime ? "成行で売却OK" : `${formatPrice(prediction.limitPrice)}円`}
                               </p>
+                              {!isNowSellTime && currentPrice && priceDiff > 0 && (
+                                <p className="text-xs text-green-600">
+                                  あと+{priceDiff.toLocaleString()}円 / +{priceDiffPercent}%で到達
+                                </p>
+                              )}
                             </>
                           )
                         }
@@ -524,10 +538,27 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
                   )}
                   {showStopLossPrice && prediction.stopLossPrice && (
                     <div>
-                      <p className="text-xs text-gray-500">逆指値（損切り）</p>
-                      <p className="text-base font-bold text-red-600">
-                        {formatPrice(prediction.stopLossPrice)}円
-                      </p>
+                      {(() => {
+                        const stopLossPriceNum = parseFloat(prediction.stopLossPrice)
+                        const currentPrice = prediction.currentPrice
+                        const priceDiff = currentPrice ? stopLossPriceNum - currentPrice : 0
+                        const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
+                        const isNearStopLoss = currentPrice && Math.abs(priceDiff / currentPrice) < 0.03 // 3%以内なら注意
+
+                        return (
+                          <>
+                            <p className="text-xs text-gray-500">逆指値（損切り）</p>
+                            <p className="text-base font-bold text-red-600">
+                              {formatPrice(prediction.stopLossPrice)}円
+                            </p>
+                            {currentPrice && priceDiff < 0 && (
+                              <p className={`text-xs ${isNearStopLoss ? "text-red-600 font-semibold" : "text-gray-500"}`}>
+                                {isNearStopLoss ? "⚠️ " : ""}あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で発動
+                              </p>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   )}
                 </div>
