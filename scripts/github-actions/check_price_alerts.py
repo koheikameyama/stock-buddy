@@ -60,7 +60,8 @@ def fetch_watchlist_alerts(conn) -> list[dict]:
                 s."tickerCode",
                 s."latestPrice",
                 pr."idealEntryPrice",
-                pr."idealEntryPriceExpiry"
+                pr."idealEntryPriceExpiry",
+                w.id as "userStockId"
             FROM "WatchlistStock" w
             JOIN "Stock" s ON w."stockId" = s.id
             LEFT JOIN LATERAL (
@@ -84,6 +85,7 @@ def fetch_watchlist_alerts(conn) -> list[dict]:
                 "tickerCode": row[3],
                 "latestPrice": float(row[4]) if row[4] else None,
                 "idealEntryPrice": float(row[5]) if row[5] else None,
+                "userStockId": row[7],
             })
 
     return alerts
@@ -107,7 +109,8 @@ def fetch_watchlist_surge_plunge_alerts(conn, surge_threshold: float, plunge_thr
                 s.name as "stockName",
                 s."tickerCode",
                 s."latestPrice",
-                s."dailyChangeRate"
+                s."dailyChangeRate",
+                w.id as "userStockId"
             FROM "WatchlistStock" w
             JOIN "Stock" s ON w."stockId" = s.id
             WHERE s."dailyChangeRate" IS NOT NULL
@@ -127,6 +130,7 @@ def fetch_watchlist_surge_plunge_alerts(conn, surge_threshold: float, plunge_thr
                 "changeRate": change_rate,
                 "type": alert_type,
                 "source": "watchlist",
+                "userStockId": row[7],
             })
 
     return alerts
@@ -162,7 +166,8 @@ def fetch_portfolio_surge_plunge_alerts(conn, surge_threshold: float, plunge_thr
                     FROM "Transaction" t
                     WHERE t."portfolioStockId" = p.id
                     ), 0
-                ) as "totalQuantity"
+                ) as "totalQuantity",
+                p.id as "userStockId"
             FROM "PortfolioStock" p
             JOIN "Stock" s ON p."stockId" = s.id
             WHERE s."dailyChangeRate" IS NOT NULL
@@ -185,6 +190,7 @@ def fetch_portfolio_surge_plunge_alerts(conn, surge_threshold: float, plunge_thr
                 "latestPrice": float(row[4]) if row[4] else None,
                 "changeRate": change_rate,
                 "type": alert_type,
+                "userStockId": row[7],
             })
 
     return alerts
@@ -228,7 +234,8 @@ def fetch_portfolio_sell_target_alerts(conn) -> list[dict]:
                     FROM "Transaction" t
                     WHERE t."portfolioStockId" = p.id AND t.type = 'buy'
                     ), 0
-                ) as "averageCost"
+                ) as "averageCost",
+                p.id as "userStockId"
             FROM "PortfolioStock" p
             JOIN "Stock" s ON p."stockId" = s.id
             LEFT JOIN "UserSettings" us ON us."userId" = p."userId"
@@ -245,6 +252,7 @@ def fetch_portfolio_sell_target_alerts(conn) -> list[dict]:
             ai_target_price = float(row[5]) if row[5] else None
             user_target_rate = float(row[6]) if row[6] else None
             average_cost = float(row[8]) if row[8] else 0
+            user_stock_id = row[9]
 
             # 目標価格を決定（ユーザー設定優先）
             if user_target_rate is not None and average_cost > 0:
@@ -273,6 +281,7 @@ def fetch_portfolio_sell_target_alerts(conn) -> list[dict]:
                     "gainPercent": gain_percent,
                     "source": source,
                     "type": "sell_target",
+                    "userStockId": user_stock_id,
                 })
 
     return alerts
@@ -317,7 +326,8 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
                     FROM "Transaction" t
                     WHERE t."portfolioStockId" = p.id AND t.type = 'buy'
                     ), 0
-                ) as "averageCost"
+                ) as "averageCost",
+                p.id as "userStockId"
             FROM "PortfolioStock" p
             JOIN "Stock" s ON p."stockId" = s.id
             LEFT JOIN "UserSettings" us ON us."userId" = p."userId"
@@ -341,6 +351,7 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
             user_stop_loss_rate = float(row[5]) if row[5] else None
             ai_stop_loss_price = float(row[6]) if row[6] else None
             average_cost = float(row[8]) if row[8] else 0
+            user_stock_id = row[9]
 
             # 逆指値価格を決定（ユーザー設定優先）
             if user_stop_loss_rate is not None and average_cost > 0:
@@ -369,6 +380,7 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
                     "lossPercent": loss_percent,
                     "source": source,
                     "type": "stop_loss",
+                    "userStockId": user_stock_id,
                 })
 
     return alerts
@@ -429,7 +441,7 @@ def main():
                 "stockId": alert["stockId"],
                 "title": f"💰 {alert['stockName']}が理想の買値に到達",
                 "body": f"現在価格 {alert['latestPrice']:,.0f}円 が理想の買値 {alert['idealEntryPrice']:,.0f}円 以下になりました",
-                "url": f"/stocks/{alert['stockId']}",
+                "url": f"/my-stocks/{alert['userStockId']}",
                 "triggerPrice": alert["latestPrice"],
                 "targetPrice": alert["idealEntryPrice"],
             })
@@ -451,7 +463,7 @@ def main():
                     "stockId": alert["stockId"],
                     "title": f"📈 {alert['stockName']}が急騰中（注目銘柄）",
                     "body": f"本日 +{alert['changeRate']:.1f}% 上昇しています（{alert['latestPrice']:,.0f}円）",
-                    "url": f"/stocks/{alert['stockId']}",
+                    "url": f"/my-stocks/{alert['userStockId']}",
                     "triggerPrice": alert["latestPrice"],
                     "changeRate": alert["changeRate"],
                 })
@@ -462,7 +474,7 @@ def main():
                     "stockId": alert["stockId"],
                     "title": f"📉 {alert['stockName']}が急落中（注目銘柄）",
                     "body": f"本日 {alert['changeRate']:.1f}% 下落しています（{alert['latestPrice']:,.0f}円）",
-                    "url": f"/stocks/{alert['stockId']}",
+                    "url": f"/my-stocks/{alert['userStockId']}",
                     "triggerPrice": alert["latestPrice"],
                     "changeRate": alert["changeRate"],
                 })
@@ -484,7 +496,7 @@ def main():
                     "stockId": alert["stockId"],
                     "title": f"📈 {alert['stockName']}が急騰中（保有銘柄）",
                     "body": f"本日 +{alert['changeRate']:.1f}% 上昇しています（{alert['latestPrice']:,.0f}円）",
-                    "url": f"/my-stocks/{alert['stockId']}",
+                    "url": f"/my-stocks/{alert['userStockId']}",
                     "triggerPrice": alert["latestPrice"],
                     "changeRate": alert["changeRate"],
                 })
@@ -495,7 +507,7 @@ def main():
                     "stockId": alert["stockId"],
                     "title": f"📉 {alert['stockName']}が急落中（保有銘柄）",
                     "body": f"本日 {alert['changeRate']:.1f}% 下落しています（{alert['latestPrice']:,.0f}円）",
-                    "url": f"/my-stocks/{alert['stockId']}",
+                    "url": f"/my-stocks/{alert['userStockId']}",
                     "triggerPrice": alert["latestPrice"],
                     "changeRate": alert["changeRate"],
                 })
@@ -518,7 +530,7 @@ def main():
                 "stockId": alert["stockId"],
                 "title": f"🎯 {alert['stockName']}が目標価格に到達",
                 "body": body,
-                "url": f"/my-stocks/{alert['stockId']}",
+                "url": f"/my-stocks/{alert['userStockId']}",
                 "triggerPrice": alert["latestPrice"],
                 "targetPrice": alert["targetPrice"],
                 "changeRate": alert.get("gainPercent"),
@@ -542,7 +554,7 @@ def main():
                 "stockId": alert["stockId"],
                 "title": f"⚠️ {alert['stockName']}が逆指値に到達",
                 "body": body,
-                "url": f"/my-stocks/{alert['stockId']}",
+                "url": f"/my-stocks/{alert['userStockId']}",
                 "triggerPrice": alert["latestPrice"],
                 "targetPrice": alert["stopLossPrice"],
                 "changeRate": alert["lossPercent"],
