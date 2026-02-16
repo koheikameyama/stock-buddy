@@ -130,7 +130,7 @@ def fetch_watchlist_surge_plunge_alerts(conn, surge_threshold: float, plunge_thr
                 "changeRate": change_rate,
                 "type": alert_type,
                 "source": "watchlist",
-                "userStockId": row[7],
+                "userStockId": row[6],
             })
 
     return alerts
@@ -175,7 +175,7 @@ def fetch_tracked_surge_plunge_alerts(conn, surge_threshold: float, plunge_thres
                 "changeRate": change_rate,
                 "type": alert_type,
                 "source": "tracked",
-                "userStockId": row[7],
+                "userStockId": row[6],
             })
 
     return alerts
