@@ -5,7 +5,7 @@
 // 銘柄管理の制限
 export const MAX_PORTFOLIO_STOCKS = 100
 export const MAX_WATCHLIST_STOCKS = 100
-export const MAX_TRACKED_STOCKS = 10
+export const MAX_TRACKED_STOCKS = 100
 
 // データ取得の制限
 export const MAX_PASSED_STOCKS_RETRIEVE = 20
