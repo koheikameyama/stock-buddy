@@ -2,13 +2,13 @@
 """
 株価アラートチェックスクリプト
 
-ウォッチリスト・ポートフォリオの銘柄を監視し、
+ウォッチリスト・追跡銘柄・ポートフォリオの銘柄を監視し、
 条件達成時に通知を送信する。
 
 通知トリガー:
 - 理想買値到達（ウォッチリスト）
-- 急騰（+5%以上）
-- 急落（-5%以下）
+- 急騰（+5%以上）：ウォッチリスト、追跡銘柄、ポートフォリオ
+- 急落（-5%以下）：ウォッチリスト、追跡銘柄、ポートフォリオ
 - 指値到達（ポートフォリオ）
 - 逆指値到達（ストップロス）
 """
@@ -130,6 +130,51 @@ def fetch_watchlist_surge_plunge_alerts(conn, surge_threshold: float, plunge_thr
                 "changeRate": change_rate,
                 "type": alert_type,
                 "source": "watchlist",
+                "userStockId": row[7],
+            })
+
+    return alerts
+
+
+def fetch_tracked_surge_plunge_alerts(conn, surge_threshold: float, plunge_threshold: float) -> list[dict]:
+    """
+    追跡銘柄の急騰・急落アラートをチェック
+
+    条件:
+    - 急騰: dailyChangeRate >= surge_threshold
+    - 急落: dailyChangeRate <= plunge_threshold
+    """
+    alerts = []
+
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT
+                t."userId",
+                s.id as "stockId",
+                s.name as "stockName",
+                s."tickerCode",
+                s."latestPrice",
+                s."dailyChangeRate",
+                t.id as "userStockId"
+            FROM "TrackedStock" t
+            JOIN "Stock" s ON t."stockId" = s.id
+            WHERE s."dailyChangeRate" IS NOT NULL
+              AND (s."dailyChangeRate" >= %s OR s."dailyChangeRate" <= %s)
+        ''', (surge_threshold, plunge_threshold))
+
+        for row in cur.fetchall():
+            change_rate = float(row[5]) if row[5] else 0
+            alert_type = "surge" if change_rate >= surge_threshold else "plunge"
+
+            alerts.append({
+                "userId": row[0],
+                "stockId": row[1],
+                "stockName": row[2],
+                "tickerCode": row[3],
+                "latestPrice": float(row[4]) if row[4] else None,
+                "changeRate": change_rate,
+                "type": alert_type,
+                "source": "tracked",
                 "userStockId": row[7],
             })
 
@@ -479,7 +524,40 @@ def main():
                     "changeRate": alert["changeRate"],
                 })
 
-        # 3. ポートフォリオ: 急騰・急落
+        # 3. 追跡銘柄: 急騰・急落
+        logger.info("Checking tracked surge/plunge alerts...")
+        tracked_surge_plunge_alerts = fetch_tracked_surge_plunge_alerts(
+            conn,
+            CONFIG["SURGE_THRESHOLD"],
+            CONFIG["PLUNGE_THRESHOLD"]
+        )
+        logger.info(f"  Found {len(tracked_surge_plunge_alerts)} tracked surge/plunge alerts")
+
+        for alert in tracked_surge_plunge_alerts:
+            if alert["type"] == "surge":
+                notifications.append({
+                    "userId": alert["userId"],
+                    "type": "surge",
+                    "stockId": alert["stockId"],
+                    "title": f"📈 {alert['stockName']}が急騰中（追跡銘柄）",
+                    "body": f"本日 +{alert['changeRate']:.1f}% 上昇しています（{alert['latestPrice']:,.0f}円）",
+                    "url": f"/my-stocks/tracked/{alert['userStockId']}",
+                    "triggerPrice": alert["latestPrice"],
+                    "changeRate": alert["changeRate"],
+                })
+            elif alert["type"] == "plunge":
+                notifications.append({
+                    "userId": alert["userId"],
+                    "type": "plunge",
+                    "stockId": alert["stockId"],
+                    "title": f"📉 {alert['stockName']}が急落中（追跡銘柄）",
+                    "body": f"本日 {alert['changeRate']:.1f}% 下落しています（{alert['latestPrice']:,.0f}円）",
+                    "url": f"/my-stocks/tracked/{alert['userStockId']}",
+                    "triggerPrice": alert["latestPrice"],
+                    "changeRate": alert["changeRate"],
+                })
+
+        # 4. ポートフォリオ: 急騰・急落
         logger.info("Checking portfolio surge/plunge alerts...")
         surge_plunge_alerts = fetch_portfolio_surge_plunge_alerts(
             conn,
@@ -512,7 +590,7 @@ def main():
                     "changeRate": alert["changeRate"],
                 })
 
-        # 4. ポートフォリオ: 指値到達
+        # 5. ポートフォリオ: 指値到達
         logger.info("Checking portfolio sell target alerts...")
         sell_target_alerts = fetch_portfolio_sell_target_alerts(conn)
         logger.info(f"  Found {len(sell_target_alerts)} sell target alerts")
@@ -536,7 +614,7 @@ def main():
                 "changeRate": alert.get("gainPercent"),
             })
 
-        # 5. ポートフォリオ: 逆指値（ストップロス）到達
+        # 6. ポートフォリオ: 逆指値（ストップロス）到達
         logger.info("Checking portfolio stop loss alerts...")
         stop_loss_alerts = fetch_portfolio_stop_loss_alerts(conn)
         logger.info(f"  Found {len(stop_loss_alerts)} stop loss alerts")
@@ -560,7 +638,7 @@ def main():
                 "changeRate": alert["lossPercent"],
             })
 
-        # 6. 通知送信
+        # 7. 通知送信
         logger.info(f"Total notifications to send: {len(notifications)}")
 
         if notifications:
