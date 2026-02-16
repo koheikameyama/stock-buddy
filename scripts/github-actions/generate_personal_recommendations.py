@@ -333,6 +333,21 @@ def calculate_stock_scores(
             score_breakdown["riskPenalty"] = penalty
             penalty_count += 1
 
+        # 急騰銘柄へのペナルティ（上がりきった銘柄を避ける）
+        # +20%以上: -10点、+30%以上: -20点
+        if week_change is not None:
+            if week_change >= 30:
+                total_score -= 20
+                score_breakdown["surgePenalty"] = -20
+            elif week_change >= 20:
+                total_score -= 10
+                score_breakdown["surgePenalty"] = -10
+
+        # 業績不明の銘柄へのペナルティ（初心者向けには業績確認できる銘柄を優先）
+        if stock.get("isProfitable") is None:
+            total_score -= 5
+            score_breakdown["unknownEarningsPenalty"] = -5
+
         scored_stocks.append({
             **stock,
             "score": round(total_score, 2),
@@ -343,6 +358,16 @@ def calculate_stock_scores(
         print(f"  Excluded {excluded_count} speculative stocks (weekChange>50% OR unprofitable+highVol+surge)")
     if penalty_count > 0:
         print(f"  Applied risk penalty ({penalty}) to {penalty_count} stocks (unprofitable AND volatility>{max_vol}%)")
+
+    # 急騰ペナルティの適用数をカウント
+    surge_penalty_count = sum(1 for s in scored_stocks if s.get("scoreBreakdown", {}).get("surgePenalty"))
+    if surge_penalty_count > 0:
+        print(f"  Applied surge penalty to {surge_penalty_count} stocks (weekChange>=20%)")
+
+    # 業績不明ペナルティの適用数をカウント
+    unknown_earnings_count = sum(1 for s in scored_stocks if s.get("scoreBreakdown", {}).get("unknownEarningsPenalty"))
+    if unknown_earnings_count > 0:
+        print(f"  Applied unknown earnings penalty (-5) to {unknown_earnings_count} stocks")
 
     # スコア順にソート
     scored_stocks.sort(key=lambda x: x["score"], reverse=True)

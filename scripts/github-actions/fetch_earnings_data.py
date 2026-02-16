@@ -4,6 +4,9 @@
 
 yfinanceから損益計算書データを取得し、Stockテーブルの業績カラムを更新する。
 
+毎日700銘柄ずつ取得し、約7日で全銘柄をローテーション。
+earningsUpdatedAtがNULLまたは古い順に取得。
+
 取得データ:
 - latestRevenue: 直近通期売上高
 - latestNetIncome: 直近通期純利益
@@ -16,6 +19,7 @@ yfinanceから損益計算書データを取得し、Stockテーブルの業績�
 
 import os
 import sys
+import time
 from datetime import datetime
 
 import psycopg2
@@ -24,8 +28,8 @@ import yfinance as yf
 
 # 設定
 CONFIG = {
-    "BATCH_SIZE": 50,      # yfinance呼び出しバッチサイズ
-    "DB_BATCH_SIZE": 100,  # DB更新のバッチサイズ
+    "DAILY_LIMIT": 700,    # 毎日取得する銘柄数（約7日で全銘柄）
+    "SLEEP_INTERVAL": 0.5,  # リクエスト間隔（秒）
 }
 
 
@@ -38,21 +42,17 @@ def get_database_url() -> str:
     return url
 
 
-def fetch_stocks(conn) -> list[dict]:
-    """DBから銘柄一覧を取得（ユーザー関連銘柄のみ）"""
+def fetch_stocks_to_update(conn, limit: int) -> list[dict]:
+    """更新が必要な銘柄を取得（earningsUpdatedAtがNULLまたは古い順）"""
     with conn.cursor() as cur:
         cur.execute('''
-            SELECT DISTINCT s.id, s."tickerCode", s.name
-            FROM "Stock" s
-            WHERE s.id IN (
-                SELECT "stockId" FROM "PortfolioStock"
-                UNION
-                SELECT "stockId" FROM "WatchlistStock"
-                UNION
-                SELECT "stockId" FROM "TrackedStock"
-            )
-            ORDER BY s."tickerCode"
-        ''')
+            SELECT id, "tickerCode", name
+            FROM "Stock"
+            ORDER BY
+                CASE WHEN "earningsUpdatedAt" IS NULL THEN 0 ELSE 1 END,
+                "earningsUpdatedAt" ASC NULLS FIRST
+            LIMIT %s
+        ''', (limit,))
         rows = cur.fetchall()
 
     return [{"id": row[0], "tickerCode": row[1], "name": row[2]} for row in rows]
@@ -130,101 +130,114 @@ def fetch_earnings_data(ticker_code: str) -> dict | None:
         }
 
     except Exception as e:
-        print(f"  Error fetching {ticker_code}: {e}")
+        # エラーは静かに処理（ログは出さない）
         return None
 
 
-def update_earnings_data(conn, stock_id: str, data: dict):
-    """業績データをDBに更新"""
+def update_earnings_data(conn, stock_id: str, data: dict | None):
+    """業績データをDBに更新（データがない場合もearningsUpdatedAtを更新）"""
     with conn.cursor() as cur:
-        cur.execute('''
-            UPDATE "Stock"
-            SET
-                "latestRevenue" = %s,
-                "latestNetIncome" = %s,
-                "revenueGrowth" = %s,
-                "netIncomeGrowth" = %s,
-                "eps" = %s,
-                "isProfitable" = %s,
-                "profitTrend" = %s,
-                "earningsUpdatedAt" = NOW()
-            WHERE id = %s
-        ''', (
-            data.get("latestRevenue"),
-            data.get("latestNetIncome"),
-            data.get("revenueGrowth"),
-            data.get("netIncomeGrowth"),
-            data.get("eps"),
-            data.get("isProfitable"),
-            data.get("profitTrend"),
-            stock_id,
-        ))
+        if data:
+            cur.execute('''
+                UPDATE "Stock"
+                SET
+                    "latestRevenue" = %s,
+                    "latestNetIncome" = %s,
+                    "revenueGrowth" = %s,
+                    "netIncomeGrowth" = %s,
+                    "eps" = %s,
+                    "isProfitable" = %s,
+                    "profitTrend" = %s,
+                    "earningsUpdatedAt" = NOW()
+                WHERE id = %s
+            ''', (
+                data.get("latestRevenue"),
+                data.get("latestNetIncome"),
+                data.get("revenueGrowth"),
+                data.get("netIncomeGrowth"),
+                data.get("eps"),
+                data.get("isProfitable"),
+                data.get("profitTrend"),
+                stock_id,
+            ))
+        else:
+            # データがない場合もearningsUpdatedAtを更新（次のローテーションまでスキップ）
+            cur.execute('''
+                UPDATE "Stock"
+                SET "earningsUpdatedAt" = NOW()
+                WHERE id = %s
+            ''', (stock_id,))
 
 
 def main():
+    daily_limit = CONFIG["DAILY_LIMIT"]
+    sleep_interval = CONFIG["SLEEP_INTERVAL"]
+
     print("=" * 60)
-    print("業績データの取得を開始")
+    print("業績データの分散取得を開始")
     print(f"開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"今日の取得数: {daily_limit}銘柄")
     print("=" * 60)
 
     conn = psycopg2.connect(get_database_url())
 
     try:
-        # 対象銘柄を取得
-        stocks = fetch_stocks(conn)
+        # 更新が必要な銘柄を取得
+        stocks = fetch_stocks_to_update(conn, daily_limit)
         print(f"\n対象銘柄数: {len(stocks)}")
 
         if not stocks:
-            print("対象銘柄がありません")
+            print("対象銘柄がありません（全て最新）")
             return
 
         success_count = 0
+        no_data_count = 0
         error_count = 0
-        skip_count = 0
+        start_time = time.time()
 
         for i, stock in enumerate(stocks):
             ticker = stock["tickerCode"]
-            print(f"\n[{i+1}/{len(stocks)}] {ticker} ({stock['name']})")
+
+            # 進捗表示（100件ごと）
+            if i > 0 and i % 100 == 0:
+                elapsed = time.time() - start_time
+                rate = i / elapsed
+                remaining = (len(stocks) - i) / rate / 60
+                print(f"  進捗: {i}/{len(stocks)} ({i/len(stocks)*100:.0f}%) 残り約{remaining:.0f}分")
 
             # 業績データを取得
             data = fetch_earnings_data(ticker)
-
-            if data is None:
-                print("  -> データなし（スキップ）")
-                skip_count += 1
-                continue
 
             # DBに更新
             try:
                 update_earnings_data(conn, stock["id"], data)
                 conn.commit()
 
-                # 結果表示
-                revenue = data.get("latestRevenue")
-                net_income = data.get("latestNetIncome")
-                eps = data.get("eps")
-                trend = data.get("profitTrend")
-                profitable = "黒字" if data.get("isProfitable") else "赤字"
-
-                revenue_str = f"{revenue/1e12:.2f}兆円" if revenue and revenue >= 1e12 else f"{revenue/1e8:.0f}億円" if revenue else "-"
-                income_str = f"{net_income/1e12:.2f}兆円" if net_income and abs(net_income) >= 1e12 else f"{net_income/1e8:.0f}億円" if net_income else "-"
-                eps_str = f"EPS: ¥{eps:.2f}" if eps else "EPS: -"
-
-                print(f"  -> 売上: {revenue_str}, 純利益: {income_str} ({profitable}, {trend}), {eps_str}")
-                success_count += 1
+                if data:
+                    profitable = "黒" if data.get("isProfitable") else "赤"
+                    print(f"[{i+1}] {ticker}: {profitable}")
+                    success_count += 1
+                else:
+                    no_data_count += 1
 
             except Exception as e:
-                print(f"  -> DB更新エラー: {e}")
+                print(f"[{i+1}] {ticker}: DB更新エラー - {e}")
                 conn.rollback()
                 error_count += 1
 
+            # レート制限対策
+            time.sleep(sleep_interval)
+
+        elapsed_total = (time.time() - start_time) / 60
+
         print("\n" + "=" * 60)
-        print(f"完了: 成功={success_count}, スキップ={skip_count}, エラー={error_count}")
+        print(f"完了: 成功={success_count}, データなし={no_data_count}, エラー={error_count}")
+        print(f"実行時間: {elapsed_total:.1f}分")
         print(f"終了時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("=" * 60)
 
         # 全員失敗した場合はエラー終了
-        if success_count == 0 and error_count > 0:
+        if success_count == 0 and no_data_count == 0 and error_count > 0:
             sys.exit(1)
 
     finally:

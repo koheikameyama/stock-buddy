@@ -296,6 +296,33 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
     const realtimePricesPost = await fetchStockPrices([stock.tickerCode])
     const currentPrice = realtimePricesPost[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
 
+    // 週間変化率を計算
+    let weekChangeRate: number | null = null
+    let weekChangeContext = ""
+    if (prices.length >= 5) {
+      const latestClose = prices[0].close
+      const weekAgoClose = prices[Math.min(4, prices.length - 1)].close
+      weekChangeRate = ((latestClose - weekAgoClose) / weekAgoClose) * 100
+
+      if (weekChangeRate >= 30) {
+        weekChangeContext = `
+【警告: 急騰銘柄】
+- 週間変化率: +${weekChangeRate.toFixed(1)}%（非常に高い）
+- 急騰後は反落リスクが高いため、今買うのは危険な可能性があります
+- 「上がりきった銘柄」を避けるため、stayまたはremoveを検討してください`
+      } else if (weekChangeRate >= 20) {
+        weekChangeContext = `
+【注意: 上昇率が高い】
+- 週間変化率: +${weekChangeRate.toFixed(1)}%
+- すでに上昇している可能性があるため、追加上昇余地を慎重に判断してください`
+      } else if (weekChangeRate <= -20) {
+        weekChangeContext = `
+【注意: 大幅下落】
+- 週間変化率: ${weekChangeRate.toFixed(1)}%
+- 下落理由を確認し、反発の可能性を慎重に判断してください`
+      }
+    }
+
     // ユーザー設定のコンテキスト
     const periodMap: Record<string, string> = {
       short: "短期（数週間〜数ヶ月）",
@@ -329,7 +356,7 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${patternContext}${technicalContext}${chartPatternContext}${newsContext}
+${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -380,6 +407,13 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - 直近の価格変動幅（ボラティリティ）が大きい銘柄は、リスクが高いことをconcernsで必ず言及する
 - 急騰・急落した銘柄は、反動リスクがあることを伝える
 - 過去30日の値動きパターン（上昇トレンド/下落トレンド/横ばい）を判断に反映する
+
+【急騰銘柄への対応 - 重要】
+- 週間変化率が+20%以上の銘柄は「上がりきった銘柄」の可能性が高い
+- 週間変化率が+30%以上の銘柄は、原則として"buy"ではなく"stay"を推奨する
+- 「今から買っても遅い」「すでに上昇している」という観点を必ず考慮する
+- cautionで「急騰後の反落リスク」について必ず言及する
+- RSIが70以上（買われすぎ）の場合は、特に慎重な判断をする
 
 【"remove"（見送り推奨）について】
 - "remove"はウォッチリストから外すことを推奨する判断です

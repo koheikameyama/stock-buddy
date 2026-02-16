@@ -121,7 +121,7 @@ async function getStocksWithMetrics(): Promise<StockWithMetrics[]> {
 
 /**
  * surge（短期急騰）銘柄を抽出
- * 条件: 週間上昇率+5%以上
+ * 条件: 週間上昇率+5%以上、+50%以下（異常な急騰は除外）
  */
 function calculateSurgeStocks(
   stocks: StockWithMetrics[]
@@ -133,7 +133,8 @@ function calculateSurgeStocks(
 
     const changeRate = Number(stock.weekChangeRate)
 
-    if (changeRate >= 5.0) {
+    // +5%以上+50%以下の銘柄を抽出（異常な急騰は除外）
+    if (changeRate >= 5.0 && changeRate <= 50.0) {
       candidates.push({ stock, changeRate })
     }
   }

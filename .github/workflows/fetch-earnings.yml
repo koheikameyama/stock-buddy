@@ -2,8 +2,8 @@ name: Fetch Earnings Data
 
 on:
   schedule:
-    # 毎週日曜 10:00 JST（01:00 UTC）- 決算は頻繁に更新されないので週1回
-    - cron: '0 1 * * 0'
+    # 毎日 06:00 JST（21:00 UTC前日）- 700銘柄ずつ分散取得
+    - cron: '0 21 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -13,6 +13,7 @@ concurrency:
 jobs:
   fetch-earnings:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # 約15分で完了予定
 
     steps:
       - name: Checkout code
@@ -36,8 +37,8 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ 業績データの取得に成功しました"
-          SLACK_MESSAGE: "ユーザー関連銘柄の業績データを更新しました"
+          SLACK_TITLE: "✅ 業績データの分散取得に成功しました"
+          SLACK_MESSAGE: "700銘柄の業績データを更新しました（約7日で全銘柄ローテーション）"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
