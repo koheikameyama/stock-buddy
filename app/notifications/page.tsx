@@ -8,7 +8,7 @@ import BottomNavigation from "@/app/components/BottomNavigation"
 
 type Notification = {
   id: string
-  type: "ideal_entry_price" | "surge" | "plunge" | "sell_target" | "stop_loss"
+  type: "ideal_entry_price" | "buy_recommendation" | "surge" | "plunge" | "sell_target" | "stop_loss"
   stockId: string | null
   stock: {
     id: string
@@ -26,8 +26,9 @@ type Notification = {
   readAt: string | null
 }
 
-const typeConfig = {
+const typeConfig: Record<string, { icon: string; color: string; label: string }> = {
   ideal_entry_price: { icon: "💰", color: "bg-green-100 text-green-800", label: "買い時" },
+  buy_recommendation: { icon: "📊", color: "bg-green-100 text-green-800", label: "買い推奨" },
   surge: { icon: "📈", color: "bg-blue-100 text-blue-800", label: "急騰" },
   plunge: { icon: "📉", color: "bg-red-100 text-red-800", label: "急落" },
   sell_target: { icon: "🎯", color: "bg-purple-100 text-purple-800", label: "目標到達" },
@@ -225,7 +226,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-3">
             {notifications.map((notification) => {
-              const config = typeConfig[notification.type]
+              const config = typeConfig[notification.type] || { icon: "🔔", color: "bg-gray-100 text-gray-800", label: "通知" }
               const sourceBadge = getSourceBadge(notification.title, notification.type)
 
               return (
