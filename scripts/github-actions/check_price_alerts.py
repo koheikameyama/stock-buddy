@@ -2,12 +2,12 @@
 """
 株価アラートチェックスクリプト
 
-ウォッチリスト・ポートフォリオの銘柄を監視し、
-条件達成時に通知を送信する。
+ウォッチリスト・ポートフォリオの銘柄を監視し、条件達成時に通知を送信する。
 
 通知トリガー:
-- 急騰（+5%以上）：ウォッチリスト、ポートフォリオ
-- 急落（-5%以下）：ウォッチリスト、ポートフォリオ
+- 急騰（+5%以上）：ポートフォリオ
+- 急落（-5%以下）：ポートフォリオ
+- 理想買値到達：ウォッチリスト
 - 指値到達（ポートフォリオ）
 - 逆指値到達（ストップロス）
 """
@@ -42,13 +42,13 @@ def get_env_variable(name: str, required: bool = True) -> str | None:
     return value
 
 
-def fetch_watchlist_surge_plunge_alerts(conn, surge_threshold: float, plunge_threshold: float) -> list[dict]:
+def fetch_watchlist_ideal_entry_alerts(conn) -> list[dict]:
     """
-    ウォッチリスト銘柄の急騰・急落アラートをチェック
+    ウォッチリスト銘柄の理想買値到達アラートをチェック
 
     条件:
-    - 急騰: dailyChangeRate >= surge_threshold
-    - 急落: dailyChangeRate <= plunge_threshold
+    - 現在価格 <= 理想の買い値（idealEntryPrice）
+    - 有効期限内（idealEntryPriceExpiryが設定されている場合）
     """
     alerts = []
 
@@ -60,28 +60,38 @@ def fetch_watchlist_surge_plunge_alerts(conn, surge_threshold: float, plunge_thr
                 s.name as "stockName",
                 s."tickerCode",
                 s."latestPrice",
-                s."dailyChangeRate",
-                w.id as "userStockId"
+                pr."idealEntryPrice",
+                pr."idealEntryPriceExpiry",
+                w.id as "watchlistStockId"
             FROM "WatchlistStock" w
             JOIN "Stock" s ON w."stockId" = s.id
-            WHERE s."dailyChangeRate" IS NOT NULL
-              AND (s."dailyChangeRate" >= %s OR s."dailyChangeRate" <= %s)
-        ''', (surge_threshold, plunge_threshold))
+            JOIN LATERAL (
+                SELECT "idealEntryPrice", "idealEntryPriceExpiry"
+                FROM "PurchaseRecommendation"
+                WHERE "stockId" = s.id
+                  AND "idealEntryPrice" IS NOT NULL
+                ORDER BY "date" DESC
+                LIMIT 1
+            ) pr ON true
+            WHERE s."latestPrice" IS NOT NULL
+              AND s."latestPrice" <= pr."idealEntryPrice"
+              AND (pr."idealEntryPriceExpiry" IS NULL OR pr."idealEntryPriceExpiry" >= CURRENT_DATE)
+        ''')
 
         for row in cur.fetchall():
-            change_rate = float(row[5]) if row[5] else 0
-            alert_type = "surge" if change_rate >= surge_threshold else "plunge"
+            latest_price = float(row[4]) if row[4] else 0
+            ideal_price = float(row[5]) if row[5] else 0
+            discount_percent = ((ideal_price - latest_price) / ideal_price * 100) if ideal_price > 0 else 0
 
             alerts.append({
                 "userId": row[0],
                 "stockId": row[1],
                 "stockName": row[2],
                 "tickerCode": row[3],
-                "latestPrice": float(row[4]) if row[4] else None,
-                "changeRate": change_rate,
-                "type": alert_type,
-                "source": "watchlist",
-                "userStockId": row[6],
+                "latestPrice": latest_price,
+                "idealEntryPrice": ideal_price,
+                "discountPercent": discount_percent,
+                "watchlistStockId": row[8],
             })
 
     return alerts
@@ -380,40 +390,7 @@ def main():
     try:
         notifications = []
 
-        # 1. ウォッチリスト: 急騰・急落
-        logger.info("Checking watchlist surge/plunge alerts...")
-        watchlist_surge_plunge_alerts = fetch_watchlist_surge_plunge_alerts(
-            conn,
-            CONFIG["SURGE_THRESHOLD"],
-            CONFIG["PLUNGE_THRESHOLD"]
-        )
-        logger.info(f"  Found {len(watchlist_surge_plunge_alerts)} watchlist surge/plunge alerts")
-
-        for alert in watchlist_surge_plunge_alerts:
-            if alert["type"] == "surge":
-                notifications.append({
-                    "userId": alert["userId"],
-                    "type": "surge",
-                    "stockId": alert["stockId"],
-                    "title": f"📈 {alert['stockName']}が急騰中（注目銘柄）",
-                    "body": f"本日 +{alert['changeRate']:.1f}% 上昇しています（{alert['latestPrice']:,.0f}円）",
-                    "url": f"/my-stocks/{alert['userStockId']}",
-                    "triggerPrice": alert["latestPrice"],
-                    "changeRate": alert["changeRate"],
-                })
-            elif alert["type"] == "plunge":
-                notifications.append({
-                    "userId": alert["userId"],
-                    "type": "plunge",
-                    "stockId": alert["stockId"],
-                    "title": f"📉 {alert['stockName']}が急落中（注目銘柄）",
-                    "body": f"本日 {alert['changeRate']:.1f}% 下落しています（{alert['latestPrice']:,.0f}円）",
-                    "url": f"/my-stocks/{alert['userStockId']}",
-                    "triggerPrice": alert["latestPrice"],
-                    "changeRate": alert["changeRate"],
-                })
-
-        # 2. ポートフォリオ: 急騰・急落
+        # 1. ポートフォリオ: 急騰・急落
         logger.info("Checking portfolio surge/plunge alerts...")
         surge_plunge_alerts = fetch_portfolio_surge_plunge_alerts(
             conn,
@@ -445,6 +422,23 @@ def main():
                     "triggerPrice": alert["latestPrice"],
                     "changeRate": alert["changeRate"],
                 })
+
+        # 2. ウォッチリスト: 理想買値到達
+        logger.info("Checking watchlist ideal entry price alerts...")
+        ideal_entry_alerts = fetch_watchlist_ideal_entry_alerts(conn)
+        logger.info(f"  Found {len(ideal_entry_alerts)} ideal entry price alerts")
+
+        for alert in ideal_entry_alerts:
+            notifications.append({
+                "userId": alert["userId"],
+                "type": "ideal_entry_price",
+                "stockId": alert["stockId"],
+                "title": f"💰 {alert['stockName']}が買い時です",
+                "body": f"現在 {alert['latestPrice']:,.0f}円（理想の買値 {alert['idealEntryPrice']:,.0f}円以下）",
+                "url": f"/recommendations/{alert['stockId']}",
+                "triggerPrice": alert["latestPrice"],
+                "targetPrice": alert["idealEntryPrice"],
+            })
 
         # 3. ポートフォリオ: 指値到達
         logger.info("Checking portfolio sell target alerts...")
