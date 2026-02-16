@@ -473,20 +473,15 @@ def save_user_recommendations(
     recommendations: list[dict],
     stock_map: dict[str, str]
 ) -> int:
-    """おすすめをDBに保存"""
-    # フロントエンドと同じ日付計算: JSTの今日00:00をUTCに変換
+    """おすすめをDBに保存（upsert）"""
+    # フロントエンドと同じ日付計算: JSTの今日00:00をUTCに変換し、日付部分を取得
+    # JST 2026-02-16 00:00 → UTC 2026-02-15 15:00 → date: 2026-02-15
     jst = ZoneInfo("Asia/Tokyo")
     today_jst = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
-    today = today_jst.astimezone(timezone.utc)
+    today_utc = today_jst.astimezone(timezone.utc)
+    today = today_utc.date()  # DATE型カラムには日付オブジェクトを渡す
 
     with conn.cursor() as cur:
-        # 既存データを削除
-        cur.execute(
-            'DELETE FROM "UserDailyRecommendation" WHERE "userId" = %s AND date = %s',
-            (user_id, today)
-        )
-
-        # 新しいデータを挿入
         saved = 0
         for idx, rec in enumerate(recommendations):
             stock_id = stock_map.get(rec["tickerCode"])
@@ -495,10 +490,13 @@ def save_user_recommendations(
                 print(f"  Warning: Stock not found for ticker {rec['tickerCode']}")
                 continue
 
+            # upsert: 既存レコードがあれば更新、なければ挿入
             cur.execute(
                 '''
                 INSERT INTO "UserDailyRecommendation" (id, "userId", date, "stockId", position, reason, "createdAt")
                 VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT ("userId", date, position)
+                DO UPDATE SET "stockId" = EXCLUDED."stockId", reason = EXCLUDED.reason
                 ''',
                 (user_id, today, stock_id, idx + 1, rec["reason"])
             )
