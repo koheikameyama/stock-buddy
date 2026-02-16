@@ -565,19 +565,36 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
           {/* 買い推奨時に理想の買い値を表示 */}
           {prediction.recommendation === "buy" && purchaseRecommendation?.idealEntryPrice && (
             <div className="bg-green-50 rounded-lg p-3 mb-3">
-              <p className="text-sm text-gray-700">
-                📊 理想の買い値: <strong className="text-green-700">{purchaseRecommendation.idealEntryPrice.toLocaleString()}円</strong>
-                {purchaseRecommendation.idealEntryPriceExpiry && (
-                  <span className="text-gray-500 ml-1">
-                    （〜{new Date(purchaseRecommendation.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで）
-                  </span>
-                )}
-              </p>
-              {purchaseRecommendation.priceGap != null && (
-                <p className={`text-xs mt-1 ${purchaseRecommendation.priceGap < 0 ? "text-green-600" : "text-yellow-600"}`}>
-                  現在価格より{Math.abs(purchaseRecommendation.priceGap).toLocaleString()}円{purchaseRecommendation.priceGap < 0 ? "高い → 割安" : "安い → 様子見"}
-                </p>
-              )}
+              {(() => {
+                const currentPrice = prediction.currentPrice
+                const idealPrice = purchaseRecommendation.idealEntryPrice
+                const isNowBuyTime = currentPrice && currentPrice <= idealPrice
+
+                if (isNowBuyTime) {
+                  return (
+                    <p className="text-sm text-gray-700">
+                      📊 <strong className="text-green-700">今が買い時</strong>
+                      <span className="text-gray-500 ml-1">（成行で購入OK）</span>
+                    </p>
+                  )
+                }
+
+                const priceDiff = currentPrice ? currentPrice - idealPrice : 0
+                const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : 0
+
+                return (
+                  <>
+                    <p className="text-sm text-gray-700">
+                      📊 理想の買い値: <strong className="text-green-700">{idealPrice.toLocaleString()}円</strong>
+                    </p>
+                    {currentPrice && priceDiff > 0 && (
+                      <p className="text-xs mt-1 text-yellow-600">
+                        あと{priceDiff.toLocaleString()}円 / {priceDiffPercent}%下がったら買い
+                      </p>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
           <div className="flex items-center gap-2">

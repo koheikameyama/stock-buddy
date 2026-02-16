@@ -267,34 +267,28 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             {(() => {
               const currentPrice = data.currentPrice
               const idealPrice = data.idealEntryPrice
-              // 現在価格と理想の買い値が1%以内なら「今が買い時」
-              const isNowBuyTime = currentPrice && Math.abs(idealPrice - currentPrice) / currentPrice < 0.01
+              // 現在価格が理想の買い値以下なら「今が買い時」
+              const isNowBuyTime = currentPrice && currentPrice <= idealPrice
 
               if (isNowBuyTime) {
                 return (
                   <p>
                     📊 <strong className="text-green-700">今が買い時</strong>
                     <span className="text-gray-500 ml-1">（成行で購入OK）</span>
-                    {data.idealEntryPriceExpiry && (
-                      <span className="text-gray-500 ml-1">
-                        〜{new Date(data.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで
-                      </span>
-                    )}
                   </p>
                 )
               }
 
+              // リアルタイムで差額を計算
+              const priceDiff = currentPrice ? currentPrice - idealPrice : 0
+              const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : 0
+
               return (
                 <p>
                   📊 <strong className="text-gray-900">{idealPrice.toLocaleString()}円まで下がったら買い</strong>
-                  {data.idealEntryPriceExpiry && (
-                    <span className="text-gray-500 ml-1">
-                      （〜{new Date(data.idealEntryPriceExpiry).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}まで）
-                    </span>
-                  )}
-                  {data.priceGap != null && data.priceGap > 0 && (
+                  {currentPrice && priceDiff > 0 && (
                     <span className="text-yellow-600 ml-2">
-                      （あと{Math.abs(data.priceGap).toLocaleString()}円）
+                      （あと{priceDiff.toLocaleString()}円 / {priceDiffPercent}%）
                     </span>
                   )}
                 </p>
