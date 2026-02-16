@@ -141,8 +141,8 @@ function calculateSurgeStocks(
   // 上昇率が高い順にソート
   candidates.sort((a, b) => b.changeRate - a.changeRate)
 
-  // Top 3を選出
-  return candidates.slice(0, 3).map((c) => {
+  // Top 5を選出
+  return candidates.slice(0, 5).map((c) => {
     let score = Math.round(c.changeRate * 10) // 上昇率をスコアに変換
     // 業績加点: 黒字+増益 +10点、黒字のみ +5点
     if (c.stock.isProfitable === true) {
@@ -179,8 +179,8 @@ function calculateStableStocks(
   // ボラティリティが低い順にソート（安定している順）
   candidates.sort((a, b) => a.volatility - b.volatility)
 
-  // Top 3を選出
-  return candidates.slice(0, 3).map((c) => {
+  // Top 5を選出
+  return candidates.slice(0, 5).map((c) => {
     let score = Math.round(100 - c.volatility * 5) // 安定度をスコアに変換
     // 業績加点: 黒字+増益 +10点、黒字のみ +5点
     if (c.stock.isProfitable === true) {
@@ -217,8 +217,8 @@ function calculateTrendingStocks(
   // 取引高増加率が高い順にソート
   candidates.sort((a, b) => b.volumeRatio - a.volumeRatio)
 
-  // Top 3を選出
-  return candidates.slice(0, 3).map((c) => {
+  // Top 5を選出
+  return candidates.slice(0, 5).map((c) => {
     let score = Math.round(c.volumeRatio * 30) // 出来高比率をスコアに変換
     // 業績加点: 黒字+増益 +10点、黒字のみ +5点
     if (c.stock.isProfitable === true) {

@@ -3,7 +3,7 @@
 ユーザーごとのAIおすすめ銘柄生成スクリプト
 
 各ユーザーの投資スタイル（期間・リスク許容度）と投資資金に基づき、
-DBの株価データを使って、パーソナライズされたおすすめ3銘柄を生成する。
+DBの株価データを使って、パーソナライズされたおすすめ5銘柄を生成する。
 
 寄り前（08:00 JST）、前場終了後（11:35 JST）、後場終了後（15:35 JST）に実行。
 """
@@ -396,7 +396,7 @@ def generate_recommendations_for_user(
 
     prompt = f"""あなたは投資初心者を優しくサポートするAIコーチです。
 {prompts['intro']}
-以下のユーザーの投資スタイルに合った{prompts['focus']}を3つ選んでください。
+以下のユーザーの投資スタイルに合った{prompts['focus']}を5つ選んでください。
 
 【ユーザーの投資スタイル】
 - 投資期間: {period_label}
@@ -407,7 +407,7 @@ def generate_recommendations_for_user(
 {chr(10).join(stock_summaries)}
 
 【回答ルール】
-- 必ず3銘柄を選んでください（候補が3未満なら全て選ぶ）
+- 必ず5銘柄を選んでください（候補が5未満なら全て選ぶ）
 - セクターが偏らないようにしてください
 - 理由は中学生でも分かる言葉で書いてください
 - 専門用語（ROE、PER、ボラティリティ等）は使わないでください
@@ -458,7 +458,7 @@ def generate_recommendations_for_user(
         valid_results = [
             item for item in result
             if item.get("tickerCode") and item.get("reason")
-        ][:3]
+        ][:5]
 
         return valid_results
 

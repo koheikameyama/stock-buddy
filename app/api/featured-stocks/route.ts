@@ -6,8 +6,8 @@ import { getTodayForDB } from "@/lib/date-utils"
 /**
  * GET /api/featured-stocks
  * 今日の注目銘柄を取得
- * - あなたへのおすすめ（3件）: UserDailyRecommendation（AIがユーザーごとに生成）
- * - みんなが注目（3件）: DailyFeaturedStock の trending カテゴリ
+ * - あなたへのおすすめ（5件）: UserDailyRecommendation（AIがユーザーごとに生成）
+ * - みんなが注目（5件）: DailyFeaturedStock の trending カテゴリ
  * - 当日データがなければ最新データを返し、isToday: false を返す
  */
 export async function GET() {
@@ -157,7 +157,7 @@ export async function GET() {
         stock: true,
       },
       orderBy: { position: "asc" },
-      take: 3,
+      take: 5,
     })
 
     if (trending.length > 0) {
@@ -181,7 +181,7 @@ export async function GET() {
             stock: true,
           },
           orderBy: { position: "asc" },
-          take: 3,
+          take: 5,
         })
         trendingDate = latestFeatured.date
         isTrendingToday = false
