@@ -2,11 +2,12 @@
 """
 株価アラートチェックスクリプト
 
-ポートフォリオの銘柄を監視し、条件達成時に通知を送信する。
+ポートフォリオ・ウォッチリストの銘柄を監視し、条件達成時に通知を送信する。
 
 通知トリガー:
 - 急騰（+5%以上）：ポートフォリオ
 - 急落（-5%以下）：ポートフォリオ
+- 買い推奨：ウォッチリスト
 - 指値到達（ポートフォリオ）
 - 逆指値到達（ストップロス）
 """
@@ -39,6 +40,57 @@ def get_env_variable(name: str, required: bool = True) -> str | None:
         logger.error(f"Error: {name} environment variable not set")
         sys.exit(1)
     return value
+
+
+def fetch_watchlist_buy_recommendation_alerts(conn) -> list[dict]:
+    """
+    ウォッチリスト銘柄の買い推奨アラートをチェック
+
+    条件:
+    - 最新のPurchaseRecommendationが 'buy'
+    - confidence >= 0.6（ある程度の確信度がある場合のみ通知）
+    """
+    alerts = []
+
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT
+                w."userId",
+                s.id as "stockId",
+                s.name as "stockName",
+                s."tickerCode",
+                s."latestPrice",
+                pr.recommendation,
+                pr.confidence,
+                pr.reason,
+                w.id as "watchlistStockId"
+            FROM "WatchlistStock" w
+            JOIN "Stock" s ON w."stockId" = s.id
+            JOIN LATERAL (
+                SELECT recommendation, confidence, reason
+                FROM "PurchaseRecommendation"
+                WHERE "stockId" = s.id
+                ORDER BY "date" DESC
+                LIMIT 1
+            ) pr ON true
+            WHERE pr.recommendation = 'buy'
+              AND pr.confidence >= 0.6
+        ''')
+
+        for row in cur.fetchall():
+            alerts.append({
+                "userId": row[0],
+                "stockId": row[1],
+                "stockName": row[2],
+                "tickerCode": row[3],
+                "latestPrice": float(row[4]) if row[4] else 0,
+                "recommendation": row[5],
+                "confidence": float(row[6]) if row[6] else 0,
+                "reason": row[7],
+                "watchlistStockId": row[8],
+            })
+
+    return alerts
 
 
 def fetch_portfolio_surge_plunge_alerts(conn, surge_threshold: float, plunge_threshold: float) -> list[dict]:
@@ -367,7 +419,24 @@ def main():
                     "changeRate": alert["changeRate"],
                 })
 
-        # 2. ポートフォリオ: 指値到達
+        # 2. ウォッチリスト: 買い推奨
+        logger.info("Checking watchlist buy recommendation alerts...")
+        buy_rec_alerts = fetch_watchlist_buy_recommendation_alerts(conn)
+        logger.info(f"  Found {len(buy_rec_alerts)} buy recommendation alerts")
+
+        for alert in buy_rec_alerts:
+            confidence_pct = int(alert["confidence"] * 100)
+            notifications.append({
+                "userId": alert["userId"],
+                "type": "buy_recommendation",
+                "stockId": alert["stockId"],
+                "title": f"📊 {alert['stockName']}が買い推奨です",
+                "body": f"AIが買い推奨と判断しました（確信度{confidence_pct}%）。{alert['reason'][:50]}...",
+                "url": f"/recommendations/{alert['stockId']}",
+                "triggerPrice": alert["latestPrice"],
+            })
+
+        # 3. ポートフォリオ: 指値到達
         logger.info("Checking portfolio sell target alerts...")
         sell_target_alerts = fetch_portfolio_sell_target_alerts(conn)
         logger.info(f"  Found {len(sell_target_alerts)} sell target alerts")
@@ -391,7 +460,7 @@ def main():
                 "changeRate": alert.get("gainPercent"),
             })
 
-        # 3. ポートフォリオ: 逆指値（ストップロス）到達
+        # 4. ポートフォリオ: 逆指値（ストップロス）到達
         logger.info("Checking portfolio stop loss alerts...")
         stop_loss_alerts = fetch_portfolio_stop_loss_alerts(conn)
         logger.info(f"  Found {len(stop_loss_alerts)} stop loss alerts")
@@ -415,7 +484,7 @@ def main():
                 "changeRate": alert["lossPercent"],
             })
 
-        # 4. 通知送信
+        # 5. 通知送信
         logger.info(f"Total notifications to send: {len(notifications)}")
 
         if notifications:
