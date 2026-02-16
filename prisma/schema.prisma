@@ -68,6 +68,9 @@ model User {
   lessonProgress            UserLessonProgress[]
   quizAttempts              UserQuizAttempt[]
 
+  // 通知
+  notifications             Notification[]
+
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 }
@@ -149,6 +152,7 @@ model Stock {
   userDailyRecommendations UserDailyRecommendation[]
   trackedStocks           TrackedStock[]
   dailyMarketMovers       DailyMarketMover[]
+  notifications           Notification[]
   createdAt               DateTime @default(now())
 
   @@index([tickerCode])
@@ -692,4 +696,43 @@ model UserQuizAttempt {
 
   @@index([userId])
   @@index([quizId])
+}
+
+// ========================================
+// 通知機能
+// ========================================
+
+// アプリ内通知（履歴管理）
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 通知タイプ: "ideal_entry_price" | "surge" | "plunge" | "sell_target"
+  type        String
+
+  // 関連銘柄
+  stockId     String?
+  stock       Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
+
+  // 通知内容
+  title       String
+  body        String   @db.Text
+  url         String?  // 遷移先URL
+
+  // 価格情報（通知時点の情報を保存）
+  triggerPrice    Decimal? @db.Decimal(12, 2)  // トリガーとなった価格
+  targetPrice     Decimal? @db.Decimal(12, 2)  // 目標価格（理想買値/指値）
+  changeRate      Decimal? @db.Decimal(8, 2)   // 変化率（急騰/急落用）
+
+  // 状態管理
+  isRead      Boolean  @default(false)
+  isPushSent  Boolean  @default(false)  // プッシュ通知送信済みか
+
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([stockId])
 }

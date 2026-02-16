@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import NotificationBell from "./NotificationBell"
 
 export default async function Header() {
   return (
@@ -17,6 +18,9 @@ export default async function Header() {
             />
             <span className="text-xl font-bold text-gray-900">Stock Buddy</span>
           </Link>
+
+          {/* 通知ベル */}
+          <NotificationBell />
         </div>
       </div>
     </header>
