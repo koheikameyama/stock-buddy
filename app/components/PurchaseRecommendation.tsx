@@ -32,9 +32,6 @@ interface RecommendationData {
   caution: string
   // A. 買い時判断
   shouldBuyToday?: boolean | null
-  idealEntryPrice?: number | null
-  idealEntryPriceExpiry?: string | null
-  priceGap?: number | null
   buyTimingExplanation?: string | null
   // B. 深掘り評価
   positives?: string | null

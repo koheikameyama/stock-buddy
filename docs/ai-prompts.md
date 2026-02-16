@@ -74,9 +74,6 @@ You are a helpful investment coach for beginners.
 
   // A. 買い時判断
   "shouldBuyToday": true | false,
-  "idealEntryPrice": 理想の買い値（整数）,
-  "idealEntryPriceExpiryDays": 理想の買い値の有効日数（1〜30の整数）,
-  "priceGap": 現在価格との差（マイナス=割安、プラス=割高）,
   "buyTimingExplanation": "購入タイミングの説明",
 
   // B. 深掘り評価
@@ -99,7 +96,6 @@ You are a helpful investment coach for beginners.
 - 赤字企業の場合はconcernsで必ず「業績が赤字である」ことに言及
 - 専門用語（RSI、MACD、チャートパターン名など）は使ってOKだが、必ず簡単な解説を添える
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す
-- idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
 
 【テクニカル指標の重視】
 - RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する

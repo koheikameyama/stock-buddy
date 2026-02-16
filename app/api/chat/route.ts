@@ -346,7 +346,6 @@ export async function POST(request: NextRequest) {
           理由: purchaseRecommendation.reason,
         }
         if (purchaseRecommendation.shouldBuyToday !== null) stockData.購入判断.今日買うべきか = purchaseRecommendation.shouldBuyToday
-        if (purchaseRecommendation.idealEntryPrice) stockData.購入判断.理想の買い値 = Number(purchaseRecommendation.idealEntryPrice)
         if (purchaseRecommendation.buyTimingExplanation) stockData.購入判断.タイミング解説 = purchaseRecommendation.buyTimingExplanation
         if (purchaseRecommendation.positives) stockData.購入判断.良い点 = purchaseRecommendation.positives
         if (purchaseRecommendation.concerns) stockData.購入判断.懸念点 = purchaseRecommendation.concerns

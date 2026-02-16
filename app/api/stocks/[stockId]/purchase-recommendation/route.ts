@@ -76,15 +76,6 @@ export async function GET(
       caution: recommendation.caution,
       // A. 買い時判断
       shouldBuyToday: recommendation.shouldBuyToday,
-      idealEntryPrice: recommendation.idealEntryPrice
-        ? Number(recommendation.idealEntryPrice)
-        : null,
-      idealEntryPriceExpiry: recommendation.idealEntryPriceExpiry
-        ? recommendation.idealEntryPriceExpiry.toISOString()
-        : null,
-      priceGap: recommendation.priceGap
-        ? Number(recommendation.priceGap)
-        : null,
       buyTimingExplanation: recommendation.buyTimingExplanation,
       // B. 深掘り評価
       positives: recommendation.positives,
@@ -351,10 +342,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 
   // A. 買い時判断
   "shouldBuyToday": true | false,
-  "idealEntryPrice": 理想の買い値（整数）,
-  "idealEntryPriceExpiryDays": 理想の買い値の有効日数（1〜30の整数。例: 7 = 1週間後まで有効）,
-  "priceGap": 現在価格との差（マイナス=割安、プラス=割高）,
-  "buyTimingExplanation": "購入タイミングの説明（例: あと50円下がったら良い買い場です / 購入を検討できるタイミングです）",
+  "buyTimingExplanation": "購入タイミングの説明（例: 今が購入を検討できるタイミングです / もう少し様子を見たほうが良いでしょう）",
 
   // B. 深掘り評価（文字列で返す。配列ではない）
   "positives": "・良い点1\n・良い点2\n・良い点3",
@@ -382,8 +370,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   例: 「ダブルボトム（2回底を打って反転する形）が形成され…」
 - チャートパターンが検出された場合は、reasonやbuyTimingExplanationで言及する
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
-- idealEntryPriceは現実的な価格を設定（現在価格の±10%程度）
-- idealEntryPriceExpiryDaysは1〜30の整数で設定。短期的な値動きが予想される場合は短め（3〜7日）、安定している場合は長め（14〜30日）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
 
 【テクニカル指標の重視】
@@ -433,9 +419,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
               caution: { type: "string" },
               // A. 買い時判断
               shouldBuyToday: { type: "boolean" },
-              idealEntryPrice: { type: ["number", "null"] },
-              idealEntryPriceExpiryDays: { type: ["number", "null"] },
-              priceGap: { type: ["number", "null"] },
               buyTimingExplanation: { type: ["string", "null"] },
               // B. 深掘り評価
               positives: { type: ["string", "null"] },
@@ -450,8 +433,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
             },
             required: [
               "recommendation", "confidence", "reason", "caution",
-              "shouldBuyToday", "idealEntryPrice", "idealEntryPriceExpiryDays",
-              "priceGap", "buyTimingExplanation",
+              "shouldBuyToday", "buyTimingExplanation",
               "positives", "concerns", "suitableFor",
               "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
             ],
@@ -487,13 +469,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         caution: result.caution,
         // A. 買い時判断
         shouldBuyToday: result.shouldBuyToday ?? null,
-        idealEntryPrice: result.idealEntryPrice || null,
-        idealEntryPriceExpiry: result.idealEntryPriceExpiryDays ? (() => {
-          const d = new Date()
-          d.setDate(d.getDate() + result.idealEntryPriceExpiryDays)
-          return d
-        })() : null,
-        priceGap: result.priceGap ?? null,
         buyTimingExplanation: result.buyTimingExplanation || null,
         // B. 深掘り評価
         positives: result.positives || null,
@@ -516,13 +491,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         caution: result.caution,
         // A. 買い時判断
         shouldBuyToday: result.shouldBuyToday ?? null,
-        idealEntryPrice: result.idealEntryPrice || null,
-        idealEntryPriceExpiry: result.idealEntryPriceExpiryDays ? (() => {
-          const d = new Date()
-          d.setDate(d.getDate() + result.idealEntryPriceExpiryDays)
-          return d
-        })() : null,
-        priceGap: result.priceGap ?? null,
         buyTimingExplanation: result.buyTimingExplanation || null,
         // B. 深掘り評価
         positives: result.positives || null,
@@ -549,13 +517,6 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
       caution: result.caution,
       // A. 買い時判断
       shouldBuyToday: result.shouldBuyToday ?? null,
-      idealEntryPrice: result.idealEntryPrice || null,
-      idealEntryPriceExpiry: result.idealEntryPriceExpiryDays ? (() => {
-        const d = new Date()
-        d.setDate(d.getDate() + result.idealEntryPriceExpiryDays)
-        return d.toISOString()
-      })() : null,
-      priceGap: result.priceGap ?? null,
       buyTimingExplanation: result.buyTimingExplanation || null,
       // B. 深掘り評価
       positives: result.positives || null,

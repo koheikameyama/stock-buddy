@@ -100,9 +100,7 @@ def main():
                 error_count += 1
                 continue
 
-            ideal_price = result.get("idealEntryPrice")
-            ideal_price_str = f", 理想の買い値: {ideal_price:,}円" if ideal_price else ""
-            print(f"  Generated: {result['recommendation']} (confidence: {result['confidence']}{ideal_price_str})")
+            print(f"  Generated: {result['recommendation']} (confidence: {result['confidence']})")
             success_count += 1
 
         print(f"\n=== Summary ===")
