@@ -78,6 +78,8 @@ export async function GET(
       positives: recommendation.positives,
       concerns: recommendation.concerns,
       suitableFor: recommendation.suitableFor,
+      // C. 買い時条件
+      buyCondition: recommendation.buyCondition,
       // D. パーソナライズ
       userFitScore: recommendation.userFitScore,
       budgetFit: recommendation.budgetFit,
@@ -342,6 +344,9 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   "concerns": "・不安な点1\n・不安な点2\n・不安な点3",
   "suitableFor": "こんな人におすすめ（1-2文で具体的に）",
 
+  // C. 買い時条件（recommendationがstayの場合のみ）
+  "buyCondition": "どうなったら買い時か（例：「株価が○○円を下回ったら」「RSIが30を下回ったら」など具体的に）",
+
   // D. パーソナライズ（ユーザー設定がある場合）
   "userFitScore": 0-100のおすすめ度,
   "budgetFit": 予算内で購入可能か（true/false）,
@@ -364,6 +369,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - チャートパターンが検出された場合は、reasonで言及する
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
+- buyConditionはrecommendationが"stay"の場合のみ具体的な条件を記載し、"buy"や"remove"の場合はnullにする
 
 【テクニカル指標の重視】
 - RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
@@ -414,6 +420,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
               positives: { type: ["string", "null"] },
               concerns: { type: ["string", "null"] },
               suitableFor: { type: ["string", "null"] },
+              // C. 買い時条件
+              buyCondition: { type: ["string", "null"] },
               // D. パーソナライズ
               userFitScore: { type: ["number", "null"] },
               budgetFit: { type: ["boolean", "null"] },
@@ -424,6 +432,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
             required: [
               "recommendation", "confidence", "reason", "caution",
               "positives", "concerns", "suitableFor",
+              "buyCondition",
               "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
             ],
             additionalProperties: false,
@@ -460,6 +469,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         positives: result.positives || null,
         concerns: result.concerns || null,
         suitableFor: result.suitableFor || null,
+        // C. 買い時条件
+        buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
@@ -479,6 +490,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         positives: result.positives || null,
         concerns: result.concerns || null,
         suitableFor: result.suitableFor || null,
+        // C. 買い時条件
+        buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
@@ -502,6 +515,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
       positives: result.positives || null,
       concerns: result.concerns || null,
       suitableFor: result.suitableFor || null,
+      // C. 買い時条件
+      buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
       // D. パーソナライズ
       userFitScore: result.userFitScore ?? null,
       budgetFit: result.budgetFit ?? null,

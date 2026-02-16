@@ -21,6 +21,8 @@ interface RecommendationData {
   positives?: string | null
   concerns?: string | null
   suitableFor?: string | null
+  // C. 買い時条件
+  buyCondition?: string | null
   // D. パーソナライズ
   userFitScore?: number | null
   budgetFit?: boolean | null
@@ -443,6 +445,14 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
           <p className="text-xs text-blue-800">💡 今は焦らず、タイミングを待ちましょう</p>
         </div>
+
+        {/* C. 買い時条件 */}
+        {data.buyCondition && (
+          <div className="bg-emerald-50 border-l-4 border-emerald-400 p-3 mb-4">
+            <p className="text-xs font-semibold text-emerald-700 mb-2">📈 こうなったら買い時</p>
+            <p className="text-sm text-emerald-800">{data.buyCondition}</p>
+          </div>
+        )}
 
         {/* B. 深掘り評価 */}
         <DeepEvaluationSection />

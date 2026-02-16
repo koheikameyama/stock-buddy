@@ -666,6 +666,22 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 `
       : ""
 
+    // 前回の購入判断データを取得（一貫性のため）
+    const previousRecommendation = await prisma.purchaseRecommendation.findFirst({
+      where: { stockId },
+      orderBy: { date: "desc" },
+    })
+
+    const previousAnalysisContext = previousRecommendation
+      ? `
+【前回の分析結果】
+- 判断: ${previousRecommendation.recommendation === "buy" ? "買い検討" : previousRecommendation.recommendation === "stay" ? "様子見" : "見送り"}
+- 理由: ${previousRecommendation.reason}
+- 不安な点: ${previousRecommendation.concerns || "なし"}
+※ 前回の分析を参考にしつつ、最新の状況に基づいて判断してください。急激な判断変更は避け、一貫性を保ってください。
+`
+      : ""
+
     // リアルタイム株価を取得
     const realtimePricesPost = await fetchStockPrices([stock.tickerCode])
     const currentPrice = realtimePricesPost[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
@@ -700,7 +716,7 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 - ティッカーコード: ${stock.tickerCode}
 - セクター: ${stock.sector || "不明"}
 - 現在価格: ${currentPrice}円
-${userContext}${predictionContext}
+${userContext}${predictionContext}${previousAnalysisContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
 ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
@@ -717,6 +733,9 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
   "positives": "・良い点1\n・良い点2\n・良い点3",
   "concerns": "・不安な点1\n・不安な点2\n・不安な点3",
   "suitableFor": "こんな人におすすめ（1-2文で具体的に）",
+
+  // C. 買い時条件（recommendationがstayの場合のみ）
+  "buyCondition": "どうなったら買い時か（例：「株価が○○円を下回ったら」「RSIが30を下回ったら」など具体的に）",
 
   // D. パーソナライズ（ユーザー設定がある場合）
   "userFitScore": 0-100のおすすめ度,
@@ -738,6 +757,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 - チャートパターンが検出された場合は、reasonで言及する
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
+- buyConditionはrecommendationが"stay"の場合のみ具体的な条件を記載し、"buy"や"remove"の場合はnullにする
 
 【テクニカル指標の重視】
 - RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
@@ -788,6 +808,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
               positives: { type: ["string", "null"] },
               concerns: { type: ["string", "null"] },
               suitableFor: { type: ["string", "null"] },
+              // C. 買い時条件
+              buyCondition: { type: ["string", "null"] },
               // D. パーソナライズ
               userFitScore: { type: ["number", "null"] },
               budgetFit: { type: ["boolean", "null"] },
@@ -798,6 +820,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
             required: [
               "recommendation", "confidence", "reason", "caution",
               "positives", "concerns", "suitableFor",
+              "buyCondition",
               "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
             ],
             additionalProperties: false,
@@ -833,6 +856,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         positives: result.positives || null,
         concerns: result.concerns || null,
         suitableFor: result.suitableFor || null,
+        // C. 買い時条件
+        buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
@@ -852,6 +877,8 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
         positives: result.positives || null,
         concerns: result.concerns || null,
         suitableFor: result.suitableFor || null,
+        // C. 買い時条件
+        buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
@@ -879,6 +906,7 @@ ${patternContext}${technicalContext}${chartPatternContext}${newsContext}
           positives: result.positives || null,
           concerns: result.concerns || null,
           suitableFor: result.suitableFor || null,
+          buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
           userFitScore: result.userFitScore ?? null,
           budgetFit: result.budgetFit ?? null,
           periodFit: result.periodFit ?? null,
