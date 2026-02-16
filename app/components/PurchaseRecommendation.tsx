@@ -4,19 +4,6 @@ import { useEffect, useState } from "react"
 import AnalysisTimestamp from "./AnalysisTimestamp"
 import { UPDATE_SCHEDULES } from "@/lib/constants"
 
-// Inline SVG icons
-const ChevronDownIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-)
-
-const ChevronUpIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-  </svg>
-)
-
 interface PurchaseRecommendationProps {
   stockId: string
 }
@@ -49,7 +36,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   const [generating, setGenerating] = useState(false)
   const [noData, setNoData] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showDetails, setShowDetails] = useState(false)
 
   // ジョブのポーリング
   async function pollJob(jobId: string): Promise<void> {
@@ -240,47 +226,28 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   const DeepEvaluationSection = () => {
     if (!data?.positives && !data?.concerns && !data?.suitableFor) return null
     return (
-      <div className="mb-4">
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className="w-full flex items-center justify-between bg-white rounded-lg p-3 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-            <span className="text-lg">🔍</span>
-            この銘柄の詳細評価
-          </span>
-          {showDetails ? (
-            <ChevronUpIcon className="w-5 h-5 text-gray-500" />
-          ) : (
-            <ChevronDownIcon className="w-5 h-5 text-gray-500" />
-          )}
-        </button>
+      <div className="mb-4 space-y-3">
+        {/* 良いところ */}
+        {data.positives && (
+          <div className="bg-green-50 border-l-4 border-green-400 p-3">
+            <p className="text-xs font-semibold text-green-700 mb-2">良いところ</p>
+            <div className="text-sm text-green-800 whitespace-pre-line">{data.positives}</div>
+          </div>
+        )}
 
-        {showDetails && (
-          <div className="mt-2 space-y-3">
-            {/* 良いところ */}
-            {data.positives && (
-              <div className="bg-green-50 rounded-lg p-3">
-                <p className="text-xs font-semibold text-green-700 mb-2">良いところ</p>
-                <div className="text-sm text-green-800 whitespace-pre-line">{data.positives}</div>
-              </div>
-            )}
+        {/* 不安な点 */}
+        {data.concerns && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3">
+            <p className="text-xs font-semibold text-yellow-700 mb-2">不安な点</p>
+            <div className="text-sm text-yellow-800 whitespace-pre-line">{data.concerns}</div>
+          </div>
+        )}
 
-            {/* 不安な点 */}
-            {data.concerns && (
-              <div className="bg-yellow-50 rounded-lg p-3">
-                <p className="text-xs font-semibold text-yellow-700 mb-2">不安な点</p>
-                <div className="text-sm text-yellow-800 whitespace-pre-line">{data.concerns}</div>
-              </div>
-            )}
-
-            {/* こんな人向け */}
-            {data.suitableFor && (
-              <div className="bg-blue-50 rounded-lg p-3">
-                <p className="text-xs font-semibold text-blue-700 mb-2">こんな人におすすめ</p>
-                <p className="text-sm text-blue-800">{data.suitableFor}</p>
-              </div>
-            )}
+        {/* こんな人向け */}
+        {data.suitableFor && (
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-3">
+            <p className="text-xs font-semibold text-blue-700 mb-2">こんな人におすすめ</p>
+            <p className="text-sm text-blue-800">{data.suitableFor}</p>
           </div>
         )}
       </div>
