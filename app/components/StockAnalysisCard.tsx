@@ -551,6 +551,29 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
         </p>
       </div>
 
+      {/* 再分析ボタン */}
+      <div className="text-center">
+        <button
+          onClick={generateAnalysis}
+          disabled={generating}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {generating ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+              分析中...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              今すぐ再分析する
+            </>
+          )}
+        </button>
+      </div>
+
       <p className="text-xs text-gray-500 text-center">
         ※ 予測は参考情報です。投資判断はご自身の責任でお願いします。
       </p>

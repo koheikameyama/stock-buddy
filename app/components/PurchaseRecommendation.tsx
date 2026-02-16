@@ -428,6 +428,29 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
             </p>
           </div>
+
+          {/* 再分析ボタン */}
+          <div className="text-center mt-4">
+            <button
+              onClick={generateRecommendation}
+              disabled={generating}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 text-gray-700 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-200"
+            >
+              {generating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                  分析中...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  今すぐ再分析する
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -474,6 +497,29 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             <p className="text-xs text-gray-400">
               更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
             </p>
+          </div>
+
+          {/* 再分析ボタン */}
+          <div className="text-center mt-4">
+            <button
+              onClick={generateRecommendation}
+              disabled={generating}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 text-gray-700 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-200"
+            >
+              {generating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                  分析中...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  今すぐ再分析する
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -523,6 +569,29 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           <p className="text-xs text-gray-400">
             更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
           </p>
+        </div>
+
+        {/* 再分析ボタン */}
+        <div className="text-center mt-4">
+          <button
+            onClick={generateRecommendation}
+            disabled={generating}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 text-gray-700 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-200"
+          >
+            {generating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                分析中...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                今すぐ再分析する
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
