@@ -272,10 +272,7 @@ export default function NotificationsPage() {
                       </div>
 
                       <h3 className="font-medium text-gray-900 mt-1">
-                        {notification.title
-                          .replace("（注目銘柄）", "")
-                          .replace("（保有銘柄）", "")
-                          .trim()}
+                        {notification.title}
                       </h3>
                       <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
                         {notification.body}
