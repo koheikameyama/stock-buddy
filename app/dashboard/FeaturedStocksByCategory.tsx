@@ -25,7 +25,6 @@ interface FeaturedStock {
 const categoryBadges: Record<string, { label: string; className: string }> = {
   surge: { label: "急騰", className: "bg-red-100 text-red-800" },
   stable: { label: "安定", className: "bg-blue-100 text-blue-800" },
-  trending: { label: "話題", className: "bg-yellow-100 text-yellow-800" },
 }
 
 interface FeaturedStocksByCategoryProps {
@@ -259,8 +258,8 @@ export default function FeaturedStocksByCategory({
         key={stock.id}
         className={`relative flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 ${theme.border} ${theme.bg} hover:shadow-md transition-shadow`}
       >
-        {/* バッジ - 右上 */}
-        <div className="absolute top-2 right-2 flex items-center gap-1">
+        {/* バッジ - 右上（縦並び） */}
+        <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
           {stock.category && categoryBadges[stock.category] && (
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${categoryBadges[stock.category].className}`}>
               {categoryBadges[stock.category].label}

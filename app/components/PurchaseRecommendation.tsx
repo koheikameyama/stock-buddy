@@ -387,10 +387,37 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     )
   }
 
+  // ヘッダーコンポーネント
+  const ReanalyzeHeader = () => (
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="text-base font-bold text-gray-800">AI購入判断</h3>
+      <button
+        onClick={generateRecommendation}
+        disabled={generating}
+        className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1"
+      >
+        {generating ? (
+          <>
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+            分析中...
+          </>
+        ) : (
+          <>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            再分析する
+          </>
+        )}
+      </button>
+    </div>
+  )
+
   // 買い推奨
   if (data.recommendation === "buy") {
     return (
       <div className="mt-4 pt-4 border-t border-gray-200">
+        <ReanalyzeHeader />
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">💡</span>
@@ -428,29 +455,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
             </p>
           </div>
-
-          {/* 再分析ボタン */}
-          <div className="text-center mt-4">
-            <button
-              onClick={generateRecommendation}
-              disabled={generating}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 text-gray-700 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-200"
-            >
-              {generating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                  分析中...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  今すぐ再分析する
-                </>
-              )}
-            </button>
-          </div>
         </div>
       </div>
     )
@@ -460,6 +464,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   if (data.recommendation === "remove") {
     return (
       <div className="mt-4 pt-4 border-t border-gray-200">
+        <ReanalyzeHeader />
         <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">🚫</span>
@@ -498,29 +503,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
             </p>
           </div>
-
-          {/* 再分析ボタン */}
-          <div className="text-center mt-4">
-            <button
-              onClick={generateRecommendation}
-              disabled={generating}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 text-gray-700 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-200"
-            >
-              {generating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                  分析中...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  今すぐ再分析する
-                </>
-              )}
-            </button>
-          </div>
         </div>
       </div>
     )
@@ -529,6 +511,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 様子見（stayまたはそれ以外のフォールバック）
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
+      <ReanalyzeHeader />
       <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">⏳</span>
@@ -569,29 +552,6 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           <p className="text-xs text-gray-400">
             更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
           </p>
-        </div>
-
-        {/* 再分析ボタン */}
-        <div className="text-center mt-4">
-          <button
-            onClick={generateRecommendation}
-            disabled={generating}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 text-gray-700 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-200"
-          >
-            {generating ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                分析中...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                今すぐ再分析する
-              </>
-            )}
-          </button>
         </div>
       </div>
     </div>

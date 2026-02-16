@@ -357,9 +357,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Analysis Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-              AI売買判断
-            </h2>
             <StockAnalysisCard stockId={stock.stockId} />
           </section>
 
@@ -429,10 +426,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Purchase Recommendation Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-              AI購入判断
-            </h2>
-
             <PurchaseRecommendation stockId={stock.stockId} />
           </section>
 
