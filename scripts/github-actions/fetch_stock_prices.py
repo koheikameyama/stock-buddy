@@ -14,7 +14,7 @@ import argparse
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import psycopg2
@@ -186,7 +186,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
         return 0
 
     with conn.cursor() as cur:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         data = [
             (
                 u["latestPrice"],
@@ -218,6 +218,76 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
         )
     conn.commit()
     return len(updates)
+
+
+def reset_fetch_fail_counts(conn, stock_ids: list[str]) -> int:
+    """取得成功した銘柄の失敗カウントをリセット"""
+    if not stock_ids:
+        return 0
+
+    with conn.cursor() as cur:
+        psycopg2.extras.execute_batch(
+            cur,
+            'UPDATE "Stock" SET "fetchFailCount" = 0 WHERE id = %s AND "fetchFailCount" > 0',
+            [(stock_id,) for stock_id in stock_ids],
+            page_size=CONFIG["DB_BATCH_SIZE"]
+        )
+    conn.commit()
+    return len(stock_ids)
+
+
+def increment_fetch_fail_counts(conn, stock_ids: list[str]) -> int:
+    """取得失敗した銘柄の失敗カウントをインクリメント"""
+    if not stock_ids:
+        return 0
+
+    now = datetime.now(timezone.utc)
+    with conn.cursor() as cur:
+        psycopg2.extras.execute_batch(
+            cur,
+            '''
+            UPDATE "Stock"
+            SET "fetchFailCount" = "fetchFailCount" + 1,
+                "lastFetchFailedAt" = %s
+            WHERE id = %s
+            ''',
+            [(now, stock_id) for stock_id in stock_ids],
+            page_size=CONFIG["DB_BATCH_SIZE"]
+        )
+    conn.commit()
+    return len(stock_ids)
+
+
+def delete_unused_failed_stocks(conn, min_fail_count: int = 3) -> list[dict]:
+    """連続N回以上失敗 + ユーザー未使用の銘柄を削除"""
+    with conn.cursor() as cur:
+        # 削除対象を検索
+        cur.execute('''
+            SELECT s.id, s."tickerCode", s.name, s."fetchFailCount"
+            FROM "Stock" s
+            WHERE s."fetchFailCount" >= %s
+              AND NOT EXISTS (SELECT 1 FROM "PortfolioStock" ps WHERE ps."stockId" = s.id)
+              AND NOT EXISTS (SELECT 1 FROM "WatchlistStock" ws WHERE ws."stockId" = s.id)
+              AND NOT EXISTS (SELECT 1 FROM "Transaction" t WHERE t."stockId" = s.id)
+              AND NOT EXISTS (SELECT 1 FROM "TrackedStock" ts WHERE ts."stockId" = s.id)
+        ''', (min_fail_count,))
+        targets = cur.fetchall()
+
+        if not targets:
+            return []
+
+        deleted = []
+        for stock_id, ticker_code, name, fail_count in targets:
+            cur.execute('DELETE FROM "Stock" WHERE id = %s', (stock_id,))
+            deleted.append({
+                "id": stock_id,
+                "tickerCode": ticker_code,
+                "name": name,
+                "failCount": fail_count
+            })
+
+    conn.commit()
+    return deleted
 
 
 def main():
@@ -269,6 +339,10 @@ def main():
         total_errors = 0
         batch_size = CONFIG["DOWNLOAD_BATCH_SIZE"]
 
+        # 成功/失敗した銘柄を追跡
+        all_success_ids = []
+        all_failed_ids = []
+
         for batch_start in range(0, len(all_symbols), batch_size):
             batch_symbols = all_symbols[batch_start:batch_start + batch_size]
             batch_num = batch_start // batch_size + 1
@@ -283,6 +357,8 @@ def main():
 
             # フィルタ適用 & DB更新データ作成
             updates = []
+            success_symbols = set(price_data_map.keys())
+
             for symbol, price_data in price_data_map.items():
                 stock = symbol_to_stock.get(symbol)
                 if not stock:
@@ -296,6 +372,16 @@ def main():
                     })
                 else:
                     total_filtered += 1
+
+            # 成功/失敗を追跡
+            for symbol in batch_symbols:
+                stock = symbol_to_stock.get(symbol)
+                if not stock:
+                    continue
+                if symbol in success_symbols:
+                    all_success_ids.append(stock["id"])
+                else:
+                    all_failed_ids.append(stock["id"])
 
             errors_in_batch = len(batch_symbols) - len(price_data_map)
             total_errors += errors_in_batch
@@ -314,6 +400,23 @@ def main():
         print(f"  - Total updated: {total_updated}")
         print(f"  - Filtered out: {total_filtered}")
         print(f"  - Errors: {total_errors}")
+
+        # 失敗カウントの更新
+        print()
+        print("Updating fetch fail counts...")
+        reset_fetch_fail_counts(conn, all_success_ids)
+        print(f"  - Reset {len(all_success_ids)} successful stocks")
+        increment_fetch_fail_counts(conn, all_failed_ids)
+        print(f"  - Incremented {len(all_failed_ids)} failed stocks")
+
+        # 連続失敗 + ユーザー未使用の銘柄を削除
+        deleted = delete_unused_failed_stocks(conn, min_fail_count=3)
+        if deleted:
+            print()
+            print(f"Deleted {len(deleted)} unused stocks with 3+ consecutive failures:")
+            for stock in deleted:
+                print(f"  - {stock['tickerCode']} ({stock['name']}) - {stock['failCount']} failures")
+
         print("=" * 60)
 
     finally:

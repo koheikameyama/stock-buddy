@@ -143,6 +143,10 @@ model Stock {
   // IPO対応
   listedDate        DateTime?          // 上場日
 
+  // 株価取得失敗トラッキング
+  fetchFailCount    Int       @default(0)  // 連続失敗回数
+  lastFetchFailedAt DateTime?              // 最後に失敗した日時
+
   analyses                StockAnalysis[]
   featuredStocks          DailyFeaturedStock[]
   watchlistStocks         WatchlistStock[]
