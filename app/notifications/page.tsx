@@ -250,6 +250,11 @@ export default function NotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${config.color}`}
+                          >
+                            {config.label}
+                          </span>
                           {sourceBadge && (
                             <span
                               className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${sourceBadge.color}`}
@@ -257,11 +262,6 @@ export default function NotificationsPage() {
                               {sourceBadge.label}
                             </span>
                           )}
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${config.color}`}
-                          >
-                            {config.label}
-                          </span>
                           {!notification.isRead && (
                             <span className="ml-1 inline-block w-2 h-2 bg-blue-500 rounded-full" />
                           )}
