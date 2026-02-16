@@ -261,8 +261,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           )}
         </div>
         <p className="text-sm text-gray-700">{data.buyTimingExplanation}</p>
-        {/* 理想の買い値を表示 */}
-        {data.idealEntryPrice && (
+        {/* 理想の買い値を表示（買い推奨の場合のみ） */}
+        {data.idealEntryPrice && data.recommendation === "buy" && (
           <div className="mt-2 text-xs text-gray-600">
             {(() => {
               const currentPrice = data.currentPrice
