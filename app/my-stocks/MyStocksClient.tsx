@@ -432,7 +432,8 @@ export default function MyStocksClient() {
   }
 
   // Filter stocks by type
-  const portfolioStocks = userStocks.filter((s) => s.type === "portfolio")
+  // quantity > 0 のものだけを保有中として表示（0株は「過去の保有」に表示される）
+  const portfolioStocks = userStocks.filter((s) => s.type === "portfolio" && (s.quantity ?? 0) > 0)
   const watchlistStocks = userStocks.filter((s) => s.type === "watchlist")
   const displayStocks = activeTab === "portfolio" ? portfolioStocks : watchlistStocks
 
