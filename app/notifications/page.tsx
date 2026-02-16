@@ -34,6 +34,20 @@ const typeConfig = {
   stop_loss: { icon: "⚠️", color: "bg-orange-100 text-orange-800", label: "逆指値" },
 }
 
+// タイトルから銘柄の所属（保有/気になる）を判断
+const getSourceBadge = (title: string, type: string) => {
+  if (type === "sell_target" || type === "stop_loss") {
+    return { label: "保有", color: "bg-gray-100 text-gray-600" }
+  }
+  if (title.includes("保有銘柄")) {
+    return { label: "保有", color: "bg-gray-100 text-gray-600" }
+  }
+  if (title.includes("注目銘柄")) {
+    return { label: "気になる", color: "bg-yellow-100 text-yellow-700" }
+  }
+  return null
+}
+
 export default function NotificationsPage() {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -212,6 +226,7 @@ export default function NotificationsPage() {
           <div className="space-y-3">
             {notifications.map((notification) => {
               const config = typeConfig[notification.type]
+              const sourceBadge = getSourceBadge(notification.title, notification.type)
 
               return (
                 <button
@@ -234,14 +249,21 @@ export default function NotificationsPage() {
                     {/* 内容 */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="flex items-center gap-1">
+                          {sourceBadge && (
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${sourceBadge.color}`}
+                            >
+                              {sourceBadge.label}
+                            </span>
+                          )}
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${config.color}`}
                           >
                             {config.label}
                           </span>
                           {!notification.isRead && (
-                            <span className="ml-2 inline-block w-2 h-2 bg-blue-500 rounded-full" />
+                            <span className="ml-1 inline-block w-2 h-2 bg-blue-500 rounded-full" />
                           )}
                         </div>
                         <span className="text-xs text-gray-400 whitespace-nowrap">
