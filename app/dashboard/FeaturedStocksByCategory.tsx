@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { UPDATE_SCHEDULES } from "@/lib/constants"
+import StockActionButtons from "@/app/components/StockActionButtons"
 
 interface FeaturedStock {
   id: string
@@ -238,6 +239,18 @@ export default function FeaturedStocksByCategory({
     )
   }
 
+  // 銘柄のステータスを更新するハンドラー
+  const updateStockStatus = (stockId: string, type: "watchlist" | "tracked") => {
+    const updateFn = (stocks: FeaturedStock[]) =>
+      stocks.map((s) =>
+        s.stockId === stockId
+          ? { ...s, isRegistered: type === "watchlist", isTracked: type === "tracked" }
+          : s
+      )
+    setPersonalRecommendations(updateFn)
+    setTrendingStocks(updateFn)
+  }
+
   const renderStockCard = (stock: FeaturedStock, colorTheme: "blue" | "purple") => {
     const themes = {
       blue: {
@@ -315,25 +328,43 @@ export default function FeaturedStocksByCategory({
           </div>
         )}
 
-        <Link
-          href={`/recommendations/${stock.stockId}`}
-          className="flex items-center justify-end text-blue-600 pt-2 mt-2 border-t border-gray-100"
-        >
-          <span className="text-sm font-medium">詳細を見る</span>
-          <svg
-            className="w-4 h-4 ml-1"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
+          {/* アクションボタン（保有中以外で表示） */}
+          {!stock.isOwned && (
+            <div className="flex items-center gap-1">
+              <StockActionButtons
+                tickerCode={stock.stock.tickerCode}
+                showWatchlist={!stock.isRegistered && !stock.isTracked}
+                showTracked={!stock.isRegistered && !stock.isTracked}
+                isInWatchlist={stock.isRegistered}
+                isTracked={stock.isTracked}
+                onWatchlistSuccess={() => updateStockStatus(stock.stockId, "watchlist")}
+                onTrackedSuccess={() => updateStockStatus(stock.stockId, "tracked")}
+              />
+            </div>
+          )}
+          {stock.isOwned && <div />}
+
+          <Link
+            href={`/recommendations/${stock.stockId}`}
+            className="flex items-center text-blue-600"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </Link>
+            <span className="text-sm font-medium">詳細を見る</span>
+            <svg
+              className="w-4 h-4 ml-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </Link>
+        </div>
       </div>
     )
   }

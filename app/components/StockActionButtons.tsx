@@ -13,17 +13,21 @@ interface StockActionButtonsProps {
   onPurchaseClick?: () => void
   isInWatchlist?: boolean
   isTracked?: boolean
+  onWatchlistSuccess?: () => void
+  onTrackedSuccess?: () => void
 }
 
 export default function StockActionButtons({
   tickerCode,
-  redirectTo = "/my-stocks",
+  redirectTo,
   showWatchlist = true,
   showTracked = true,
   showPurchase = false,
   onPurchaseClick,
   isInWatchlist = false,
   isTracked = false,
+  onWatchlistSuccess,
+  onTrackedSuccess,
 }: StockActionButtonsProps) {
   const router = useRouter()
   const [addingToWatchlist, setAddingToWatchlist] = useState(false)
@@ -49,7 +53,11 @@ export default function StockActionButtons({
       }
 
       toast.success("気になるに追加しました")
-      router.push(redirectTo)
+      if (onWatchlistSuccess) {
+        onWatchlistSuccess()
+      } else if (redirectTo) {
+        router.push(redirectTo)
+      }
     } catch (err: unknown) {
       const error = err as Error
       toast.error(error.message || "追加に失敗しました")
@@ -75,7 +83,11 @@ export default function StockActionButtons({
       }
 
       toast.success("追跡に追加しました")
-      router.push(redirectTo)
+      if (onTrackedSuccess) {
+        onTrackedSuccess()
+      } else if (redirectTo) {
+        router.push(redirectTo)
+      }
     } catch (err: unknown) {
       const error = err as Error
       toast.error(error.message || "追加に失敗しました")
