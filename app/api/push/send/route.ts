@@ -71,13 +71,15 @@ export async function POST(request: NextRequest) {
             })
           )
           results.sent++
-        } catch (error: any) {
+        } catch (error) {
           console.error(`Failed to send notification to ${sub.userId}:`, error)
           results.failed++
-          results.errors.push(error.message)
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          results.errors.push(errorMessage)
 
           // 410 Gone: 購読が無効になった場合は削除
-          if (error.statusCode === 410) {
+          const statusCode = (error as { statusCode?: number })?.statusCode
+          if (statusCode === 410) {
             await prisma.pushSubscription.delete({
               where: { id: sub.id },
             })

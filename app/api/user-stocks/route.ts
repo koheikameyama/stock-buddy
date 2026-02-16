@@ -82,8 +82,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const mode = searchParams.get("mode") || "all"
 
-    let watchlistStocks: any[] = []
-    let portfolioStocks: any[] = []
+    let watchlistStocks: Awaited<ReturnType<typeof prisma.watchlistStock.findMany<{
+      where: { userId: string }
+      include: { stock: { select: { id: true; tickerCode: true; name: true; sector: true; market: true } } }
+    }>>> = []
+    let portfolioStocks: Awaited<ReturnType<typeof prisma.portfolioStock.findMany<{
+      where: { userId: string }
+      include: {
+        stock: { select: { id: true; tickerCode: true; name: true; sector: true; market: true; analyses: { select: { recommendation: true; analyzedAt: true }; orderBy: { analyzedAt: "desc" }; take: 1 } } }
+        transactions: { orderBy: { transactionDate: "asc" } }
+      }
+    }>>> = []
 
     // Fetch based on mode
     if (mode === "watchlist" || mode === "all") {
@@ -157,7 +166,7 @@ export async function GET(request: NextRequest) {
       const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
         ps.transactions
       )
-      const firstBuyTransaction = ps.transactions.find((t: any) => t.type === "buy")
+      const firstBuyTransaction = ps.transactions.find((t) => t.type === "buy")
       const purchaseDate = firstBuyTransaction?.transactionDate || ps.createdAt
 
       // 最新のStockAnalysisからrecommendationとanalyzedAtを取得
@@ -186,7 +195,7 @@ export async function GET(request: NextRequest) {
         // 売却提案
         suggestedSellPrice: ps.suggestedSellPrice ? Number(ps.suggestedSellPrice) : null,
         sellCondition: ps.sellCondition,
-        transactions: ps.transactions.map((t: any) => ({
+        transactions: ps.transactions.map((t) => ({
           id: t.id,
           type: t.type,
           quantity: t.quantity,

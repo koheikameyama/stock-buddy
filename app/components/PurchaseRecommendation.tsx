@@ -149,6 +149,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
   useEffect(() => {
     fetchRecommendation()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockId])
 
   if (loading) {

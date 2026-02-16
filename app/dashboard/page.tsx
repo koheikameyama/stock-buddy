@@ -173,7 +173,7 @@ export default async function DashboardPage() {
 
           {/* 今日の注目銘柄（カテゴリ別） */}
           <div className="mt-4 sm:mt-6">
-            <FeaturedStocksByCategory userId={user.id} />
+            <FeaturedStocksByCategory />
           </div>
       </div>
     </main>

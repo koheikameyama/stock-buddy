@@ -221,7 +221,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
   }
 }
 
-async function handleUpdate(id: string, userId: string, body: UpdateUserStockRequest) {
+async function handleUpdate(id: string, userId: string, _body: UpdateUserStockRequest) {
   // Find in both tables
   const [watchlistStock, portfolioStock] = await Promise.all([
     prisma.watchlistStock.findUnique({ where: { id }, include: { stock: true } }),

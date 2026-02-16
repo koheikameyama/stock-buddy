@@ -29,13 +29,7 @@ const categoryBadges: Record<string, { label: string; className: string }> = {
   stable: { label: "安定", className: "bg-blue-100 text-blue-800" },
 }
 
-interface FeaturedStocksByCategoryProps {
-  userId: string
-}
-
-export default function FeaturedStocksByCategory({
-  userId,
-}: FeaturedStocksByCategoryProps) {
+export default function FeaturedStocksByCategory() {
   const [personalRecommendations, setPersonalRecommendations] = useState<FeaturedStock[]>([])
   const [trendingStocks, setTrendingStocks] = useState<FeaturedStock[]>([])
   const [loading, setLoading] = useState(true)

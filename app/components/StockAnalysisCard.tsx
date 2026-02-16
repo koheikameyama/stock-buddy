@@ -190,6 +190,7 @@ export default function StockAnalysisCard({ stockId }: StockAnalysisCardProps) {
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockId])
 
   const getTrendIcon = (trend: string) => {
