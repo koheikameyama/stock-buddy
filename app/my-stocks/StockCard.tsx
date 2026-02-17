@@ -83,28 +83,24 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     return displayMap[recommendation.recommendation]
   }
 
-  // AI Sell Judgment using StockAnalysis.recommendation (for portfolio)
-  const getAISellJudgment = () => {
-    if (!portfolioRecommendation) return null
+  // AI Status Badge using simpleStatus (for portfolio)
+  const getAIStatusBadge = () => {
+    const status = stock.simpleStatus
+    if (!status) return null
 
-    // sellの場合、含み損/含み益で表示を切り替え
-    // 価格が取得できていない場合は表示しない
-    if (portfolioRecommendation === "sell") {
-      if (currentPrice <= 0) return null
-      const hasProfit = profit >= 0
-      return hasProfit
-        ? { text: "利確検討", color: "text-amber-700", bg: "bg-amber-50" }
-        : { text: "損切り検討", color: "text-red-700", bg: "bg-red-50" }
+    const displayMap: Record<string, { text: string; color: string; bg: string }> = {
+      "好調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
+      "様子見": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
+      "注意": { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
+      // 後方互換: 旧ステータスもマッピング
+      "順調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
+      "やや低調": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
+      "要確認": { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
     }
-
-    const displayMap = {
-      buy: { text: "買い増し検討", color: "text-green-700", bg: "bg-green-50" },
-      hold: { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" },
-    }
-    return displayMap[portfolioRecommendation]
+    return displayMap[status] || null
   }
 
-  const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAISellJudgment()
+  const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAIStatusBadge()
 
   const handleClick = () => {
     router.push(`/my-stocks/${stock.id}`)

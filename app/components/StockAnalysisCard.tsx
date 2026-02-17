@@ -227,29 +227,28 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     }
   }
 
-  const getRecommendationBadge = (recommendation: string) => {
-    switch (recommendation) {
-      case "buy":
-        return (
-          <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-            買い推奨
-          </span>
-        )
-      case "sell":
-        return (
-          <span className="inline-block px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
-            売却検討
-          </span>
-        )
-      case "hold":
-        return (
-          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
-            保有継続
-          </span>
-        )
-      default:
-        return null
+  const getStatusBadge = (status: string | null | undefined) => {
+    if (!status) return null
+
+    // 3段階ステータス + 後方互換
+    const statusMap: Record<string, { text: string; bgColor: string; textColor: string }> = {
+      "好調": { text: "好調", bgColor: "bg-green-100", textColor: "text-green-800" },
+      "様子見": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
+      "注意": { text: "注意", bgColor: "bg-amber-100", textColor: "text-amber-800" },
+      // 後方互換: 旧ステータス
+      "順調": { text: "好調", bgColor: "bg-green-100", textColor: "text-green-800" },
+      "やや低調": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
+      "要確認": { text: "注意", bgColor: "bg-amber-100", textColor: "text-amber-800" },
     }
+
+    const badge = statusMap[status]
+    if (!badge) return null
+
+    return (
+      <span className={`inline-block px-3 py-1 ${badge.bgColor} ${badge.textColor} rounded-full text-sm font-semibold`}>
+        {badge.text}
+      </span>
+    )
   }
 
   const formatPrice = (price: string) => {
@@ -458,7 +457,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
         <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
           <div className="flex justify-between items-start mb-2">
             <p className="font-semibold text-gray-800">💡 AIアドバイス</p>
-            {getRecommendationBadge(prediction.recommendation)}
+            {getStatusBadge(portfolioAnalysis?.simpleStatus)}
           </div>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}
