@@ -217,16 +217,27 @@ export async function POST(
     let quantity = 0
     let totalBuyCost = 0
     let totalBuyQuantity = 0
+    let firstPurchaseDate: Date | null = null
 
     for (const tx of portfolioStock.transactions) {
       if (tx.type === "buy") {
         quantity += tx.quantity
         totalBuyCost += Number(tx.totalAmount)
         totalBuyQuantity += tx.quantity
+        // 最初の購入日を記録
+        if (!firstPurchaseDate) {
+          firstPurchaseDate = tx.transactionDate
+        }
       } else {
         quantity -= tx.quantity
       }
     }
+
+    // 購入後の経過日数を計算
+    const daysSincePurchase = firstPurchaseDate
+      ? dayjs().diff(dayjs(firstPurchaseDate), "day")
+      : null
+    const isRecentPurchase = daysSincePurchase !== null && daysSincePurchase <= 7
 
     const averagePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0
 
@@ -456,7 +467,13 @@ ${newsContext}${marketContext}
 }
 
 【判断の指針】
-- 財務指標（会社の規模、配当、株価水準、評価スコア）を分析に活用してください
+${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
+- この銘柄は購入後まだ${daysSincePurchase}日しか経っていません
+- 短期的な価格変動で「売り」や「売却検討」を推奨しないでください
+- -15%以上の急落がない限り、基本は「保有継続」を推奨してください
+- recommendationは原則「hold」としてください
+- 感情コーチングでは「購入直後の変動は普通のこと」と安心感を与えてください
+` : ""}- 財務指標（会社の規模、配当、株価水準、評価スコア）を分析に活用してください
 - 提供されたニュース情報を参考にしてください
 - ニュースにない情報は推測や創作をしないでください
 - 決算発表、業績予想、M&A、人事異動など、提供されていない情報を創作しないでください
