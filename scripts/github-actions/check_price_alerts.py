@@ -506,7 +506,7 @@ def main():
                 "stockId": alert["stockId"],
                 "title": f"💰 {alert['stockName']}が買い時です",
                 "body": body,
-                "url": f"/watchlist/{alert['watchlistStockId']}",
+                "url": f"/my-stocks/{alert['watchlistStockId']}",
                 "triggerPrice": alert["latestPrice"],
                 "targetPrice": alert["targetPrice"],
             })

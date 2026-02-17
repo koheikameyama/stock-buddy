@@ -29,7 +29,11 @@ self.addEventListener('notificationclick', function(event) {
 
   event.notification.close();
 
+  // /watchlist/ を /my-stocks/ に変換（後方互換性）
+  let url = event.notification.data.url || '/';
+  url = url.replace(/^\/watchlist\//, '/my-stocks/');
+
   event.waitUntil(
-    clients.openWindow(event.notification.data.url || '/')
+    clients.openWindow(url)
   );
 });
