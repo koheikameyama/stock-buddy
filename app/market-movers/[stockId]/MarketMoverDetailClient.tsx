@@ -31,6 +31,8 @@ interface StockData {
   eps: number | null
   latestRevenue: number | null
   latestNetIncome: number | null
+  volatility: number | null
+  weekChangeRate: number | null
 }
 
 interface MoverData {
@@ -72,7 +74,16 @@ export default function MarketMoverDetailClient({ stock, mover }: Props) {
             loading={loading}
             fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
             fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
-            actions={<StockActionButtons tickerCode={stock.tickerCode} />}
+            actions={
+              <StockActionButtons
+                tickerCode={stock.tickerCode}
+                stockRiskInfo={{
+                  isProfitable: stock.isProfitable,
+                  volatility: stock.volatility,
+                  weekChangeRate: stock.weekChangeRate,
+                }}
+              />
+            }
           />
 
           {/* AI Analysis Section (from Market Mover) */}

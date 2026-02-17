@@ -31,6 +31,8 @@ interface StockData {
   eps: number | null
   latestRevenue: number | null
   latestNetIncome: number | null
+  volatility: number | null
+  weekChangeRate: number | null
 }
 
 interface RecommendationData {
@@ -100,7 +102,18 @@ export default function RecommendationDetailClient({ stock, recommendation, isIn
         loading={loading}
         fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
         fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
-        actions={<StockActionButtons tickerCode={stock.tickerCode} isInWatchlist={isInWatchlist} isTracked={isTracked} />}
+        actions={
+          <StockActionButtons
+            tickerCode={stock.tickerCode}
+            isInWatchlist={isInWatchlist}
+            isTracked={isTracked}
+            stockRiskInfo={{
+              isProfitable: stock.isProfitable,
+              volatility: stock.volatility,
+              weekChangeRate: stock.weekChangeRate,
+            }}
+          />
+        }
       />
 
       {/* AI Recommendation Section */}

@@ -20,6 +20,9 @@ interface FeaturedStock {
     name: string
     sector: string | null
     currentPrice: number | null
+    isProfitable: boolean | null
+    volatility: number | null
+    weekChangeRate: number | null
   }
 }
 
@@ -195,6 +198,11 @@ export default function FeaturedStocksByCategory() {
                 isTracked={stock.isTracked}
                 onWatchlistSuccess={() => updateStockStatus(stock.stockId, "watchlist")}
                 onTrackedSuccess={() => updateStockStatus(stock.stockId, "tracked")}
+                stockRiskInfo={{
+                  isProfitable: stock.stock.isProfitable,
+                  volatility: stock.stock.volatility,
+                  weekChangeRate: stock.stock.weekChangeRate,
+                }}
               />
             </div>
           )}

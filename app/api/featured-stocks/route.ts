@@ -61,6 +61,9 @@ export async function GET() {
         name: string
         sector: string | null
         currentPrice: number | null
+        isProfitable: boolean | null
+        volatility: number | null
+        weekChangeRate: number | null
       }
     }[] = []
 
@@ -117,6 +120,9 @@ export async function GET() {
           name: r.stock.name,
           sector: r.stock.sector,
           currentPrice: null, // リアルタイム取得で後から設定
+          isProfitable: r.stock.isProfitable,
+          volatility: r.stock.volatility ? Number(r.stock.volatility) : null,
+          weekChangeRate: r.stock.weekChangeRate ? Number(r.stock.weekChangeRate) : null,
         },
       }))
     }

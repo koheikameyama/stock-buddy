@@ -4,6 +4,13 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { getActionButtonClass, ACTION_BUTTON_LABELS } from "@/lib/ui-config"
+import RiskWarningDialog from "./RiskWarningDialog"
+
+interface StockRiskInfo {
+  isProfitable?: boolean | null
+  volatility?: number | null
+  weekChangeRate?: number | null
+}
 
 interface StockActionButtonsProps {
   tickerCode: string
@@ -16,6 +23,28 @@ interface StockActionButtonsProps {
   isTracked?: boolean
   onWatchlistSuccess?: () => void
   onTrackedSuccess?: () => void
+  stockRiskInfo?: StockRiskInfo
+}
+
+// 警告条件をチェックして警告メッセージを生成
+function getRiskWarnings(riskInfo?: StockRiskInfo): string[] {
+  if (!riskInfo) return []
+
+  const warnings: string[] = []
+
+  if (riskInfo.isProfitable === false) {
+    warnings.push("この銘柄は赤字です")
+  }
+
+  if (riskInfo.volatility != null && riskInfo.volatility > 50) {
+    warnings.push(`価格変動が大きい銘柄です（ボラティリティ ${riskInfo.volatility.toFixed(1)}%）`)
+  }
+
+  if (riskInfo.weekChangeRate != null && riskInfo.weekChangeRate < -15) {
+    warnings.push(`直近1週間で大幅に下落しています（${riskInfo.weekChangeRate.toFixed(1)}%）`)
+  }
+
+  return warnings
 }
 
 export default function StockActionButtons({
@@ -29,14 +58,18 @@ export default function StockActionButtons({
   isTracked = false,
   onWatchlistSuccess,
   onTrackedSuccess,
+  stockRiskInfo,
 }: StockActionButtonsProps) {
   const router = useRouter()
   const [addingToWatchlist, setAddingToWatchlist] = useState(false)
   const [addingToTracked, setAddingToTracked] = useState(false)
+  const [showWarningDialog, setShowWarningDialog] = useState(false)
+  const [pendingAction, setPendingAction] = useState<"watchlist" | "tracked" | null>(null)
 
   const isDisabled = addingToWatchlist || addingToTracked
+  const warnings = getRiskWarnings(stockRiskInfo)
 
-  const handleAddToWatchlist = async () => {
+  const executeAddToWatchlist = async () => {
     setAddingToWatchlist(true)
     try {
       const response = await fetch("/api/user-stocks", {
@@ -64,10 +97,12 @@ export default function StockActionButtons({
       toast.error(error.message || "追加に失敗しました")
     } finally {
       setAddingToWatchlist(false)
+      setShowWarningDialog(false)
+      setPendingAction(null)
     }
   }
 
-  const handleAddToTracked = async () => {
+  const executeAddToTracked = async () => {
     setAddingToTracked(true)
     try {
       const response = await fetch("/api/tracked-stocks", {
@@ -94,7 +129,40 @@ export default function StockActionButtons({
       toast.error(error.message || "追加に失敗しました")
     } finally {
       setAddingToTracked(false)
+      setShowWarningDialog(false)
+      setPendingAction(null)
     }
+  }
+
+  const handleAddToWatchlist = () => {
+    if (warnings.length > 0) {
+      setPendingAction("watchlist")
+      setShowWarningDialog(true)
+    } else {
+      executeAddToWatchlist()
+    }
+  }
+
+  const handleAddToTracked = () => {
+    if (warnings.length > 0) {
+      setPendingAction("tracked")
+      setShowWarningDialog(true)
+    } else {
+      executeAddToTracked()
+    }
+  }
+
+  const handleWarningConfirm = () => {
+    if (pendingAction === "watchlist") {
+      executeAddToWatchlist()
+    } else if (pendingAction === "tracked") {
+      executeAddToTracked()
+    }
+  }
+
+  const handleWarningCancel = () => {
+    setShowWarningDialog(false)
+    setPendingAction(null)
   }
 
   // 追跡中 → 気になるボタンのみ表示
@@ -141,6 +209,14 @@ export default function StockActionButtons({
           {ACTION_BUTTON_LABELS.purchase}
         </button>
       )}
+
+      <RiskWarningDialog
+        isOpen={showWarningDialog}
+        warnings={warnings}
+        onConfirm={handleWarningConfirm}
+        onCancel={handleWarningCancel}
+        loading={addingToWatchlist || addingToTracked}
+      />
     </>
   )
 }

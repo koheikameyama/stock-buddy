@@ -92,6 +92,8 @@ async function RecommendationDetailContent({
     eps: stock.eps ? Number(stock.eps) : null,
     latestRevenue: stock.latestRevenue ? Number(stock.latestRevenue) : null,
     latestNetIncome: stock.latestNetIncome ? Number(stock.latestNetIncome) : null,
+    volatility: stock.volatility ? Number(stock.volatility) : null,
+    weekChangeRate: stock.weekChangeRate ? Number(stock.weekChangeRate) : null,
   }
 
   // Determine which recommendation to use (personal takes priority)
