@@ -134,7 +134,7 @@ export default function InstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 animate-slide-up">
+    <div className="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 animate-slide-up">
       <div className="bg-white rounded-xl shadow-2xl border-2 border-blue-500 p-5">
         <div className="flex items-start gap-4">
           <div className="text-4xl">📱</div>
