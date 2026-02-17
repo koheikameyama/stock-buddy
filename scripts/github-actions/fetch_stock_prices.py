@@ -23,10 +23,8 @@ import yfinance as yf
 
 # 設定
 CONFIG = {
-    "MIN_VOLUME": 100000,       # 最低出来高
-    "MIN_WEEK_CHANGE": -10,     # 週間下落率の下限（%）
-    "DOWNLOAD_BATCH_SIZE": 500, # yf.download() 1回あたりの最大銘柄数
-    "DB_BATCH_SIZE": 100,       # DB更新のバッチサイズ
+    "DOWNLOAD_BATCH_SIZE": 500,  # yf.download() 1回あたりの最大銘柄数
+    "DB_BATCH_SIZE": 100,        # DB更新のバッチサイズ
 }
 
 
@@ -306,10 +304,7 @@ def main():
     print("=" * 60)
     print(f"Time: {datetime.now().isoformat()}")
     print(f"Mode: {mode}")
-    print(f"Config:")
-    print(f"  - MIN_VOLUME: {CONFIG['MIN_VOLUME']:,}")
-    print(f"  - MIN_WEEK_CHANGE: {CONFIG['MIN_WEEK_CHANGE']}%")
-    print(f"  - DOWNLOAD_BATCH_SIZE: {CONFIG['DOWNLOAD_BATCH_SIZE']}")
+    print(f"Config: DOWNLOAD_BATCH_SIZE={CONFIG['DOWNLOAD_BATCH_SIZE']}")
     print()
 
     # DB接続
@@ -335,7 +330,6 @@ def main():
 
         # バッチごとに yf.download() で取得
         total_updated = 0
-        total_filtered = 0
         total_errors = 0
         batch_size = CONFIG["DOWNLOAD_BATCH_SIZE"]
 
@@ -364,14 +358,10 @@ def main():
                 if not stock:
                     continue
 
-                if price_data["latestVolume"] >= CONFIG["MIN_VOLUME"] and \
-                   price_data["weekChangeRate"] >= CONFIG["MIN_WEEK_CHANGE"]:
-                    updates.append({
-                        "id": stock["id"],
-                        **price_data,
-                    })
-                else:
-                    total_filtered += 1
+                updates.append({
+                    "id": stock["id"],
+                    **price_data,
+                })
 
             # 成功/失敗を追跡
             for symbol in batch_symbols:
@@ -389,7 +379,7 @@ def main():
             # DB更新
             updated = update_stock_prices(conn, updates)
             total_updated += updated
-            print(f"  Updated {updated} stocks (filtered: {total_filtered}, errors: {errors_in_batch})")
+            print(f"  Updated {updated} stocks (errors: {errors_in_batch})")
 
             # バッチ間の短い待機（レート制限対策）
             if batch_start + batch_size < len(all_symbols):
@@ -398,7 +388,6 @@ def main():
         print()
         print(f"Completed: {len(all_symbols)} stocks processed")
         print(f"  - Total updated: {total_updated}")
-        print(f"  - Filtered out: {total_filtered}")
         print(f"  - Errors: {total_errors}")
 
         # 失敗カウントの更新

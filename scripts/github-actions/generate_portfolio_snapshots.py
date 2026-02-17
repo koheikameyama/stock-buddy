@@ -40,6 +40,32 @@ def fetch_users_with_holdings(conn) -> list[str]:
         return [row[0] for row in cur.fetchall()]
 
 
+def calculate_holdings_from_transactions(transactions: list[dict]) -> tuple[int, Decimal]:
+    """
+    トランザクション一覧から保有数量と平均取得単価を計算
+    - 買い: 数量を加算、コストを加算
+    - 売り: 数量を減算、コストを按分で減算（平均取得単価分）
+    """
+    total_quantity = 0
+    total_cost = Decimal("0")
+
+    for tx in transactions:
+        price = Decimal(str(tx["price"]))
+        quantity = tx["quantity"]
+
+        if tx["type"] == "buy":
+            total_cost += price * quantity
+            total_quantity += quantity
+        elif tx["type"] == "sell":
+            if total_quantity > 0:
+                avg_price = total_cost / total_quantity
+                total_cost -= avg_price * quantity
+                total_quantity -= quantity
+
+    avg_price = total_cost / total_quantity if total_quantity > 0 else Decimal("0")
+    return max(0, total_quantity), avg_price
+
+
 def fetch_user_holdings(conn, user_ids: list[str]) -> dict:
     """
     ユーザーごとの保有銘柄情報を一括取得
@@ -49,49 +75,61 @@ def fetch_user_holdings(conn, user_ids: list[str]) -> dict:
         return {}
 
     with conn.cursor() as cur:
-        # トランザクションから保有数と平均取得単価を計算
+        # トランザクションを時系列順で取得
         cur.execute('''
-            WITH holdings AS (
-                SELECT
-                    t."userId",
-                    t."stockId",
-                    SUM(CASE WHEN t.type = 'buy' THEN t.quantity ELSE -t.quantity END) AS quantity,
-                    SUM(CASE WHEN t.type = 'buy' THEN t.quantity * t.price ELSE 0 END) AS total_buy_cost,
-                    SUM(CASE WHEN t.type = 'buy' THEN t.quantity ELSE 0 END) AS total_buy_quantity
-                FROM "Transaction" t
-                WHERE t."userId" = ANY(%s)
-                GROUP BY t."userId", t."stockId"
-                HAVING SUM(CASE WHEN t.type = 'buy' THEN t.quantity ELSE -t.quantity END) > 0
-            )
             SELECT
-                h."userId",
-                h."stockId",
+                t."userId",
+                t."stockId",
+                t.type,
+                t.quantity,
+                t.price,
+                t."transactionDate",
                 s.name,
                 s."tickerCode",
                 s.sector,
-                s."latestPrice",
-                h.quantity,
-                CASE
-                    WHEN h.total_buy_quantity > 0 THEN h.total_buy_cost / h.total_buy_quantity
-                    ELSE 0
-                END AS avg_price
-            FROM holdings h
-            JOIN "Stock" s ON h."stockId" = s.id
+                s."latestPrice"
+            FROM "Transaction" t
+            JOIN "Stock" s ON t."stockId" = s.id
+            WHERE t."userId" = ANY(%s)
+            ORDER BY t."userId", t."stockId", t."transactionDate" ASC
         ''', (user_ids,))
 
-        # ユーザーごとにグループ化
-        result = defaultdict(list)
+        # ユーザー・銘柄ごとにトランザクションをグループ化
+        user_stock_transactions = defaultdict(lambda: defaultdict(list))
+        stock_info = {}
+
         for row in cur.fetchall():
             user_id = row[0]
-            result[user_id].append({
-                "stockId": row[1],
-                "name": row[2],
-                "tickerCode": row[3],
-                "sector": row[4] or "その他",
-                "latestPrice": Decimal(str(row[5])) if row[5] else Decimal("0"),
-                "quantity": row[6],
-                "avgPrice": Decimal(str(row[7])) if row[7] else Decimal("0"),
+            stock_id = row[1]
+            user_stock_transactions[user_id][stock_id].append({
+                "type": row[2],
+                "quantity": row[3],
+                "price": row[4],
             })
+            # 銘柄情報を保存（最後のものが使われる）
+            stock_info[stock_id] = {
+                "name": row[6],
+                "tickerCode": row[7],
+                "sector": row[8] or "その他",
+                "latestPrice": Decimal(str(row[9])) if row[9] else Decimal("0"),
+            }
+
+        # 各ユーザー・銘柄の保有状況を計算
+        result = defaultdict(list)
+        for user_id, stocks in user_stock_transactions.items():
+            for stock_id, transactions in stocks.items():
+                quantity, avg_price = calculate_holdings_from_transactions(transactions)
+                if quantity > 0:
+                    info = stock_info[stock_id]
+                    result[user_id].append({
+                        "stockId": stock_id,
+                        "name": info["name"],
+                        "tickerCode": info["tickerCode"],
+                        "sector": info["sector"],
+                        "latestPrice": info["latestPrice"],
+                        "quantity": quantity,
+                        "avgPrice": avg_price,
+                    })
 
         return dict(result)
 
