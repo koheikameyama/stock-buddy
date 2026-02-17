@@ -368,7 +368,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Analysis Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <StockAnalysisCard stockId={stock.stockId} />
+            <StockAnalysisCard stockId={stock.stockId} quantity={quantity} />
           </section>
 
           {/* Related News Section */}

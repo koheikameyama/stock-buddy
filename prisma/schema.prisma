@@ -320,8 +320,10 @@ model PortfolioStock {
   statusType         String?            // good/caution/excellent/neutral/warning
 
   // 売却提案
-  suggestedSellPrice Decimal? @db.Decimal(12, 2) // 提案売却価格
-  sellCondition      String?  @db.Text           // 売却条件
+  suggestedSellPrice   Decimal? @db.Decimal(12, 2) // 提案売却価格
+  suggestedSellPercent Int?                        // 推奨売却割合（25, 50, 75, 100）
+  sellCondition        String?  @db.Text           // 売却条件
+  sellReason           String?  @db.Text           // 売却理由（AIが生成）
 
   // 取引履歴
   transactions Transaction[]
