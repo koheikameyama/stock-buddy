@@ -144,12 +144,8 @@ export default function StockActionButtons({
   }
 
   const handleAddToTracked = () => {
-    if (warnings.length > 0) {
-      setPendingAction("tracked")
-      setShowWarningDialog(true)
-    } else {
-      executeAddToTracked()
-    }
+    // 追跡は「見守るだけ」なので警告不要
+    executeAddToTracked()
   }
 
   const handleWarningConfirm = () => {
