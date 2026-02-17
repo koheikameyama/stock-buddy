@@ -71,6 +71,9 @@ model User {
   // 通知
   notifications             Notification[]
 
+  // 資産スナップショット
+  portfolioSnapshots        PortfolioSnapshot[]
+
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 }
@@ -740,4 +743,36 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt(sort: Desc)])
   @@index([stockId])
+}
+
+// ========================================
+// 資産スナップショット
+// ========================================
+
+// ポートフォリオスナップショット（日次記録）
+model PortfolioSnapshot {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                  DateTime @db.Date
+
+  // 資産サマリー
+  totalValue            Decimal  @db.Decimal(15, 2)  // 総資産額（時価評価額）
+  totalCost             Decimal  @db.Decimal(15, 2)  // 総投資額（取得原価）
+  unrealizedGain        Decimal  @db.Decimal(15, 2)  // 含み損益
+  unrealizedGainPercent Decimal  @db.Decimal(8, 2)   // 損益率（%）
+
+  // 銘柄数
+  stockCount            Int                          // 保有銘柄数
+
+  // セクター別内訳（JSON）
+  sectorBreakdown       Json?    // [{sector: "情報・通信", value: 150000, percent: 30.5}, ...]
+
+  // 銘柄別内訳（JSON）
+  stockBreakdown        Json?    // [{stockId: "xxx", name: "トヨタ", value: 50000, percent: 10.2}, ...]
+
+  createdAt             DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, date(sort: Desc)])
 }

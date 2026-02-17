@@ -7,6 +7,7 @@ import BottomNavigation from "@/app/components/BottomNavigation"
 import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
+import PortfolioHistoryChart from "./PortfolioHistoryChart"
 import NikkeiSummary from "./NikkeiSummary"
 
 export default async function DashboardPage() {
@@ -170,6 +171,13 @@ export default async function DashboardPage() {
 
           {/* 損益サマリー（クリックでマイ銘柄へ） */}
           <PortfolioSummary hasHoldings={hasHoldings} />
+
+          {/* 資産推移グラフ */}
+          {hasHoldings && (
+            <div className="mt-4 sm:mt-6">
+              <PortfolioHistoryChart />
+            </div>
+          )}
 
           {/* 今日の注目銘柄（カテゴリ別） */}
           <div className="mt-4 sm:mt-6">

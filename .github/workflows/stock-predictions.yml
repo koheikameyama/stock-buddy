@@ -158,8 +158,29 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: python scripts/github-actions/generate_gainers_losers_analysis.py
 
+  portfolio-snapshots:
+    needs: [determine-time, stock-predictions]
+    if: needs.determine-time.outputs.context == 'close'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install psycopg2-binary
+
+      - name: Generate portfolio snapshots
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/github-actions/generate_portfolio_snapshots.py
+
   notify:
-    needs: [purchase-recommendations, portfolio-analysis, portfolio-overall, gainers-losers]
+    needs: [purchase-recommendations, portfolio-analysis, portfolio-overall, gainers-losers, portfolio-snapshots]
     if: always()
     runs-on: ubuntu-latest
     steps:
