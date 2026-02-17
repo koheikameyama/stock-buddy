@@ -99,7 +99,7 @@ export async function GET(
     }))
 
     return NextResponse.json({
-      learningModule: {
+      module: {
         ...learningModule,
         lessons: lessonsWithProgress,
         quizzes: quizzesWithAttempts,
