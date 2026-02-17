@@ -567,15 +567,13 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
           {/* AIによる売却提案 */}
           {portfolioAnalysis && (portfolioAnalysis.suggestedSellPercent || portfolioAnalysis.sellReason) && (
             <div className={`rounded-lg p-3 mb-3 ${
-              prediction.recommendation === "sell" || prediction.recommendation === "partial_sell"
+              prediction.recommendation === "sell"
                 ? "bg-amber-50 border border-amber-200"
                 : "bg-gray-50 border border-gray-200"
             }`}>
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
                 {prediction.recommendation === "sell" ? (
                   <>⚠️ 売却を検討</>
-                ) : prediction.recommendation === "partial_sell" ? (
-                  <>💡 一部利確を検討</>
                 ) : (
                   <>📊 AIの売却判断</>
                 )}

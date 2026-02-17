@@ -469,7 +469,7 @@ ${newsContext}${marketContext}
   "longTermTrend": "up" | "neutral" | "down",
   "longTermPriceLow": 長期予測の下限価格（数値のみ）,
   "longTermPriceHigh": 長期予測の上限価格（数値のみ）,
-  "recommendation": "buy" | "hold" | "partial_sell" | "sell",
+  "recommendation": "buy" | "hold" | "sell",
   "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で）",
   "confidence": 0.0〜1.0の信頼度
 }
@@ -501,10 +501,6 @@ ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
 - suggestedStopLossPrice: 平均取得単価を基準に、現在の含み益/含み損を考慮した適切な損切りラインを提案
 - sellCondition: 「○○円で売る」だけでなく「なぜその価格か」「どんな条件で判断すべきか」を含める
 - 損切りも重要な選択肢: 損失が大きく、回復の見込みが薄い場合は損切りを提案する
-
-【一部売却（partial_sell）について】
-- 一部売却が可能な場合は「partial_sell」も検討してください
-- 利益確定しつつ上昇余地も狙いたい、またはリスクを減らしつつ保有継続したい状況で有効
 
 【利確・損切りラインの指針】
 - 利確目標（suggestedSellPrice）:
@@ -592,7 +588,7 @@ ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
               longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
               longTermPriceLow: { type: "number" },
               longTermPriceHigh: { type: "number" },
-              recommendation: { type: "string", enum: ["buy", "hold", "partial_sell", "sell"] },
+              recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
               advice: { type: "string" },
               confidence: { type: "number" },
             },

@@ -47,7 +47,7 @@ interface StockCardProps {
   stock: UserStock
   price?: StockPrice
   recommendation?: PurchaseRecommendation
-  portfolioRecommendation?: "buy" | "sell" | "partial_sell" | "hold" | null
+  portfolioRecommendation?: "buy" | "sell" | "hold" | null
   analyzedAt?: string | null
   onAdditionalPurchase?: () => void
   onSell?: () => void
@@ -86,19 +86,14 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
   const getAISellJudgment = () => {
     if (!portfolioRecommendation) return null
 
-    // sell/partial_sellの場合、含み損/含み益で表示を切り替え
+    // sellの場合、含み損/含み益で表示を切り替え
     // 価格が取得できていない場合は表示しない
-    if (portfolioRecommendation === "sell" || portfolioRecommendation === "partial_sell") {
+    if (portfolioRecommendation === "sell") {
       if (currentPrice <= 0) return null
       const hasProfit = profit >= 0
-      if (portfolioRecommendation === "sell") {
-        return hasProfit
-          ? { text: "利確検討", color: "text-amber-700", bg: "bg-amber-50" }
-          : { text: "損切り検討", color: "text-red-700", bg: "bg-red-50" }
-      }
       return hasProfit
-        ? { text: "一部利確検討", color: "text-amber-700", bg: "bg-amber-50" }
-        : { text: "一部損切り検討", color: "text-orange-700", bg: "bg-orange-50" }
+        ? { text: "利確検討", color: "text-amber-700", bg: "bg-amber-50" }
+        : { text: "損切り検討", color: "text-red-700", bg: "bg-red-50" }
     }
 
     const displayMap = {
