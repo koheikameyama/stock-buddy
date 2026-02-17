@@ -368,7 +368,12 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Analysis Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <StockAnalysisCard stockId={stock.stockId} quantity={quantity} />
+            <StockAnalysisCard
+              stockId={stock.stockId}
+              quantity={quantity}
+              onBuyAlertClick={!isPortfolio ? () => setShowBuyAlertModal(true) : undefined}
+              currentTargetBuyPrice={!isPortfolio ? currentTargetBuyPrice : undefined}
+            />
           </section>
 
           {/* Related News Section */}
@@ -431,12 +436,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 >
                   {trackingStock ? "処理中..." : "+追跡"}
                 </button>
-                <button
-                  onClick={() => setShowBuyAlertModal(true)}
-                  className="px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded transition-colors"
-                >
-                  🔔買いアラート
-                </button>
               </>
             }
           />
@@ -445,21 +444,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
             <PurchaseRecommendation stockId={stock.stockId} />
           </section>
-
-          {/* Buy Alert Indicator */}
-          {currentTargetBuyPrice && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
-              <p className="text-sm text-amber-800">
-                🔔 <span className="font-medium">¥{currentTargetBuyPrice.toLocaleString()}</span> 以下で通知
-              </p>
-              <button
-                onClick={() => setShowBuyAlertModal(true)}
-                className="text-xs text-amber-600 hover:text-amber-800"
-              >
-                変更
-              </button>
-            </div>
-          )}
 
           {/* Related News Section */}
           <RelatedNews stockId={stock.stockId} />

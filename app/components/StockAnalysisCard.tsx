@@ -7,6 +7,9 @@ import { UPDATE_SCHEDULES } from "@/lib/constants"
 interface StockAnalysisCardProps {
   stockId: string
   quantity?: number // 保有数量（売却提案で使用）
+  // 買いアラート関連（ウォッチリスト用）
+  onBuyAlertClick?: (limitPrice: number | null) => void
+  currentTargetBuyPrice?: number | null
 }
 
 interface PredictionData {
@@ -57,7 +60,7 @@ interface PortfolioAnalysisData {
   userStopLossPrice: number | null
 }
 
-export default function StockAnalysisCard({ stockId, quantity }: StockAnalysisCardProps) {
+export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice }: StockAnalysisCardProps) {
   const [prediction, setPrediction] = useState<PredictionData | null>(null)
   const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -496,6 +499,15 @@ export default function StockAnalysisCard({ stockId, quantity }: StockAnalysisCa
                                 <p className="text-xs text-yellow-600">
                                   あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で到達
                                 </p>
+                              )}
+                              {/* 買いアラート設定ボタン（ウォッチリスト用） */}
+                              {onBuyAlertClick && (
+                                <button
+                                  onClick={() => onBuyAlertClick(limitPriceNum)}
+                                  className="mt-2 text-xs text-amber-600 hover:text-amber-800 flex items-center gap-1"
+                                >
+                                  🔔 {currentTargetBuyPrice ? `通知設定中（¥${currentTargetBuyPrice.toLocaleString()}）` : "この価格で通知"}
+                                </button>
                               )}
                             </>
                           )
