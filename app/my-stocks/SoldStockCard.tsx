@@ -1,6 +1,7 @@
 "use client"
 
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
+import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface SoldStock {
   id: string
@@ -59,7 +60,7 @@ export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchas
             </span>
           </div>
           <p className="text-xs sm:text-sm text-gray-500">
-            {soldStock.stock.tickerCode}
+            <CopyableTicker tickerCode={soldStock.stock.tickerCode} />
             {soldStock.stock.sector && ` • ${soldStock.stock.sector}`}
           </p>
         </div>

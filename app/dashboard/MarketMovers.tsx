@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface MoverStock {
   position: number
@@ -97,7 +98,7 @@ export default function MarketMovers() {
                       {stock.stock.name}
                     </div>
                     <div className="text-[10px] sm:text-xs text-gray-500">
-                      {stock.stock.tickerCode}
+                      <CopyableTicker tickerCode={stock.stock.tickerCode} />
                     </div>
                   </div>
                   <div className="text-xs sm:text-sm font-bold text-red-600 shrink-0">
@@ -130,7 +131,7 @@ export default function MarketMovers() {
                       {stock.stock.name}
                     </div>
                     <div className="text-[10px] sm:text-xs text-gray-500">
-                      {stock.stock.tickerCode}
+                      <CopyableTicker tickerCode={stock.stock.tickerCode} />
                     </div>
                   </div>
                   <div className="text-xs sm:text-sm font-bold text-blue-600 shrink-0">

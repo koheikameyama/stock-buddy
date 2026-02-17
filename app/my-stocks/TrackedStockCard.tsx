@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
+import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface TrackedStock {
   id: string
@@ -98,7 +99,7 @@ export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPu
             {stock.name}
           </h3>
           <p className="text-xs sm:text-sm text-gray-500">
-            {stock.tickerCode}
+            <CopyableTicker tickerCode={stock.tickerCode} />
             {stock.sector && ` • ${stock.sector}`}
           </p>
         </div>

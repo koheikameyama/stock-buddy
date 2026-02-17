@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
+import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface UserStock {
   id: string
@@ -137,7 +138,7 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
           </h3>
         </div>
         <p className="text-xs sm:text-sm text-gray-500">
-          {stock.stock.tickerCode}
+          <CopyableTicker tickerCode={stock.stock.tickerCode} />
           {stock.stock.sector && ` • ${stock.stock.sector}`}
         </p>
       </div>

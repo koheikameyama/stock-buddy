@@ -6,6 +6,7 @@ import type {
   ActionSuggestion,
   WatchlistSimulation,
 } from "@/lib/portfolio-overall-analysis"
+import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface OverallAnalysisData {
   hasAnalysis: boolean
@@ -135,7 +136,7 @@ function WatchlistSimulationCard({
               <span className="font-medium text-sm text-gray-900">
                 {stock.stockName}
               </span>
-              <span className="text-xs text-gray-500">({stock.tickerCode})</span>
+              <span className="text-xs text-gray-500">(<CopyableTicker tickerCode={stock.tickerCode} />)</span>
               <span className="text-xs text-gray-500">{stock.sector}</span>
             </div>
             <div className="flex items-center gap-2 mb-1">

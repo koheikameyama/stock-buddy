@@ -1,3 +1,5 @@
+import CopyableTicker from "./CopyableTicker"
+
 interface StockHeaderProps {
   name: string
   tickerCode: string
@@ -20,7 +22,7 @@ export default function StockHeader({ name, tickerCode, sector, badge, badgeClas
         {name}
       </h1>
       <p className="text-sm text-gray-500 mt-1">
-        {tickerCode}
+        <CopyableTicker tickerCode={tickerCode} />
         {sector && ` • ${sector}`}
       </p>
     </div>

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { UPDATE_SCHEDULES } from "@/lib/constants"
 import { CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import StockActionButtons from "@/app/components/StockActionButtons"
+import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface FeaturedStock {
   id: string
@@ -159,7 +160,7 @@ export default function FeaturedStocksByCategory() {
                 {stock.stock.name}
               </h4>
               <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500">
-                <span>{stock.stock.tickerCode}</span>
+                <CopyableTicker tickerCode={stock.stock.tickerCode} />
                 {stock.stock.sector && (
                   <>
                     <span>•</span>

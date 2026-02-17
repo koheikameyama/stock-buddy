@@ -5,6 +5,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import BackButton from "@/app/components/BackButton"
 import AddStockDialog from "@/app/my-stocks/AddStockDialog"
+import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface RelatedNewsItem {
   title: string
@@ -264,7 +265,7 @@ function MoverCard({
               {mover.stock.name}
             </div>
             <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <span>{mover.stock.tickerCode}</span>
+              <CopyableTicker tickerCode={mover.stock.tickerCode} />
               {mover.stock.sector && (
                 <>
                   <span>•</span>
