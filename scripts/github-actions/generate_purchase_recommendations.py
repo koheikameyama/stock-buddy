@@ -174,7 +174,7 @@ def main():
                         "stockId": ws["stockId"],
                         "title": f"📊 {ws['name']}が買い推奨です",
                         "body": f"AIが買い推奨と判断しました（確信度{confidence_pct}%）。{reason_short}",
-                        "url": f"/recommendations/{ws['stockId']}",
+                        "url": f"/stocks/{ws['stockId']}",
                     })
 
         # 買い推奨通知を送信
