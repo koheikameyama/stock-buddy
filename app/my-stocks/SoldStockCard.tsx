@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
@@ -38,32 +39,46 @@ interface SoldStockCardProps {
 }
 
 export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchase }: SoldStockCardProps) {
+  const router = useRouter()
   const isProfit = soldStock.totalProfit >= 0
 
+  const handleClick = () => {
+    router.push(`/stocks/${soldStock.stockId}`)
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+    <div
+      onClick={handleClick}
+      className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          handleClick()
+        }
+      }}
+    >
+      {/* バッジ - 右上固定 */}
+      <span
+        className={`absolute top-3 right-3 sm:top-4 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold ${
+          isProfit
+            ? "bg-green-50 text-green-700"
+            : "bg-red-50 text-red-700"
+        }`}
+      >
+        {isProfit ? "利益確定" : "損切り"}
+      </span>
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-3 sm:mb-4">
-        <div>
-          <div className="flex items-center gap-2 sm:gap-3 mb-1">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-              {soldStock.stock.name}
-            </h3>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                isProfit
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
-              }`}
-            >
-              {isProfit ? "利益確定" : "損切り"}
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-gray-500">
-            <CopyableTicker tickerCode={soldStock.stock.tickerCode} />
-            {soldStock.stock.sector && ` • ${soldStock.stock.sector}`}
-          </p>
-        </div>
+      <div className="mb-3 sm:mb-4 pr-20">
+        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">
+          {soldStock.stock.name}
+        </h3>
+        <p className="text-xs sm:text-sm text-gray-500">
+          <CopyableTicker tickerCode={soldStock.stock.tickerCode} />
+          {soldStock.stock.sector && ` • ${soldStock.stock.sector}`}
+        </p>
       </div>
 
       {/* Period */}
@@ -123,31 +138,52 @@ export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchas
         </div>
       </div>
 
-      {/* Footer: Actions */}
-      {(onAddToWatchlist || onRepurchase) && (
-        <div className={CARD_FOOTER_STYLES.containerSold}>
-          {/* Action Buttons */}
-          <div className={CARD_FOOTER_STYLES.actionGroup}>
-            {onAddToWatchlist && (
-              <button
-                onClick={() => onAddToWatchlist(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name)}
-                className={getActionButtonClass("watchlist")}
-              >
-                {ACTION_BUTTON_LABELS.watchlist}
-              </button>
-            )}
-            {onRepurchase && (
-              <button
-                onClick={() => onRepurchase(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name, soldStock.stock.market, soldStock.stock.sector)}
-                className={getActionButtonClass("purchase")}
-              >
-                {ACTION_BUTTON_LABELS.purchase}
-              </button>
-            )}
-          </div>
-          <div />
+      {/* Footer: Actions + Detail Link */}
+      <div className={CARD_FOOTER_STYLES.container}>
+        {/* Action Buttons */}
+        <div className={CARD_FOOTER_STYLES.actionGroup}>
+          {onAddToWatchlist && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddToWatchlist(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name)
+              }}
+              className={getActionButtonClass("watchlist")}
+            >
+              {ACTION_BUTTON_LABELS.watchlist}
+            </button>
+          )}
+          {onRepurchase && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onRepurchase(soldStock.stockId, soldStock.stock.tickerCode, soldStock.stock.name, soldStock.stock.market, soldStock.stock.sector)
+              }}
+              className={getActionButtonClass("purchase")}
+            >
+              {ACTION_BUTTON_LABELS.purchase}
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Detail Link */}
+        <div className={CARD_FOOTER_STYLES.detailLink}>
+          <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
+          <svg
+            className="w-4 h-4 ml-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </div>
+      </div>
     </div>
   )
 }
