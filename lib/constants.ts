@@ -66,3 +66,12 @@ export const UPDATE_SCHEDULES = {
   // ポートフォリオ分析・購入レコメンド（stock-predictions.yml）
   STOCK_ANALYSIS: "8:00 / 10:30 / 12:30 / 14:00 / 15:30",
 } as const
+
+// キャッシュTTL（ミリ秒）
+export const CACHE_TTL = {
+  USER_STOCKS: 5 * 60 * 1000,       // 5分
+  TRACKED_STOCKS: 5 * 60 * 1000,    // 5分
+  SOLD_STOCKS: 5 * 60 * 1000,       // 5分
+  STOCK_PRICES: 2 * 60 * 1000,      // 2分
+  PORTFOLIO_SUMMARY: 2 * 60 * 1000, // 2分
+} as const
