@@ -47,8 +47,6 @@ interface PortfolioAnalysisData {
   simpleStatus: string | null
   statusType: string | null
   suggestedSellPrice: number | null
-  suggestedSellPercent: number | null
-  sellReason: string | null
   sellCondition: string | null
   recommendation: string | null
   // 損切りアラート用
@@ -565,37 +563,20 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )
           })()}
           {/* AIによる売却提案 */}
-          {portfolioAnalysis && (portfolioAnalysis.suggestedSellPercent || portfolioAnalysis.sellReason) && (
+          {portfolioAnalysis && (portfolioAnalysis.suggestedSellPrice || portfolioAnalysis.sellCondition) && (
             <div className={`rounded-lg p-3 mb-3 ${
-              prediction.recommendation === "sell" || prediction.recommendation === "partial_sell"
+              prediction.recommendation === "sell"
                 ? "bg-amber-50 border border-amber-200"
                 : "bg-gray-50 border border-gray-200"
             }`}>
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
                 {prediction.recommendation === "sell" ? (
                   <>⚠️ 売却を検討</>
-                ) : prediction.recommendation === "partial_sell" ? (
-                  <>💡 一部利確を検討</>
                 ) : (
                   <>📊 AIの売却判断</>
                 )}
               </p>
               <div className="space-y-2">
-                {portfolioAnalysis.suggestedSellPercent && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">推奨売却:</span>
-                    <span className={`font-bold ${
-                      portfolioAnalysis.suggestedSellPercent === 100 ? "text-red-600" : "text-amber-600"
-                    }`}>
-                      {portfolioAnalysis.suggestedSellPercent}%
-                      {quantity && quantity > 0 && (
-                        <span className="text-gray-600 font-normal ml-1">
-                          （{quantity}株中 {Math.round(quantity * portfolioAnalysis.suggestedSellPercent / 100)}株）
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                )}
                 {portfolioAnalysis.suggestedSellPrice && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">売却価格:</span>
@@ -607,12 +588,6 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                         （現在価格: {prediction.currentPrice.toLocaleString()}円）
                       </span>
                     )}
-                  </div>
-                )}
-                {portfolioAnalysis.sellReason && (
-                  <div className="mt-2 p-2 bg-white rounded border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">理由:</p>
-                    <p className="text-sm text-gray-700">{portfolioAnalysis.sellReason}</p>
                   </div>
                 )}
                 {portfolioAnalysis.sellCondition && (

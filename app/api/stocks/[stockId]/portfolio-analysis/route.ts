@@ -50,8 +50,6 @@ export async function GET(
           simpleStatus: true,
           statusType: true,
           suggestedSellPrice: true,
-          suggestedSellPercent: true,
-          sellReason: true,
           sellCondition: true,
           transactions: {
             orderBy: { transactionDate: "asc" },
@@ -113,8 +111,6 @@ export async function GET(
           simpleStatus: null,
           statusType: null,
           suggestedSellPrice: null,
-          suggestedSellPercent: null,
-          sellReason: null,
           sellCondition: null,
           recommendation: null,
           // 損切りアラート用
@@ -144,8 +140,6 @@ export async function GET(
       simpleStatus: portfolioStock.simpleStatus,
       statusType: portfolioStock.statusType,
       suggestedSellPrice: portfolioStock.suggestedSellPrice ? Number(portfolioStock.suggestedSellPrice) : null,
-      suggestedSellPercent: portfolioStock.suggestedSellPercent,
-      sellReason: portfolioStock.sellReason,
       sellCondition: portfolioStock.sellCondition,
       recommendation: null, // GETでは取得しない（StockAnalysisから取得）
       // 損切りアラート用
@@ -441,8 +435,6 @@ ${newsContext}${marketContext}
   "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で",
   "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で",
   "suggestedSellPrice": 売却目標価格（数値のみ、円単位、現在価格・平均取得単価・市場分析を総合的に考慮）,
-  "suggestedSellPercent": 推奨売却割合（25, 50, 75, 100のいずれか。一部利確なら25-75、全売却なら100）,
-  "sellReason": "売却を推奨する理由（例：「レジスタンス到達で上昇余地が限定的」「下落トレンド継続で回復見込み薄」）",
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
   "sellCondition": "売却の条件や考え方（例：「+10%で半分利確、決算発表後に全売却検討」）",
   "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
@@ -458,7 +450,7 @@ ${newsContext}${marketContext}
   "longTermTrend": "up" | "neutral" | "down",
   "longTermPriceLow": 長期予測の下限価格（数値のみ）,
   "longTermPriceHigh": 長期予測の上限価格（数値のみ）,
-  "recommendation": "buy" | "hold" | "partial_sell" | "sell",
+  "recommendation": "buy" | "hold" | "sell",
   "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で）",
   "confidence": 0.0〜1.0の信頼度
 }
@@ -492,17 +484,6 @@ ${newsContext}${marketContext}
 - 損切りライン（suggestedStopLossPrice）:
   - 含み益がある場合: 利益が消えないライン（例：平均取得単価の少し上）
   - 含み損がある場合: これ以上の損失拡大を防ぐライン（例：現在価格から-5%〜-10%）
-
-【売却割合の判断指針】
-- suggestedSellPercent: 市場状況と損益に応じて適切な売却割合を判断
-  - 25%: 利益確定しつつ上昇余地も狙う（「まだ上がるかも」という状況）
-  - 50%: 利益を半分確保、残りで上値追い（バランス型）
-  - 75%: 大部分を利確、少量残して様子見（「そろそろ天井かも」）
-  - 100%: 全売却推奨（「これ以上の上昇は見込めない」または「損切りすべき」）
-- sellReason: なぜその売却割合を推奨するのか、市場分析に基づく具体的な理由を記載
-  - 例（利確）: 「レジスタンスに到達、上昇モメンタムが弱まっている」
-  - 例（損切り）: 「業績悪化＋下落トレンド継続、回復の見込みが薄い」
-  - 例（様子見）: 「トレンドは上向き、まだ保有継続で問題なし」
 
 【損切り提案の指針】
 - 損失率が-15%以上かつ業績悪化や株価下落トレンドが続いている場合は、損切りを選択肢として提示
@@ -555,8 +536,6 @@ ${newsContext}${marketContext}
               mediumTerm: { type: "string" },
               longTerm: { type: "string" },
               suggestedSellPrice: { type: ["number", "null"] },
-              suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
-              sellReason: { type: ["string", "null"] },
               suggestedStopLossPrice: { type: ["number", "null"] },
               sellCondition: { type: ["string", "null"] },
               emotionalCoaching: { type: "string" },
@@ -571,14 +550,13 @@ ${newsContext}${marketContext}
               longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
               longTermPriceLow: { type: "number" },
               longTermPriceHigh: { type: "number" },
-              recommendation: { type: "string", enum: ["buy", "hold", "partial_sell", "sell"] },
+              recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
               advice: { type: "string" },
               confidence: { type: "number" },
             },
             required: [
               "shortTerm", "mediumTerm", "longTerm",
-              "suggestedSellPrice", "suggestedSellPercent", "sellReason",
-              "suggestedStopLossPrice", "sellCondition",
+              "suggestedSellPrice", "suggestedStopLossPrice", "sellCondition",
               "emotionalCoaching", "simpleStatus", "statusType",
               "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
               "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
@@ -610,8 +588,8 @@ ${newsContext}${marketContext}
           simpleStatus: result.simpleStatus,
           statusType: result.statusType,
           suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
-          suggestedSellPercent: result.suggestedSellPercent || null,
-          sellReason: result.sellReason || null,
+          suggestedSellPercent: null,
+          sellReason: null,
           sellCondition: result.sellCondition || null,
           lastAnalysis: now,
           updatedAt: now,
@@ -649,8 +627,6 @@ ${newsContext}${marketContext}
       simpleStatus: result.simpleStatus,
       statusType: result.statusType,
       suggestedSellPrice: result.suggestedSellPrice || null,
-      suggestedSellPercent: result.suggestedSellPercent || null,
-      sellReason: result.sellReason || null,
       sellCondition: result.sellCondition || null,
       recommendation: result.recommendation || null,
       lastAnalysis: now.toISOString(),
