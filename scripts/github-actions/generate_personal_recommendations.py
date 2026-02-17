@@ -18,6 +18,10 @@ import psycopg2
 import psycopg2.extras
 from openai import OpenAI
 
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.outcome_utils import insert_recommendation_outcome
+
 # 設定
 CONFIG = {
     "MAX_PER_SECTOR": 5,       # 各セクターからの最大銘柄数
@@ -502,33 +506,62 @@ def save_user_recommendations(
     conn,
     user_id: str,
     recommendations: list[dict],
-    stock_map: dict[str, str]
+    stock_map: dict[str, str],
+    stock_data: dict[str, dict]
 ) -> int:
-    """おすすめをDBに保存（upsert）"""
+    """おすすめをDBに保存（upsert）+ Outcome作成"""
     # DATE型はタイムゾーン情報を持たないため、JSTの日付をそのまま渡す
     jst = ZoneInfo("Asia/Tokyo")
-    today = datetime.now(jst).date()
+    now = datetime.now(jst)
+    today = now.date()
 
     with conn.cursor() as cur:
         saved = 0
         for idx, rec in enumerate(recommendations):
-            stock_id = stock_map.get(rec["tickerCode"])
+            ticker = rec["tickerCode"]
+            stock_id = stock_map.get(ticker)
 
             if not stock_id:
-                print(f"  Warning: Stock not found for ticker {rec['tickerCode']}")
+                print(f"  Warning: Stock not found for ticker {ticker}")
                 continue
 
             # upsert: 既存レコードがあれば更新、なければ挿入
+            # RETURNING でIDを取得
             cur.execute(
                 '''
                 INSERT INTO "UserDailyRecommendation" (id, "userId", date, "stockId", position, reason, "createdAt")
                 VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, NOW())
                 ON CONFLICT ("userId", date, position)
                 DO UPDATE SET "stockId" = EXCLUDED."stockId", reason = EXCLUDED.reason
+                RETURNING id
                 ''',
                 (user_id, today, stock_id, idx + 1, rec["reason"])
             )
+            result = cur.fetchone()
+            recommendation_id = result[0] if result else None
+
             saved += 1
+
+            # Outcome作成（推薦保存成功後）
+            if recommendation_id and stock_id in stock_data:
+                stock = stock_data[stock_id]
+                try:
+                    outcome_data = {
+                        "type": "daily",
+                        "recommendationId": recommendation_id,
+                        "stockId": stock_id,
+                        "tickerCode": ticker,
+                        "sector": stock.get("sector"),
+                        "recommendedAt": now,
+                        "priceAtRec": stock.get("latestPrice"),
+                        "prediction": "buy",  # 日次おすすめは全てbuy相当
+                        "confidence": None,   # 日次おすすめにはconfidenceがない
+                        "volatility": stock.get("volatility"),
+                        "marketCap": int(stock["marketCap"] * 100_000_000) if stock.get("marketCap") else None,  # 億円→円
+                    }
+                    insert_recommendation_outcome(conn, outcome_data)
+                except Exception as e:
+                    print(f"  Warning: Failed to create Outcome for {ticker}: {e}")
 
     conn.commit()
     return saved
@@ -620,8 +653,13 @@ def main():
                 error_count += 1
                 continue
 
+            # stockIdでデータを引けるようにマップ作成
+            stock_data_by_id = {s["id"]: s for s in diversified}
+
             # 保存
-            saved = save_user_recommendations(conn, user["userId"], recommendations, stock_map)
+            saved = save_user_recommendations(
+                conn, user["userId"], recommendations, stock_map, stock_data_by_id
+            )
             print(f"  Saved {saved} recommendations")
 
             if saved > 0:

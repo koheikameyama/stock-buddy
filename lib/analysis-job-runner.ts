@@ -6,6 +6,7 @@ import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
 import { getTodayForDB } from "@/lib/date-utils"
+import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -408,7 +409,7 @@ ${newsContext}${marketContext}
     // データベースに保存
     const now = dayjs.utc().toDate()
 
-    await prisma.$transaction([
+    const [, createdAnalysis] = await prisma.$transaction([
       // PortfolioStockの更新
       prisma.portfolioStock.update({
         where: { id: portfolioStock.id },
@@ -447,6 +448,28 @@ ${newsContext}${marketContext}
         },
       }),
     ])
+
+    // Outcome作成（分析保存成功後）
+    // shortTermTrendをOutcomeのpredictionにマッピング
+    const trendToPrediction: Record<string, Prediction> = {
+      up: "up",
+      down: "down",
+      neutral: "neutral",
+    }
+
+    await insertRecommendationOutcome({
+      type: "analysis",
+      recommendationId: createdAnalysis.id,
+      stockId,
+      tickerCode: stock.tickerCode,
+      sector: stock.sector,
+      recommendedAt: now,
+      priceAtRec: currentPrice || 0,
+      prediction: trendToPrediction[result.shortTermTrend] || "neutral",
+      confidence: result.confidence || 0.7,
+      volatility: stock.volatility ? Number(stock.volatility) : null,
+      marketCap: stock.marketCap ? BigInt(Number(stock.marketCap) * 100_000_000) : null,
+    })
 
     // ジョブを完了に更新
     await prisma.analysisJob.update({

@@ -160,6 +160,7 @@ model Stock {
   trackedStocks           TrackedStock[]
   dailyMarketMovers       DailyMarketMover[]
   notifications           Notification[]
+  recommendationOutcomes  RecommendationOutcome[]
   createdAt               DateTime @default(now())
 
   @@index([tickerCode])
@@ -748,6 +749,46 @@ model Notification {
 // ========================================
 // 資産スナップショット
 // ========================================
+
+// 推薦結果追跡（精度検証用）
+model RecommendationOutcome {
+  id                    String   @id @default(cuid())
+
+  // 推薦の種類と参照
+  type                  String   // "daily" | "purchase" | "analysis"
+  recommendationId      String   // 元の推薦レコードのID
+
+  // 銘柄情報（分析用に非正規化して保持）
+  stockId               String
+  stock                 Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  tickerCode            String
+  sector                String?
+
+  // 推薦時点のスナップショット（後から変わる値を固定）
+  recommendedAt         DateTime
+  priceAtRec            Decimal  @db.Decimal(12, 2)
+  prediction            String   // "buy" | "stay" | "remove" | "up" | "down" | "neutral"
+  confidence            Decimal? @db.Decimal(5, 2)
+  volatility            Decimal? @db.Decimal(8, 2)
+  marketCap             BigInt?
+
+  // 時間経過ごとのリターン（%）- バッチで段階的に埋まる
+  returnAfter1Day       Decimal? @db.Decimal(8, 2)
+  returnAfter3Days      Decimal? @db.Decimal(8, 2)
+  returnAfter7Days      Decimal? @db.Decimal(8, 2)
+  returnAfter14Days     Decimal? @db.Decimal(8, 2)
+
+  // ベンチマーク（同期間の日経225リターン）
+  benchmarkReturn7Days  Decimal? @db.Decimal(8, 2)
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([type, recommendationId])
+  @@index([type, recommendedAt])
+  @@index([sector])
+  @@index([tickerCode])
+}
 
 // ポートフォリオスナップショット（日次記録）
 model PortfolioSnapshot {
