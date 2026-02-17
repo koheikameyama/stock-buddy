@@ -12,6 +12,7 @@ import { UPDATE_SCHEDULES, MAX_PORTFOLIO_STOCKS, MAX_WATCHLIST_STOCKS } from "@/
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 import { useAppStore } from "@/store/useAppStore"
 import type { UserStock, TrackedStock, SoldStock, StockPrice } from "@/store/types"
+import { MyStocksSkeleton } from "@/components/skeletons/my-stocks-skeleton"
 
 interface PurchaseRecommendation {
   recommendation: "buy" | "stay"
@@ -355,12 +356,7 @@ export default function MyStocksClient() {
   const displayStocks = activeTab === "portfolio" ? portfolioStocks : watchlistStocks
 
   if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
-        <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
-      </div>
-    )
+    return <MyStocksSkeleton />
   }
 
   return (
