@@ -154,7 +154,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
   if (loading) {
     return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div>
         <div className="flex items-center justify-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <p className="ml-3 text-sm text-gray-600">読み込み中...</p>
@@ -166,7 +166,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 分析中の場合
   if (generating) {
     return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div>
         <div className="bg-gray-50 rounded-lg p-6 text-center">
           <div className="text-4xl mb-3">📊</div>
           <p className="text-sm text-gray-600 mb-4">AIが購入判断を分析中です...</p>
@@ -181,7 +181,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
   if (noData && !data) {
     return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div>
         <div className="bg-gray-50 rounded-lg p-6 text-center">
           <div className="text-4xl mb-3">📊</div>
           <p className="text-sm text-gray-600 mb-4">
@@ -213,7 +213,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
   if (error || !data) {
     return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div>
         <div className="bg-gray-50 rounded-lg p-6 text-center">
           <div className="text-4xl mb-3">📊</div>
           <p className="text-sm text-gray-600">{error || "データがありません"}</p>
@@ -339,7 +339,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 買い推奨
   if (data.recommendation === "buy") {
     return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div>
         <ReanalyzeHeader />
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -383,7 +383,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 見送り推奨（avoid）
   if (data.recommendation === "avoid") {
     return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div>
         <ReanalyzeHeader />
         <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -430,7 +430,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
   // 様子見（stayまたはそれ以外のフォールバック）
   return (
-    <div className="mt-4 pt-4 border-t border-gray-200">
+    <div>
       <ReanalyzeHeader />
       <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex items-center gap-2 mb-4">

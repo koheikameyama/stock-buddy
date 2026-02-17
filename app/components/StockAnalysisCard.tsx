@@ -10,6 +10,7 @@ interface StockAnalysisCardProps {
   // 買いアラート関連（ウォッチリスト用）
   onBuyAlertClick?: (limitPrice: number | null) => void
   currentTargetBuyPrice?: number | null
+  embedded?: boolean
 }
 
 interface PredictionData {
@@ -60,7 +61,7 @@ interface PortfolioAnalysisData {
   userStopLossPrice: number | null
 }
 
-export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice }: StockAnalysisCardProps) {
+export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice, embedded = false }: StockAnalysisCardProps) {
   const [prediction, setPrediction] = useState<PredictionData | null>(null)
   const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)

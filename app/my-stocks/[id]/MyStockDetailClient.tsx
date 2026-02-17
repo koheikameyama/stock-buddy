@@ -12,6 +12,7 @@ import RelatedNews from "@/app/components/RelatedNews"
 import StockDetailLayout from "@/app/components/StockDetailLayout"
 import CurrentPriceCard from "@/app/components/CurrentPriceCard"
 import DeleteButton from "@/app/components/DeleteButton"
+import Tabs from "@/app/components/Tabs"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 import AddStockDialog from "../AddStockDialog"
@@ -269,49 +270,47 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             </div>
           </section>
 
-          {/* AI Sell Suggestion Section */}
-          {(stock.suggestedSellPrice || stock.sellCondition) && (
-            <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xl">🤖</span>
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                  AIからの売却提案
-                </h2>
-              </div>
+          {/* AI Analysis Section */}
+          <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+            <StockAnalysisCard
+              stockId={stock.stockId}
+              quantity={quantity}
+            />
+          </section>
 
-              <div className="space-y-4">
-                {stock.suggestedSellPrice && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-blue-800">提案売却価格</span>
-                      <span className="text-lg font-bold text-blue-700">
-                        ¥{stock.suggestedSellPrice.toLocaleString()}
-                      </span>
-                    </div>
-                    {averagePrice > 0 && (
-                      <div className="text-xs text-blue-600">
-                        取得単価から {((stock.suggestedSellPrice - averagePrice) / averagePrice * 100) >= 0 ? "+" : ""}
-                        {((stock.suggestedSellPrice - averagePrice) / averagePrice * 100).toFixed(1)}%
-                      </div>
-                    )}
-                  </div>
-                )}
+          {/* Tabbed Content Section */}
+          <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+            <Tabs
+              tabs={[
+                { id: "chart", label: "チャート" },
+                { id: "news", label: "ニュース" },
+                { id: "details", label: "詳細" },
+              ]}
+              defaultTab="chart"
+            >
+              {(activeTab) => (
+                <>
+                  {activeTab === "chart" && (
+                    <>
+                      <StockChart stockId={stock.stockId} embedded />
+                      <PriceHistory stockId={stock.stockId} embedded />
+                    </>
+                  )}
+                  {activeTab === "news" && (
+                    <RelatedNews stockId={stock.stockId} embedded />
+                  )}
+                  {activeTab === "details" && (
+                    <>
+                      <FinancialMetrics stock={stock.stock} embedded />
+                      <EarningsInfo earnings={stock.stock} embedded />
+                    </>
+                  )}
+                </>
+              )}
+            </Tabs>
+          </section>
 
-                {stock.sellCondition && (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <span className="text-xs font-semibold text-gray-600 block mb-2">売却の条件・考え方</span>
-                    <p className="text-sm text-gray-800">{stock.sellCondition}</p>
-                  </div>
-                )}
-
-                <p className="text-xs text-gray-500">
-                  ※ 証券アプリで逆指値を設定することで、自動的に売却できます
-                </p>
-              </div>
-            </section>
-          )}
-
-          {/* Transaction History Section */}
+          {/* Transaction History Section - Always at bottom */}
           {stock.transactions && stock.transactions.length > 0 && (
             <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
@@ -374,31 +373,6 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
             </section>
           )}
-
-          {/* AI Analysis Section */}
-          <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <StockAnalysisCard
-              stockId={stock.stockId}
-              quantity={quantity}
-              onBuyAlertClick={!isPortfolio ? () => setShowBuyAlertModal(true) : undefined}
-              currentTargetBuyPrice={!isPortfolio ? currentTargetBuyPrice : undefined}
-            />
-          </section>
-
-          {/* Related News Section */}
-          <RelatedNews stockId={stock.stockId} />
-
-          {/* Chart Section */}
-          <StockChart stockId={stock.stockId} />
-
-          {/* Price History Section */}
-          <PriceHistory stockId={stock.stockId} />
-
-          {/* Financial Metrics Section */}
-          <FinancialMetrics stock={stock.stock} />
-
-          {/* Earnings Info Section */}
-          <EarningsInfo earnings={stock.stock} />
         </>
       )}
 
@@ -454,20 +428,37 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             <PurchaseRecommendation stockId={stock.stockId} />
           </section>
 
-          {/* Related News Section */}
-          <RelatedNews stockId={stock.stockId} />
-
-          {/* Chart Section */}
-          <StockChart stockId={stock.stockId} />
-
-          {/* Price History Section */}
-          <PriceHistory stockId={stock.stockId} />
-
-          {/* Financial Metrics Section */}
-          <FinancialMetrics stock={stock.stock} />
-
-          {/* Earnings Info Section */}
-          <EarningsInfo earnings={stock.stock} />
+          {/* Tabbed Content Section */}
+          <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+            <Tabs
+              tabs={[
+                { id: "chart", label: "チャート" },
+                { id: "news", label: "ニュース" },
+                { id: "details", label: "詳細" },
+              ]}
+              defaultTab="chart"
+            >
+              {(activeTab) => (
+                <>
+                  {activeTab === "chart" && (
+                    <>
+                      <StockChart stockId={stock.stockId} embedded />
+                      <PriceHistory stockId={stock.stockId} embedded />
+                    </>
+                  )}
+                  {activeTab === "news" && (
+                    <RelatedNews stockId={stock.stockId} embedded />
+                  )}
+                  {activeTab === "details" && (
+                    <>
+                      <FinancialMetrics stock={stock.stock} embedded />
+                      <EarningsInfo earnings={stock.stock} embedded />
+                    </>
+                  )}
+                </>
+              )}
+            </Tabs>
+          </section>
         </>
       )}
 

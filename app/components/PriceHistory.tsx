@@ -15,9 +15,10 @@ interface PriceData {
 
 interface PriceHistoryProps {
   stockId: string
+  embedded?: boolean
 }
 
-export default function PriceHistory({ stockId }: PriceHistoryProps) {
+export default function PriceHistory({ stockId, embedded = false }: PriceHistoryProps) {
   const [data, setData] = useState<PriceData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -64,9 +65,13 @@ export default function PriceHistory({ stockId }: PriceHistoryProps) {
     return volume.toString()
   }
 
+  const wrapperClass = embedded
+    ? "mt-6"
+    : "bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6"
+
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+      <div className={wrapperClass || "p-4"}>
         <div className="flex items-center justify-center h-32">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
         </div>
@@ -76,7 +81,7 @@ export default function PriceHistory({ stockId }: PriceHistoryProps) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+      <div className={wrapperClass || "p-4"}>
         <div className="text-center text-gray-500 py-4">
           <p>{error}</p>
         </div>
@@ -87,7 +92,7 @@ export default function PriceHistory({ stockId }: PriceHistoryProps) {
   const displayData = showAll ? data : data.slice(0, 10)
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+    <div className={wrapperClass}>
       <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">価格履歴</h2>
 
       {/* Table */}

@@ -69,11 +69,12 @@ interface NikkeiHistoricalData {
 
 interface StockChartProps {
   stockId: string
+  embedded?: boolean
 }
 
 type Period = "1m" | "3m" | "1y"
 
-export default function StockChart({ stockId }: StockChartProps) {
+export default function StockChart({ stockId, embedded = false }: StockChartProps) {
   const [data, setData] = useState<ChartData[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
   const [patterns, setPatterns] = useState<PatternsData | null>(null)
@@ -181,9 +182,13 @@ export default function StockChart({ stockId }: StockChartProps) {
     return { text: "下降トレンド", color: "text-red-600" }
   }
 
+  const wrapperClass = embedded
+    ? ""
+    : "bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6"
+
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+      <div className={wrapperClass || "p-4"}>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -193,7 +198,7 @@ export default function StockChart({ stockId }: StockChartProps) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+      <div className={wrapperClass || "p-4"}>
         <div className="text-center text-gray-500 py-8">
           <p>{error}</p>
         </div>
@@ -205,7 +210,7 @@ export default function StockChart({ stockId }: StockChartProps) {
   const macdInterpretation = getMACDInterpretation(summary?.histogram ?? null)
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+    <div className={wrapperClass}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">

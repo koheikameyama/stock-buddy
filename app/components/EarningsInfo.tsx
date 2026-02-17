@@ -12,6 +12,7 @@ interface EarningsData {
 
 interface EarningsInfoProps {
   earnings: EarningsData
+  embedded?: boolean
 }
 
 function formatLargeNumber(value: number | null | undefined): string {
@@ -39,7 +40,7 @@ function getProfitTrendColor(trend: string | null | undefined): string {
   return "text-gray-600"
 }
 
-export default function EarningsInfo({ earnings }: EarningsInfoProps) {
+export default function EarningsInfo({ earnings, embedded = false }: EarningsInfoProps) {
   const {
     isProfitable,
     profitTrend,
@@ -58,8 +59,12 @@ export default function EarningsInfo({ earnings }: EarningsInfoProps) {
     return null
   }
 
+  const wrapperClass = embedded
+    ? "mt-6"
+    : "bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6"
+
   return (
-    <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+    <section className={wrapperClass}>
       <div className="mb-4">
         <h2 className="text-lg sm:text-xl font-bold text-gray-900">
           業績情報

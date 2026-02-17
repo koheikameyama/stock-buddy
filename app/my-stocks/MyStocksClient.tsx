@@ -132,19 +132,24 @@ export default function MyStocksClient() {
   // 追跡銘柄用
   const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([])
   const [trackedStocksLoading, setTrackedStocksLoading] = useState(false)
+  const [trackedStocksFetched, setTrackedStocksFetched] = useState(false)
   // 売却済み銘柄用
   const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
   const [soldStocksLoading, setSoldStocksLoading] = useState(false)
+  const [soldStocksFetched, setSoldStocksFetched] = useState(false)
+  // タブ件数（遅延ロード用）
+  const [tabCounts, setTabCounts] = useState<{
+    tracked: number
+    sold: number
+  }>({ tracked: 0, sold: 0 })
 
-  // Fetch user stocks and counts
+  // Fetch user stocks (portfolio + watchlist) and tab counts on initial load
   useEffect(() => {
     async function fetchData() {
       try {
-        // 並列でユーザー銘柄、追跡銘柄、売却済み銘柄を取得
-        const [stocksResponse, trackedResponse, soldResponse] = await Promise.all([
+        const [stocksResponse, countsResponse] = await Promise.all([
           fetch("/api/user-stocks?mode=all"),
-          fetch("/api/tracked-stocks"),
-          fetch("/api/sold-stocks"),
+          fetch("/api/my-stocks/counts"),
         ])
 
         if (!stocksResponse.ok) {
@@ -153,16 +158,13 @@ export default function MyStocksClient() {
         const stocksData = await stocksResponse.json()
         setUserStocks(stocksData)
 
-        // 追跡銘柄（エラーでも続行）
-        if (trackedResponse.ok) {
-          const trackedData = await trackedResponse.json()
-          setTrackedStocks(trackedData)
-        }
-
-        // 売却済み銘柄（エラーでも続行）
-        if (soldResponse.ok) {
-          const soldData = await soldResponse.json()
-          setSoldStocks(soldData)
+        // 件数を取得（エラーでも続行）
+        if (countsResponse.ok) {
+          const countsData = await countsResponse.json()
+          setTabCounts({
+            tracked: countsData.tracked ?? 0,
+            sold: countsData.sold ?? 0,
+          })
         }
       } catch (err) {
         console.error("Error fetching data:", err)
@@ -206,7 +208,7 @@ export default function MyStocksClient() {
     }
   }, [userStocks])
 
-  // Fetch stock prices for tracked stocks
+  // Fetch stock prices for tracked stocks (only when tracked tab is active)
   useEffect(() => {
     async function fetchTrackedPrices() {
       const tickerCodes = trackedStocks.map((s) => s.stock.tickerCode)
@@ -240,11 +242,11 @@ export default function MyStocksClient() {
       }
     }
 
-    if (trackedStocks.length > 0) {
+    if (activeTab === "tracked" && trackedStocks.length > 0) {
       fetchTrackedPrices()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackedStocks.length])
+  }, [activeTab, trackedStocks.length])
 
   // Fetch purchase recommendations for watchlist stocks
   useEffect(() => {
@@ -288,7 +290,7 @@ export default function MyStocksClient() {
   // Fetch tracked stocks when tab is switched
   useEffect(() => {
     async function fetchTrackedStocks() {
-      if (activeTab !== "tracked" || trackedStocks.length > 0) return
+      if (activeTab !== "tracked" || trackedStocksFetched) return
 
       setTrackedStocksLoading(true)
       try {
@@ -296,6 +298,7 @@ export default function MyStocksClient() {
         if (!response.ok) throw new Error("Failed to fetch tracked stocks")
         const data = await response.json()
         setTrackedStocks(data)
+        setTrackedStocksFetched(true)
       } catch (err) {
         console.error("Error fetching tracked stocks:", err)
       } finally {
@@ -304,12 +307,12 @@ export default function MyStocksClient() {
     }
 
     fetchTrackedStocks()
-  }, [activeTab, trackedStocks.length])
+  }, [activeTab, trackedStocksFetched])
 
   // Fetch sold stocks when tab is switched
   useEffect(() => {
     async function fetchSoldStocks() {
-      if (activeTab !== "sold" || soldStocks.length > 0) return
+      if (activeTab !== "sold" || soldStocksFetched) return
 
       setSoldStocksLoading(true)
       try {
@@ -317,6 +320,7 @@ export default function MyStocksClient() {
         if (!response.ok) throw new Error("Failed to fetch sold stocks")
         const data = await response.json()
         setSoldStocks(data)
+        setSoldStocksFetched(true)
       } catch (err) {
         console.error("Error fetching sold stocks:", err)
       } finally {
@@ -325,7 +329,7 @@ export default function MyStocksClient() {
     }
 
     fetchSoldStocks()
-  }, [activeTab, soldStocks.length])
+  }, [activeTab, soldStocksFetched])
 
   // 追跡銘柄をウォッチリストに追加
   const handleTrackedToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
@@ -576,7 +580,7 @@ export default function MyStocksClient() {
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              追跡 ({trackedStocks.length})
+              追跡 ({trackedStocksFetched ? trackedStocks.length : tabCounts.tracked})
             </button>
             <button
               onClick={() => setActiveTab("sold")}
@@ -586,7 +590,7 @@ export default function MyStocksClient() {
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              過去の保有 ({soldStocks.length})
+              過去の保有 ({soldStocksFetched ? soldStocks.length : tabCounts.sold})
             </button>
           </div>
           {/* スクロール可能インジケーター（スマホのみ） */}

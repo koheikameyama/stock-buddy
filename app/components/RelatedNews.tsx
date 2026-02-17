@@ -13,7 +13,7 @@ interface NewsItem {
   matchType: "ticker" | "sector"
 }
 
-export default function RelatedNews({ stockId }: { stockId: string }) {
+export default function RelatedNews({ stockId, embedded = false }: { stockId: string; embedded?: boolean }) {
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -34,9 +34,13 @@ export default function RelatedNews({ stockId }: { stockId: string }) {
     fetchNews()
   }, [stockId])
 
+  const wrapperClass = embedded
+    ? "mt-6"
+    : "bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6"
+
   if (loading) {
     return (
-      <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+      <section className={wrapperClass}>
         <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
           関連ニュース
         </h2>
@@ -68,7 +72,7 @@ export default function RelatedNews({ stockId }: { stockId: string }) {
   }
 
   return (
-    <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+    <section className={wrapperClass}>
       <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
         関連ニュース
       </h2>

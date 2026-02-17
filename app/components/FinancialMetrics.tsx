@@ -10,6 +10,7 @@ interface Stock {
 
 interface FinancialMetricsProps {
   stock: Stock
+  embedded?: boolean
 }
 
 interface MetricCardProps {
@@ -47,7 +48,7 @@ function formatCashFlow(value: number | null | undefined): string {
   return `${value.toLocaleString()}円`
 }
 
-export default function FinancialMetrics({ stock }: FinancialMetricsProps) {
+export default function FinancialMetrics({ stock, embedded = false }: FinancialMetricsProps) {
   const { pbr, per, roe, operatingCF, freeCF } = stock
   const hasAnyData =
     pbr !== null &&
@@ -65,8 +66,12 @@ export default function FinancialMetrics({ stock }: FinancialMetricsProps) {
     return null
   }
 
+  const wrapperClass = embedded
+    ? ""
+    : "bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6"
+
   return (
-    <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+    <section className={wrapperClass}>
       <div className="mb-4">
         <h2 className="text-lg sm:text-xl font-bold text-gray-900">
           財務指標
