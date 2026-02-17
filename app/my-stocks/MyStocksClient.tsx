@@ -10,46 +10,8 @@ import AddStockDialog from "./AddStockDialog"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
 import { UPDATE_SCHEDULES, MAX_PORTFOLIO_STOCKS, MAX_WATCHLIST_STOCKS } from "@/lib/constants"
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
-
-interface UserStock {
-  id: string
-  userId: string
-  stockId: string
-  type: "watchlist" | "portfolio"
-  // Portfolio fields
-  quantity?: number
-  averagePurchasePrice?: number
-  purchaseDate?: string
-  lastAnalysis?: string | null
-  shortTerm?: string | null
-  mediumTerm?: string | null
-  longTerm?: string | null
-  // AI推奨（StockAnalysisから取得）
-  recommendation?: "buy" | "sell" | "hold" | null
-  // 分析日時（StockAnalysisから取得）
-  analyzedAt?: string | null
-  stock: {
-    id: string
-    tickerCode: string
-    name: string
-    sector: string | null
-    market: string
-    currentPrice: number | null
-  }
-  createdAt: string
-  updatedAt: string
-}
-
-interface StockPrice {
-  tickerCode: string
-  currentPrice: number
-  previousClose: number
-  change: number
-  changePercent: number
-  volume: number
-  high: number
-  low: number
-}
+import { useAppStore } from "@/store/useAppStore"
+import type { UserStock, TrackedStock, SoldStock, StockPrice } from "@/store/types"
 
 interface PurchaseRecommendation {
   recommendation: "buy" | "stay"
@@ -59,57 +21,27 @@ interface PurchaseRecommendation {
   analyzedAt?: string
 }
 
-interface TrackedStock {
-  id: string
-  stockId: string
-  stock: {
-    id: string
-    tickerCode: string
-    name: string
-    sector: string | null
-    market: string
-  }
-  currentPrice: number | null
-  change: number | null
-  changePercent: number | null
-  createdAt: string
-}
-
-interface SoldStock {
-  id: string
-  stockId: string
-  stock: {
-    id: string
-    tickerCode: string
-    name: string
-    sector: string | null
-    market: string
-  }
-  firstPurchaseDate: string
-  lastSellDate: string
-  totalBuyQuantity: number
-  totalBuyAmount: number
-  totalSellAmount: number
-  totalProfit: number
-  profitPercent: number
-  transactions: {
-    id: string
-    type: string
-    quantity: number
-    price: number
-    totalAmount: number
-    transactionDate: string
-    note: string | null
-  }[]
-}
-
 type TabType = "portfolio" | "watchlist" | "tracked" | "sold"
 
 export default function MyStocksClient() {
   const router = useRouter()
-  // ページ訪問時に閲覧済みをマーク
   useMarkPageSeen("my-stocks")
+
+  // ストアから取得
+  const {
+    fetchUserStocks,
+    fetchTrackedStocks,
+    fetchSoldStocks,
+    fetchStockPrices,
+    updateUserStock,
+    removeTrackedStock,
+    invalidatePortfolioSummary,
+  } = useAppStore()
+
+  // ローカル状態
   const [userStocks, setUserStocks] = useState<UserStock[]>([])
+  const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([])
+  const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
   const [loading, setLoading] = useState(true)
@@ -129,37 +61,19 @@ export default function MyStocksClient() {
     market?: string
     sector?: string | null
   } | null>(null)
-  // 追跡銘柄用
-  const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([])
-  // 売却済み銘柄用
-  const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
   // Fetch all data on initial load
   useEffect(() => {
     async function fetchData() {
       try {
-        const [stocksResponse, trackedResponse, soldResponse] = await Promise.all([
-          fetch("/api/user-stocks?mode=all"),
-          fetch("/api/tracked-stocks"),
-          fetch("/api/sold-stocks"),
+        const [stocksData, trackedData, soldData] = await Promise.all([
+          fetchUserStocks(),
+          fetchTrackedStocks().catch(() => []),
+          fetchSoldStocks().catch(() => []),
         ])
 
-        if (!stocksResponse.ok) {
-          throw new Error("Failed to fetch stocks")
-        }
-        const stocksData = await stocksResponse.json()
         setUserStocks(stocksData)
-
-        // 追跡銘柄（エラーでも続行）
-        if (trackedResponse.ok) {
-          const trackedData = await trackedResponse.json()
-          setTrackedStocks(trackedData)
-        }
-
-        // 売却済み銘柄（エラーでも続行）
-        if (soldResponse.ok) {
-          const soldData = await soldResponse.json()
-          setSoldStocks(soldData)
-        }
+        setTrackedStocks(trackedData)
+        setSoldStocks(soldData)
       } catch (err) {
         console.error("Error fetching data:", err)
         setError("銘柄の取得に失敗しました")
@@ -169,12 +83,11 @@ export default function MyStocksClient() {
     }
 
     fetchData()
-  }, [])
+  }, [fetchUserStocks, fetchTrackedStocks, fetchSoldStocks])
 
   // Fetch stock prices for active tab only
   useEffect(() => {
-    async function fetchPrices() {
-      // アクティブタブに応じてティッカーコードを取得
+    async function fetchPricesFromStore() {
       let tickerCodes: string[] = []
 
       if (activeTab === "portfolio") {
@@ -186,33 +99,27 @@ export default function MyStocksClient() {
           .filter((s) => s.type === "watchlist")
           .map((s) => s.stock.tickerCode)
       }
-      // tracked と sold タブは別のuseEffectで処理
 
       if (tickerCodes.length === 0) return
 
       try {
-        const response = await fetch(`/api/stocks/prices?tickers=${tickerCodes.join(",")}`)
-        if (!response.ok) {
-          throw new Error("Failed to fetch prices")
-        }
-        const data = await response.json()
-        const priceMap: Record<string, StockPrice> = {}
-        data.prices.forEach((price: StockPrice) => {
-          priceMap[price.tickerCode] = price
+        const priceMap = await fetchStockPrices(tickerCodes)
+        const priceRecord: Record<string, StockPrice> = {}
+        priceMap.forEach((price, ticker) => {
+          priceRecord[ticker] = price
         })
-        setPrices((prev) => ({ ...prev, ...priceMap }))
+        setPrices((prev) => ({ ...prev, ...priceRecord }))
       } catch (err) {
         console.error("Error fetching prices:", err)
       }
     }
 
     if (userStocks.length > 0 && (activeTab === "portfolio" || activeTab === "watchlist")) {
-      fetchPrices()
-      // Update prices every 5 minutes
-      const interval = setInterval(fetchPrices, 5 * 60 * 1000)
+      fetchPricesFromStore()
+      const interval = setInterval(fetchPricesFromStore, 5 * 60 * 1000)
       return () => clearInterval(interval)
     }
-  }, [userStocks, activeTab])
+  }, [userStocks, activeTab, fetchStockPrices])
 
   // Fetch stock prices for tracked stocks (only when tracked tab is active)
   useEffect(() => {
