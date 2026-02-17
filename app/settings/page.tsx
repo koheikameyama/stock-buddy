@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
 import Footer from "@/app/components/Footer"
 import BottomNavigation from "@/app/components/BottomNavigation"
+import BackButton from "@/app/components/BackButton"
 
 type PushSubscriptionState = {
   supported: boolean
@@ -56,7 +56,6 @@ const BUDGET_OPTIONS = [
 ]
 
 export default function SettingsPage() {
-  const router = useRouter()
   const [pushState, setPushState] = useState<PushSubscriptionState>({
     supported: false,
     subscribed: false,
@@ -216,6 +215,7 @@ export default function SettingsPage() {
 
       <div className="py-8 sm:py-12 px-4">
         <div className="max-w-3xl mx-auto">
+          <BackButton href="/dashboard" label="ダッシュボードに戻る" />
           <div className="mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               設定
@@ -535,15 +535,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* 戻るボタン */}
-            <div className="pt-4">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="w-full py-3 px-6 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-base"
-              >
-                ダッシュボードに戻る
-              </button>
-            </div>
           </div>
         </div>
       </div>
