@@ -514,7 +514,10 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                           )
                         } else {
                           // hold推奨時: 利確目標
-                          const isNowSellTime = currentPrice && Math.abs(limitPriceNum - currentPrice) / currentPrice < 0.01
+                          // 含み損がある場合は「成行で売却OK」を表示しない（利確は含み益があってこそ意味がある）
+                          const avgPrice = portfolioAnalysis?.averagePurchasePrice
+                          const hasLoss = avgPrice && currentPrice && currentPrice < avgPrice
+                          const isNowSellTime = !hasLoss && currentPrice && Math.abs(limitPriceNum - currentPrice) / currentPrice < 0.01
                           const priceDiff = currentPrice ? limitPriceNum - currentPrice : 0
                           const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
                           return (
