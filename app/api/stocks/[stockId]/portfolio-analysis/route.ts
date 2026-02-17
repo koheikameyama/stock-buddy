@@ -8,6 +8,7 @@ import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetch
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
+import { PORTFOLIO_ANALYSIS } from "@/lib/constants"
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -243,7 +244,7 @@ export async function POST(
     const daysSincePurchase = firstPurchaseDate
       ? dayjs().diff(dayjs(firstPurchaseDate), "day")
       : null
-    const isRecentPurchase = daysSincePurchase !== null && daysSincePurchase <= 7
+    const isRecentPurchase = daysSincePurchase !== null && daysSincePurchase <= PORTFOLIO_ANALYSIS.RECENT_PURCHASE_DAYS
 
     const averagePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0
 
@@ -478,7 +479,7 @@ ${newsContext}${marketContext}
 ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
 - この銘柄は購入後まだ${daysSincePurchase}日しか経っていません
 - 短期的な価格変動で「売り」や「売却検討」を推奨しないでください
-- 購入価格から-15%以上の含み損がない限り、基本は「保有継続」を推奨してください
+- 購入価格から${PORTFOLIO_ANALYSIS.FORCE_SELL_LOSS_THRESHOLD}%以上の含み損がない限り、基本は「保有継続」を推奨してください
 - recommendationは原則「hold」としてください
 - 感情コーチングでは「購入直後の変動は普通のこと」と安心感を与えてください
 ` : ""}- 財務指標（会社の規模、配当、株価水準、評価スコア）を分析に活用してください
@@ -611,8 +612,8 @@ ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
     const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
 
-    // 購入後7日以内かつ-15%以上の含み損がない場合、売り推奨を抑制
-    if (isRecentPurchase && profitPercent !== null && profitPercent > -15) {
+    // 購入直後かつ大幅な含み損がない場合、売り推奨を抑制
+    if (isRecentPurchase && profitPercent !== null && profitPercent > PORTFOLIO_ANALYSIS.FORCE_SELL_LOSS_THRESHOLD) {
       if (result.recommendation === "sell") {
         result.recommendation = "hold"
         result.advice = "購入してまだ日が浅いので、しばらく様子を見ましょう。" + (result.advice || "")

@@ -43,6 +43,14 @@ export const PBR_THRESHOLDS = {
   SLIGHTLY_HIGH: 1.5, // 1.5未満 = 適正
 } as const
 
+// ポートフォリオ分析の閾値
+export const PORTFOLIO_ANALYSIS = {
+  // 購入直後の猶予期間（日数）: この期間中は売り推奨を抑制
+  RECENT_PURCHASE_DAYS: 3,
+  // 猶予期間中でも警告する含み損の閾値（%）
+  FORCE_SELL_LOSS_THRESHOLD: -15,
+} as const
+
 // OpenAI設定
 export const OPENAI_CONFIG = {
   MODEL: "gpt-4o-mini",

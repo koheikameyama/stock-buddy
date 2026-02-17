@@ -592,6 +592,34 @@ LLM API連携を実装する際：
 
 **重要: LLMからの出力は必ず構造化し、型安全に扱ってください。**
 
+## マジックナンバーを避ける
+
+**コード内に直接数値を書かないでください。**
+
+### 基本ルール
+
+- 閾値、制限値、設定値は `lib/constants.ts` で定義する
+- 定数には意味のある名前をつける
+- コメントで何を意味する値か説明する
+
+### ✅ 良い例
+
+```typescript
+import { PORTFOLIO_ANALYSIS } from "@/lib/constants"
+
+if (daysSincePurchase <= PORTFOLIO_ANALYSIS.RECENT_PURCHASE_DAYS) {
+  // ...
+}
+```
+
+### ❌ 悪い例
+
+```typescript
+if (daysSincePurchase <= 3) {
+  // ...
+}
+```
+
 ## 後方互換性
 
 **URLやAPIの後方互換性は担保しません。**
