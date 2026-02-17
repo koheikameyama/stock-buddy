@@ -97,7 +97,7 @@ export async function GET(
 
     return NextResponse.json({
       lesson,
-      learningModule,
+      module: learningModule,
       prevLesson,
       nextLesson,
       relatedTerms,
