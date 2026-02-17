@@ -1,3 +1,5 @@
+"use client"
+
 // store/useAppStore.ts
 import { create } from "zustand"
 import { CACHE_TTL } from "@/lib/constants"
