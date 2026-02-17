@@ -213,25 +213,7 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
     <div className={wrapperClass}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">チャート</h2>
-          {/* Signal Badge */}
-          {patterns?.combined && (
-            <div
-              className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                patterns.combined.signal === "buy"
-                  ? "bg-green-100 text-green-700"
-                  : patterns.combined.signal === "sell"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {patterns.combined.signal === "buy" && "買いシグナル"}
-              {patterns.combined.signal === "sell" && "売りシグナル"}
-              {patterns.combined.signal === "neutral" && "様子見"}
-            </div>
-          )}
-        </div>
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">チャート</h2>
 
         {/* Period Selector */}
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
@@ -526,13 +508,29 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">{patterns.latest.learnMore}</p>
-              {patterns.combined.reasons.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <p className="text-xs text-gray-600">
-                    総合判断: {patterns.combined.reasons.join("、")}
-                  </p>
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">総合判断</span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      patterns.combined.signal === "buy"
+                        ? "bg-green-100 text-green-700"
+                        : patterns.combined.signal === "sell"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {patterns.combined.signal === "buy" && "買い傾向"}
+                    {patterns.combined.signal === "sell" && "売り傾向"}
+                    {patterns.combined.signal === "neutral" && "様子見"}
+                  </span>
                 </div>
-              )}
+                {patterns.combined.reasons.length > 0 && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    {patterns.combined.reasons.join("、")}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
