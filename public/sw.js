@@ -29,9 +29,7 @@ self.addEventListener('notificationclick', function(event) {
 
   event.notification.close();
 
-  // /watchlist/ を /my-stocks/ に変換（後方互換性）
-  let url = event.notification.data.url || '/';
-  url = url.replace(/^\/watchlist\//, '/my-stocks/');
+  const url = event.notification.data.url || '/';
 
   event.waitUntil(
     clients.openWindow(url)

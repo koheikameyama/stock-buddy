@@ -135,9 +135,7 @@ export default function NotificationsPage() {
       handleMarkAsRead(notification.id)
     }
     if (notification.url) {
-      // /watchlist/ を /my-stocks/ に変換（後方互換性）
-      const url = notification.url.replace(/^\/watchlist\//, "/my-stocks/")
-      router.push(url)
+      router.push(notification.url)
     }
   }
 
