@@ -589,6 +589,19 @@ ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
     const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
 
+    // 購入後7日以内かつ-15%以上の含み損がない場合、売り推奨を抑制
+    if (isRecentPurchase && profitPercent !== null && profitPercent > -15) {
+      if (result.recommendation === "sell") {
+        result.recommendation = "hold"
+        result.advice = "購入してまだ日が浅いので、しばらく様子を見ましょう。" + (result.advice || "")
+      }
+      // ステータスも過度にネガティブにしない
+      if (result.statusType === "warning") {
+        result.statusType = "caution"
+        result.simpleStatus = "注意"
+      }
+    }
+
     // データベースに保存
     const now = dayjs.utc().toDate()
 
