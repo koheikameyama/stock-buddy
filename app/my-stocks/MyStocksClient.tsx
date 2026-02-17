@@ -131,25 +131,16 @@ export default function MyStocksClient() {
   } | null>(null)
   // 追跡銘柄用
   const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([])
-  const [trackedStocksLoading, setTrackedStocksLoading] = useState(false)
-  const [trackedStocksFetched, setTrackedStocksFetched] = useState(false)
   // 売却済み銘柄用
   const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
-  const [soldStocksLoading, setSoldStocksLoading] = useState(false)
-  const [soldStocksFetched, setSoldStocksFetched] = useState(false)
-  // タブ件数（遅延ロード用）
-  const [tabCounts, setTabCounts] = useState<{
-    tracked: number
-    sold: number
-  }>({ tracked: 0, sold: 0 })
-
-  // Fetch user stocks (portfolio + watchlist) and tab counts on initial load
+  // Fetch all data on initial load
   useEffect(() => {
     async function fetchData() {
       try {
-        const [stocksResponse, countsResponse] = await Promise.all([
+        const [stocksResponse, trackedResponse, soldResponse] = await Promise.all([
           fetch("/api/user-stocks?mode=all"),
-          fetch("/api/my-stocks/counts"),
+          fetch("/api/tracked-stocks"),
+          fetch("/api/sold-stocks"),
         ])
 
         if (!stocksResponse.ok) {
@@ -158,13 +149,16 @@ export default function MyStocksClient() {
         const stocksData = await stocksResponse.json()
         setUserStocks(stocksData)
 
-        // 件数を取得（エラーでも続行）
-        if (countsResponse.ok) {
-          const countsData = await countsResponse.json()
-          setTabCounts({
-            tracked: countsData.tracked ?? 0,
-            sold: countsData.sold ?? 0,
-          })
+        // 追跡銘柄（エラーでも続行）
+        if (trackedResponse.ok) {
+          const trackedData = await trackedResponse.json()
+          setTrackedStocks(trackedData)
+        }
+
+        // 売却済み銘柄（エラーでも続行）
+        if (soldResponse.ok) {
+          const soldData = await soldResponse.json()
+          setSoldStocks(soldData)
         }
       } catch (err) {
         console.error("Error fetching data:", err)
@@ -177,11 +171,23 @@ export default function MyStocksClient() {
     fetchData()
   }, [])
 
-  // Fetch stock prices for user stocks
+  // Fetch stock prices for active tab only
   useEffect(() => {
     async function fetchPrices() {
-      // ユーザー銘柄のティッカーコードを取得
-      const tickerCodes = userStocks.map((s) => s.stock.tickerCode)
+      // アクティブタブに応じてティッカーコードを取得
+      let tickerCodes: string[] = []
+
+      if (activeTab === "portfolio") {
+        tickerCodes = userStocks
+          .filter((s) => s.type === "portfolio" && (s.quantity ?? 0) > 0)
+          .map((s) => s.stock.tickerCode)
+      } else if (activeTab === "watchlist") {
+        tickerCodes = userStocks
+          .filter((s) => s.type === "watchlist")
+          .map((s) => s.stock.tickerCode)
+      }
+      // tracked と sold タブは別のuseEffectで処理
+
       if (tickerCodes.length === 0) return
 
       try {
@@ -200,13 +206,13 @@ export default function MyStocksClient() {
       }
     }
 
-    if (userStocks.length > 0) {
+    if (userStocks.length > 0 && (activeTab === "portfolio" || activeTab === "watchlist")) {
       fetchPrices()
       // Update prices every 5 minutes
       const interval = setInterval(fetchPrices, 5 * 60 * 1000)
       return () => clearInterval(interval)
     }
-  }, [userStocks])
+  }, [userStocks, activeTab])
 
   // Fetch stock prices for tracked stocks (only when tracked tab is active)
   useEffect(() => {
@@ -287,49 +293,6 @@ export default function MyStocksClient() {
     }
   }, [userStocks])
 
-  // Fetch tracked stocks when tab is switched
-  useEffect(() => {
-    async function fetchTrackedStocks() {
-      if (activeTab !== "tracked" || trackedStocksFetched) return
-
-      setTrackedStocksLoading(true)
-      try {
-        const response = await fetch("/api/tracked-stocks")
-        if (!response.ok) throw new Error("Failed to fetch tracked stocks")
-        const data = await response.json()
-        setTrackedStocks(data)
-        setTrackedStocksFetched(true)
-      } catch (err) {
-        console.error("Error fetching tracked stocks:", err)
-      } finally {
-        setTrackedStocksLoading(false)
-      }
-    }
-
-    fetchTrackedStocks()
-  }, [activeTab, trackedStocksFetched])
-
-  // Fetch sold stocks when tab is switched
-  useEffect(() => {
-    async function fetchSoldStocks() {
-      if (activeTab !== "sold" || soldStocksFetched) return
-
-      setSoldStocksLoading(true)
-      try {
-        const response = await fetch("/api/sold-stocks")
-        if (!response.ok) throw new Error("Failed to fetch sold stocks")
-        const data = await response.json()
-        setSoldStocks(data)
-        setSoldStocksFetched(true)
-      } catch (err) {
-        console.error("Error fetching sold stocks:", err)
-      } finally {
-        setSoldStocksLoading(false)
-      }
-    }
-
-    fetchSoldStocks()
-  }, [activeTab, soldStocksFetched])
 
   // 追跡銘柄をウォッチリストに追加
   const handleTrackedToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
@@ -580,7 +543,7 @@ export default function MyStocksClient() {
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              追跡 ({trackedStocksFetched ? trackedStocks.length : tabCounts.tracked})
+              追跡 ({trackedStocks.length})
             </button>
             <button
               onClick={() => setActiveTab("sold")}
@@ -590,7 +553,7 @@ export default function MyStocksClient() {
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              過去の保有 ({soldStocksFetched ? soldStocks.length : tabCounts.sold})
+              過去の保有 ({soldStocks.length})
             </button>
           </div>
           {/* スクロール可能インジケーター（スマホのみ） */}
@@ -628,12 +591,7 @@ export default function MyStocksClient() {
                   追跡銘柄を追加
                 </button>
               </div>
-              {trackedStocksLoading ? (
-                <div className="text-center py-8">
-                  <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
-                  <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
-                </div>
-              ) : trackedStocks.length === 0 ? (
+              {trackedStocks.length === 0 ? (
                 <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                     追跡中の銘柄はありません
@@ -664,12 +622,7 @@ export default function MyStocksClient() {
           ) : activeTab === "sold" ? (
             // 保有してた銘柄タブ
             <>
-              {soldStocksLoading ? (
-                <div className="text-center py-8">
-                  <div className="inline-block animate-spin rounded-full h-10 sm:h-12 w-10 sm:w-12 border-b-2 border-blue-600"></div>
-                  <p className="mt-4 text-sm sm:text-base text-gray-600">読み込み中...</p>
-                </div>
-              ) : soldStocks.length === 0 ? (
+              {soldStocks.length === 0 ? (
                 <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                     保有してた銘柄はありません

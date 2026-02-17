@@ -49,7 +49,7 @@ export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchas
   return (
     <div
       onClick={handleClick}
-      className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
+      className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
