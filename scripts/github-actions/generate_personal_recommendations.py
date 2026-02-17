@@ -505,12 +505,9 @@ def save_user_recommendations(
     stock_map: dict[str, str]
 ) -> int:
     """おすすめをDBに保存（upsert）"""
-    # フロントエンドと同じ日付計算: JSTの今日00:00をUTCに変換し、日付部分を取得
-    # JST 2026-02-16 00:00 → UTC 2026-02-15 15:00 → date: 2026-02-15
+    # DATE型はタイムゾーン情報を持たないため、JSTの日付をそのまま渡す
     jst = ZoneInfo("Asia/Tokyo")
-    today_jst = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
-    today_utc = today_jst.astimezone(timezone.utc)
-    today = today_utc.date()  # DATE型カラムには日付オブジェクトを渡す
+    today = datetime.now(jst).date()
 
     with conn.cursor() as cur:
         saved = 0

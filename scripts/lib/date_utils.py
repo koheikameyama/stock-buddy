@@ -18,10 +18,21 @@ JST = ZoneInfo("Asia/Tokyo")
 def get_today_for_db() -> datetime:
     """
     今日の日付（JST 00:00:00をUTCに変換）
-    DB保存・検索用
+    DB保存・検索用（DateTime型カラム向け）
     """
     today_jst = datetime.now(JST).replace(hour=0, minute=0, second=0, microsecond=0)
     return today_jst.astimezone(timezone.utc)
+
+
+def get_today_jst_date():
+    """
+    今日の日付（JSTの日付オブジェクト）
+    DB保存用（DATE型カラム向け）
+
+    DATE型はタイムゾーン情報を持たないため、
+    JSTの日付をそのまま渡す必要がある。
+    """
+    return datetime.now(JST).date()
 
 
 def get_days_ago_for_db(days: int) -> datetime:

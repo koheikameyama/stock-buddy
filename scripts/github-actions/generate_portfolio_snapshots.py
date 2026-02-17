@@ -17,7 +17,7 @@ import psycopg2.extras
 
 # scriptsディレクトリをパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from lib.date_utils import get_today_for_db
+from lib.date_utils import get_today_jst_date
 
 
 def get_database_url() -> str:
@@ -211,8 +211,8 @@ def main():
     print(f"Time: {datetime.now().isoformat()}")
 
     conn = psycopg2.connect(get_database_url())
-    today = get_today_for_db()
-    print(f"Snapshot date: {today.date()}")
+    today = get_today_jst_date()
+    print(f"Snapshot date: {today}")
 
     try:
         # 1. 保有銘柄があるユーザーを取得
