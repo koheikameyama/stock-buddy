@@ -174,7 +174,7 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               <span className="font-semibold text-gray-900">{quantity}株</span>
             </div>
 
-            {price && (
+            {price ? (
               <div
                 className={`rounded-lg p-3 sm:p-4 ${
                   profit >= 0
@@ -218,6 +218,25 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                   )
                 })()}
               </div>
+            ) : (
+              /* 価格未取得時も emotionalCoaching と analyzedAt は表示 */
+              (stock.emotionalCoaching || analyzedAt) && (
+                <div className="rounded-lg p-3 sm:p-4 bg-gray-50">
+                  {stock.emotionalCoaching && (
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      {stock.emotionalCoaching}
+                    </p>
+                  )}
+                  {analyzedAt && (() => {
+                    const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
+                    return (
+                      <p className={`text-xs text-gray-400 text-right ${stock.emotionalCoaching ? "mt-2 border-t border-gray-200 pt-2" : ""}`}>
+                        <span className={colorClass}>{label}</span> | {relative}
+                      </p>
+                    )
+                  })()}
+                </div>
+              )
             )}
 
           </>
