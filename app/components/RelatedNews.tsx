@@ -57,7 +57,14 @@ export default function RelatedNews({ stockId, embedded = false }: { stockId: st
   }
 
   if (news.length === 0) {
-    return null
+    return (
+      <section className={wrapperClass}>
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
+          関連ニュース
+        </h2>
+        <p className="text-sm text-gray-500">関連ニュースがありません</p>
+      </section>
+    )
   }
 
   const sentimentLabel = (sentiment: string | null) => {
