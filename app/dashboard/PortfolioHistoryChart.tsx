@@ -112,7 +112,7 @@ export default function PortfolioHistoryChart() {
 
   return (
     <div className="bg-white rounded-lg border p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <div className="flex items-center gap-2">
           <span className="text-lg">📈</span>
           <h3 className="font-semibold">資産推移</h3>
@@ -127,15 +127,15 @@ export default function PortfolioHistoryChart() {
             </span>
           )}
         </div>
-        <div className="flex bg-gray-100 rounded-lg p-1">
+        <div className="flex bg-gray-100 rounded-lg p-0.5 mt-2 w-fit">
           {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-2 py-1 text-xs rounded-md transition-colors ${
+              className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
                 period === p
                   ? "bg-white shadow text-gray-900"
-                  : "text-gray-600"
+                  : "text-gray-500"
               }`}
             >
               {PERIOD_LABELS[p]}
