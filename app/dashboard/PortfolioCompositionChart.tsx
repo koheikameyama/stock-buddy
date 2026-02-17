@@ -109,28 +109,28 @@ export default function PortfolioCompositionChart() {
 
   return (
     <div className="bg-white rounded-lg border p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <div className="flex items-center gap-2">
           <span className="text-lg">📊</span>
           <h3 className="font-semibold">ポートフォリオ構成</h3>
         </div>
-        <div className="flex bg-gray-100 rounded-lg p-1">
+        <div className="flex bg-gray-100 rounded-lg p-0.5 mt-2 w-fit">
           <button
             onClick={() => setViewMode("sector")}
-            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+            className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
               viewMode === "sector"
                 ? "bg-white shadow text-gray-900"
-                : "text-gray-600"
+                : "text-gray-500"
             }`}
           >
             セクター別
           </button>
           <button
             onClick={() => setViewMode("stock")}
-            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+            className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
               viewMode === "stock"
                 ? "bg-white shadow text-gray-900"
-                : "text-gray-600"
+                : "text-gray-500"
             }`}
           >
             銘柄別
