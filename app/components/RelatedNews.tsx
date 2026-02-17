@@ -13,6 +13,17 @@ interface NewsItem {
   matchType: "ticker" | "sector"
 }
 
+const sentimentLabel = (sentiment: string | null) => {
+  switch (sentiment) {
+    case "positive":
+      return { text: "好材料", className: "bg-green-100 text-green-700" }
+    case "negative":
+      return { text: "悪材料", className: "bg-red-100 text-red-700" }
+    default:
+      return { text: "中立", className: "bg-gray-100 text-gray-600" }
+  }
+}
+
 export default function RelatedNews({ stockId, embedded = false }: { stockId: string; embedded?: boolean }) {
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,12 +49,9 @@ export default function RelatedNews({ stockId, embedded = false }: { stockId: st
     ? "mt-6"
     : "bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6"
 
-  if (loading) {
-    return (
-      <section className={wrapperClass}>
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-          関連ニュース
-        </h2>
+  const renderContent = () => {
+    if (loading) {
+      return (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse">
@@ -52,38 +60,14 @@ export default function RelatedNews({ stockId, embedded = false }: { stockId: st
             </div>
           ))}
         </div>
-      </section>
-    )
-  }
-
-  if (news.length === 0) {
-    return (
-      <section className={wrapperClass}>
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-          関連ニュース
-        </h2>
-        <p className="text-sm text-gray-500">関連ニュースがありません</p>
-      </section>
-    )
-  }
-
-  const sentimentLabel = (sentiment: string | null) => {
-    switch (sentiment) {
-      case "positive":
-        return { text: "好材料", className: "bg-green-100 text-green-700" }
-      case "negative":
-        return { text: "悪材料", className: "bg-red-100 text-red-700" }
-      default:
-        return { text: "中立", className: "bg-gray-100 text-gray-600" }
+      )
     }
-  }
 
-  return (
-    <section className={wrapperClass}>
-      <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-        関連ニュース
-      </h2>
+    if (news.length === 0) {
+      return <p className="text-sm text-gray-500">関連ニュースがありません</p>
+    }
 
+    return (
       <div className="space-y-3">
         {news.map((item) => {
           const sentiment = sentimentLabel(item.sentiment)
@@ -154,6 +138,15 @@ export default function RelatedNews({ stockId, embedded = false }: { stockId: st
           )
         })}
       </div>
+    )
+  }
+
+  return (
+    <section className={wrapperClass}>
+      <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
+        関連ニュース
+      </h2>
+      {renderContent()}
     </section>
   )
 }
