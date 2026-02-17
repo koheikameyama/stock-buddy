@@ -87,13 +87,15 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     if (!portfolioRecommendation) return null
 
     // sell/partial_sellの場合、含み損/含み益で表示を切り替え
+    // 価格が取得できていない場合は利確として扱う
+    const hasProfit = currentPrice > 0 ? profit >= 0 : true
     if (portfolioRecommendation === "sell") {
-      return profit >= 0
+      return hasProfit
         ? { text: "利確検討", color: "text-amber-700", bg: "bg-amber-50" }
         : { text: "損切り検討", color: "text-red-700", bg: "bg-red-50" }
     }
     if (portfolioRecommendation === "partial_sell") {
-      return profit >= 0
+      return hasProfit
         ? { text: "一部利確検討", color: "text-amber-700", bg: "bg-amber-50" }
         : { text: "一部損切り検討", color: "text-orange-700", bg: "bg-orange-50" }
     }
