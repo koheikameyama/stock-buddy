@@ -435,7 +435,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                   onClick={() => setShowBuyAlertModal(true)}
                   className="px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded transition-colors"
                 >
-                  🔔アラート
+                  🔔買いアラート
                 </button>
               </>
             }
