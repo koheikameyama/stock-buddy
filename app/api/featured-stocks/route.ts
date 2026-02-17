@@ -24,25 +24,27 @@ export async function GET() {
     // 日本時間で今日の00:00:00をUTCに変換
     const todayUTC = getTodayForDB()
 
-    // ユーザーの銘柄IDを取得
+    // ユーザーの銘柄IDを取得（UserStock.idも含める）
     const [watchlist, portfolio, tracked] = await Promise.all([
       prisma.watchlistStock.findMany({
         where: { userId },
-        select: { stockId: true },
+        select: { id: true, stockId: true },
       }),
       prisma.portfolioStock.findMany({
         where: { userId },
-        select: { stockId: true },
+        select: { id: true, stockId: true },
       }),
       prisma.trackedStock.findMany({
         where: { userId },
-        select: { stockId: true },
+        select: { id: true, stockId: true },
       }),
     ])
     // 保有中 = ポートフォリオにある銘柄
     const portfolioStockIds = portfolio.map((s) => s.stockId)
+    const portfolioMap = new Map(portfolio.map((s) => [s.stockId, s.id]))
     // ウォッチリスト = 気になる銘柄
     const watchlistStockIds = watchlist.map((s) => s.stockId)
+    const watchlistMap = new Map(watchlist.map((s) => [s.stockId, s.id]))
     // 追跡中
     const trackedStockIds = tracked.map((s) => s.stockId)
 
@@ -55,6 +57,7 @@ export async function GET() {
       isOwned: boolean
       isRegistered: boolean
       isTracked: boolean
+      userStockId: string | null // ポートフォリオまたはウォッチリストのID
       stock: {
         id: string
         tickerCode: string
@@ -114,6 +117,7 @@ export async function GET() {
         isOwned: portfolioStockIds.includes(r.stockId),
         isRegistered: watchlistStockIds.includes(r.stockId),
         isTracked: trackedStockIds.includes(r.stockId),
+        userStockId: portfolioMap.get(r.stockId) || watchlistMap.get(r.stockId) || null,
         stock: {
           id: r.stock.id,
           tickerCode: r.stock.tickerCode,

@@ -14,6 +14,7 @@ interface FeaturedStock {
   isOwned: boolean // ポートフォリオにある場合
   isRegistered: boolean // ウォッチリストにある場合
   isTracked: boolean // 追跡中の場合
+  userStockId: string | null // ポートフォリオまたはウォッチリストのID
   stock: {
     id: string
     tickerCode: string
@@ -209,7 +210,7 @@ export default function FeaturedStocksByCategory() {
           {stock.isOwned && <div />}
 
           <Link
-            href={`/recommendations/${stock.stockId}`}
+            href={stock.userStockId ? `/my-stocks/${stock.userStockId}` : `/stocks/${stock.stockId}`}
             className={CARD_FOOTER_STYLES.detailLink}
           >
             <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>

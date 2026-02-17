@@ -3,10 +3,10 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
-import RecommendationDetailClient from "./RecommendationDetailClient"
+import StockDetailClient from "./StockDetailClient"
 import { StockDetailSkeleton } from "@/components/skeletons"
 
-export default async function RecommendationDetailPage({
+export default async function StockDetailPage({
   params,
 }: {
   params: Promise<{ stockId: string }>
@@ -29,20 +29,20 @@ export default async function RecommendationDetailPage({
   return (
     <AuthenticatedLayout maxWidth="6xl">
       <Suspense fallback={<StockDetailSkeleton />}>
-        <RecommendationDetailContent stockId={stockId} userId={user.id} />
+        <StockDetailContent stockId={stockId} userId={user.id} />
       </Suspense>
     </AuthenticatedLayout>
   )
 }
 
-async function RecommendationDetailContent({
+async function StockDetailContent({
   stockId,
   userId,
 }: {
   stockId: string
   userId: string
 }) {
-  // Fetch stock and its recommendation data
+  // Fetch stock and related data
   const [stock, personalRec, featuredStock, watchlistEntry, trackedEntry] = await Promise.all([
     prisma.stock.findUnique({
       where: { id: stockId },
@@ -114,11 +114,12 @@ async function RecommendationDetailContent({
     : null
 
   return (
-    <RecommendationDetailClient
+    <StockDetailClient
       stock={stockData}
       recommendation={recommendation}
       isInWatchlist={!!watchlistEntry}
       isTracked={!!trackedEntry}
+      trackedStockId={trackedEntry?.id}
     />
   )
 }

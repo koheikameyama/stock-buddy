@@ -22,7 +22,7 @@ interface StockActionButtonsProps {
   isInWatchlist?: boolean
   isTracked?: boolean
   onWatchlistSuccess?: () => void
-  onTrackedSuccess?: () => void
+  onTrackedSuccess?: (trackedStockId?: string) => void
   stockRiskInfo?: StockRiskInfo
 }
 
@@ -113,14 +113,14 @@ export default function StockActionButtons({
         }),
       })
 
+      const data = await response.json()
       if (!response.ok) {
-        const data = await response.json()
         throw new Error(data.error || "追加に失敗しました")
       }
 
       toast.success("追跡に追加しました")
       if (onTrackedSuccess) {
-        onTrackedSuccess()
+        onTrackedSuccess(data.id)
       } else if (redirectTo) {
         router.push(redirectTo)
       }

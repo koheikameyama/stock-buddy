@@ -58,7 +58,7 @@ export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPu
   }, [trackedStock.stockId])
 
   const handleClick = () => {
-    router.push(`/my-stocks/tracked/${trackedStock.id}`)
+    router.push(`/stocks/${trackedStock.stockId}`)
   }
 
   return (
