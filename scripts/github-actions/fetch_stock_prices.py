@@ -134,6 +134,12 @@ def _compute_price_data(hist) -> dict | None:
 
     latest = hist.iloc[-1]
     latest_price = float(latest["Close"])
+
+    # DECIMAL(12, 2)の上限チェック（10^10未満 = 99億9999万9999.99まで）
+    MAX_PRICE = 9_999_999_999.99
+    if latest_price > MAX_PRICE or latest_price < 0:
+        return None
+
     volume = int(latest["Volume"]) if not np.isnan(latest["Volume"]) else 0
 
     # 前日比変化率
@@ -168,13 +174,25 @@ def _compute_price_data(hist) -> dict | None:
             if older_avg > 0:
                 volume_ratio = round(recent_avg / older_avg, 2)
 
+    # DECIMAL(8, 2)の上限チェック（10^6未満 = 99万9999.99まで）
+    MAX_RATE = 999_999.99
+
+    def clamp_rate(val: float | None) -> float | None:
+        if val is None:
+            return None
+        if val > MAX_RATE:
+            return MAX_RATE
+        if val < -MAX_RATE:
+            return -MAX_RATE
+        return val
+
     return {
         "latestPrice": latest_price,
         "latestVolume": volume,
-        "dailyChangeRate": round(daily_change_rate, 2),
-        "weekChangeRate": round(change_rate, 2),
-        "volatility": volatility,
-        "volumeRatio": volume_ratio,
+        "dailyChangeRate": clamp_rate(round(daily_change_rate, 2)),
+        "weekChangeRate": clamp_rate(round(change_rate, 2)),
+        "volatility": clamp_rate(volatility),
+        "volumeRatio": clamp_rate(volume_ratio),
     }
 
 
