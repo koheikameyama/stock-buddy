@@ -520,11 +520,16 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                           return (
                             <>
                               <p className="text-xs text-gray-500">
-                                {isNowSellTime ? "今が売り時" : "利確目標"}
+                                {isNowSellTime ? "利確目標に到達" : "利確目標"}
                               </p>
                               <p className="text-base font-bold text-green-600">
-                                {isNowSellTime ? "成行で売却OK" : `${formatPrice(prediction.limitPrice)}円`}
+                                {isNowSellTime ? "利確を検討" : `${formatPrice(prediction.limitPrice)}円`}
                               </p>
+                              {isNowSellTime && (
+                                <p className="text-xs text-green-600">
+                                  目標価格付近に達しています
+                                </p>
+                              )}
                               {!isNowSellTime && currentPrice && priceDiff > 0 && (
                                 <p className="text-xs text-green-600">
                                   あと+{priceDiff.toLocaleString()}円 / +{priceDiffPercent}%で到達
