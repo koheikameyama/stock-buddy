@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { getTodayForDB } from "@/lib/date-utils"
 import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
 import StockDetailClient from "./StockDetailClient"
 import { StockDetailSkeleton } from "@/components/skeletons"
@@ -47,15 +48,13 @@ async function StockDetailContent({
     prisma.stock.findUnique({
       where: { id: stockId },
     }),
-    // Get personal recommendation for this user
+    // Get today's personal recommendation for this user
     prisma.userDailyRecommendation.findFirst({
-      where: { stockId, userId },
-      orderBy: { date: "desc" },
+      where: { stockId, userId, date: getTodayForDB() },
     }),
-    // Get featured stock (if this is from "みんなが注目")
+    // Get today's featured stock (if this is from "みんなが注目")
     prisma.dailyFeaturedStock.findFirst({
-      where: { stockId },
-      orderBy: { date: "desc" },
+      where: { stockId, date: getTodayForDB() },
     }),
     // Check if user has this stock in watchlist
     prisma.watchlistStock.findFirst({
