@@ -296,11 +296,11 @@ def fetch_watchlist_buy_target_alerts(conn) -> list[dict]:
     """
     ウォッチリスト銘柄の買い時到達アラートをチェック
 
-    優先順位:
-    1. ユーザーが targetBuyPrice を設定 → その価格
-    2. 未設定 → AIの StockAnalysis.limitPrice を使用
+    条件:
+    - ユーザーが targetBuyPrice を設定している
+    - 現在価格 <= 目標買値
 
-    条件: 現在価格 <= 目標買値
+    AIの買い判断（purchaseRecommendation）も取得し、通知メッセージを分岐させる
     """
     alerts = []
 
@@ -313,36 +313,31 @@ def fetch_watchlist_buy_target_alerts(conn) -> list[dict]:
                 s."tickerCode",
                 s."latestPrice",
                 w."targetBuyPrice",
-                sa."limitPrice" as "aiLimitPrice",
+                sa."purchaseRecommendation",
                 w.id as "watchlistStockId"
             FROM "WatchlistStock" w
             JOIN "Stock" s ON w."stockId" = s.id
             LEFT JOIN LATERAL (
-                SELECT "limitPrice"
+                SELECT "purchaseRecommendation"
                 FROM "StockAnalysis"
                 WHERE "stockId" = s.id
                 ORDER BY "analyzedAt" DESC
                 LIMIT 1
             ) sa ON true
             WHERE s."latestPrice" IS NOT NULL
-              AND (w."targetBuyPrice" IS NOT NULL OR sa."limitPrice" IS NOT NULL)
+              AND w."targetBuyPrice" IS NOT NULL
         ''')
 
         for row in cur.fetchall():
             latest_price = float(row[4]) if row[4] else 0
             user_target_price = float(row[5]) if row[5] else None
-            ai_limit_price = float(row[6]) if row[6] else None
+            purchase_recommendation = row[6]  # "買い" or "様子見"
             watchlist_stock_id = row[7]
 
-            # 目標買値を決定（ユーザー設定優先）
-            if user_target_price is not None:
-                target_price = user_target_price
-                source = "user"
-            elif ai_limit_price is not None:
-                target_price = ai_limit_price
-                source = "ai"
-            else:
-                continue  # 目標価格がない場合はスキップ
+            if user_target_price is None:
+                continue
+
+            target_price = user_target_price
 
             # 現在価格が目標買値以下なら通知
             if latest_price <= target_price:
@@ -356,7 +351,7 @@ def fetch_watchlist_buy_target_alerts(conn) -> list[dict]:
                     "latestPrice": latest_price,
                     "targetPrice": target_price,
                     "discountPercent": discount_percent,
-                    "source": source,
+                    "purchaseRecommendation": purchase_recommendation,
                     "type": "buy_target",
                     "watchlistStockId": watchlist_stock_id,
                 })
@@ -494,17 +489,20 @@ def main():
         logger.info(f"  Found {len(buy_target_alerts)} buy target alerts")
 
         for alert in buy_target_alerts:
-            # ユーザー設定 or AI提案で通知メッセージを変える
-            if alert.get("source") == "user":
+            is_buy = alert.get("purchaseRecommendation") == "買い"
+
+            if is_buy:
+                title = f"💰 {alert['stockName']}が買い時です"
                 body = f"現在価格 {alert['latestPrice']:,.0f}円 が目標買値 {alert['targetPrice']:,.0f}円 以下になりました"
             else:
-                body = f"現在価格 {alert['latestPrice']:,.0f}円 がAI提案買値 {alert['targetPrice']:,.0f}円 以下になりました"
+                title = f"📍 {alert['stockName']}が目標買値に到達"
+                body = f"現在価格 {alert['latestPrice']:,.0f}円（目標買値 {alert['targetPrice']:,.0f}円）※現在は様子見判断です"
 
             notifications.append({
                 "userId": alert["userId"],
                 "type": "buy_target",
                 "stockId": alert["stockId"],
-                "title": f"💰 {alert['stockName']}が買い時です",
+                "title": title,
                 "body": body,
                 "url": f"/my-stocks/{alert['watchlistStockId']}",
                 "triggerPrice": alert["latestPrice"],
