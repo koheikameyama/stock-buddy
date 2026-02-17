@@ -2,23 +2,15 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-
-interface PortfolioSummaryData {
-  totalValue: number
-  totalCost: number
-  unrealizedGain: number
-  unrealizedGainPercent: number
-}
-
-interface NikkeiData {
-  changePercent: number
-}
+import { useAppStore } from "@/store/useAppStore"
+import type { PortfolioSummary as PortfolioSummaryData, NikkeiData } from "@/store/types"
 
 interface PortfolioSummaryProps {
   hasHoldings: boolean
 }
 
 export default function PortfolioSummary({ hasHoldings }: PortfolioSummaryProps) {
+  const { fetchPortfolioSummary, fetchNikkei } = useAppStore()
   const [summary, setSummary] = useState<PortfolioSummaryData | null>(null)
   const [nikkei, setNikkei] = useState<NikkeiData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,20 +23,13 @@ export default function PortfolioSummary({ hasHoldings }: PortfolioSummaryProps)
 
     const fetchData = async () => {
       try {
-        const [summaryRes, nikkeiRes] = await Promise.all([
-          fetch("/api/portfolio/summary"),
-          fetch("/api/market/nikkei"),
+        const [summaryData, nikkeiData] = await Promise.all([
+          fetchPortfolioSummary(),
+          fetchNikkei(),
         ])
 
-        const summaryData = await summaryRes.json()
-        const nikkeiData = await nikkeiRes.json()
-
-        if (summaryRes.ok && summaryData.summary) {
-          setSummary(summaryData.summary)
-        }
-        if (nikkeiRes.ok) {
-          setNikkei(nikkeiData)
-        }
+        setSummary(summaryData)
+        setNikkei(nikkeiData)
       } catch (error) {
         console.error("Error fetching data:", error)
       } finally {
@@ -53,7 +38,7 @@ export default function PortfolioSummary({ hasHoldings }: PortfolioSummaryProps)
     }
 
     fetchData()
-  }, [hasHoldings])
+  }, [hasHoldings, fetchPortfolioSummary, fetchNikkei])
 
   if (!hasHoldings) {
     return null
