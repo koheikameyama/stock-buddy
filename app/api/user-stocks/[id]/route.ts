@@ -8,6 +8,8 @@ import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 
 interface UpdateUserStockRequest {
   type?: "watchlist" | "portfolio"
+  // Watchlist fields
+  targetBuyPrice?: number | null
 }
 
 interface ConvertRequest {
@@ -221,7 +223,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
   }
 }
 
-async function handleUpdate(id: string, userId: string, _body: UpdateUserStockRequest) {
+async function handleUpdate(id: string, userId: string, body: UpdateUserStockRequest) {
   // Find in both tables
   const [watchlistStock, portfolioStock] = await Promise.all([
     prisma.watchlistStock.findUnique({ where: { id }, include: { stock: true } }),
@@ -241,26 +243,40 @@ async function handleUpdate(id: string, userId: string, _body: UpdateUserStockRe
   }
 
   if (watchlistStock) {
+    // Update targetBuyPrice if provided
+    const updateData: { targetBuyPrice?: number | null } = {}
+    if ("targetBuyPrice" in body) {
+      updateData.targetBuyPrice = body.targetBuyPrice
+    }
+
+    const updated = Object.keys(updateData).length > 0
+      ? await prisma.watchlistStock.update({
+          where: { id },
+          data: updateData,
+          include: { stock: true },
+        })
+      : watchlistStock
+
     // リアルタイム株価を取得
-    const watchlistPrices = await fetchStockPrices([watchlistStock.stock.tickerCode])
+    const watchlistPrices = await fetchStockPrices([updated.stock.tickerCode])
     const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null
 
-    // Watchlist has no editable fields now, just return current data
     const response: UserStockResponse = {
-      id: watchlistStock.id,
-      userId: watchlistStock.userId,
-      stockId: watchlistStock.stockId,
+      id: updated.id,
+      userId: updated.userId,
+      stockId: updated.stockId,
       type: "watchlist",
+      targetBuyPrice: updated.targetBuyPrice ? Number(updated.targetBuyPrice) : null,
       stock: {
-        id: watchlistStock.stock.id,
-        tickerCode: watchlistStock.stock.tickerCode,
-        name: watchlistStock.stock.name,
-        sector: watchlistStock.stock.sector,
-        market: watchlistStock.stock.market,
+        id: updated.stock.id,
+        tickerCode: updated.stock.tickerCode,
+        name: updated.stock.name,
+        sector: updated.stock.sector,
+        market: updated.stock.market,
         currentPrice: watchlistCurrentPrice,
       },
-      createdAt: watchlistStock.createdAt.toISOString(),
-      updatedAt: watchlistStock.updatedAt.toISOString(),
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
     }
 
     return NextResponse.json(response)

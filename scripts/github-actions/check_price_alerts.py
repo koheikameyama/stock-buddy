@@ -2,15 +2,14 @@
 """
 株価アラートチェックスクリプト
 
-ポートフォリオの銘柄を監視し、条件達成時に通知を送信する。
+ポートフォリオ・ウォッチリストの銘柄を監視し、条件達成時に通知を送信する。
 
 通知トリガー:
 - 急騰（+5%以上）：ポートフォリオ
 - 急落（-5%以下）：ポートフォリオ
 - 指値到達（ポートフォリオ）
 - 逆指値到達（ストップロス）
-
-※ ウォッチリストの買い推奨通知は generate_purchase_recommendations.py で処理
+- 買い時到達（ウォッチリスト）
 """
 
 import os
@@ -293,6 +292,78 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
     return alerts
 
 
+def fetch_watchlist_buy_target_alerts(conn) -> list[dict]:
+    """
+    ウォッチリスト銘柄の買い時到達アラートをチェック
+
+    優先順位:
+    1. ユーザーが targetBuyPrice を設定 → その価格
+    2. 未設定 → AIの StockAnalysis.limitPrice を使用
+
+    条件: 現在価格 <= 目標買値
+    """
+    alerts = []
+
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT
+                w."userId",
+                s.id as "stockId",
+                s.name as "stockName",
+                s."tickerCode",
+                s."latestPrice",
+                w."targetBuyPrice",
+                sa."limitPrice" as "aiLimitPrice",
+                w.id as "watchlistStockId"
+            FROM "WatchlistStock" w
+            JOIN "Stock" s ON w."stockId" = s.id
+            LEFT JOIN LATERAL (
+                SELECT "limitPrice"
+                FROM "StockAnalysis"
+                WHERE "stockId" = s.id
+                ORDER BY "analyzedAt" DESC
+                LIMIT 1
+            ) sa ON true
+            WHERE s."latestPrice" IS NOT NULL
+              AND (w."targetBuyPrice" IS NOT NULL OR sa."limitPrice" IS NOT NULL)
+        ''')
+
+        for row in cur.fetchall():
+            latest_price = float(row[4]) if row[4] else 0
+            user_target_price = float(row[5]) if row[5] else None
+            ai_limit_price = float(row[6]) if row[6] else None
+            watchlist_stock_id = row[7]
+
+            # 目標買値を決定（ユーザー設定優先）
+            if user_target_price is not None:
+                target_price = user_target_price
+                source = "user"
+            elif ai_limit_price is not None:
+                target_price = ai_limit_price
+                source = "ai"
+            else:
+                continue  # 目標価格がない場合はスキップ
+
+            # 現在価格が目標買値以下なら通知
+            if latest_price <= target_price:
+                discount_percent = ((target_price - latest_price) / target_price) * 100 if target_price > 0 else 0
+
+                alerts.append({
+                    "userId": row[0],
+                    "stockId": row[1],
+                    "stockName": row[2],
+                    "tickerCode": row[3],
+                    "latestPrice": latest_price,
+                    "targetPrice": target_price,
+                    "discountPercent": discount_percent,
+                    "source": source,
+                    "type": "buy_target",
+                    "watchlistStockId": watchlist_stock_id,
+                })
+
+    return alerts
+
+
 def send_notifications(app_url: str, cron_secret: str, notifications: list[dict]) -> dict:
     """通知APIを呼び出し"""
     if not notifications:
@@ -415,6 +486,29 @@ def main():
                 "triggerPrice": alert["latestPrice"],
                 "targetPrice": alert["stopLossPrice"],
                 "changeRate": alert["lossPercent"],
+            })
+
+        # 4. ウォッチリスト: 買い時到達
+        logger.info("Checking watchlist buy target alerts...")
+        buy_target_alerts = fetch_watchlist_buy_target_alerts(conn)
+        logger.info(f"  Found {len(buy_target_alerts)} buy target alerts")
+
+        for alert in buy_target_alerts:
+            # ユーザー設定 or AI提案で通知メッセージを変える
+            if alert.get("source") == "user":
+                body = f"現在価格 {alert['latestPrice']:,.0f}円 が目標買値 {alert['targetPrice']:,.0f}円 以下になりました"
+            else:
+                body = f"現在価格 {alert['latestPrice']:,.0f}円 がAI提案買値 {alert['targetPrice']:,.0f}円 以下になりました"
+
+            notifications.append({
+                "userId": alert["userId"],
+                "type": "buy_target",
+                "stockId": alert["stockId"],
+                "title": f"💰 {alert['stockName']}が買い時です",
+                "body": body,
+                "url": f"/watchlist/{alert['watchlistStockId']}",
+                "triggerPrice": alert["latestPrice"],
+                "targetPrice": alert["targetPrice"],
             })
 
         # 5. 通知送信

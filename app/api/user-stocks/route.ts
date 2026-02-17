@@ -33,6 +33,8 @@ export interface UserStockResponse {
   // 売却提案（Portfolio only）
   suggestedSellPrice?: number | null
   sellCondition?: string | null
+  // 買い時通知（Watchlist only）
+  targetBuyPrice?: number | null
   // Transaction data
   transactions?: {
     id: string
@@ -149,6 +151,7 @@ export async function GET(request: NextRequest) {
       userId: ws.userId,
       stockId: ws.stockId,
       type: "watchlist" as const,
+      targetBuyPrice: ws.targetBuyPrice ? Number(ws.targetBuyPrice) : null,
       stock: {
         id: ws.stock.id,
         tickerCode: ws.stock.tickerCode,

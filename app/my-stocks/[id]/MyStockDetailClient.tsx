@@ -39,6 +39,9 @@ interface Stock {
   statusType?: string | null
   suggestedSellPrice?: number | null
   sellCondition?: string | null
+  // Watchlist fields
+  targetBuyPrice?: number | null
+  limitPrice?: number | null  // AI suggested limit price (fallback for buy alert)
   transactions?: Transaction[]
   stock: {
     id: string
@@ -74,6 +77,14 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [trackingStock, setTrackingStock] = useState(false)
+  const [targetBuyPrice, setTargetBuyPrice] = useState<string>(
+    stock.targetBuyPrice ? String(stock.targetBuyPrice) : ""
+  )
+  const [savingTargetPrice, setSavingTargetPrice] = useState(false)
+  const [showBuyAlertModal, setShowBuyAlertModal] = useState(false)
+  const [currentTargetBuyPrice, setCurrentTargetBuyPrice] = useState<number | null>(
+    stock.targetBuyPrice ?? null
+  )
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -420,6 +431,12 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 >
                   {trackingStock ? "処理中..." : "+追跡"}
                 </button>
+                <button
+                  onClick={() => setShowBuyAlertModal(true)}
+                  className="px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                >
+                  🔔アラート
+                </button>
               </>
             }
           />
@@ -428,6 +445,21 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
             <PurchaseRecommendation stockId={stock.stockId} />
           </section>
+
+          {/* Buy Alert Indicator */}
+          {currentTargetBuyPrice && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+              <p className="text-sm text-amber-800">
+                🔔 <span className="font-medium">¥{currentTargetBuyPrice.toLocaleString()}</span> 以下で通知
+              </p>
+              <button
+                onClick={() => setShowBuyAlertModal(true)}
+                className="text-xs text-amber-600 hover:text-amber-800"
+              >
+                変更
+              </button>
+            </div>
+          )}
 
           {/* Related News Section */}
           <RelatedNews stockId={stock.stockId} />
@@ -488,6 +520,74 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
         }}
         transactionType={transactionType}
       />
+
+      {/* Buy Alert Modal */}
+      {showBuyAlertModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">🔔 買い時通知</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              設定した価格以下になったら通知します
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                目標買値
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">¥</span>
+                <input
+                  type="number"
+                  value={targetBuyPrice}
+                  onChange={(e) => setTargetBuyPrice(e.target.value)}
+                  placeholder={stock.limitPrice ? stock.limitPrice.toLocaleString() : ""}
+                  className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBuyAlertModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={async () => {
+                  setSavingTargetPrice(true)
+                  try {
+                    const priceValue = targetBuyPrice ? Number(targetBuyPrice) : null
+                    const response = await fetch(`/api/user-stocks/${stock.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ targetBuyPrice: priceValue }),
+                    })
+                    if (!response.ok) {
+                      throw new Error("保存に失敗しました")
+                    }
+                    setCurrentTargetBuyPrice(priceValue)
+                    setShowBuyAlertModal(false)
+                  } catch (err) {
+                    console.error(err)
+                    alert("保存に失敗しました")
+                  } finally {
+                    setSavingTargetPrice(false)
+                  }
+                }}
+                disabled={savingTargetPrice}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingTargetPrice ? "保存中..." : "保存"}
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-3">
+              ※ 取引時間中に15分間隔でチェック
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Purchase Dialog for Watchlist */}
       <AddStockDialog

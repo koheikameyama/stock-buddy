@@ -97,8 +97,9 @@ export default function StockActionButtons({
     }
   }
 
-  // どちらかに登録済みなら両方非活性
-  const isAlreadyRegistered = isInWatchlist || isTracked
+  // 追跡中 → 気になるボタンのみ表示
+  // 気になる → 追跡ボタンのみ表示
+  // 両方未登録 → 両方表示
 
   return (
     <>
@@ -107,7 +108,7 @@ export default function StockActionButtons({
           <span className="px-2 py-1 text-xs font-medium text-gray-400">
             {ACTION_BUTTON_LABELS.watchlistDone}
           </span>
-        ) : !isAlreadyRegistered ? (
+        ) : (
           <button
             onClick={handleAddToWatchlist}
             disabled={isDisabled}
@@ -115,14 +116,14 @@ export default function StockActionButtons({
           >
             {addingToWatchlist ? "追加中..." : ACTION_BUTTON_LABELS.watchlist}
           </button>
-        ) : null
+        )
       )}
       {showTracked && (
         isTracked ? (
           <span className="px-2 py-1 text-xs font-medium text-gray-400">
             {ACTION_BUTTON_LABELS.trackedDone}
           </span>
-        ) : !isAlreadyRegistered ? (
+        ) : (
           <button
             onClick={handleAddToTracked}
             disabled={isDisabled}
@@ -130,7 +131,7 @@ export default function StockActionButtons({
           >
             {addingToTracked ? "追加中..." : ACTION_BUTTON_LABELS.tracked}
           </button>
-        ) : null
+        )
       )}
       {showPurchase && onPurchaseClick && (
         <button

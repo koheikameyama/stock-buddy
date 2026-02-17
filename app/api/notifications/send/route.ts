@@ -17,7 +17,7 @@ function initVapid() {
 
 interface NotificationInput {
   userId: string
-  type: "ideal_entry_price" | "surge" | "plunge" | "sell_target"
+  type: "ideal_entry_price" | "surge" | "plunge" | "sell_target" | "stop_loss" | "buy_target"
   stockId?: string
   title: string
   body: string
