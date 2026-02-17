@@ -12,6 +12,7 @@ import CurrentPriceCard from "@/app/components/CurrentPriceCard"
 import StockActionButtons from "@/app/components/StockActionButtons"
 import DeleteButton from "@/app/components/DeleteButton"
 import AddStockDialog from "@/app/my-stocks/AddStockDialog"
+import Tabs from "@/app/components/Tabs"
 import { useStockPrice } from "@/app/hooks/useStockPrice"
 
 interface StockData {
@@ -286,20 +287,35 @@ export default function StockDetailClient({
         </section>
       )}
 
-      {/* Earnings Info Section */}
-      <EarningsInfo earnings={stock} />
-
-      {/* Related News Section */}
-      <RelatedNews stockId={stock.id} />
-
-      {/* Chart Section */}
-      <StockChart stockId={stock.id} />
-
-      {/* Price History Section */}
-      <PriceHistory stockId={stock.id} />
-
-      {/* Financial Metrics Section */}
-      <FinancialMetrics stock={stock} />
+      {/* Tabs Section */}
+      <Tabs
+        tabs={[
+          { id: "chart", label: "チャート" },
+          { id: "news", label: "ニュース" },
+          { id: "details", label: "詳細" },
+        ]}
+        defaultTab="chart"
+      >
+        {(activeTab) => (
+          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+            {activeTab === "chart" && (
+              <>
+                <StockChart stockId={stock.id} embedded />
+                <PriceHistory stockId={stock.id} embedded />
+              </>
+            )}
+            {activeTab === "news" && (
+              <RelatedNews stockId={stock.id} embedded />
+            )}
+            {activeTab === "details" && (
+              <>
+                <FinancialMetrics stock={stock} embedded />
+                <EarningsInfo earnings={stock} embedded />
+              </>
+            )}
+          </div>
+        )}
+      </Tabs>
 
       {/* Delete Button (for tracked stocks) */}
       {localIsTracked && (
