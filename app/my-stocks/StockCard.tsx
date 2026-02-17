@@ -92,10 +92,11 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
       "好調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
       "様子見": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
       "注意": { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
+      "警戒": { text: "警戒", color: "text-red-700", bg: "bg-red-50" },
       // 後方互換: 旧ステータスもマッピング
       "順調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
       "やや低調": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-      "要確認": { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
+      "要確認": { text: "警戒", color: "text-red-700", bg: "bg-red-50" },
     }
     return displayMap[status] || null
   }

@@ -230,15 +230,16 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
   const getStatusBadge = (status: string | null | undefined) => {
     if (!status) return null
 
-    // 3段階ステータス + 後方互換
+    // 4段階ステータス + 後方互換
     const statusMap: Record<string, { text: string; bgColor: string; textColor: string }> = {
       "好調": { text: "好調", bgColor: "bg-green-100", textColor: "text-green-800" },
       "様子見": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
       "注意": { text: "注意", bgColor: "bg-amber-100", textColor: "text-amber-800" },
+      "警戒": { text: "警戒", bgColor: "bg-red-100", textColor: "text-red-800" },
       // 後方互換: 旧ステータス
       "順調": { text: "好調", bgColor: "bg-green-100", textColor: "text-green-800" },
       "やや低調": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
-      "要確認": { text: "注意", bgColor: "bg-amber-100", textColor: "text-amber-800" },
+      "要確認": { text: "警戒", bgColor: "bg-red-100", textColor: "text-red-800" },
     }
 
     const badge = statusMap[status]

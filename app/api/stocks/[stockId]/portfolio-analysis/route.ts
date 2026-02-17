@@ -458,8 +458,8 @@ ${newsContext}${marketContext}
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
   "sellCondition": "売却の条件や考え方（例：「+10%で半分利確、決算発表後に全売却検討」）",
   "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
-  "simpleStatus": "現状を一言で表すステータス（好調/様子見/注意のいずれか）",
-  "statusType": "ステータスの種類（good/neutral/cautionのいずれか）",
+  "simpleStatus": "現状を一言で表すステータス（好調/様子見/注意/警戒のいずれか）",
+  "statusType": "ステータスの種類（good/neutral/caution/warningのいずれか）",
 
   "shortTermTrend": "up" | "neutral" | "down",
   "shortTermPriceLow": 短期予測の下限価格（数値のみ）,
@@ -537,7 +537,8 @@ ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
 【ステータスの指針】
 - 好調（good）: 利益率 +5%以上、または上昇トレンド
 - 様子見（neutral）: 利益率 -5%〜+5%、横ばい
-- 注意（caution）: 利益率 -5%以下、または下落トレンド
+- 注意（caution）: 利益率 -5%〜-15%、または下落トレンド
+- 警戒（warning）: 利益率 -15%以下、または急落中
 
 【表現の指針】
 - 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
@@ -576,8 +577,8 @@ ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
               suggestedStopLossPrice: { type: ["number", "null"] },
               sellCondition: { type: ["string", "null"] },
               emotionalCoaching: { type: "string" },
-              simpleStatus: { type: "string", enum: ["好調", "様子見", "注意"] },
-              statusType: { type: "string", enum: ["good", "neutral", "caution"] },
+              simpleStatus: { type: "string", enum: ["好調", "様子見", "注意", "警戒"] },
+              statusType: { type: "string", enum: ["good", "neutral", "caution", "warning"] },
               shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
               shortTermPriceLow: { type: "number" },
               shortTermPriceHigh: { type: "number" },
