@@ -8,6 +8,7 @@ import DashboardClient from "./DashboardClient"
 import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
 import PortfolioSummary from "./PortfolioSummary"
 import PortfolioHistoryChart from "./PortfolioHistoryChart"
+import PortfolioCompositionChart from "./PortfolioCompositionChart"
 import NikkeiSummary from "./NikkeiSummary"
 
 export default async function DashboardPage() {
@@ -176,6 +177,13 @@ export default async function DashboardPage() {
           {hasHoldings && (
             <div className="mt-4 sm:mt-6">
               <PortfolioHistoryChart />
+            </div>
+          )}
+
+          {/* ポートフォリオ構成グラフ */}
+          {hasHoldings && (
+            <div className="mt-4 sm:mt-6">
+              <PortfolioCompositionChart />
             </div>
           )}
 

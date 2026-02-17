@@ -7,7 +7,6 @@ import StockCard from "./StockCard"
 import TrackedStockCard from "./TrackedStockCard"
 import SoldStockCard from "./SoldStockCard"
 import AddStockDialog from "./AddStockDialog"
-import PortfolioCompositionChart from "./PortfolioCompositionChart"
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
 import { UPDATE_SCHEDULES, MAX_PORTFOLIO_STOCKS, MAX_WATCHLIST_STOCKS } from "@/lib/constants"
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
@@ -691,13 +690,6 @@ export default function MyStocksClient() {
           ) : (
             // 保有銘柄・気になる銘柄タブ
             <>
-              {/* 保有中タブのときだけ構成グラフを表示 */}
-              {activeTab === "portfolio" && portfolioStocks.length > 0 && (
-                <div className="mb-6">
-                  <PortfolioCompositionChart />
-                </div>
-              )}
-
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500">
