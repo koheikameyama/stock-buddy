@@ -13,6 +13,10 @@ import {
   Legend,
 } from "recharts"
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
+import OutcomesTab from "./components/OutcomesTab"
+import AnalysisTab from "./components/AnalysisTab"
+
+type TabType = "overview" | "outcomes" | "analysis"
 
 interface ImprovementData {
   target: string
@@ -100,6 +104,7 @@ export default function AIReportClient() {
   // ページ訪問時に閲覧済みをマーク
   useMarkPageSeen("ai-report")
 
+  const [activeTab, setActiveTab] = useState<TabType>("overview")
   const [data, setData] = useState<AIAccuracyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -223,11 +228,40 @@ export default function AIReportClient() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">AI精度レポート</h1>
           <p className="text-sm text-gray-500">
-            {formatWeek(latest.weekStart)}〜{formatWeek(latest.weekEnd)}週のパフォーマンス
+            {activeTab === "overview"
+              ? `${formatWeek(latest.weekStart)}〜${formatWeek(latest.weekEnd)}週のパフォーマンス`
+              : "推薦精度の詳細分析"}
           </p>
         </div>
       </div>
 
+      {/* タブバー */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+        {[
+          { id: "overview" as TabType, label: "概要" },
+          { id: "outcomes" as TabType, label: "個別結果" },
+          { id: "analysis" as TabType, label: "条件別分析" },
+        ].map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
+              activeTab === id
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* タブコンテンツ */}
+      {activeTab === "outcomes" && <OutcomesTab />}
+      {activeTab === "analysis" && <AnalysisTab />}
+
+      {activeTab === "overview" && (
+        <>
       {/* サマリーカード */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* おすすめ銘柄 */}
@@ -462,6 +496,8 @@ export default function AIReportClient() {
             )}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

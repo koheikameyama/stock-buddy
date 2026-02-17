@@ -9,6 +9,7 @@ import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
+import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -493,7 +494,7 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
     // JSTの今日00:00をUTCに変換
     const today = getTodayForDB()
 
-    await prisma.purchaseRecommendation.upsert({
+    const savedRecommendation = await prisma.purchaseRecommendation.upsert({
       where: {
         stockId_date: {
           stockId,
@@ -539,6 +540,34 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
         riskFit: result.riskFit ?? null,
         personalizedReason: result.personalizedReason || null,
       },
+    })
+
+    // Outcome作成（推薦保存成功後）
+    // 銘柄のvolatilityとmarketCapを取得
+    const stockWithMetrics = await prisma.stock.findUnique({
+      where: { id: stockId },
+      select: { volatility: true, marketCap: true },
+    })
+
+    // predictionをOutcome用にマッピング
+    const predictionMap: Record<string, Prediction> = {
+      buy: "buy",
+      stay: "stay",
+      avoid: "remove",
+    }
+
+    await insertRecommendationOutcome({
+      type: "purchase",
+      recommendationId: savedRecommendation.id,
+      stockId,
+      tickerCode: stock.tickerCode,
+      sector: stock.sector,
+      recommendedAt: new Date(),
+      priceAtRec: currentPrice,
+      prediction: predictionMap[result.recommendation] || "stay",
+      confidence: result.confidence,
+      volatility: stockWithMetrics?.volatility ? Number(stockWithMetrics.volatility) : null,
+      marketCap: stockWithMetrics?.marketCap ? BigInt(Number(stockWithMetrics.marketCap) * 100_000_000) : null,
     })
 
     // レスポンス
