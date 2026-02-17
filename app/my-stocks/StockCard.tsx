@@ -47,7 +47,7 @@ interface StockCardProps {
   stock: UserStock
   price?: StockPrice
   recommendation?: PurchaseRecommendation
-  portfolioRecommendation?: "buy" | "sell" | "hold" | null
+  portfolioRecommendation?: "buy" | "sell" | "partial_sell" | "hold" | null
   analyzedAt?: string | null
   onAdditionalPurchase?: () => void
   onSell?: () => void
@@ -89,6 +89,7 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     const displayMap = {
       buy: { text: "買い増し検討", color: "text-green-700", bg: "bg-green-50" },
       sell: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
+      partial_sell: { text: "一部利確検討", color: "text-amber-700", bg: "bg-amber-50" },
       hold: { text: "保有継続", color: "text-blue-700", bg: "bg-blue-50" },
     }
     return displayMap[portfolioRecommendation]

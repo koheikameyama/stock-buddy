@@ -25,7 +25,7 @@ interface UserStock {
   mediumTerm?: string | null
   longTerm?: string | null
   // AI推奨（StockAnalysisから取得）
-  recommendation?: "buy" | "sell" | "hold" | null
+  recommendation?: "buy" | "sell" | "partial_sell" | "hold" | null
   // 分析日時（StockAnalysisから取得）
   analyzedAt?: string | null
   stock: {
