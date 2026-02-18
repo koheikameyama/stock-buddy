@@ -357,8 +357,8 @@ ${patternContext}${supportResistanceContext}${newsContext}
 - stopLossPrice（逆指値）: これ以上下がる前に売却する損切りライン。必ず現在価格より低く設定
 
 【hold推奨時】
-- limitPrice: null（様子見なのでアクション不要）
-- stopLossPrice: null（様子見なのでアクション不要）
+- limitPrice（利確目標）: レジスタンスライン付近。ここまで上がったら売却を検討
+- stopLossPrice（逆指値）: サポートを下回る水準。損切りライン
 
 重要: 現在価格が適切な買い時・売り時であれば、現在価格をそのまま設定してください。
 サポート・レジスタンスの情報がない場合は、現在価格を基準に判断してください`
