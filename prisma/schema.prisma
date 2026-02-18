@@ -313,8 +313,7 @@ model PortfolioStock {
   mediumTerm   String?   @db.Text
   longTerm     String?   @db.Text
 
-  // 感情コーチング・ステータス
-  emotionalCoaching  String?  @db.Text  // 感情コーチングメッセージ
+  // ステータス
   simpleStatus       String?            // 一言ステータス（順調/注意/好調など）
   statusType         String?            // good/caution/excellent/neutral/warning
 

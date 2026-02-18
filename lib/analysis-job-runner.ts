@@ -83,7 +83,138 @@ export async function runPortfolioAnalysis(
 
     // 直近30日の価格データを取得
     const historicalPrices = await fetchHistoricalPrices(portfolioStock.stock.tickerCode, "1m")
-    const prices = historicalPrices.slice(-30)
+    const prices = historicalPrices.slice(-30) // oldest-first
+
+    // ローソク足パターン分析
+    let patternContext = ""
+    if (prices.length >= 1) {
+      const latestCandle: CandlestickData = {
+        date: prices[prices.length - 1].date,
+        open: prices[prices.length - 1].open,
+        high: prices[prices.length - 1].high,
+        low: prices[prices.length - 1].low,
+        close: prices[prices.length - 1].close,
+      }
+      const pattern = analyzeSingleCandle(latestCandle)
+
+      let buySignals = 0
+      let sellSignals = 0
+      for (const price of prices.slice(-5)) {
+        const p = analyzeSingleCandle({
+          date: price.date,
+          open: price.open,
+          high: price.high,
+          low: price.low,
+          close: price.close,
+        })
+        if (p.strength >= 60) {
+          if (p.signal === "buy") buySignals++
+          else if (p.signal === "sell") sellSignals++
+        }
+      }
+
+      patternContext = `
+【ローソク足パターン分析】
+- 最新パターン: ${pattern.description}
+- シグナル: ${pattern.signal}
+- 強さ: ${pattern.strength}%
+- 直近5日の買いシグナル: ${buySignals}回
+- 直近5日の売りシグナル: ${sellSignals}回
+`
+    }
+
+    // テクニカル指標（RSI / MACD）
+    let technicalContext = ""
+    if (prices.length >= 26) {
+      const pricesForCalc = prices.map(p => ({ close: p.close }))
+      const rsi = calculateRSI(pricesForCalc, 14)
+      const macd = calculateMACD(pricesForCalc)
+
+      let rsiInterpretation = ""
+      if (rsi !== null) {
+        if (rsi <= 30) {
+          rsiInterpretation = `${rsi.toFixed(1)}（売られすぎ → 反発の可能性あり）`
+        } else if (rsi <= 40) {
+          rsiInterpretation = `${rsi.toFixed(1)}（やや売られすぎ）`
+        } else if (rsi >= 70) {
+          rsiInterpretation = `${rsi.toFixed(1)}（買われすぎ → 下落の可能性あり）`
+        } else if (rsi >= 60) {
+          rsiInterpretation = `${rsi.toFixed(1)}（やや買われすぎ）`
+        } else {
+          rsiInterpretation = `${rsi.toFixed(1)}（通常範囲）`
+        }
+      }
+
+      let macdInterpretation = ""
+      if (macd.histogram !== null) {
+        if (macd.histogram > 1) {
+          macdInterpretation = "上昇トレンド（勢いあり）"
+        } else if (macd.histogram > 0) {
+          macdInterpretation = "やや上昇傾向"
+        } else if (macd.histogram < -1) {
+          macdInterpretation = "下落トレンド（勢いあり）"
+        } else if (macd.histogram < 0) {
+          macdInterpretation = "やや下落傾向"
+        } else {
+          macdInterpretation = "横ばい"
+        }
+      }
+
+      if (rsi !== null || macd.histogram !== null) {
+        technicalContext = `
+【テクニカル指標】
+${rsi !== null ? `- RSI（売られすぎ・買われすぎの指標）: ${rsiInterpretation}` : ""}
+${macd.histogram !== null ? `- MACD（トレンドの勢い指標）: ${macdInterpretation}` : ""}
+`
+      }
+    }
+
+    // チャートパターン（複数足フォーメーション）の検出
+    let chartPatternContext = ""
+    if (prices.length >= 15) {
+      const pricePoints: PricePoint[] = prices.map(p => ({
+        date: p.date,
+        open: p.open,
+        high: p.high,
+        low: p.low,
+        close: p.close,
+      }))
+      const chartPatterns = detectChartPatterns(pricePoints)
+      if (chartPatterns.length > 0) {
+        chartPatternContext = "\n" + formatChartPatternsForPrompt(chartPatterns)
+      }
+    }
+
+    // 週間変化率
+    let weekChangeContext = ""
+    if (prices.length >= 5) {
+      const latestClose = prices[prices.length - 1].close
+      const weekAgoClose = prices[Math.max(0, prices.length - 6)].close
+      const weekChangeRate = ((latestClose - weekAgoClose) / weekAgoClose) * 100
+
+      if (weekChangeRate >= 30) {
+        weekChangeContext = `
+【警告: 急騰銘柄】
+- 週間変化率: +${weekChangeRate.toFixed(1)}%（非常に高い）
+- 急騰後は反落リスクが高い状態です
+`
+      } else if (weekChangeRate >= 10) {
+        weekChangeContext = `
+【注意: 上昇率が高い】
+- 週間変化率: +${weekChangeRate.toFixed(1)}%
+`
+      } else if (weekChangeRate <= -10) {
+        weekChangeContext = `
+【注意: 大幅下落】
+- 週間変化率: ${weekChangeRate.toFixed(1)}%
+`
+      } else {
+        weekChangeContext = `
+【週間変化率】
+- 週間変化率: ${weekChangeRate >= 0 ? "+" : ""}${weekChangeRate.toFixed(1)}%
+`
+      }
+    }
 
     // 関連ニュースを取得
     const tickerCode = portfolioStock.stock.tickerCode.replace(".T", "")
@@ -238,8 +369,14 @@ ${weeklyChangePercent !== null ? `- 直近1週間: ${weeklyChangePercent >= 0 ? 
     }
 
     // プロンプト構築
-    const prompt = `あなたは投資初心者向けのAIコーチです。
-以下の保有銘柄について、売買判断と感情コーチングを提供してください。
+    const prompt = `あなたは投資初心者向けのAIアナリストです。
+以下の保有銘柄について、テクニカル分析と売買判断を提供してください。
+
+【絶対ルール】
+- 「焦らないで」「大丈夫です」「株価は上下するもの」などの感情的な励ましは絶対に書かない
+- すべての判断に具体的な根拠（テクニカル指標・ニュース・市場環境・財務指標）を必ず1つ以上挙げる
+- 文章は必ず「〇〇な理由で → △△な判断」の順番で書く
+- 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、MACD（トレンドの勢いを示す指標））
 
 【銘柄情報】
 - 名前: ${stock.name}
@@ -253,6 +390,7 @@ ${weeklyChangePercent !== null ? `- 直近1週間: ${weeklyChangePercent >= 0 ? 
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
+【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
 ${newsContext}${marketContext}
@@ -261,13 +399,12 @@ ${newsContext}${marketContext}
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
-  "shortTerm": "短期予測（今週）の分析結果を初心者に分かりやすく2-3文で",
-  "mediumTerm": "中期予測（今月）の分析結果を初心者に分かりやすく2-3文で",
-  "longTerm": "長期予測（今後3ヶ月）の分析結果を初心者に分かりやすく2-3文で",
+  "shortTerm": "【必須】テクニカル指標・ニュース等の具体的な根拠を1-2文で述べた後、今週の判断（様子見/買い増し検討/売却検討）を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
+  "mediumTerm": "【必須】ファンダメンタル・中期トレンドの根拠を1-2文で述べた後、今月の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
+  "longTerm": "【必須】事業展望・財務状況の根拠を1-2文で述べた後、長期継続の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "suggestedSellPrice": 売却目標価格（数値のみ、円単位、現在価格・平均取得単価・市場分析を総合的に考慮）,
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
-  "sellCondition": "売却の条件や考え方（例：「+10%で半分利確、決算発表後に全売却検討」）",
-  "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
+  "sellCondition": "どの指標がどの水準になったら売るかを具体的に記述（例：「RSIが再び70を超えたら追加売却、MACDがデッドクロスしたら全売却」）",
   "simpleStatus": "現状を一言で表すステータス（好調/様子見/注意/警戒のいずれか）",
   "statusType": "ステータスの種類（good/neutral/caution/warningのいずれか）",
 
@@ -281,28 +418,28 @@ ${newsContext}${marketContext}
   "longTermPriceLow": 長期予測の下限価格（数値のみ）,
   "longTermPriceHigh": 長期予測の上限価格（数値のみ）,
   "recommendation": "buy" | "hold" | "sell",
-  "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で）",
+  "advice": "テクニカル・ファンダメンタルの根拠に基づく具体的なアドバイス（100文字以内）",
   "confidence": 0.0〜1.0の信頼度
 }
 
 【判断の指針】
-- 財務指標（会社の規模、配当、株価水準、評価スコア）を分析に活用してください
+- テクニカル指標（RSI・MACD・ローソク足・チャートパターン）を必ず分析に活用してください
+- 財務指標（会社の規模、配当、株価水準）を分析に活用してください
 - 提供されたニュース情報を参考にしてください
 - ニュースにない情報は推測や創作をしないでください
-- ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください
 
 【業績に基づく判断の指針】
-- 赤字企業の場合は、adviceで必ず「業績が赤字である」ことに言及し、リスクを伝える
-- 赤字かつ減益傾向の場合は、買い増しには慎重な姿勢を示す
+- 赤字企業の場合は、shortTermで必ず「業績が赤字であること」とその判断への影響を言及する
+- 赤字かつ減益傾向の場合は、買い増しには慎重な判断を示す
 - 黒字かつ増益傾向の場合は、より前向きな評価ができる
 
 【売買判断の指針】
-- shortTerm: 「売り検討」「保持」「買い増し検討」のいずれかの判断を含める
-- mediumTerm: 今月の見通しと推奨行動を含める
-- longTerm: 今後3ヶ月の成長性と投資継続の判断を含める
-- suggestedSellPrice: 現在価格と平均取得単価の両方を考慮し、ユーザーの含み益/含み損の状況に応じた適切な売却目標価格を提案
+- shortTerm: 主にテクニカル指標を根拠として、「様子見」「買い増し検討」「売却検討」のいずれかの判断を必ず結論に含める
+- mediumTerm: 主にファンダメンタルとトレンドを根拠として、今月の見通しと推奨行動を必ず結論に含める
+- longTerm: 主に事業展望・財務状況を根拠として、長期継続の判断を必ず結論に含める
+- suggestedSellPrice: 現在価格と平均取得単価の両方を考慮し、適切な売却目標価格を提案
 - suggestedStopLossPrice: 平均取得単価を基準に、現在の含み益/含み損を考慮した適切な損切りラインを提案
-- sellCondition: 「○○円で売る」だけでなく「なぜその価格か」「どんな条件で判断すべきか」を含める
+- sellCondition: どの指標がどの水準になったら売るかを具体的に記述する
 - 損切りも重要な選択肢: 損失が大きく、回復の見込みが薄い場合は損切りを提案する
 
 【利確・損切りラインの指針】
@@ -314,22 +451,10 @@ ${newsContext}${marketContext}
   - 含み損がある場合: これ以上の損失拡大を防ぐライン（例：現在価格から-5%〜-10%）
 
 【損切り提案の指針】
-- 損失率が-15%以上かつ業績悪化や株価下落トレンドが続いている場合は、損切りを選択肢として提示
-- 損切りは「負け」ではなく「次の投資機会を守る判断」として前向きに伝える
-- 例: 「損失を抱えていますが、これ以上悪化する前に売却を検討してもいいかもしれません」
-- 例: 「今売ることで、より良い銘柄に資金を回せます」
-
-【感情コーチングの指針】
-- 損益が軽微なマイナス（-10%未満）の場合: 「株価は上下するもの」「長期で見れば」など安心感を与える
-- 損益が大きなマイナス（-15%以上）の場合: 損切りも選択肢として提示しつつ、決断を後押しする
-- 損益がプラスの場合: 「利確も検討しましょう」「欲張りすぎないことも大切」など冷静さを促す
-- 横ばいの場合: 「焦らず見守りましょう」など落ち着きを与える
-
-【トレンド変化への対応】
-- 提供されたニュース情報に重要な材料（決算発表、業績修正、M&A、不祥事など）がある場合は、必ず判断に反映する
-- 直近の株価動向が急変している場合（急騰・急落）は、その原因と今後の見通しを分析する
-- 市場全体（日経平均）の動きと比較して、個別銘柄が逆行している場合はその理由を考察する
-- トレンド転換の兆候（上昇→下落、下落→上昇）が見られる場合は、早めに注意喚起する
+- 損失率が-15%以上かつ下落トレンドが続いている場合は、損切りを選択肢として提示
+- 損切りを提案する場合は感情的な言葉を使わず、根拠（テクニカル指標・損失率）を示す
+- 例（良い）: 「RSIが20台の売られすぎ水準が2週間続き、損失率-18%に達しているため、損切りを検討してください」
+- 例（悪い）: 「損失を抱えていますが、次の投資機会のため決断しましょう」
 
 【ステータスの指針】
 - 好調（good）: 利益率 +5%以上、または上昇トレンド
@@ -338,10 +463,10 @@ ${newsContext}${marketContext}
 - 警戒（warning）: 利益率 -15%以下、または急落中
 
 【表現の指針】
-- 専門用語は使わない（ROE、PER、株価収益率などは使用禁止）
-- 「成長性」「安定性」「割安」「割高」のような平易な言葉を使う
-- 中学生でも理解できる表現にする
-- 損益状況と財務指標を考慮した実践的なアドバイスを含める
+- 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、ダブルボトム（2回底を打って反転するパターン））
+- 感情的な励まし・慰めの言葉は一切使わない
+- 根拠のない楽観・悲観は書かない
+- テクニカル指標と財務指標を根拠にした具体的な判断を示す
 `
 
     // OpenAI API呼び出し
@@ -371,7 +496,6 @@ ${newsContext}${marketContext}
               suggestedSellPrice: { type: ["number", "null"] },
               suggestedStopLossPrice: { type: ["number", "null"] },
               sellCondition: { type: ["string", "null"] },
-              emotionalCoaching: { type: "string" },
               simpleStatus: { type: "string", enum: ["好調", "様子見", "注意", "警戒"] },
               statusType: { type: "string", enum: ["good", "neutral", "caution", "warning"] },
               shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
@@ -390,7 +514,7 @@ ${newsContext}${marketContext}
             required: [
               "shortTerm", "mediumTerm", "longTerm",
               "suggestedSellPrice", "suggestedStopLossPrice", "sellCondition",
-              "emotionalCoaching", "simpleStatus", "statusType",
+              "simpleStatus", "statusType",
               "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
               "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
               "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
@@ -416,7 +540,6 @@ ${newsContext}${marketContext}
           shortTerm: result.shortTerm,
           mediumTerm: result.mediumTerm,
           longTerm: result.longTerm,
-          emotionalCoaching: result.emotionalCoaching,
           simpleStatus: result.simpleStatus,
           statusType: result.statusType,
           suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
@@ -439,7 +562,7 @@ ${newsContext}${marketContext}
           longTermPriceLow: result.longTermPriceLow || currentPrice || 0,
           longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
           recommendation: result.recommendation,
-          advice: result.advice || result.emotionalCoaching || "",
+          advice: result.advice || result.shortTerm || "",
           confidence: result.confidence || 0.7,
           limitPrice: result.suggestedSellPrice || null,
           stopLossPrice: result.suggestedStopLossPrice || null,
@@ -480,7 +603,6 @@ ${newsContext}${marketContext}
           shortTerm: result.shortTerm,
           mediumTerm: result.mediumTerm,
           longTerm: result.longTerm,
-          emotionalCoaching: result.emotionalCoaching,
           simpleStatus: result.simpleStatus,
           statusType: result.statusType,
           suggestedSellPrice: result.suggestedSellPrice || null,

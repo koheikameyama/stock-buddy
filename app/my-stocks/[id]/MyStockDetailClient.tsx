@@ -35,7 +35,6 @@ interface Stock {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
-  emotionalCoaching?: string | null
   simpleStatus?: string | null
   statusType?: string | null
   suggestedSellPrice?: number | null
@@ -250,22 +249,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                       </p>
                     </div>
                   </div>
-                  {/* Emotional Coaching Message */}
-                  {stock.emotionalCoaching && (
-                    <p className="mt-3 text-sm text-gray-700 border-t border-gray-200 pt-3">
-                      {stock.emotionalCoaching}
-                    </p>
-                  )}
                 </div>
-              ) : (
-                /* 価格未取得時も emotionalCoaching は表示 */
-                stock.emotionalCoaching && (
-                  <div className="rounded-lg p-4 mt-4 bg-gray-50 border border-gray-200">
-                    <p className="text-sm text-gray-700">
-                      {stock.emotionalCoaching}
-                    </p>
-                  </div>
-                )
               )}
             </div>
           </section>
