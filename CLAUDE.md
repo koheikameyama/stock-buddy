@@ -645,3 +645,81 @@ const url = notification.url
 - コードがシンプルになる
 - 古い参照が残っていると気づきやすい（エラーになるため）
 - 技術的負債を溜め込まない
+
+## ループ処理の並列化
+
+**ループ内の非同期処理は可能な限り並列化してください。**
+
+### 基本ルール
+
+1. **forループ内のawaitは並列化する**
+2. **p-limit（TypeScript）やThreadPoolExecutor（Python）で同時実行数を制限する**
+3. **API呼び出し（特にOpenAI）は同時実行数を制限してレート制限を回避する**
+
+### TypeScript: p-limitを使用
+
+```typescript
+import pLimit from "p-limit"
+
+// 同時実行数を制限（OpenAI APIなら5程度）
+const limit = pLimit(5)
+
+// ❌ 悪い例: 順次実行
+for (const item of items) {
+  await processItem(item)
+}
+
+// ✅ 良い例: 並列実行（同時実行数を制限）
+const tasks = items.map((item) =>
+  limit(async () => {
+    await processItem(item)
+  })
+)
+await Promise.all(tasks)
+```
+
+### Python: ThreadPoolExecutorを使用
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# 同時実行数を制限
+AI_CONCURRENCY_LIMIT = 3
+
+# ❌ 悪い例: 順次実行
+for item in items:
+    result = process_item(item)
+
+# ✅ 良い例: 並列実行
+with ThreadPoolExecutor(max_workers=AI_CONCURRENCY_LIMIT) as executor:
+    futures = [executor.submit(process_item, item) for item in items]
+    for future in as_completed(futures):
+        result = future.result()
+```
+
+### 同時実行数の目安
+
+| 処理タイプ | 推奨同時実行数 | 理由 |
+|-----------|---------------|------|
+| OpenAI API | 3〜5 | レート制限を回避 |
+| DB操作 | 10〜20 | コネクションプール考慮 |
+| 外部API（yfinance等） | 5〜10 | サーバー負荷考慮 |
+| プッシュ通知 | 10 | ネットワーク効率 |
+
+### 定数定義
+
+同時実行数は定数として定義してください：
+
+```typescript
+// AI API同時リクエスト数の制限
+const AI_CONCURRENCY_LIMIT = 5
+```
+
+### チェックリスト
+
+コードレビュー時に確認：
+- [ ] forループ内にawaitがないか
+- [ ] 並列化可能な処理がPromise.allで実行されているか
+- [ ] 同時実行数が適切に制限されているか
+
+**重要: ループ内の非同期処理は、特別な理由がない限り並列化してください。**

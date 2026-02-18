@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import pLimit from "p-limit"
 import { verifyCronAuth } from "@/lib/cron-auth"
 import { prisma } from "@/lib/prisma"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
@@ -6,6 +7,7 @@ import { getTodayForDB } from "@/lib/date-utils"
 import { getOpenAIClient } from "@/lib/openai"
 
 const MOVERS_COUNT = 5 // 上昇/下落それぞれ5銘柄
+const AI_CONCURRENCY_LIMIT = 5 // AI API同時リクエスト数の制限
 
 interface MoverAnalysis {
   analysis: string
@@ -265,35 +267,32 @@ async function analyzeMovers(
   }[],
   type: "gainer" | "loser"
 ) {
-  const results: {
-    stockId: string
-    changeRate: number
-    analysis: string
-    relatedNews: { title: string; url: string | null; sentiment: string | null }[]
-  }[] = []
+  const direction = type === "gainer" ? "上昇" : "下落"
+  const limit = pLimit(AI_CONCURRENCY_LIMIT)
 
-  for (const stock of stocks) {
-    // 関連ニュースを取得
-    const tickerCode = stock.tickerCode.replace(".T", "")
-    const news = await getRelatedNews({
-      tickerCodes: [tickerCode],
-      sectors: stock.sector ? [stock.sector] : [],
-      limit: 5,
-      daysAgo: 3,
-    })
+  // 各銘柄の分析を並列実行
+  const tasks = stocks.map((stock) =>
+    limit(async () => {
+      // 関連ニュースを取得
+      const tickerCode = stock.tickerCode.replace(".T", "")
+      const news = await getRelatedNews({
+        tickerCodes: [tickerCode],
+        sectors: stock.sector ? [stock.sector] : [],
+        limit: 5,
+        daysAgo: 3,
+      })
 
-    const newsForPrompt = formatNewsForPrompt(news)
-    const direction = type === "gainer" ? "上昇" : "下落"
-    const changeRate = Number(stock.dailyChangeRate)
+      const newsForPrompt = formatNewsForPrompt(news)
+      const changeRate = Number(stock.dailyChangeRate)
 
-    // OpenAIで原因分析
-    try {
-      const response = await getOpenAIClient().chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `あなたは株式投資の専門家です。初心者向けに株価変動の原因を分析してください。
+      // OpenAIで原因分析
+      try {
+        const response = await getOpenAIClient().chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `あなたは株式投資の専門家です。初心者向けに株価変動の原因を分析してください。
 専門用語を使う場合は必ず簡単な解説を添えてください。
 例:「出来高（取引された株の数）が急増しており...」
 
@@ -302,10 +301,10 @@ async function analyzeMovers(
 - ニュースにない情報（決算発表、業績予想、M&A、人事異動など）は推測・創作しないでください
 - 関連ニュースがない場合は「具体的な材料は確認できませんが」と前置きしてください
 - 過去の一般知識（例:「○○社は過去に○○した」）は使用しないでください`,
-          },
-          {
-            role: "user",
-            content: `以下の銘柄が本日${direction}しました。原因を分析してください。
+            },
+            {
+              role: "user",
+              content: `以下の銘柄が本日${direction}しました。原因を分析してください。
 
 【銘柄情報】
 - 銘柄: ${stock.name}（${stock.tickerCode}）
@@ -322,40 +321,41 @@ ${newsForPrompt || "関連ニュースなし"}
 【回答の制約】
 - 上記のニュース情報のみを参考にしてください
 - ニュースにない情報は創作しないでください`,
-          },
-        ],
-        response_format: ANALYSIS_SCHEMA,
-        temperature: 0.3,
-      })
+            },
+          ],
+          response_format: ANALYSIS_SCHEMA,
+          temperature: 0.3,
+        })
 
-      const parsed: MoverAnalysis = JSON.parse(
-        response.choices[0].message.content || "{}"
-      )
+        const parsed: MoverAnalysis = JSON.parse(
+          response.choices[0].message.content || "{}"
+        )
 
-      results.push({
-        stockId: stock.id,
-        changeRate,
-        analysis: parsed.analysis || `${stock.name}が${direction}しました。`,
-        relatedNews: news.map((n) => ({
-          title: n.title,
-          url: n.url,
-          sentiment: n.sentiment,
-        })),
-      })
-    } catch (error) {
-      console.error(`Error analyzing ${stock.tickerCode}:`, error)
-      results.push({
-        stockId: stock.id,
-        changeRate,
-        analysis: `${stock.name}（${stock.tickerCode}）が前日比${changeRate > 0 ? "+" : ""}${changeRate.toFixed(2)}%${direction}しました。`,
-        relatedNews: news.map((n) => ({
-          title: n.title,
-          url: n.url,
-          sentiment: n.sentiment,
-        })),
-      })
-    }
-  }
+        return {
+          stockId: stock.id,
+          changeRate,
+          analysis: parsed.analysis || `${stock.name}が${direction}しました。`,
+          relatedNews: news.map((n) => ({
+            title: n.title,
+            url: n.url,
+            sentiment: n.sentiment,
+          })),
+        }
+      } catch (error) {
+        console.error(`Error analyzing ${stock.tickerCode}:`, error)
+        return {
+          stockId: stock.id,
+          changeRate,
+          analysis: `${stock.name}（${stock.tickerCode}）が前日比${changeRate > 0 ? "+" : ""}${changeRate.toFixed(2)}%${direction}しました。`,
+          relatedNews: news.map((n) => ({
+            title: n.title,
+            url: n.url,
+            sentiment: n.sentiment,
+          })),
+        }
+      }
+    })
+  )
 
-  return results
+  return Promise.all(tasks)
 }

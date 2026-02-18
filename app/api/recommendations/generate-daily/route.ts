@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
+import pLimit from "p-limit"
 import { prisma } from "@/lib/prisma"
 import { verifyCronAuth } from "@/lib/cron-auth"
 import { getOpenAIClient } from "@/lib/openai"
 import { getTodayForDB } from "@/lib/date-utils"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { getNikkei225Data } from "@/lib/market-index"
+
+// AI API同時リクエスト数の制限（ユーザー単位での並列処理）
+const USER_CONCURRENCY_LIMIT = 3
 import {
   buildFinancialMetrics,
   buildTechnicalContext,
@@ -157,27 +161,33 @@ export async function POST(request: NextRequest) {
     }
     const marketContext = buildMarketContext(marketData)
 
-    const results: UserResult[] = []
+    // ユーザー処理を並列実行（同時実行数を制限）
+    const limit = pLimit(USER_CONCURRENCY_LIMIT)
+    console.log(`Processing ${users.length} users with concurrency limit: ${USER_CONCURRENCY_LIMIT}`)
 
-    for (const user of users) {
-      try {
-        const result = await processUser(
-          user,
-          allStocks,
-          registeredByUser.get(user.userId) || new Set(),
-          session,
-          marketContext
-        )
-        results.push(result)
-      } catch (error) {
-        console.error(`Error processing user ${user.userId}:`, error)
-        results.push({
-          userId: user.userId,
-          success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
-        })
-      }
-    }
+    const tasks = users.map((user) =>
+      limit(async (): Promise<UserResult> => {
+        try {
+          const result = await processUser(
+            user,
+            allStocks,
+            registeredByUser.get(user.userId) || new Set(),
+            session,
+            marketContext
+          )
+          return result
+        } catch (error) {
+          console.error(`Error processing user ${user.userId}:`, error)
+          return {
+            userId: user.userId,
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          }
+        }
+      })
+    )
+
+    const results = await Promise.all(tasks)
 
     const successCount = results.filter(r => r.success).length
     const failCount = results.filter(r => !r.success).length

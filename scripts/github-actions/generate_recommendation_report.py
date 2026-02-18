@@ -15,6 +15,7 @@ import sys
 from datetime import datetime, timedelta, timezone, date
 from collections import defaultdict
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import json
 
@@ -22,6 +23,9 @@ import psycopg2
 import pandas as pd
 import yfinance as yf
 from openai import OpenAI
+
+# AI API同時リクエスト数の制限
+AI_CONCURRENCY_LIMIT = 3
 
 # .envファイルから環境変数を読み込む（ローカル実行用）
 env_path = Path(__file__).resolve().parents[2] / ".env"
@@ -224,7 +228,7 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
 
 
 def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | None:
-    """各カテゴリごとにAIインサイトを生成"""
+    """各カテゴリごとにAIインサイトを生成（並列処理）"""
     client = get_openai_client()
     if not client:
         return None
@@ -235,25 +239,37 @@ def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | 
 
     insights = {}
 
-    # 各カテゴリのインサイトを生成
+    # 並列実行するタスクを定義
+    tasks = []
     if daily["count"] > 0:
-        insights["daily"] = generate_single_insight(client, "daily", daily)
-
+        tasks.append(("daily", "insight", client, "daily", daily))
     if purchase["count"] > 0:
-        insights["purchase"] = generate_single_insight(client, "purchase", purchase)
-
+        tasks.append(("purchase", "insight", client, "purchase", purchase))
     if analysis["count"] > 0:
-        insights["analysis"] = generate_single_insight(client, "analysis", analysis)
-
-    # 失敗例から改善提案を生成
+        tasks.append(("analysis", "insight", client, "analysis", analysis))
     if daily.get("failures"):
-        insights["dailyImprovement"] = generate_improvement_suggestion(client, "daily", daily["failures"])
-
+        tasks.append(("dailyImprovement", "improvement", client, "daily", daily["failures"]))
     if purchase.get("failures"):
-        insights["purchaseImprovement"] = generate_improvement_suggestion(client, "purchase", purchase["failures"])
-
+        tasks.append(("purchaseImprovement", "improvement", client, "purchase", purchase["failures"]))
     if analysis.get("failures"):
-        insights["analysisImprovement"] = generate_improvement_suggestion(client, "analysis", analysis["failures"])
+        tasks.append(("analysisImprovement", "improvement", client, "analysis", analysis["failures"]))
+
+    # ThreadPoolExecutorで並列実行
+    def execute_task(task):
+        key, task_type, client, category, data = task
+        if task_type == "insight":
+            return key, generate_single_insight(client, category, data)
+        else:
+            return key, generate_improvement_suggestion(client, category, data)
+
+    with ThreadPoolExecutor(max_workers=AI_CONCURRENCY_LIMIT) as executor:
+        futures = [executor.submit(execute_task, task) for task in tasks]
+        for future in as_completed(futures):
+            try:
+                key, result = future.result()
+                insights[key] = result
+            except Exception as e:
+                print(f"    Warning: Task failed: {e}")
 
     return insights if any(insights.values()) else None
 
