@@ -21,6 +21,10 @@ interface SoldStock {
   totalSellAmount: number
   totalProfit: number
   profitPercent: number
+  currentPrice: number | null
+  hypotheticalValue: number | null
+  hypotheticalProfit: number | null
+  hypotheticalProfitPercent: number | null
   transactions: {
     id: string
     type: string
@@ -36,6 +40,22 @@ interface SoldStockCardProps {
   soldStock: SoldStock
   onAddToWatchlist?: (stockId: string, tickerCode: string, name: string) => void
   onRepurchase?: (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => void
+}
+
+function getHypotheticalComment(hypotheticalProfitPercent: number, actualProfitPercent: number): string {
+  const diff = hypotheticalProfitPercent - actualProfitPercent
+
+  if (diff > 20) {
+    return "かなり早めの利確でした"
+  } else if (diff > 5) {
+    return "早めの利確でした"
+  } else if (diff > -5) {
+    return "適切なタイミングでした"
+  } else if (diff > -20) {
+    return "良いタイミングでした"
+  } else {
+    return "絶好のタイミングでした"
+  }
 }
 
 export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchase }: SoldStockCardProps) {
@@ -137,6 +157,48 @@ export default function SoldStockCard({ soldStock, onAddToWatchlist, onRepurchas
           </div>
         </div>
       </div>
+
+      {/* Hypothetical Section */}
+      {soldStock.hypotheticalProfit !== null && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-sm">📊</span>
+            <span className="text-xs sm:text-sm font-semibold text-gray-700">
+              今も保有してたら
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              → {getHypotheticalComment(
+                  soldStock.hypotheticalProfitPercent ?? 0,
+                  soldStock.profitPercent
+                )}
+            </span>
+            <div className="text-right">
+              <span
+                className={`text-sm sm:text-base font-bold ${
+                  (soldStock.hypotheticalProfit ?? 0) >= 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                {(soldStock.hypotheticalProfit ?? 0) >= 0 ? "+" : ""}
+                ¥{(soldStock.hypotheticalProfit ?? 0).toLocaleString()}
+              </span>
+              <span
+                className={`ml-1 text-xs ${
+                  (soldStock.hypotheticalProfitPercent ?? 0) >= 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                ({(soldStock.hypotheticalProfitPercent ?? 0) >= 0 ? "+" : ""}
+                {(soldStock.hypotheticalProfitPercent ?? 0).toFixed(1)}%)
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer: Actions + Detail Link */}
       <div className={CARD_FOOTER_STYLES.container}>
