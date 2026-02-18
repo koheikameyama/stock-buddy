@@ -363,65 +363,31 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     )
   }
 
-  // AI推奨価格セクション
+  // AI推奨価格セクション（ウォッチリストなので指値のみ表示）
   const AIPriceSection = () => {
-    if (!data?.limitPrice && !data?.stopLossPrice) return null
+    // 指値がない場合は非表示
+    if (!data?.limitPrice) return null
 
     const currentPrice = data.currentPrice
+    const limitPriceNum = data.limitPrice
+    const priceDiff = currentPrice ? limitPriceNum - currentPrice : 0
+    const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
+    const isNowBuyTime = currentPrice && Math.abs(priceDiff / currentPrice) < 0.01 // 1%以内なら「今が買い時」
 
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
         <p className="text-sm font-semibold text-gray-800 mb-2">🎯 AI推奨価格</p>
-        <div className="grid grid-cols-2 gap-3">
-          {data.limitPrice && (
-            <div>
-              {(() => {
-                const limitPriceNum = data.limitPrice
-                const priceDiff = currentPrice ? limitPriceNum - currentPrice : 0
-                const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
-                const isNowBuyTime = currentPrice && Math.abs(priceDiff / currentPrice) < 0.01 // 1%以内なら「今が買い時」
-
-                return (
-                  <>
-                    <p className="text-xs text-gray-500">
-                      {isNowBuyTime ? "今が買い時" : "指値（買い）"}
-                    </p>
-                    <p className="text-base font-bold text-green-600">
-                      {isNowBuyTime ? "成行で購入OK" : `${limitPriceNum.toLocaleString()}円`}
-                    </p>
-                    {!isNowBuyTime && currentPrice && priceDiff < 0 && (
-                      <p className="text-xs text-yellow-600">
-                        あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で到達
-                      </p>
-                    )}
-                  </>
-                )
-              })()}
-            </div>
-          )}
-          {data.stopLossPrice && (
-            <div>
-              {(() => {
-                const stopLossPriceNum = data.stopLossPrice
-                const priceDiff = currentPrice ? stopLossPriceNum - currentPrice : 0
-                const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
-                const isNearStopLoss = currentPrice && Math.abs(priceDiff / currentPrice) < 0.03 // 3%以内なら注意
-
-                return (
-                  <>
-                    <p className="text-xs text-gray-500">逆指値（損切り）</p>
-                    <p className="text-base font-bold text-red-600">
-                      {stopLossPriceNum.toLocaleString()}円
-                    </p>
-                    {currentPrice && priceDiff < 0 && (
-                      <p className={`text-xs ${isNearStopLoss ? "text-red-600 font-semibold" : "text-gray-500"}`}>
-                        {isNearStopLoss ? "⚠️ " : ""}あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で発動
-                      </p>
-                    )}
-                  </>
-                )
-              })()}
-            </div>
+        <div>
+          <p className="text-xs text-gray-500">
+            {isNowBuyTime ? "今が買い時" : "指値（買い）"}
+          </p>
+          <p className="text-base font-bold text-green-600">
+            {isNowBuyTime ? "成行で購入OK" : `${limitPriceNum.toLocaleString()}円`}
+          </p>
+          {!isNowBuyTime && currentPrice && priceDiff < 0 && (
+            <p className="text-xs text-yellow-600">
+              あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で到達
+            </p>
           )}
         </div>
       </div>
