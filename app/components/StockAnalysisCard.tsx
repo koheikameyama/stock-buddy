@@ -343,7 +343,9 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     <div className="space-y-4">
       {/* ヘッダー */}
       <div className="flex items-center justify-between -mt-2 mb-2">
-        <h3 className="text-base font-bold text-gray-800">AI価格予測</h3>
+        <h3 className="text-base font-bold text-gray-800">
+          {quantity ? "AI売買判断" : "AI価格予測"}
+        </h3>
         <button
           onClick={generateAnalysis}
           disabled={generating}
