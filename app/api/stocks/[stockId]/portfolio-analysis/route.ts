@@ -11,6 +11,8 @@ import {
   buildTechnicalContext,
   buildChartPatternContext,
   buildWeekChangeContext,
+  PROMPT_MARKET_SIGNAL_DEFINITION,
+  PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
@@ -372,18 +374,12 @@ ${newsContext}${marketContext}
   "confidence": 0.0〜1.0の信頼度
 }
 
-【marketSignalの定義】
-- bullish: テクニカル・ファンダメンタル総合で上昇優勢（RSI底打ち、MACD上昇転換、黒字増益など）
-- neutral: どちらとも言えない、横ばい（シグナルが混在、or 材料不足）
-- bearish: 下落優勢、リスクが高い（RSI高水準、MACD下降、赤字継続など）
+${PROMPT_MARKET_SIGNAL_DEFINITION}
 
 【判断の指針】
 - テクニカル指標（RSI・MACD・ローソク足・チャートパターン）を必ず分析に活用してください
 - 財務指標（会社の規模、配当、株価水準）を分析に活用してください
-- 提供されたニュース情報を参考にしてください
-- ニュースにない情報は推測や創作をしないでください
-- 決算発表、業績予想、M&A、人事異動など、提供されていない情報を創作しないでください
-- 過去の一般知識（例:「○○社は過去に○○した」）は使用しないでください
+${PROMPT_NEWS_CONSTRAINTS}
 - ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください
 
 【業績に基づく判断の指針】

@@ -11,6 +11,8 @@ import {
   buildTechnicalContext,
   buildChartPatternContext,
   buildWeekChangeContext,
+  PROMPT_MARKET_SIGNAL_DEFINITION,
+  PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
@@ -340,11 +342,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
   "personalizedReason": "このユーザーにとってのおすすめ理由（2-3文）"
 }
 
-【marketSignalの定義】
-- bullish: テクニカル・ファンダメンタル総合で上昇優勢（RSI底打ち、MACD上昇転換、黒字増益など）
-- neutral: どちらとも言えない、横ばい（シグナルが混在、or 材料不足）
-- bearish: 下落優勢、リスクが高い（RSI高水準、MACD下降、赤字継続など）
-※ marketSignal は recommendation と独立して判断する（強制補正前の純粋な市場シグナル）
+${PROMPT_MARKET_SIGNAL_DEFINITION}
 
 【価格帯予測の指針】
 - 予測は提供されたテクニカル指標・チャートパターン・ファンダメンタルを根拠として算出する
@@ -356,10 +354,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
 - advice は価格帯予測の数値を踏まえた具体的なコメントにする（例:「今週は○○〜○○円で推移する見込みで...」）
 
 【制約】
-- 提供されたニュース情報を参考にしてください
-- ニュースにない情報は推測や創作をしないでください
-- 決算発表、業績予想、M&A、人事異動など、提供されていない情報を創作しないでください
-- 過去の一般知識（例:「○○社は過去に○○した」）は使用しないでください
+${PROMPT_NEWS_CONSTRAINTS}
 - 「買い時」「今すぐ買うべき」などの断定的な表現は避け、「検討できる」「検討のタイミング」などの表現を使う
 - 赤字企業の場合は concerns で必ず「業績が赤字である」ことに言及し、リスクを伝える
 - 赤字かつ減益傾向の場合は、特に慎重な表現を使う
