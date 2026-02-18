@@ -93,4 +93,6 @@ export const MA_DEVIATION = {
   SCORE_PENALTY: -20,            // 日次おすすめのスコアペナルティ
   SCORE_BONUS: 10,               // 日次おすすめのスコアボーナス
   LOW_VOLATILITY_THRESHOLD: 30,  // 低ボラティリティの閾値（%）
+  DIP_BUY_THRESHOLD: 5,          // 乖離率(%)がこれを超えたら押し目買い推奨
+  RSI_OVERBOUGHT_THRESHOLD: 70,  // RSIがこれを超えたら押し目買い推奨
 } as const
