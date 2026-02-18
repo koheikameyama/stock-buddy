@@ -123,6 +123,7 @@ model Stock {
   weekChangeRate    Decimal?           @db.Decimal(8, 2)  // 週間変化率（%）
   volatility        Decimal?           @db.Decimal(8, 2)  // 30日間ボラティリティ（%）
   volumeRatio       Decimal?           @db.Decimal(8, 2)  // 出来高比率（直近3日/4-30日前）
+  maDeviationRate   Decimal?           @db.Decimal(8, 2)  // 25日移動平均乖離率（%）
   priceUpdatedAt    DateTime?          // 株価更新日時
 
   // 財務データの最終更新日時
@@ -398,6 +399,8 @@ model PurchaseRecommendation {
 
   // C. 買い時条件（stayの時に表示）
   buyCondition         String?  @db.Text    // どうなったら買い時か
+  buyTiming            String?              // "market" | "dip" | null（買い推奨時の購入タイミング）
+  dipTargetPrice       Decimal? @db.Decimal(12, 2)  // 押し目買い時の目安価格（SMA25）
 
   // D. パーソナライズ（ユーザー設定に基づく評価）
   userFitScore         Int?                 // おすすめ度 0-100
