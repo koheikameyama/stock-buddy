@@ -520,7 +520,9 @@ ${isRecentPurchase ? `【重要: 購入後${daysSincePurchase}日目】
 - sellReason: なぜその売却割合を推奨するのか、市場分析に基づく具体的な理由を記載
   - 例（利確）: 「レジスタンスに到達、上昇モメンタムが弱まっている」
   - 例（損切り）: 「業績悪化＋下落トレンド継続、回復の見込みが薄い」
-  - 例（様子見）: 「トレンドは上向き、まだ保有継続で問題なし」
+- 【重要】statusType と sellReason の整合性:
+  - 売却を推奨する場合 → statusType は caution または warning にし、sellReason に理由を記載
+  - 様子見（statusType: neutral / good）の場合 → sellReason と suggestedSellPercent は null にする（売却理由がないため）
 
 【損切り提案の指針】
 - 損失率が-15%以上かつ業績悪化や株価下落トレンドが続いている場合は、損切りを選択肢として提示
