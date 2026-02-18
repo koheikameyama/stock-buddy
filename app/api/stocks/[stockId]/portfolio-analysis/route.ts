@@ -67,6 +67,8 @@ export async function GET(
           suggestedSellPercent: true,
           sellReason: true,
           sellCondition: true,
+          sellTiming: true,
+          sellTargetPrice: true,
           transactions: {
             orderBy: { transactionDate: "asc" },
           },
@@ -130,6 +132,8 @@ export async function GET(
           suggestedSellPercent: null,
           sellReason: null,
           sellCondition: null,
+          sellTiming: null,
+          sellTargetPrice: null,
           recommendation: null,
           // 損切りアラート用
           averagePurchasePrice,
@@ -161,6 +165,8 @@ export async function GET(
       suggestedSellPercent: portfolioStock.suggestedSellPercent,
       sellReason: portfolioStock.sellReason,
       sellCondition: portfolioStock.sellCondition,
+      sellTiming: portfolioStock.sellTiming,
+      sellTargetPrice: portfolioStock.sellTargetPrice ? Number(portfolioStock.sellTargetPrice) : null,
       recommendation: null, // GETでは取得しない（StockAnalysisから取得）
       // 損切りアラート用
       averagePurchasePrice,
@@ -505,6 +511,54 @@ ${PROMPT_NEWS_CONSTRAINTS}
     const simpleStatusMap: Record<string, string> = { good: "好調", neutral: "様子見", warning: "警戒" }
     const simpleStatus = simpleStatusMap[statusType] || statusType
 
+    // 乖離率・RSI計算（売りタイミング判定用）
+    const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
+    const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
+    const rsiValue = calculateRSI(pricesNewestFirst)
+    const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD)
+
+    // 強制補正: 乖離率-20%以下 → sell→hold（パニック売り防止）
+    if (
+      deviationRate !== null &&
+      deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
+      result.recommendation === "sell"
+    ) {
+      result.recommendation = "hold"
+      result.simpleStatus = "neutral"
+      result.sellReason = null
+      result.suggestedSellPercent = null
+      result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`
+    }
+
+    // 売りタイミング判定（sell推奨時のみ）
+    let sellTiming: string | null = null
+    let sellTargetPrice: number | null = null
+
+    if (result.recommendation === "sell") {
+      // 優先順位2: 損切り優先（損失率-15%以下）
+      if (profitPercent !== null && profitPercent <= SELL_TIMING.STOP_LOSS_THRESHOLD) {
+        sellTiming = "market"
+      }
+      // 優先順位3: 利確優先（利益率+10%以上）
+      else if (profitPercent !== null && profitPercent >= SELL_TIMING.PROFIT_TAKING_THRESHOLD) {
+        sellTiming = "market"
+      }
+      // 優先順位4,5: テクニカル判断
+      else {
+        const isDeviationOk = deviationRate === null || deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD
+        const isRsiOk = rsiValue === null || rsiValue >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD
+
+        if (deviationRate === null && rsiValue === null) {
+          sellTiming = null
+        } else if (isDeviationOk && isRsiOk) {
+          sellTiming = "market"
+        } else {
+          sellTiming = "rebound"
+          sellTargetPrice = sma25
+        }
+      }
+    }
+
     // データベースに保存
     const now = dayjs.utc().toDate()
 
@@ -524,6 +578,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
           suggestedSellPercent: result.suggestedSellPercent || null,
           sellReason: result.sellReason || null,
           sellCondition: result.sellCondition || null,
+          sellTiming: sellTiming,
+          sellTargetPrice: sellTargetPrice,
           lastAnalysis: now,
           updatedAt: now,
         },
@@ -569,6 +625,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       suggestedSellPercent: result.suggestedSellPercent || null,
       sellReason: result.sellReason || null,
       sellCondition: result.sellCondition || null,
+      sellTiming: sellTiming,
+      sellTargetPrice: sellTargetPrice,
       recommendation: result.recommendation || null,
       lastAnalysis: now.toISOString(),
       isToday: true,

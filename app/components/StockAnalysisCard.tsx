@@ -401,12 +401,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
       {/* AIアドバイス */}
       {prediction && (
         <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
-          <div className="flex justify-between items-start mb-2">
+          <div className="mb-2">
+            <p className="font-semibold text-gray-800 mb-1.5">💡 AIアドバイス</p>
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-gray-800">💡 AIアドバイス</p>
+              {getStatusBadge(prediction?.statusType || portfolioAnalysis?.statusType)}
               {getMarketSignalBadge(portfolioAnalysis?.marketSignal)}
             </div>
-            {getStatusBadge(prediction?.statusType || portfolioAnalysis?.statusType)}
           </div>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}
