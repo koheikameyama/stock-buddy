@@ -26,10 +26,16 @@ from lib.outcome_utils import insert_recommendation_outcome
 CONFIG = {
     "MAX_PER_SECTOR": 5,       # 各セクターからの最大銘柄数
     "MAX_STOCKS_FOR_AI": 30,   # AIに渡す最大銘柄数
-    "MAX_VOLATILITY": 50,      # ボラティリティ上限（%）- 赤字 AND 高ボラの組み合わせで除外
+    "MAX_VOLATILITY": 50,      # ボラティリティ上限（%）- 赤字 AND 高ボラの組み合わせでペナルティ
 }
 
-# 赤字 AND 高ボラティリティ銘柄は除外（買い推奨でもstayになるため一貫性を保つ）
+# 赤字 AND 高ボラティリティ銘柄へのスコアペナルティ（リスク許容度別）
+# 除外ではなくペナルティにすることで、高リスク志向ユーザーには表示される可能性を残す
+RISK_PENALTY = {
+    "high": -10,    # 高リスク志向: -10点（軽めのペナルティ）
+    "medium": -20,  # 中リスク志向: -20点
+    "low": -30,     # 低リスク志向: -30点（厳しめのペナルティ）
+}
 
 # 投資スタイル別のスコア配分（period × risk）
 # 各指標の重み（合計100）
@@ -275,9 +281,11 @@ def calculate_stock_scores(
         "marketCap": normalize_values(stocks, "marketCap"),
     }
 
-    # 赤字 AND 高ボラ銘柄は除外
+    # 赤字 AND 高ボラ銘柄へのペナルティ
     max_vol = CONFIG["MAX_VOLATILITY"]
+    penalty = RISK_PENALTY.get(risk or "medium", -20)
     excluded_count = 0
+    penalty_count = 0
 
     # スコア計算
     scored_stocks = []
@@ -305,15 +313,16 @@ def calculate_stock_scores(
             excluded_count += 1
             continue
 
-        # 赤字 AND 高ボラティリティの場合は除外（買い推奨でもstayになるため）
+        # 赤字 AND 高ボラティリティの場合はペナルティ（順位を下げるが表示は可能）
         is_high_risk_stock = (
             stock.get("isProfitable") is False
             and stock.get("volatility") is not None
             and stock["volatility"] > max_vol
         )
-        if is_high_risk_stock:
-            excluded_count += 1
-            continue
+        if is_high_risk_stock and penalty != 0:
+            total_score += penalty
+            score_breakdown["riskPenalty"] = penalty
+            penalty_count += 1
 
         # 急騰銘柄へのペナルティ（上がりきった銘柄を避ける）
         # +20%以上: -10点、+30%以上: -20点
@@ -337,7 +346,9 @@ def calculate_stock_scores(
         })
 
     if excluded_count > 0:
-        print(f"  Excluded {excluded_count} risky stocks (weekChange>50% OR unprofitable+highVol)")
+        print(f"  Excluded {excluded_count} stocks (weekChange>50%)")
+    if penalty_count > 0:
+        print(f"  Applied risk penalty ({penalty}) to {penalty_count} stocks (unprofitable AND volatility>{max_vol}%)")
 
     # 急騰ペナルティの適用数をカウント
     surge_penalty_count = sum(1 for s in scored_stocks if s.get("scoreBreakdown", {}).get("surgePenalty"))
@@ -554,7 +565,8 @@ def main():
     print(f"Config:")
     print(f"  - MAX_PER_SECTOR: {CONFIG['MAX_PER_SECTOR']}")
     print(f"  - MAX_STOCKS_FOR_AI: {CONFIG['MAX_STOCKS_FOR_AI']}")
-    print(f"  - MAX_VOLATILITY: {CONFIG['MAX_VOLATILITY']}% (unprofitable + high vol = excluded)")
+    print(f"  - MAX_VOLATILITY: {CONFIG['MAX_VOLATILITY']}% (threshold for risk penalty)")
+    print(f"  - RISK_PENALTY: {RISK_PENALTY}")
     print()
 
     # クライアント初期化
