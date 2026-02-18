@@ -77,11 +77,6 @@ export default function MarketMoverDetailClient({ stock, mover }: Props) {
             actions={
               <StockActionButtons
                 tickerCode={stock.tickerCode}
-                stockRiskInfo={{
-                  isProfitable: stock.isProfitable,
-                  volatility: stock.volatility,
-                  weekChangeRate: stock.weekChangeRate,
-                }}
               />
             }
           />

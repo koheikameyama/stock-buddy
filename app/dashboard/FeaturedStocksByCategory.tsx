@@ -188,6 +188,26 @@ export default function FeaturedStocksByCategory() {
           </div>
         )}
 
+        {/* リスク情報 */}
+        {(stock.stock.isProfitable === false ||
+          (stock.stock.volatility != null && stock.stock.volatility > 50) ||
+          (stock.stock.weekChangeRate != null && stock.stock.weekChangeRate < -15)) && (
+          <div className="mb-2 sm:mb-3 p-2 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="flex items-start gap-1.5">
+              <span className="text-amber-500 text-xs mt-0.5">⚠️</span>
+              <div className="text-xs text-amber-700 space-y-0.5">
+                {stock.stock.isProfitable === false && <p>赤字銘柄</p>}
+                {stock.stock.volatility != null && stock.stock.volatility > 50 && (
+                  <p>高ボラティリティ（{stock.stock.volatility.toFixed(1)}%）</p>
+                )}
+                {stock.stock.weekChangeRate != null && stock.stock.weekChangeRate < -15 && (
+                  <p>直近1週間で{stock.stock.weekChangeRate.toFixed(1)}%下落</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className={CARD_FOOTER_STYLES.container}>
           {/* アクションボタン（保有中以外で表示） */}
           {!stock.isOwned && (
@@ -200,11 +220,6 @@ export default function FeaturedStocksByCategory() {
                 isTracked={stock.isTracked}
                 onWatchlistSuccess={() => updateStockStatus(stock.stockId, "watchlist")}
                 onTrackedSuccess={() => updateStockStatus(stock.stockId, "tracked")}
-                stockRiskInfo={{
-                  isProfitable: stock.stock.isProfitable,
-                  volatility: stock.stock.volatility,
-                  weekChangeRate: stock.stock.weekChangeRate,
-                }}
               />
             </div>
           )}

@@ -246,11 +246,6 @@ export default function StockDetailClient({
               tickerCode={stock.tickerCode}
               isInWatchlist={isInWatchlist}
               isTracked={localIsTracked}
-              stockRiskInfo={{
-                isProfitable: stock.isProfitable,
-                volatility: stock.volatility,
-                weekChangeRate: stock.weekChangeRate,
-              }}
               onTrackedSuccess={handleTrackedSuccess}
             />
           )
