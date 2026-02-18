@@ -186,3 +186,20 @@ export function getTechnicalSignal(prices: PriceData[]): {
     reasons,
   }
 }
+
+/**
+ * 移動平均線からの乖離率（%）を計算
+ * 乖離率 = (現在価格 - SMA) / SMA × 100
+ *
+ * @param prices - 価格データ（新しい順）
+ * @param period - 移動平均の期間（デフォルト25日）
+ * @returns 乖離率（%）。データ不足の場合は null
+ */
+export function calculateDeviationRate(prices: PriceData[], period: number = 25): number | null {
+  const sma = calculateSMA(prices, period)
+  if (sma === null || sma === 0) return null
+
+  const currentPrice = prices[0].close
+  const rate = ((currentPrice - sma) / sma) * 100
+  return Math.round(rate * 100) / 100
+}
