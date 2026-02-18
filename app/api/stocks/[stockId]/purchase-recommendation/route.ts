@@ -103,12 +103,15 @@ export async function GET(
       shortTermTrend: analysis?.shortTermTrend ?? null,
       shortTermPriceLow: analysis?.shortTermPriceLow ? Number(analysis.shortTermPriceLow) : null,
       shortTermPriceHigh: analysis?.shortTermPriceHigh ? Number(analysis.shortTermPriceHigh) : null,
+      shortTermText: analysis?.shortTermText ?? null,
       midTermTrend: analysis?.midTermTrend ?? null,
       midTermPriceLow: analysis?.midTermPriceLow ? Number(analysis.midTermPriceLow) : null,
       midTermPriceHigh: analysis?.midTermPriceHigh ? Number(analysis.midTermPriceHigh) : null,
+      midTermText: analysis?.midTermText ?? null,
       longTermTrend: analysis?.longTermTrend ?? null,
       longTermPriceLow: analysis?.longTermPriceLow ? Number(analysis.longTermPriceLow) : null,
       longTermPriceHigh: analysis?.longTermPriceHigh ? Number(analysis.longTermPriceHigh) : null,
+      longTermText: analysis?.longTermText ?? null,
       advice: analysis?.advice ?? null,
     }
 

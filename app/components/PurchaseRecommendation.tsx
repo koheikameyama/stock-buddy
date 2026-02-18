@@ -18,12 +18,15 @@ interface RecommendationData {
   shortTermTrend?: string | null
   shortTermPriceLow?: number | null
   shortTermPriceHigh?: number | null
+  shortTermText?: string | null
   midTermTrend?: string | null
   midTermPriceLow?: number | null
   midTermPriceHigh?: number | null
+  midTermText?: string | null
   longTermTrend?: string | null
   longTermPriceLow?: number | null
   longTermPriceHigh?: number | null
+  longTermText?: string | null
   advice?: string | null
   // B. 購入判断
   recommendation: "buy" | "stay" | "avoid"
@@ -296,7 +299,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">{getTrendIcon(data.shortTermTrend)}</span>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-bold text-purple-800">短期予測（今週）</p>
               {data.shortTermPriceLow && data.shortTermPriceHigh && (
                 <p className="text-xs text-purple-600">
@@ -305,13 +308,16 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               )}
             </div>
           </div>
+          {data.shortTermText && (
+            <p className="text-sm text-gray-700">{data.shortTermText}</p>
+          )}
         </div>
 
         {/* 中期予測 */}
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">{getTrendIcon(data.midTermTrend)}</span>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-bold text-blue-800">中期予測（今月）</p>
               {data.midTermPriceLow && data.midTermPriceHigh && (
                 <p className="text-xs text-blue-600">
@@ -320,13 +326,16 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               )}
             </div>
           </div>
+          {data.midTermText && (
+            <p className="text-sm text-gray-700">{data.midTermText}</p>
+          )}
         </div>
 
         {/* 長期予測 */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">{getTrendIcon(data.longTermTrend)}</span>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-bold text-emerald-800">長期予測（今後3ヶ月）</p>
               {data.longTermPriceLow && data.longTermPriceHigh && (
                 <p className="text-xs text-emerald-600">
@@ -335,6 +344,9 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
               )}
             </div>
           </div>
+          {data.longTermText && (
+            <p className="text-sm text-gray-700">{data.longTermText}</p>
+          )}
         </div>
 
         {/* 総合アドバイス */}

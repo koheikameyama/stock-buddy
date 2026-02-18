@@ -318,7 +318,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
       <div className="bg-gray-50 rounded-lg p-6 text-center">
         <div className="text-4xl mb-3">📊</div>
         <p className="text-sm text-gray-600 mb-4">
-          {error || "売買分析はまだ生成されていません"}
+          {error || "分析データはまだ生成されていません"}
         </p>
         <button
           onClick={generateAnalysis}
@@ -340,7 +340,9 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     <div className="space-y-4">
       {/* ヘッダー */}
       <div className="flex items-center justify-between -mt-2 mb-2">
-        <h3 className="text-base font-bold text-gray-800">AI売買判断</h3>
+        <h3 className="text-base font-bold text-gray-800">
+          {quantity ? "AI売買判断" : "AI価格予測"}
+        </h3>
         <button
           onClick={generateAnalysis}
           disabled={generating}
