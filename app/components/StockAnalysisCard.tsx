@@ -504,11 +504,13 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
           </p>
           {/* 指値・逆指値（推奨に応じて表示を切り替え） */}
           {(() => {
-            // buy → 指値 + 逆指値、sell → 売却価格 + 逆指値、hold → 両方
+            // sell推奨時は「AI推奨価格」セクションを非表示（「売却を検討」セクションに統合）
+            if (prediction.recommendation === "sell") return null
+
+            // buy → 指値 + 逆指値、hold → 利確目標 + 逆指値
             const showLimitPrice = prediction.recommendation === "buy" || prediction.recommendation === "hold"
-            const showStopLossPrice = true // 全推奨で逆指値を表示
-            const showSellPrice = prediction.recommendation === "sell" && portfolioAnalysis?.suggestedSellPrice
-            const hasPrice = (showLimitPrice && prediction.limitPrice) || (showStopLossPrice && prediction.stopLossPrice) || showSellPrice
+            const showStopLossPrice = true // buy/holdで逆指値を表示
+            const hasPrice = (showLimitPrice && prediction.limitPrice) || (showStopLossPrice && prediction.stopLossPrice)
 
             if (!hasPrice) return null
 
@@ -579,38 +581,6 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                       })()}
                     </div>
                   )}
-                  {/* sell推奨時: 売却推奨価格を表示 */}
-                  {showSellPrice && portfolioAnalysis?.suggestedSellPrice && (
-                    <div>
-                      {(() => {
-                        const sellPriceNum = portfolioAnalysis.suggestedSellPrice
-                        const currentPrice = prediction.currentPrice
-                        const priceDiff = currentPrice ? sellPriceNum - currentPrice : 0
-                        const isNowSellTime = currentPrice && Math.abs(priceDiff / currentPrice) < 0.02 // 2%以内なら「今が売り時」
-
-                        return (
-                          <>
-                            <p className="text-xs text-gray-500">
-                              {isNowSellTime ? "⚠️ 今が売り時" : "売却推奨価格"}
-                            </p>
-                            <p className="text-base font-bold text-amber-600">
-                              {isNowSellTime ? "成行で売却検討" : `${sellPriceNum.toLocaleString()}円`}
-                            </p>
-                            {!isNowSellTime && currentPrice && priceDiff > 0 && (
-                              <p className="text-xs text-amber-600">
-                                あと+{priceDiff.toLocaleString()}円で到達
-                              </p>
-                            )}
-                            {!isNowSellTime && currentPrice && priceDiff < 0 && (
-                              <p className="text-xs text-red-600">
-                                現在価格を下回っています
-                              </p>
-                            )}
-                          </>
-                        )
-                      })()}
-                    </div>
-                  )}
                   {showStopLossPrice && prediction.stopLossPrice && (
                     <div>
                       {(() => {
@@ -670,7 +640,19 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                     </span>
                   </div>
                 )}
-                {portfolioAnalysis.suggestedSellPrice && (
+                {prediction.recommendation === "sell" ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">売却方法:</span>
+                    <span className="font-bold text-red-600">
+                      成行で今すぐ売却を検討
+                    </span>
+                    {prediction.currentPrice && (
+                      <span className="text-xs text-gray-500">
+                        （現在価格: {prediction.currentPrice.toLocaleString()}円）
+                      </span>
+                    )}
+                  </div>
+                ) : portfolioAnalysis.suggestedSellPrice && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">売却価格:</span>
                     <span className="font-bold text-gray-800">
