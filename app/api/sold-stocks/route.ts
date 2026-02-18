@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { Decimal } from "@prisma/client/runtime/library"
 
 export async function GET() {
@@ -113,7 +114,57 @@ export async function GET() {
       // 最後の売却日でソート（新しい順）
       .sort((a, b) => new Date(b.lastSellDate).getTime() - new Date(a.lastSellDate).getTime())
 
-    return NextResponse.json(soldStocks)
+    // 売却済み銘柄のティッカーコードを収集
+    const tickerCodes = soldStocks.map((ss) => ss.stock.tickerCode)
+
+    // 現在価格を取得
+    const priceMap: Map<string, number> = new Map()
+    if (tickerCodes.length > 0) {
+      try {
+        const prices = await fetchStockPrices(tickerCodes)
+        prices.forEach((p) => {
+          // .Tを除去してマッピング
+          const code = p.tickerCode.replace(/\.T$/, "")
+          priceMap.set(code, p.currentPrice)
+        })
+      } catch (error) {
+        console.error("Error fetching current prices:", error)
+      }
+    }
+
+    // hypothetical値を計算して追加
+    const soldStocksWithHypothetical = soldStocks.map((ss) => {
+      const currentPrice = priceMap.get(ss.stock.tickerCode) ?? null
+
+      if (currentPrice === null) {
+        return {
+          ...ss,
+          currentPrice: null,
+          hypotheticalValue: null,
+          hypotheticalProfit: null,
+          hypotheticalProfitPercent: null,
+        }
+      }
+
+      // 今も保有してたらの金額 = 現在価格 × 総購入数
+      const hypotheticalValue = currentPrice * ss.totalBuyQuantity
+      // 今も保有してたらの損益 = 今も保有してたらの金額 - 購入金額
+      const hypotheticalProfit = hypotheticalValue - ss.totalBuyAmount
+      // 今も保有してたらの損益% = (損益 / 購入金額) × 100
+      const hypotheticalProfitPercent = ss.totalBuyAmount > 0
+        ? (hypotheticalProfit / ss.totalBuyAmount) * 100
+        : 0
+
+      return {
+        ...ss,
+        currentPrice,
+        hypotheticalValue,
+        hypotheticalProfit,
+        hypotheticalProfitPercent,
+      }
+    })
+
+    return NextResponse.json(soldStocksWithHypothetical)
   } catch (error) {
     console.error("Error fetching sold stocks:", error)
     return NextResponse.json(
