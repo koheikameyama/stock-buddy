@@ -12,6 +12,7 @@ import {
   buildChartPatternContext,
   buildWeekChangeContext,
   buildMarketContext,
+  buildDeviationRateContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
@@ -277,6 +278,9 @@ export async function POST(
     // 週間変化率
     const { text: weekChangeContext } = buildWeekChangeContext(prices, "portfolio")
 
+    // 乖離率コンテキスト
+    const deviationRateContext = buildDeviationRateContext(prices)
+
     // 関連ニュースを取得
     const tickerCode = portfolioStock.stock.tickerCode.replace(".T", "")
     const news = await getRelatedNews({
@@ -324,7 +328,7 @@ export async function POST(
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
-【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}
+【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
 ${newsContext}${marketContext}

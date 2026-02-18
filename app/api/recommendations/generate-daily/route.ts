@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
         volumeRatio: true,
         marketCap: true,
         isProfitable: true,
+        maDeviationRate: true,
         dividendYield: true,
         pbr: true,
         per: true,
@@ -229,6 +230,7 @@ async function processUser(
     volumeRatio: unknown
     marketCap: unknown
     isProfitable: boolean | null
+    maDeviationRate: unknown
     dividendYield: unknown
     pbr: unknown
     per: unknown
@@ -258,6 +260,7 @@ async function processUser(
     volumeRatio: s.volumeRatio ? Number(s.volumeRatio) : null,
     marketCap: s.marketCap ? Number(s.marketCap) : null,
     isProfitable: s.isProfitable,
+    maDeviationRate: s.maDeviationRate ? Number(s.maDeviationRate) : null,
   }))
 
   const filtered = filterByBudget(stocksForScoring, investmentBudget)
