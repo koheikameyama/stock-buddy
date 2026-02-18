@@ -501,7 +501,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
           </p>
           {/* 指値・逆指値（推奨に応じて表示を切り替え） */}
           {(() => {
-            // sell推奨時は「AI推奨価格」セクションを非表示（「売却を検討」セクションに統合）
+            // sell推奨時は「AI推奨価格」セクションを非表示（「売却検討」セクションに統合）
             if (prediction.recommendation === "sell") return null
 
             // buy → 指値 + 逆指値、hold → 利確目標 + 逆指値
@@ -607,19 +607,33 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
               </div>
             )
           })()}
-          {/* AIによる売却提案 */}
-          {portfolioAnalysis && (portfolioAnalysis.suggestedSellPercent || portfolioAnalysis.sellReason) && (
-            <div className={`rounded-lg p-3 mb-3 ${
-              prediction.recommendation === "sell"
-                ? "bg-amber-50 border border-amber-200"
-                : "bg-gray-50 border border-gray-200"
-            }`}>
+          {/* 買増検討（好調時） */}
+          {portfolioAnalysis?.statusType === "good" && prediction.recommendation === "buy" && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                {prediction.recommendation === "sell" ? (
-                  <>⚠️ 売却を検討</>
-                ) : (
-                  <>📊 AIの売却判断</>
-                )}
+                📈 買増検討
+              </p>
+              <p className="text-sm text-gray-700">
+                好調な状態が続いています。買増を検討しても良いタイミングです。
+              </p>
+            </div>
+          )}
+          {/* 様子見（neutral時） */}
+          {portfolioAnalysis?.statusType === "neutral" && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+              <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
+                👀 様子見
+              </p>
+              <p className="text-sm text-gray-700">
+                現在は大きな動きがありません。しばらく様子を見ましょう。
+              </p>
+            </div>
+          )}
+          {/* AIによる売却提案（注意・警戒時） */}
+          {portfolioAnalysis && (portfolioAnalysis.statusType === "caution" || portfolioAnalysis.statusType === "warning") && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+              <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
+                ⚠️ 売却検討
               </p>
               <div className="space-y-2">
                 {portfolioAnalysis.suggestedSellPercent && (
@@ -641,7 +655,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">売却方法:</span>
                     <span className="font-bold text-red-600">
-                      成行で今すぐ売却を検討
+                      成行で今すぐ売却検討
                     </span>
                     {prediction.currentPrice && (
                       <span className="text-xs text-gray-500">
