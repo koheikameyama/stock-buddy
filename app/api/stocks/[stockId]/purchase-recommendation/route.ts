@@ -11,12 +11,13 @@ import {
   buildTechnicalContext,
   buildChartPatternContext,
   buildWeekChangeContext,
+  buildMarketContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
-import { getNikkei225Data, getTrendDescription, MarketIndexData } from "@/lib/market-index"
+import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -247,20 +248,7 @@ export async function POST(
     const { text: weekChangeContext, rate: weekChangeRate } = buildWeekChangeContext(prices, "watchlist")
 
     // 市場全体の状況コンテキスト
-    let marketContext = ""
-    if (marketData) {
-      const trendDesc = getTrendDescription(marketData.trend)
-      marketContext = `
-【市場全体の状況】
-- 日経平均株価: ${marketData.currentPrice.toLocaleString()}円
-- 週間変化率: ${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%
-- トレンド: ${trendDesc}
-
-※市場全体の状況を考慮して判断してください。
-  市場が弱い中で堅調な銘柄は評価できます。
-  市場上昇時は追い風として言及できます。
-`
-    }
+    const marketContext = buildMarketContext(marketData)
 
     // 財務指標のフォーマット
     const financialMetrics = buildFinancialMetrics(stock, currentPrice)

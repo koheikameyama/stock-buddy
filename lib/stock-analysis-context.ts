@@ -10,6 +10,7 @@
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
+import { MarketIndexData } from "@/lib/market-index"
 
 // OHLCV データ型（oldest-first で渡す）
 export interface OHLCVData {
@@ -370,3 +371,27 @@ export const PROMPT_NEWS_CONSTRAINTS = `- 提供されたニュース情報を�
 - ニュースにない情報は推測や創作をしないでください
 - 決算発表、業績予想、M&A、人事異動など、提供されていない情報を創作しないでください
 - 過去の一般知識（例:「○○社は過去に○○した」）は使用しないでください`
+
+/**
+ * 市場全体の状況コンテキスト文字列を生成する（両ルート共通）
+ * @param marketData - getNikkei225Data() の戻り値
+ */
+export function buildMarketContext(marketData: MarketIndexData | null): string {
+  if (!marketData) return ""
+
+  const trendDesc =
+    marketData.trend === "up" ? "上昇傾向" :
+    marketData.trend === "down" ? "下落傾向" :
+    "横ばい"
+
+  return `
+【市場全体の状況】
+- 日経平均株価: ${marketData.currentPrice.toLocaleString()}円
+- 週間変化率: ${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%
+- トレンド: ${trendDesc}
+
+※市場全体の状況を考慮して判断してください。
+  市場が弱い中で堅調な銘柄は評価できます。
+  市場上昇時は追い風として言及できます。
+`
+}

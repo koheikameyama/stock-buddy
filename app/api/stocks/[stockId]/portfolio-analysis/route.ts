@@ -11,9 +11,11 @@ import {
   buildTechnicalContext,
   buildChartPatternContext,
   buildWeekChangeContext,
+  buildMarketContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
+import { getNikkei225Data } from "@/lib/market-index"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -292,30 +294,13 @@ export async function POST(
     const financialMetrics = buildFinancialMetrics(stock, currentPrice)
 
     // 日経平均の市場文脈を取得
-    let marketContext = ""
+    let marketData = null
     try {
-      const nikkeiPrices = await fetchStockPrices(["^N225"])
-      if (nikkeiPrices.length > 0) {
-        const nikkei = nikkeiPrices[0]
-
-        // 1週間の変動率を計算
-        const nikkeiHistorical = await fetchHistoricalPrices("^N225", "1m")
-        let weeklyChangePercent: number | null = null
-        if (nikkeiHistorical.length >= 5) {
-          const oneWeekAgo = nikkeiHistorical[Math.max(0, nikkeiHistorical.length - 6)]
-          weeklyChangePercent = ((nikkei.currentPrice - oneWeekAgo.close) / oneWeekAgo.close) * 100
-        }
-
-        marketContext = `
-
-【市場全体の状況】
-- 日経平均: ${Math.round(nikkei.currentPrice).toLocaleString()}円（前日比 ${nikkei.change >= 0 ? "+" : ""}${Math.round(nikkei.change).toLocaleString()}円、${nikkei.changePercent >= 0 ? "+" : ""}${nikkei.changePercent.toFixed(2)}%）
-${weeklyChangePercent !== null ? `- 直近1週間: ${weeklyChangePercent >= 0 ? "+" : ""}${weeklyChangePercent.toFixed(2)}%` : ""}
-※ 市場全体の動きと比較して、この銘柄がどう動いているかも考慮してアドバイスしてください。`
-      }
+      marketData = await getNikkei225Data()
     } catch (error) {
-      console.error("Error fetching Nikkei context:", error)
+      console.error("市場データ取得失敗（フォールバック）:", error)
     }
+    const marketContext = buildMarketContext(marketData)
 
     // プロンプト構築
     const prompt = `あなたは投資初心者向けのAIアナリストです。
