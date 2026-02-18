@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
 import EarningsInfo from "@/app/components/EarningsInfo"
+import MarketCorrelationMetrics from "@/app/components/MarketCorrelationMetrics"
 import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
 import RelatedNews from "@/app/components/RelatedNews"
@@ -444,6 +445,9 @@ export default function StockDetailClient({
             {activeTab === "details" && (
               <>
                 <FinancialMetrics stock={stock} embedded />
+                <div className="mt-6">
+                  <MarketCorrelationMetrics stockId={stock.id} embedded />
+                </div>
                 <EarningsInfo earnings={stock} embedded />
               </>
             )}

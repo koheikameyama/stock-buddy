@@ -82,3 +82,10 @@ export const MARKET_INDEX = {
   UP_TREND_THRESHOLD: 3,    // 上昇トレンド判定（週間変化率%）
   DOWN_TREND_THRESHOLD: -3, // 下落トレンド判定（週間変化率%）
 } as const
+
+// ベータ値（日経平均連動率）の閾値
+export const BETA_THRESHOLDS = {
+  HIGHLY_AGGRESSIVE: 1.5,   // 市場より大きく動く（高リスク）
+  AGGRESSIVE: 1.0,          // 市場と同程度以上に動く
+  DEFENSIVE: 0.5,           // 市場より小さく動く（低リスク）
+} as const
