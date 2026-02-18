@@ -1,9 +1,9 @@
-name: Weekly Recommendation Report
+name: Daily Recommendation Report
 
 on:
   schedule:
-    # 毎週日曜 09:00 JST (00:00 UTC)
-    - cron: '0 0 * * 0'
+    # 毎日 18:00 JST (09:00 UTC)
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_TITLE: "AI精度レポート生成完了"
-          SLACK_MESSAGE: "週次AI精度レポートをDBに保存しました"
+          SLACK_MESSAGE: "日次AI精度レポートをDBに保存しました"
           SLACK_COLOR: good
           SLACK_FOOTER: "Stock Buddy"
 
@@ -45,7 +45,7 @@ jobs:
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "週次レポート生成に失敗しました"
+          SLACK_TITLE: "日次レポート生成に失敗しました"
           SLACK_MESSAGE: "推奨銘柄パフォーマンスレポートの生成中にエラーが発生しました"
           SLACK_COLOR: danger
           SLACK_FOOTER: "Stock Buddy"
