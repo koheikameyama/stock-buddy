@@ -26,8 +26,7 @@ export interface UserStockResponse {
   recommendation?: "buy" | "sell" | "hold" | null
   // 分析日時（StockAnalysisから取得）
   analyzedAt?: string | null
-  // 感情コーチング・ステータス（Portfolio only）
-  emotionalCoaching?: string | null
+  // ステータス（Portfolio only）
   simpleStatus?: string | null
   statusType?: string | null
   // 売却提案（Portfolio only）
@@ -191,8 +190,7 @@ export async function GET(request: NextRequest) {
         longTerm: ps.longTerm,
         recommendation,
         analyzedAt,
-        // 感情コーチング・ステータス
-        emotionalCoaching: ps.emotionalCoaching,
+        // ステータス
         simpleStatus: ps.simpleStatus,
         statusType: ps.statusType,
         // 売却提案

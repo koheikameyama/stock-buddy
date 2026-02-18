@@ -4,13 +4,20 @@ import { auth } from "@/auth"
 import { verifyCronOrSession } from "@/lib/cron-auth"
 import { getOpenAIClient } from "@/lib/openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
-import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
-import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
-import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
+import {
+  buildFinancialMetrics,
+  buildCandlestickContext,
+  buildTechnicalContext,
+  buildChartPatternContext,
+  buildWeekChangeContext,
+  buildMarketContext,
+  PROMPT_MARKET_SIGNAL_DEFINITION,
+  PROMPT_NEWS_CONSTRAINTS,
+} from "@/lib/stock-analysis-context"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
-import { getNikkei225Data, getTrendDescription, MarketIndexData } from "@/lib/market-index"
+import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -43,17 +50,19 @@ export async function GET(
     // 最新の購入判断を取得（過去7日以内）
     const sevenDaysAgo = getDaysAgoForDB(7)
 
-    const recommendation = await prisma.purchaseRecommendation.findFirst({
-      where: {
-        stockId,
-        date: {
-          gte: sevenDaysAgo,
+    const [recommendation, analysis] = await Promise.all([
+      prisma.purchaseRecommendation.findFirst({
+        where: {
+          stockId,
+          date: { gte: sevenDaysAgo },
         },
-      },
-      orderBy: {
-        date: "desc",
-      },
-    })
+        orderBy: { date: "desc" },
+      }),
+      prisma.stockAnalysis.findFirst({
+        where: { stockId },
+        orderBy: { analyzedAt: "desc" },
+      }),
+    ])
 
     if (!recommendation) {
       return NextResponse.json(
@@ -72,6 +81,7 @@ export async function GET(
       stockName: stock.name,
       tickerCode: stock.tickerCode,
       currentPrice,
+      marketSignal: recommendation.marketSignal,
       recommendation: recommendation.recommendation,
       confidence: recommendation.confidence,
       reason: recommendation.reason,
@@ -89,6 +99,17 @@ export async function GET(
       riskFit: recommendation.riskFit,
       personalizedReason: recommendation.personalizedReason,
       analyzedAt: recommendation.updatedAt.toISOString(),
+      // 価格帯予測（StockAnalysisから）
+      shortTermTrend: analysis?.shortTermTrend ?? null,
+      shortTermPriceLow: analysis?.shortTermPriceLow ? Number(analysis.shortTermPriceLow) : null,
+      shortTermPriceHigh: analysis?.shortTermPriceHigh ? Number(analysis.shortTermPriceHigh) : null,
+      midTermTrend: analysis?.midTermTrend ?? null,
+      midTermPriceLow: analysis?.midTermPriceLow ? Number(analysis.midTermPriceLow) : null,
+      midTermPriceHigh: analysis?.midTermPriceHigh ? Number(analysis.midTermPriceHigh) : null,
+      longTermTrend: analysis?.longTermTrend ?? null,
+      longTermPriceLow: analysis?.longTermPriceLow ? Number(analysis.longTermPriceLow) : null,
+      longTermPriceHigh: analysis?.longTermPriceHigh ? Number(analysis.longTermPriceHigh) : null,
+      advice: analysis?.advice ?? null,
     }
 
     return NextResponse.json(response, { status: 200 })
@@ -166,7 +187,7 @@ export async function POST(
 
     // 直近30日の価格データを取得（yfinanceからリアルタイム取得）
     const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m")
-    const prices = historicalPrices.slice(-30).reverse() // 新しい順に
+    const prices = historicalPrices.slice(-30) // oldest-first（共通関数に合わせて古い順）
 
     if (prices.length === 0) {
       return NextResponse.json(
@@ -176,109 +197,13 @@ export async function POST(
     }
 
     // ローソク足パターン分析
-    let patternContext = ""
-    if (prices.length >= 1) {
-      const latestCandle: CandlestickData = {
-        date: prices[0].date,
-        open: prices[0].open,
-        high: prices[0].high,
-        low: prices[0].low,
-        close: prices[0].close,
-      }
-      const pattern = analyzeSingleCandle(latestCandle)
-
-      // 直近5日のシグナルをカウント
-      let buySignals = 0
-      let sellSignals = 0
-      for (const price of prices.slice(0, 5)) {
-        const p = analyzeSingleCandle({
-          date: price.date,
-          open: price.open,
-          high: price.high,
-          low: price.low,
-          close: price.close,
-        })
-        if (p.strength >= 60) {
-          if (p.signal === "buy") buySignals++
-          else if (p.signal === "sell") sellSignals++
-        }
-      }
-
-      patternContext = `
-【ローソク足パターン分析】
-- 最新パターン: ${pattern.description}
-- シグナル: ${pattern.signal}
-- 強さ: ${pattern.strength}%
-- 直近5日の買いシグナル: ${buySignals}回
-- 直近5日の売りシグナル: ${sellSignals}回
-`
-    }
+    const patternContext = buildCandlestickContext(prices)
 
     // テクニカル指標の計算（RSI/MACD）
-    let technicalContext = ""
-    if (prices.length >= 26) {
-      // RSI/MACD計算用に価格データを古い順に並べ替え
-      const pricesForCalc = [...prices].reverse().map(p => ({ close: p.close }))
-
-      const rsi = calculateRSI(pricesForCalc, 14)
-      const macd = calculateMACD(pricesForCalc)
-
-      // RSIの初心者向け解釈
-      let rsiInterpretation = ""
-      if (rsi !== null) {
-        if (rsi <= 30) {
-          rsiInterpretation = `${rsi.toFixed(1)}（売られすぎ → 反発の可能性あり）`
-        } else if (rsi <= 40) {
-          rsiInterpretation = `${rsi.toFixed(1)}（やや売られすぎ）`
-        } else if (rsi >= 70) {
-          rsiInterpretation = `${rsi.toFixed(1)}（買われすぎ → 下落の可能性あり）`
-        } else if (rsi >= 60) {
-          rsiInterpretation = `${rsi.toFixed(1)}（やや買われすぎ）`
-        } else {
-          rsiInterpretation = `${rsi.toFixed(1)}（通常範囲）`
-        }
-      }
-
-      // MACDの初心者向け解釈
-      let macdInterpretation = ""
-      if (macd.histogram !== null) {
-        if (macd.histogram > 1) {
-          macdInterpretation = "上昇トレンド（勢いあり）"
-        } else if (macd.histogram > 0) {
-          macdInterpretation = "やや上昇傾向"
-        } else if (macd.histogram < -1) {
-          macdInterpretation = "下落トレンド（勢いあり）"
-        } else if (macd.histogram < 0) {
-          macdInterpretation = "やや下落傾向"
-        } else {
-          macdInterpretation = "横ばい"
-        }
-      }
-
-      if (rsi !== null || macd.histogram !== null) {
-        technicalContext = `
-【テクニカル指標】
-${rsi !== null ? `- 売られすぎ/買われすぎ度合い: ${rsiInterpretation}` : ""}
-${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : ""}
-`
-      }
-    }
+    const technicalContext = buildTechnicalContext(prices)
 
     // チャートパターン（複数足フォーメーション）の検出
-    let chartPatternContext = ""
-    if (prices.length >= 15) {
-      const pricePoints: PricePoint[] = [...prices].reverse().map(p => ({
-        date: p.date,
-        open: p.open,
-        high: p.high,
-        low: p.low,
-        close: p.close,
-      }))
-      const chartPatterns = detectChartPatterns(pricePoints)
-      if (chartPatterns.length > 0) {
-        chartPatternContext = "\n" + formatChartPatternsForPrompt(chartPatterns)
-      }
-    }
+    const chartPatternContext = buildChartPatternContext(prices)
 
     // 関連ニュースを取得
     const tickerCode = stock.tickerCode.replace(".T", "")
@@ -320,162 +245,13 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
     const currentPrice = realtimePricesPost[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
 
     // 週間変化率を計算
-    let weekChangeRate: number | null = null
-    let weekChangeContext = ""
-    if (prices.length >= 5) {
-      const latestClose = prices[0].close
-      const weekAgoClose = prices[Math.min(4, prices.length - 1)].close
-      weekChangeRate = ((latestClose - weekAgoClose) / weekAgoClose) * 100
-
-      if (weekChangeRate >= 30) {
-        weekChangeContext = `
-【警告: 急騰銘柄】
-- 週間変化率: +${weekChangeRate.toFixed(1)}%（非常に高い）
-- 急騰後は反落リスクが高いため、今買うのは危険な可能性があります
-- 「上がりきった銘柄」を避けるため、stayまたはavoidを検討してください`
-      } else if (weekChangeRate >= 20) {
-        weekChangeContext = `
-【注意: 上昇率が高い】
-- 週間変化率: +${weekChangeRate.toFixed(1)}%
-- すでに上昇している可能性があるため、追加上昇余地を慎重に判断してください`
-      } else if (weekChangeRate <= -20) {
-        weekChangeContext = `
-【注意: 大幅下落】
-- 週間変化率: ${weekChangeRate.toFixed(1)}%
-- 下落理由を確認し、反発の可能性を慎重に判断してください`
-      }
-    }
+    const { text: weekChangeContext, rate: weekChangeRate } = buildWeekChangeContext(prices, "watchlist")
 
     // 市場全体の状況コンテキスト
-    let marketContext = ""
-    if (marketData) {
-      const trendDesc = getTrendDescription(marketData.trend)
-      marketContext = `
-【市場全体の状況】
-- 日経平均株価: ${marketData.currentPrice.toLocaleString()}円
-- 週間変化率: ${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%
-- トレンド: ${trendDesc}
-
-※市場全体の状況を考慮して判断してください。
-  市場が弱い中で堅調な銘柄は評価できます。
-  市場上昇時は追い風として言及できます。
-`
-    }
+    const marketContext = buildMarketContext(marketData)
 
     // 財務指標のフォーマット
-    const metrics: string[] = []
-
-    if (stock.marketCap) {
-      const marketCap = Number(stock.marketCap)
-      if (marketCap >= 10000) {
-        metrics.push(`- 会社の規模: 大企業（時価総額${(marketCap / 10000).toFixed(1)}兆円）`)
-      } else if (marketCap >= 1000) {
-        metrics.push(`- 会社の規模: 中堅企業（時価総額${marketCap.toFixed(0)}億円）`)
-      } else {
-        metrics.push(`- 会社の規模: 小型企業（時価総額${marketCap.toFixed(0)}億円）`)
-      }
-    }
-
-    if (stock.dividendYield) {
-      const divYield = Number(stock.dividendYield)
-      if (divYield >= 4) {
-        metrics.push(`- 配当: 高配当（年${divYield.toFixed(2)}%）`)
-      } else if (divYield >= 2) {
-        metrics.push(`- 配当: 普通（年${divYield.toFixed(2)}%）`)
-      } else if (divYield > 0) {
-        metrics.push(`- 配当: 低め（年${divYield.toFixed(2)}%）`)
-      } else {
-        metrics.push("- 配当: なし")
-      }
-    }
-
-    if (stock.pbr) {
-      const pbr = Number(stock.pbr)
-      if (pbr < 1) {
-        metrics.push("- 株価水準(PBR): 割安（資産価値より安い）")
-      } else if (pbr < 1.5) {
-        metrics.push("- 株価水準(PBR): 適正")
-      } else {
-        metrics.push("- 株価水準(PBR): やや割高")
-      }
-    }
-
-    if (stock.per) {
-      const per = Number(stock.per)
-      if (per < 0) {
-        metrics.push("- 収益性(PER): 赤字のため算出不可")
-      } else if (per < 10) {
-        metrics.push(`- 収益性(PER): 割安（${per.toFixed(1)}倍）`)
-      } else if (per < 20) {
-        metrics.push(`- 収益性(PER): 適正（${per.toFixed(1)}倍）`)
-      } else if (per < 30) {
-        metrics.push(`- 収益性(PER): やや割高（${per.toFixed(1)}倍）`)
-      } else {
-        metrics.push(`- 収益性(PER): 割高（${per.toFixed(1)}倍）`)
-      }
-    }
-
-    if (stock.roe) {
-      const roe = Number(stock.roe) * 100
-      if (roe >= 15) {
-        metrics.push(`- 経営効率(ROE): 優秀（${roe.toFixed(1)}%）`)
-      } else if (roe >= 10) {
-        metrics.push(`- 経営効率(ROE): 良好（${roe.toFixed(1)}%）`)
-      } else if (roe >= 5) {
-        metrics.push(`- 経営効率(ROE): 普通（${roe.toFixed(1)}%）`)
-      } else if (roe > 0) {
-        metrics.push(`- 経営効率(ROE): 低め（${roe.toFixed(1)}%）`)
-      } else {
-        metrics.push(`- 経営効率(ROE): 赤字`)
-      }
-    }
-
-    if (stock.isProfitable !== null && stock.isProfitable !== undefined) {
-      if (stock.isProfitable) {
-        if (stock.profitTrend === "increasing") {
-          metrics.push("- 業績: 黒字（利益増加傾向）")
-        } else if (stock.profitTrend === "decreasing") {
-          metrics.push("- 業績: 黒字（利益減少傾向）")
-        } else {
-          metrics.push("- 業績: 黒字")
-        }
-      } else {
-        metrics.push("- 業績: 赤字")
-      }
-    }
-
-    if (stock.revenueGrowth) {
-      const growth = Number(stock.revenueGrowth)
-      if (growth >= 20) {
-        metrics.push(`- 売上成長: 急成長（前年比+${growth.toFixed(1)}%）`)
-      } else if (growth >= 10) {
-        metrics.push(`- 売上成長: 好調（前年比+${growth.toFixed(1)}%）`)
-      } else if (growth >= 0) {
-        metrics.push(`- 売上成長: 安定（前年比+${growth.toFixed(1)}%）`)
-      } else if (growth >= -10) {
-        metrics.push(`- 売上成長: やや減少（前年比${growth.toFixed(1)}%）`)
-      } else {
-        metrics.push(`- 売上成長: 減少傾向（前年比${growth.toFixed(1)}%）`)
-      }
-    }
-
-    if (stock.eps) {
-      const eps = Number(stock.eps)
-      if (eps > 0) {
-        metrics.push(`- 1株利益(EPS): ${eps.toFixed(0)}円`)
-      } else {
-        metrics.push(`- 1株利益(EPS): 赤字`)
-      }
-    }
-
-    if (stock.fiftyTwoWeekHigh && stock.fiftyTwoWeekLow && currentPrice) {
-      const high = Number(stock.fiftyTwoWeekHigh)
-      const low = Number(stock.fiftyTwoWeekLow)
-      const position = high !== low ? ((currentPrice - low) / (high - low)) * 100 : 50
-      metrics.push(`- 1年間の値動き: 高値${high.toFixed(0)}円〜安値${low.toFixed(0)}円（現在は${position.toFixed(0)}%の位置）`)
-    }
-
-    const financialMetrics = metrics.length > 0 ? metrics.join("\n") : "財務データなし"
+    const financialMetrics = buildFinancialMetrics(stock, currentPrice)
 
     // ユーザー設定のコンテキスト
     const periodMap: Record<string, string> = {
@@ -518,20 +294,35 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
+  "marketSignal": "bullish" | "neutral" | "bearish",
+
+  // A. 価格帯予測（予測を根拠として購入判断の前に示す）
+  "shortTermTrend": "up" | "neutral" | "down",
+  "shortTermPriceLow": 短期（今週）の予測安値（数値のみ、円単位）,
+  "shortTermPriceHigh": 短期（今週）の予測高値（数値のみ、円単位）,
+  "midTermTrend": "up" | "neutral" | "down",
+  "midTermPriceLow": 中期（今月）の予測安値（数値のみ、円単位）,
+  "midTermPriceHigh": 中期（今月）の予測高値（数値のみ、円単位）,
+  "longTermTrend": "up" | "neutral" | "down",
+  "longTermPriceLow": 長期（今後3ヶ月）の予測安値（数値のみ、円単位）,
+  "longTermPriceHigh": 長期（今後3ヶ月）の予測高値（数値のみ、円単位）,
+  "advice": "上記予測を踏まえた総合アドバイス（100文字以内）",
+
+  // B. 購入判断（価格帯予測を根拠として導出する）
   "recommendation": "buy" | "stay" | "avoid",
   "confidence": 0.0から1.0の数値（小数点2桁）,
-  "reason": "初心者に分かりやすい言葉で1-2文の理由",
+  "reason": "初心者に分かりやすい言葉で1-2文の理由（価格予測の根拠を含める）",
   "caution": "注意点を1-2文",
 
-  // B. 深掘り評価（文字列で返す。配列ではない）
+  // C. 深掘り評価（文字列で返す。配列ではない）
   "positives": "・良い点1\n・良い点2\n・良い点3",
   "concerns": "・不安な点1\n・不安な点2\n・不安な点3",
   "suitableFor": "こんな人におすすめ（1-2文で具体的に）",
 
-  // C. 買い時条件（recommendationがstayの場合のみ）
+  // D. 買い時条件（recommendationがstayの場合のみ）
   "buyCondition": "どうなったら買い時か（例：「株価が○○円を下回ったら」「RSIが30を下回ったら」など具体的に）",
 
-  // D. パーソナライズ（ユーザー設定がある場合）
+  // E. パーソナライズ（ユーザー設定がある場合）
   "userFitScore": 0-100のおすすめ度,
   "budgetFit": 予算内で購入可能か（true/false）,
   "periodFit": 投資期間にマッチするか（true/false）,
@@ -539,11 +330,19 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
   "personalizedReason": "このユーザーにとってのおすすめ理由（2-3文）"
 }
 
+${PROMPT_MARKET_SIGNAL_DEFINITION}
+
+【価格帯予測の指針】
+- 予測は提供されたテクニカル指標・チャートパターン・ファンダメンタルを根拠として算出する
+- 現在価格を起点に、直近ボラティリティ・トレンドを反映した現実的な価格帯にすること
+- shortTermPriceLow/High: 直近のボラティリティと今週のトレンドを基準（現在価格±5〜15%を目安）
+- midTermPriceLow/High: 中期トレンド・ファンダメンタルを基準（現在価格±10〜25%を目安）
+- longTermPriceLow/High: 事業展望・長期トレンドを基準（現在価格±15〜35%を目安）
+- 予測レンジが recommendation と整合すること（例: buyならshortTermが上昇傾向）
+- advice は価格帯予測の数値を踏まえた具体的なコメントにする（例:「今週は○○〜○○円で推移する見込みで...」）
+
 【制約】
-- 提供されたニュース情報を参考にしてください
-- ニュースにない情報は推測や創作をしないでください
-- 決算発表、業績予想、M&A、人事異動など、提供されていない情報を創作しないでください
-- 過去の一般知識（例:「○○社は過去に○○した」）は使用しないでください
+${PROMPT_NEWS_CONSTRAINTS}
 - 「買い時」「今すぐ買うべき」などの断定的な表現は避け、「検討できる」「検討のタイミング」などの表現を使う
 - 赤字企業の場合は concerns で必ず「業績が赤字である」ことに言及し、リスクを伝える
 - 赤字かつ減益傾向の場合は、特に慎重な表現を使う
@@ -599,7 +398,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
         { role: "user", content: prompt },
       ],
       temperature: 0.4,
-      max_tokens: 800,
+      max_tokens: 1200,
       response_format: {
         type: "json_schema",
         json_schema: {
@@ -608,17 +407,30 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
           schema: {
             type: "object",
             properties: {
+              marketSignal: { type: "string", enum: ["bullish", "neutral", "bearish"] },
+              // A. 価格帯予測
+              shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              shortTermPriceLow: { type: "number" },
+              shortTermPriceHigh: { type: "number" },
+              midTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              midTermPriceLow: { type: "number" },
+              midTermPriceHigh: { type: "number" },
+              longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              longTermPriceLow: { type: "number" },
+              longTermPriceHigh: { type: "number" },
+              advice: { type: "string" },
+              // B. 購入判断
               recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
               confidence: { type: "number" },
               reason: { type: "string" },
               caution: { type: "string" },
-              // B. 深掘り評価
+              // C. 深掘り評価
               positives: { type: ["string", "null"] },
               concerns: { type: ["string", "null"] },
               suitableFor: { type: ["string", "null"] },
-              // C. 買い時条件
+              // D. 買い時条件
               buyCondition: { type: ["string", "null"] },
-              // D. パーソナライズ
+              // E. パーソナライズ
               userFitScore: { type: ["number", "null"] },
               budgetFit: { type: ["boolean", "null"] },
               periodFit: { type: ["boolean", "null"] },
@@ -626,6 +438,11 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
               personalizedReason: { type: ["string", "null"] },
             },
             required: [
+              "marketSignal",
+              "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
+              "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
+              "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
+              "advice",
               "recommendation", "confidence", "reason", "caution",
               "positives", "concerns", "suitableFor",
               "buyCondition",
@@ -680,6 +497,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
         },
       },
       update: {
+        marketSignal: result.marketSignal || null,
         recommendation: result.recommendation,
         confidence: result.confidence,
         reason: result.reason,
@@ -701,6 +519,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
       create: {
         stockId,
         date: today,
+        marketSignal: result.marketSignal || null,
         recommendation: result.recommendation,
         confidence: result.confidence,
         reason: result.reason,
@@ -717,6 +536,29 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
         periodFit: result.periodFit ?? null,
         riskFit: result.riskFit ?? null,
         personalizedReason: result.personalizedReason || null,
+      },
+    })
+
+    // StockAnalysisに価格帯予測を保存（購入判断の根拠として）
+    const now = new Date()
+    await prisma.stockAnalysis.create({
+      data: {
+        stockId,
+        shortTermTrend: result.shortTermTrend || "neutral",
+        shortTermPriceLow: result.shortTermPriceLow || currentPrice || 0,
+        shortTermPriceHigh: result.shortTermPriceHigh || currentPrice || 0,
+        midTermTrend: result.midTermTrend || "neutral",
+        midTermPriceLow: result.midTermPriceLow || currentPrice || 0,
+        midTermPriceHigh: result.midTermPriceHigh || currentPrice || 0,
+        longTermTrend: result.longTermTrend || "neutral",
+        longTermPriceLow: result.longTermPriceLow || currentPrice || 0,
+        longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
+        recommendation: result.recommendation === "buy" ? "buy" : result.recommendation === "avoid" ? "sell" : "hold",
+        advice: result.advice || result.reason || "",
+        confidence: result.confidence || 0.7,
+        limitPrice: null,
+        stopLossPrice: null,
+        analyzedAt: now,
       },
     })
 
@@ -754,17 +596,30 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
       stockName: stock.name,
       tickerCode: stock.tickerCode,
       currentPrice: currentPrice,
+      marketSignal: result.marketSignal || null,
+      // A. 価格帯予測
+      shortTermTrend: result.shortTermTrend || null,
+      shortTermPriceLow: result.shortTermPriceLow || null,
+      shortTermPriceHigh: result.shortTermPriceHigh || null,
+      midTermTrend: result.midTermTrend || null,
+      midTermPriceLow: result.midTermPriceLow || null,
+      midTermPriceHigh: result.midTermPriceHigh || null,
+      longTermTrend: result.longTermTrend || null,
+      longTermPriceLow: result.longTermPriceLow || null,
+      longTermPriceHigh: result.longTermPriceHigh || null,
+      advice: result.advice || null,
+      // B. 購入判断
       recommendation: result.recommendation,
       confidence: result.confidence,
       reason: result.reason,
       caution: result.caution,
-      // B. 深掘り評価
+      // C. 深掘り評価
       positives: result.positives || null,
       concerns: result.concerns || null,
       suitableFor: result.suitableFor || null,
-      // C. 買い時条件
+      // D. 買い時条件
       buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
-      // D. パーソナライズ
+      // E. パーソナライズ
       userFitScore: result.userFitScore ?? null,
       budgetFit: result.budgetFit ?? null,
       periodFit: result.periodFit ?? null,

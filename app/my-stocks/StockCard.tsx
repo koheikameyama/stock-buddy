@@ -13,8 +13,7 @@ interface UserStock {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
-  // 感情コーチング・ステータス
-  emotionalCoaching?: string | null
+  // ステータス
   simpleStatus?: string | null
   statusType?: string | null
   stock: {
@@ -200,12 +199,6 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                     </p>
                   </div>
                 </div>
-                {/* Emotional Coaching Message */}
-                {stock.emotionalCoaching && (
-                  <p className="mt-2 text-xs sm:text-sm text-gray-600 border-t border-gray-200 pt-2">
-                    {stock.emotionalCoaching}
-                  </p>
-                )}
                 {/* Analysis Time for Portfolio */}
                 {analyzedAt && (() => {
                   const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
@@ -217,18 +210,13 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                 })()}
               </div>
             ) : (
-              /* 価格未取得時も emotionalCoaching と analyzedAt は表示 */
-              (stock.emotionalCoaching || analyzedAt) && (
+              /* 価格未取得時も analyzedAt は表示 */
+              analyzedAt && (
                 <div className="rounded-lg p-3 sm:p-4 bg-gray-50">
-                  {stock.emotionalCoaching && (
-                    <p className="text-xs sm:text-sm text-gray-600">
-                      {stock.emotionalCoaching}
-                    </p>
-                  )}
                   {analyzedAt && (() => {
                     const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
                     return (
-                      <p className={`text-xs text-gray-400 text-right ${stock.emotionalCoaching ? "mt-2 border-t border-gray-200 pt-2" : ""}`}>
+                      <p className="text-xs text-gray-400 text-right">
                         <span className={colorClass}>{label}</span> | {relative}
                       </p>
                     )

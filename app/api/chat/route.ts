@@ -418,7 +418,6 @@ export async function POST(request: NextRequest) {
         if (portfolioDetails.longTerm) stockData.保有者向け分析.長期展望 = portfolioDetails.longTerm
         if (portfolioDetails.suggestedSellPrice) stockData.保有者向け分析.提案売却価格 = Number(portfolioDetails.suggestedSellPrice)
         if (portfolioDetails.sellCondition) stockData.保有者向け分析.売却条件 = portfolioDetails.sellCondition
-        if (portfolioDetails.emotionalCoaching) stockData.保有者向け分析.コーチングメッセージ = portfolioDetails.emotionalCoaching
       }
 
       // 購入推奨

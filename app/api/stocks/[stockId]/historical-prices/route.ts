@@ -3,6 +3,8 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import { generatePatternsResponse } from "@/lib/candlestick-patterns"
+import { getTechnicalIndicators, getCandlestickPattern, getChartPatterns, getWeekChange } from "@/lib/stock-analysis-data"
+import type { OHLCVData } from "@/lib/stock-analysis-context"
 
 export async function GET(
   request: NextRequest,
@@ -155,6 +157,19 @@ export async function GET(
     // ローソク足パターン分析
     const patterns = generatePatternsResponse(data)
 
+    // 共通分析データを生成（lib/stock-analysis-data.ts を使用）
+    const ohlcvData: OHLCVData[] = prices.map(p => ({
+      date: p.date,
+      open: p.open,
+      high: p.high,
+      low: p.low,
+      close: p.close,
+    }))
+    const technicalIndicators = getTechnicalIndicators(ohlcvData)
+    const candlestickPattern = getCandlestickPattern(ohlcvData)
+    const chartPatterns = getChartPatterns(ohlcvData)
+    const weekChange = getWeekChange(ohlcvData)
+
     return NextResponse.json({
       data,
       summary: {
@@ -167,6 +182,13 @@ export async function GET(
         endDate: data[data.length - 1]?.date,
       },
       patterns,
+      // 共通分析データ（UI表示用）
+      technicalAnalysis: {
+        technicalIndicators,
+        candlestickPattern,
+        chartPatterns,
+        weekChange,
+      },
     })
   } catch (error) {
     console.error("Historical prices error:", error)
