@@ -364,81 +364,6 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
         </button>
       </div>
 
-      {/* 短期予測 */}
-      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow-md p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">
-            {prediction ? getTrendIcon(prediction.shortTerm.trend) : "📈"}
-          </span>
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-purple-800">短期予測（今週）</h4>
-            {prediction && (
-              <p className="text-xs text-purple-600">
-                {getTrendText(prediction.shortTerm.trend)} ¥{formatPrice(prediction.shortTerm.priceLow)}〜¥{formatPrice(prediction.shortTerm.priceHigh)}
-              </p>
-            )}
-          </div>
-        </div>
-        {prediction?.shortTerm.text && (
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">
-            {prediction.shortTerm.text}
-          </p>
-        )}
-        {!prediction?.shortTerm.text && !prediction && (
-          <p className="text-sm text-gray-500">データがありません</p>
-        )}
-      </div>
-
-      {/* 中期予測 */}
-      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg shadow-md p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">
-            {prediction ? getTrendIcon(prediction.midTerm.trend) : "📊"}
-          </span>
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-blue-800">中期予測（今月）</h4>
-            {prediction && (
-              <p className="text-xs text-blue-600">
-                {getTrendText(prediction.midTerm.trend)} ¥{formatPrice(prediction.midTerm.priceLow)}〜¥{formatPrice(prediction.midTerm.priceHigh)}
-              </p>
-            )}
-          </div>
-        </div>
-        {prediction?.midTerm.text && (
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">
-            {prediction.midTerm.text}
-          </p>
-        )}
-        {!prediction?.midTerm.text && !prediction && (
-          <p className="text-sm text-gray-500">データがありません</p>
-        )}
-      </div>
-
-      {/* 長期予測 */}
-      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg shadow-md p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">
-            {prediction ? getTrendIcon(prediction.longTerm.trend) : "🎯"}
-          </span>
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-emerald-800">長期予測（今後3ヶ月）</h4>
-            {prediction && (
-              <p className="text-xs text-emerald-600">
-                {getTrendText(prediction.longTerm.trend)} ¥{formatPrice(prediction.longTerm.priceLow)}〜¥{formatPrice(prediction.longTerm.priceHigh)}
-              </p>
-            )}
-          </div>
-        </div>
-        {prediction?.longTerm.text && (
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">
-            {prediction.longTerm.text}
-          </p>
-        )}
-        {!prediction?.longTerm.text && !prediction && (
-          <p className="text-sm text-gray-500">データがありません</p>
-        )}
-      </div>
-
       {/* 損切りアラート（ユーザーが損切りラインを設定している場合のみ表示） */}
       {(() => {
         const currentPrice = prediction?.currentPrice
@@ -731,6 +656,71 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             </span>
           </div>
         </div>
+      )}
+
+      {/* 価格帯予測 */}
+      {prediction && (
+        <>
+          {/* 短期予測 */}
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow-md p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">
+                {getTrendIcon(prediction.shortTerm.trend)}
+              </span>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-purple-800">短期予測（今週）</h4>
+                <p className="text-xs text-purple-600">
+                  {getTrendText(prediction.shortTerm.trend)} ¥{formatPrice(prediction.shortTerm.priceLow)}〜¥{formatPrice(prediction.shortTerm.priceHigh)}
+                </p>
+              </div>
+            </div>
+            {prediction.shortTerm.text && (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {prediction.shortTerm.text}
+              </p>
+            )}
+          </div>
+
+          {/* 中期予測 */}
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg shadow-md p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">
+                {getTrendIcon(prediction.midTerm.trend)}
+              </span>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-blue-800">中期予測（今月）</h4>
+                <p className="text-xs text-blue-600">
+                  {getTrendText(prediction.midTerm.trend)} ¥{formatPrice(prediction.midTerm.priceLow)}〜¥{formatPrice(prediction.midTerm.priceHigh)}
+                </p>
+              </div>
+            </div>
+            {prediction.midTerm.text && (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {prediction.midTerm.text}
+              </p>
+            )}
+          </div>
+
+          {/* 長期予測 */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg shadow-md p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">
+                {getTrendIcon(prediction.longTerm.trend)}
+              </span>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-emerald-800">長期予測（今後3ヶ月）</h4>
+                <p className="text-xs text-emerald-600">
+                  {getTrendText(prediction.longTerm.trend)} ¥{formatPrice(prediction.longTerm.priceLow)}〜¥{formatPrice(prediction.longTerm.priceHigh)}
+                </p>
+              </div>
+            </div>
+            {prediction.longTerm.text && (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {prediction.longTerm.text}
+              </p>
+            )}
+          </div>
+        </>
       )}
 
       {/* 分析日時・更新スケジュール */}

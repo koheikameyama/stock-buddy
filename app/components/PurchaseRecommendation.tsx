@@ -544,11 +544,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     return (
       <div>
         <ReanalyzeHeader />
-        {/* A. 価格帯予測 */}
-        <PredictionSection />
-        {/* AI推奨価格 */}
-        <AIPriceSection />
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-md p-4 sm:p-6">
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-md p-4 sm:p-6 mb-4">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">💡</span>
             <h3 className="text-base sm:text-lg font-bold text-green-800">購入を検討できるタイミングです</h3>
@@ -585,6 +581,10 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             </p>
           </div>
         </div>
+        {/* AI推奨価格 */}
+        <AIPriceSection />
+        {/* A. 価格帯予測 */}
+        <PredictionSection />
       </div>
     )
   }
@@ -594,11 +594,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     return (
       <div>
         <ReanalyzeHeader />
-        {/* A. 価格帯予測 */}
-        <PredictionSection />
-        {/* AI推奨価格 */}
-        <AIPriceSection />
-        <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg shadow-md p-4 sm:p-6">
+        <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg shadow-md p-4 sm:p-6 mb-4">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">🚫</span>
             <h3 className="text-base sm:text-lg font-bold text-red-800">見送りをおすすめします</h3>
@@ -639,6 +635,10 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             </p>
           </div>
         </div>
+        {/* AI推奨価格 */}
+        <AIPriceSection />
+        {/* A. 価格帯予測 */}
+        <PredictionSection />
       </div>
     )
   }
@@ -647,11 +647,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   return (
     <div>
       <ReanalyzeHeader />
-      {/* A. 価格帯予測 */}
-      <PredictionSection />
-      {/* AI推奨価格 */}
-      <AIPriceSection />
-      <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6">
+      <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6 mb-4">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">⏳</span>
           <h3 className="text-base sm:text-lg font-bold text-blue-800">もう少し様子を見ましょう</h3>
@@ -700,6 +696,10 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           </p>
         </div>
       </div>
+      {/* AI推奨価格 */}
+      <AIPriceSection />
+      {/* A. 価格帯予測 */}
+      <PredictionSection />
     </div>
   )
 }
