@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
+import { PORTFOLIO_STATUS_CONFIG } from "@/lib/constants"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface UserStock {
@@ -83,22 +84,11 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     return displayMap[recommendation.recommendation]
   }
 
-  // AI Status Badge using simpleStatus (for portfolio)
+  // AI Status Badge using statusType (for portfolio)
   const getAIStatusBadge = () => {
-    const status = stock.simpleStatus
-    if (!status) return null
-
-    const displayMap: Record<string, { text: string; color: string; bg: string }> = {
-      "好調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
-      "様子見": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-      "注意": { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
-      "警戒": { text: "警戒", color: "text-red-700", bg: "bg-red-50" },
-      // 後方互換: 旧ステータスもマッピング
-      "順調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
-      "やや低調": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-      "要確認": { text: "警戒", color: "text-red-700", bg: "bg-red-50" },
-    }
-    return displayMap[status] || null
+    const statusType = stock.statusType
+    if (!statusType) return null
+    return PORTFOLIO_STATUS_CONFIG[statusType] || null
   }
 
   const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAIStatusBadge()

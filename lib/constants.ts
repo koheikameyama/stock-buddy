@@ -83,6 +83,19 @@ export const MARKET_INDEX = {
   DOWN_TREND_THRESHOLD: -3, // 下落トレンド判定（週間変化率%）
 } as const
 
+// ポートフォリオステータスの表示設定
+// statusType（英語キー）から表示テキスト・色を一元管理
+export const PORTFOLIO_STATUS_CONFIG: Record<string, {
+  text: string     // バッジテキスト
+  color: string    // テキスト色
+  bg: string       // 背景色
+}> = {
+  good: { text: "買増検討", color: "text-green-700", bg: "bg-green-50" },
+  neutral: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
+  caution: { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
+  warning: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
+}
+
 // 移動平均乖離率の閾値
 export const MA_DEVIATION = {
   PERIOD: 25,                    // 移動平均の期間（日）

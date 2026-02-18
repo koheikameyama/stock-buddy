@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import AnalysisTimestamp from "./AnalysisTimestamp"
-import { UPDATE_SCHEDULES } from "@/lib/constants"
+import { UPDATE_SCHEDULES, PORTFOLIO_STATUS_CONFIG } from "@/lib/constants"
 
 interface StockAnalysisCardProps {
   stockId: string
@@ -232,21 +232,14 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     }
   }
 
-  const getStatusBadge = (status: string | null | undefined) => {
-    if (!status) return null
-
-    const statusMap: Record<string, { text: string; bgColor: string; textColor: string }> = {
-      "good": { text: "買増検討", bgColor: "bg-green-100", textColor: "text-green-800" },
-      "neutral": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
-      "warning": { text: "売却推奨", bgColor: "bg-red-100", textColor: "text-red-800" },
-    }
-
-    const badge = statusMap[status]
-    if (!badge) return null
+  const getStatusBadge = (statusType: string | null | undefined) => {
+    if (!statusType) return null
+    const config = PORTFOLIO_STATUS_CONFIG[statusType]
+    if (!config) return null
 
     return (
-      <span className={`inline-block px-3 py-1 ${badge.bgColor} ${badge.textColor} rounded-full text-sm font-semibold`}>
-        {badge.text}
+      <span className={`inline-block px-3 py-1 ${config.bg} ${config.color} rounded-full text-sm font-semibold`}>
+        {config.text}
       </span>
     )
   }
@@ -413,7 +406,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
               <p className="font-semibold text-gray-800">💡 AIアドバイス</p>
               {getMarketSignalBadge(portfolioAnalysis?.marketSignal)}
             </div>
-            {getStatusBadge(prediction?.simpleStatus || portfolioAnalysis?.simpleStatus)}
+            {getStatusBadge(prediction?.statusType || portfolioAnalysis?.statusType)}
           </div>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}

@@ -17,6 +17,8 @@ import {
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
 import { getNikkei225Data } from "@/lib/market-index"
+import { calculateDeviationRate, calculateRSI, calculateSMA } from "@/lib/technical-indicators"
+import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -497,6 +499,12 @@ ${PROMPT_NEWS_CONSTRAINTS}
     const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
 
+    // AIはsimpleStatusに英語値("good"/"neutral"/"warning")を返すので、
+    // statusTypeとして保存し、simpleStatusには日本語をマッピング
+    const statusType = result.simpleStatus as string
+    const simpleStatusMap: Record<string, string> = { good: "好調", neutral: "様子見", warning: "警戒" }
+    const simpleStatus = simpleStatusMap[statusType] || statusType
+
     // データベースに保存
     const now = dayjs.utc().toDate()
 
@@ -509,8 +517,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
           shortTerm: result.shortTerm,
           mediumTerm: result.mediumTerm,
           longTerm: result.longTerm,
-          simpleStatus: result.simpleStatus,
-          statusType: result.simpleStatus,
+          simpleStatus,
+          statusType,
           marketSignal: result.marketSignal || null,
           suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
           suggestedSellPercent: result.suggestedSellPercent || null,
@@ -541,8 +549,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
           confidence: result.confidence || 0.7,
           limitPrice: result.suggestedSellPrice || null,
           stopLossPrice: result.suggestedStopLossPrice || null,
-          simpleStatus: result.simpleStatus || null,
-          statusType: result.simpleStatus || null,
+          simpleStatus: simpleStatus || null,
+          statusType: statusType || null,
           sellCondition: result.sellCondition || null,
           analyzedAt: now,
         },
@@ -554,8 +562,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       shortTerm: result.shortTerm,
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
-      simpleStatus: result.simpleStatus,
-      statusType: result.simpleStatus,
+      simpleStatus,
+      statusType,
       marketSignal: result.marketSignal || null,
       suggestedSellPrice: result.suggestedSellPrice || null,
       suggestedSellPercent: result.suggestedSellPercent || null,
