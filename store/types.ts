@@ -64,6 +64,10 @@ export interface SoldStock {
   totalSellAmount: number
   totalProfit: number
   profitPercent: number
+  currentPrice: number | null
+  hypotheticalValue: number | null
+  hypotheticalProfit: number | null
+  hypotheticalProfitPercent: number | null
   transactions: {
     id: string
     type: string
