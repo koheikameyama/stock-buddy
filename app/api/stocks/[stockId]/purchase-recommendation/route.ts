@@ -113,6 +113,9 @@ export async function GET(
       longTermPriceHigh: analysis?.longTermPriceHigh ? Number(analysis.longTermPriceHigh) : null,
       longTermText: analysis?.longTermText ?? null,
       advice: analysis?.advice ?? null,
+      // AI推奨価格（StockAnalysisから）
+      limitPrice: analysis?.limitPrice ? Number(analysis.limitPrice) : null,
+      stopLossPrice: analysis?.stopLossPrice ? Number(analysis.stopLossPrice) : null,
     }
 
     return NextResponse.json(response, { status: 200 })
