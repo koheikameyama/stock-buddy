@@ -45,9 +45,6 @@ interface PredictionData {
 }
 
 interface PortfolioAnalysisData {
-  shortTerm: string | null
-  mediumTerm: string | null
-  longTerm: string | null
   lastAnalysis: string | null
   simpleStatus: string | null
   statusType: string | null
@@ -382,12 +379,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )}
           </div>
         </div>
-        {(prediction?.shortTerm.text || portfolioAnalysis?.shortTerm) && (
+        {prediction?.shortTerm.text && (
           <p className="text-sm text-gray-700 whitespace-pre-wrap">
-            {prediction?.shortTerm.text || portfolioAnalysis?.shortTerm}
+            {prediction.shortTerm.text}
           </p>
         )}
-        {!prediction?.shortTerm.text && !portfolioAnalysis?.shortTerm && !prediction && (
+        {!prediction?.shortTerm.text && !prediction && (
           <p className="text-sm text-gray-500">データがありません</p>
         )}
       </div>
@@ -407,12 +404,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )}
           </div>
         </div>
-        {(prediction?.midTerm.text || portfolioAnalysis?.mediumTerm) && (
+        {prediction?.midTerm.text && (
           <p className="text-sm text-gray-700 whitespace-pre-wrap">
-            {prediction?.midTerm.text || portfolioAnalysis?.mediumTerm}
+            {prediction.midTerm.text}
           </p>
         )}
-        {!prediction?.midTerm.text && !portfolioAnalysis?.mediumTerm && !prediction && (
+        {!prediction?.midTerm.text && !prediction && (
           <p className="text-sm text-gray-500">データがありません</p>
         )}
       </div>
@@ -432,12 +429,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )}
           </div>
         </div>
-        {(prediction?.longTerm.text || portfolioAnalysis?.longTerm) && (
+        {prediction?.longTerm.text && (
           <p className="text-sm text-gray-700 whitespace-pre-wrap">
-            {prediction?.longTerm.text || portfolioAnalysis?.longTerm}
+            {prediction.longTerm.text}
           </p>
         )}
-        {!prediction?.longTerm.text && !portfolioAnalysis?.longTerm && !prediction && (
+        {!prediction?.longTerm.text && !prediction && (
           <p className="text-sm text-gray-500">データがありません</p>
         )}
       </div>
