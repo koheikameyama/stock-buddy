@@ -5,6 +5,7 @@ import OpenAI from "openai"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { getRelatedNews, formatNewsForPrompt, formatNewsReferences, type RelatedNews } from "@/lib/news-rag"
+import { getNikkei225Data, getTrendDescription } from "@/lib/market-index"
 import dayjs from "dayjs"
 
 function getOpenAIClient() {
@@ -77,6 +78,9 @@ export async function POST(request: NextRequest) {
     const uniqueTickerCodes = Array.from(new Set(allTickerCodes))
     const realtimePrices = await fetchStockPrices(uniqueTickerCodes)
     const priceMap = new Map(realtimePrices.map((p) => [p.tickerCode.replace(".T", ""), p.currentPrice]))
+
+    // 市場全体の状況を取得
+    const marketData = await getNikkei225Data()
 
     // ポートフォリオ情報を整形
     const portfolioInfo = portfolioStocks
@@ -480,10 +484,21 @@ ${JSON.stringify(stockData, null, 2)}
       ? `\n## この銘柄に関連する最新ニュース\n以下のニュースを踏まえて回答してください。\n${formatNewsForPrompt(relatedNews)}`
       : ""
 
+    // 市場全体の状況セクション
+    const marketSection = marketData
+      ? `
+## 市場全体の状況
+- 日経平均株価: ${marketData.currentPrice.toLocaleString()}円
+- 週間変化率: ${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%
+- トレンド: ${getTrendDescription(marketData.trend)}
+${marketData.isMarketCrash ? "⚠️ 市場全体が急落中です。新規購入は慎重に判断してください。" : ""}
+`
+      : ""
+
     // システムプロンプトを構築
     const systemPrompt = `あなたは投資初心者向けのAIコーチです。
 専門用語は使わず、中学生でも分かる言葉で説明してください。
-${stockContextInfo}${newsSection}
+${stockContextInfo}${newsSection}${marketSection}
 ## ユーザーの保有銘柄
 ${portfolioStocks.length > 0 ? portfolioInfo : "保有銘柄はありません"}
 
