@@ -45,6 +45,7 @@ interface PortfolioAnalysisData {
   lastAnalysis: string | null
   simpleStatus: string | null
   statusType: string | null
+  marketSignal: string | null
   suggestedSellPrice: number | null
   suggestedSellPercent: number | null
   sellReason: string | null
@@ -246,6 +247,26 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     return (
       <span className={`inline-block px-3 py-1 ${badge.bgColor} ${badge.textColor} rounded-full text-sm font-semibold`}>
         {badge.text}
+      </span>
+    )
+  }
+
+  const getMarketSignalBadge = (signal: string | null | undefined) => {
+    if (!signal) return null
+
+    const signalMap: Record<string, { text: string; bgColor: string; textColor: string; icon: string }> = {
+      bullish: { text: "上昇優勢", bgColor: "bg-green-100", textColor: "text-green-700", icon: "↑" },
+      neutral: { text: "横ばい", bgColor: "bg-gray-100", textColor: "text-gray-600", icon: "→" },
+      bearish: { text: "下落優勢", bgColor: "bg-red-100", textColor: "text-red-700", icon: "↓" },
+    }
+
+    const badge = signalMap[signal]
+    if (!badge) return null
+
+    return (
+      <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 ${badge.bgColor} ${badge.textColor} rounded-full text-xs font-medium`}>
+        <span>{badge.icon}</span>
+        <span>{badge.text}</span>
       </span>
     )
   }
@@ -455,7 +476,10 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
       {prediction && (
         <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
           <div className="flex justify-between items-start mb-2">
-            <p className="font-semibold text-gray-800">💡 AIアドバイス</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-gray-800">💡 AIアドバイス</p>
+              {getMarketSignalBadge(portfolioAnalysis?.marketSignal)}
+            </div>
             {getStatusBadge(portfolioAnalysis?.simpleStatus)}
           </div>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">

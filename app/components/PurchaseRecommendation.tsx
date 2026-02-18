@@ -13,6 +13,7 @@ interface RecommendationData {
   stockName: string
   tickerCode: string
   currentPrice: number | null
+  marketSignal: string | null
   recommendation: "buy" | "stay" | "avoid"
   confidence: number
   reason: string
@@ -225,6 +226,33 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 信頼度パーセンテージ
   const confidencePercent = Math.round(data.confidence * 100)
 
+  const getMarketSignalBadge = (signal: string | null | undefined) => {
+    if (!signal) return null
+    const signalMap: Record<string, { text: string; bgColor: string; textColor: string; icon: string }> = {
+      bullish: { text: "上昇優勢", bgColor: "bg-green-100", textColor: "text-green-700", icon: "↑" },
+      neutral: { text: "横ばい", bgColor: "bg-gray-100", textColor: "text-gray-600", icon: "→" },
+      bearish: { text: "下落優勢", bgColor: "bg-red-100", textColor: "text-red-700", icon: "↓" },
+    }
+    const badge = signalMap[signal]
+    if (!badge) return null
+    return (
+      <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 ${badge.bgColor} ${badge.textColor} rounded-full text-xs font-medium`}>
+        <span>{badge.icon}</span>
+        <span>{badge.text}</span>
+      </span>
+    )
+  }
+
+  const MarketSignalRow = () => {
+    if (!data?.marketSignal) return null
+    return (
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs text-gray-500">マーケットシグナル</span>
+        {getMarketSignalBadge(data.marketSignal)}
+      </div>
+    )
+  }
+
   // 深掘り評価セクション（B）
   const DeepEvaluationSection = () => {
     if (!data?.positives && !data?.concerns && !data?.suitableFor) return null
@@ -359,6 +387,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
             <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
           </div>
 
+          <MarketSignalRow />
+
           <div className="flex items-center gap-2 mb-3">
             <div className="flex-1 bg-gray-200 rounded-full h-2">
               <div
@@ -406,6 +436,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
             <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
           </div>
+
+          <MarketSignalRow />
 
           <div className="flex items-center gap-2 mb-3">
             <div className="flex-1 bg-gray-200 rounded-full h-2">
@@ -461,6 +493,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
         <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
           <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
         </div>
+
+        <MarketSignalRow />
 
         <div className="flex items-center gap-2 mb-3">
           <div className="flex-1 bg-gray-200 rounded-full h-2">
