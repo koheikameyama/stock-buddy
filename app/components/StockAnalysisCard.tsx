@@ -556,42 +556,48 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
               </p>
               <div className="space-y-2">
                 {portfolioAnalysis.suggestedSellPercent && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">推奨売却:</span>
-                    <span className={`font-bold ${
-                      portfolioAnalysis.suggestedSellPercent === 100 ? "text-red-600" : "text-amber-600"
-                    }`}>
-                      {portfolioAnalysis.suggestedSellPercent}%
-                      {quantity && quantity > 0 && (
-                        <span className="text-gray-600 font-normal ml-1">
-                          （{quantity}株中 {Math.round(quantity * portfolioAnalysis.suggestedSellPercent / 100)}株）
-                        </span>
-                      )}
-                    </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">推奨売却:</span>
+                      <span className={`font-bold ${
+                        portfolioAnalysis.suggestedSellPercent === 100 ? "text-red-600" : "text-amber-600"
+                      }`}>
+                        {portfolioAnalysis.suggestedSellPercent}%
+                      </span>
+                    </div>
+                    {quantity && quantity > 0 && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {quantity}株中 {Math.round(quantity * portfolioAnalysis.suggestedSellPercent / 100)}株
+                      </p>
+                    )}
                   </div>
                 )}
                 {prediction.recommendation === "sell" ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">売却方法:</span>
-                    <span className="font-bold text-red-600">
-                      成行で今すぐ売却検討
-                    </span>
-                    {prediction.currentPrice && (
-                      <span className="text-xs text-gray-500">
-                        （現在価格: {prediction.currentPrice.toLocaleString()}円）
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">売却方法:</span>
+                      <span className="font-bold text-red-600">
+                        成行で今すぐ売却検討
                       </span>
+                    </div>
+                    {prediction.currentPrice && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        現在価格: {prediction.currentPrice.toLocaleString()}円
+                      </p>
                     )}
                   </div>
                 ) : portfolioAnalysis.suggestedSellPrice && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">売却価格:</span>
-                    <span className="font-bold text-gray-800">
-                      {portfolioAnalysis.suggestedSellPrice.toLocaleString()}円
-                    </span>
-                    {prediction.currentPrice && (
-                      <span className="text-xs text-gray-500">
-                        （現在価格: {prediction.currentPrice.toLocaleString()}円）
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">売却価格:</span>
+                      <span className="font-bold text-gray-800">
+                        {portfolioAnalysis.suggestedSellPrice.toLocaleString()}円
                       </span>
+                    </div>
+                    {prediction.currentPrice && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        現在価格: {prediction.currentPrice.toLocaleString()}円
+                      </p>
                     )}
                   </div>
                 )}
