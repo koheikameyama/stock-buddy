@@ -9,15 +9,6 @@ on:
       - '.github/workflows/**'
       - '!.github/workflows/ci.yml'
       - 'docs/**'
-  pull_request:
-    branches: [main, develop]
-    paths-ignore:
-      - '**.md'
-      - 'scripts/**'
-      - '.github/workflows/**'
-      - '!.github/workflows/ci.yml'
-      - 'docs/**'
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
