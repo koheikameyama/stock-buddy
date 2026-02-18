@@ -85,7 +85,7 @@ def download_batch(symbols: list[str]) -> dict:
     try:
         df = yf.download(
             symbols,
-            period="1mo",
+            period="2mo",
             group_by="ticker",
             threads=True,
             progress=False,
@@ -162,6 +162,14 @@ def _compute_price_data(hist) -> dict | None:
             std_dev = float(close_prices.std())
             volatility = round((std_dev / avg_price) * 100, 2)
 
+    # 移動平均乖離率（25日SMA）
+    ma_deviation_rate = None
+    if len(hist) >= 25:
+        close_prices_25 = hist["Close"].values.astype(float)[-25:]
+        sma_25 = float(close_prices_25.mean())
+        if sma_25 > 0:
+            ma_deviation_rate = round(((latest_price - sma_25) / sma_25) * 100, 2)
+
     # 出来高比率（直近3日 vs 4-30日前）
     volume_ratio = None
     if len(hist) >= 10:
@@ -193,6 +201,7 @@ def _compute_price_data(hist) -> dict | None:
         "weekChangeRate": clamp_rate(round(change_rate, 2)),
         "volatility": clamp_rate(volatility),
         "volumeRatio": clamp_rate(volume_ratio),
+        "maDeviationRate": clamp_rate(ma_deviation_rate),
     }
 
 
@@ -211,6 +220,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
                 u["weekChangeRate"],
                 u.get("volatility"),
                 u.get("volumeRatio"),
+                u.get("maDeviationRate"),
                 now,
                 u["id"]
             )
@@ -226,6 +236,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
                 "weekChangeRate" = %s,
                 "volatility" = %s,
                 "volumeRatio" = %s,
+                "maDeviationRate" = %s,
                 "priceUpdatedAt" = %s
             WHERE id = %s
             ''',
