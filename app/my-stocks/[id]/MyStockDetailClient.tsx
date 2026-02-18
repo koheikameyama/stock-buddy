@@ -221,7 +221,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
               </div>
 
               {/* Profit/Loss (Highlighted) */}
-              {!loading && price ? (
+              {!loading && price && (
                 <div
                   className={`rounded-lg p-4 mt-4 ${
                     profit >= 0
