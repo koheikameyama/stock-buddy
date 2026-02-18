@@ -300,7 +300,7 @@ def fetch_watchlist_buy_target_alerts(conn) -> list[dict]:
     - ユーザーが targetBuyPrice を設定している
     - 現在価格 <= 目標買値
 
-    AIの買い判断（purchaseRecommendation）も取得し、通知メッセージを分岐させる
+    AIの買い判断（PurchaseRecommendation.recommendation）も取得し、通知メッセージを分岐させる
     """
     alerts = []
 
@@ -313,17 +313,17 @@ def fetch_watchlist_buy_target_alerts(conn) -> list[dict]:
                 s."tickerCode",
                 s."latestPrice",
                 w."targetBuyPrice",
-                sa."purchaseRecommendation",
+                pr.recommendation,
                 w.id as "watchlistStockId"
             FROM "WatchlistStock" w
             JOIN "Stock" s ON w."stockId" = s.id
             LEFT JOIN LATERAL (
-                SELECT "purchaseRecommendation"
-                FROM "StockAnalysis"
+                SELECT recommendation
+                FROM "PurchaseRecommendation"
                 WHERE "stockId" = s.id
-                ORDER BY "analyzedAt" DESC
+                ORDER BY date DESC
                 LIMIT 1
-            ) sa ON true
+            ) pr ON true
             WHERE s."latestPrice" IS NOT NULL
               AND w."targetBuyPrice" IS NOT NULL
         ''')
@@ -331,7 +331,7 @@ def fetch_watchlist_buy_target_alerts(conn) -> list[dict]:
         for row in cur.fetchall():
             latest_price = float(row[4]) if row[4] else 0
             user_target_price = float(row[5]) if row[5] else None
-            purchase_recommendation = row[6]  # "買い" or "様子見"
+            purchase_recommendation = row[6]  # "buy" or "stay"
             watchlist_stock_id = row[7]
 
             if user_target_price is None:
@@ -489,7 +489,7 @@ def main():
         logger.info(f"  Found {len(buy_target_alerts)} buy target alerts")
 
         for alert in buy_target_alerts:
-            is_buy = alert.get("purchaseRecommendation") == "買い"
+            is_buy = alert.get("purchaseRecommendation") == "buy"
 
             if is_buy:
                 title = f"💰 {alert['stockName']}が買い時です"

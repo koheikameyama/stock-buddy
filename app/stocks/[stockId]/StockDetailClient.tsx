@@ -75,6 +75,22 @@ const categoryBadges: Record<string, { label: string; className: string }> = {
   trending: { label: "話題", className: "bg-yellow-100 text-yellow-700" },
 }
 
+function getHypotheticalComment(hypotheticalProfitPercent: number, actualProfitPercent: number): string {
+  const diff = hypotheticalProfitPercent - actualProfitPercent
+
+  if (diff > 20) {
+    return "かなり早めの利確でした"
+  } else if (diff > 5) {
+    return "早めの利確でした"
+  } else if (diff > -5) {
+    return "適切なタイミングでした"
+  } else if (diff > -20) {
+    return "良いタイミングでした"
+  } else {
+    return "絶好のタイミングでした"
+  }
+}
+
 export default function StockDetailClient({
   stock,
   recommendation,
@@ -239,6 +255,110 @@ export default function StockDetailClient({
           )
         }
       />
+
+      {/* Sold Stock Info Section */}
+      {soldStockInfo && (
+        <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">📦</span>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+              売却済み
+            </h2>
+            <span className="text-xs text-gray-400">
+              {new Date(soldStockInfo.lastSellDate).toLocaleDateString("ja-JP")}
+            </span>
+          </div>
+
+          {/* 売却実績 */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <span className="text-xs text-gray-500 block">購入金額</span>
+              <span className="text-base font-bold text-gray-900">
+                ¥{soldStockInfo.totalBuyAmount.toLocaleString()}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs text-gray-500 block">売却金額</span>
+              <span className="text-base font-bold text-gray-900">
+                ¥{soldStockInfo.totalSellAmount.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          {/* 損益 */}
+          <div
+            className={`rounded-lg p-4 mb-4 ${
+              soldStockInfo.totalProfit >= 0
+                ? "bg-gradient-to-r from-green-50 to-emerald-50"
+                : "bg-gradient-to-r from-red-50 to-rose-50"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">損益</span>
+              <div className="text-right">
+                <span
+                  className={`text-lg font-bold ${
+                    soldStockInfo.totalProfit >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {soldStockInfo.totalProfit >= 0 ? "+" : ""}
+                  ¥{soldStockInfo.totalProfit.toLocaleString()}
+                </span>
+                <span
+                  className={`ml-2 text-sm ${
+                    soldStockInfo.profitPercent >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  ({soldStockInfo.profitPercent >= 0 ? "+" : ""}
+                  {soldStockInfo.profitPercent.toFixed(1)}%)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 今も保有してたら */}
+          {soldStockInfo.hypotheticalProfit !== null && (
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-sm">📊</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  今も保有してたら
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">
+                  → {getHypotheticalComment(
+                      soldStockInfo.hypotheticalProfitPercent ?? 0,
+                      soldStockInfo.profitPercent
+                    )}
+                </span>
+                <div className="text-right">
+                  <span
+                    className={`text-base font-bold ${
+                      (soldStockInfo.hypotheticalProfit ?? 0) >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {(soldStockInfo.hypotheticalProfit ?? 0) >= 0 ? "+" : ""}
+                    ¥{(soldStockInfo.hypotheticalProfit ?? 0).toLocaleString()}
+                  </span>
+                  <span
+                    className={`ml-1 text-xs ${
+                      (soldStockInfo.hypotheticalProfitPercent ?? 0) >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    ({(soldStockInfo.hypotheticalProfitPercent ?? 0) >= 0 ? "+" : ""}
+                    {(soldStockInfo.hypotheticalProfitPercent ?? 0).toFixed(1)}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Tracked Mode Info Box */}
       {localIsTracked && (
