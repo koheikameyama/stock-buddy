@@ -1,7 +1,7 @@
 # 統合分析プロンプト設計書
 
 **作成日**: 2026-02-18
-**ステータス**: 設計中（2026-02-18 更新）
+**ステータス**: 確定（2026-02-18）
 
 ---
 
@@ -338,4 +338,4 @@ ALTER TABLE "PortfolioStock" DROP COLUMN "emotionalCoaching";
 
 - [ ] Phase 1 の効果を検証してから Phase 2 に進むか、一気にやるか
 - [ ] `marketSignal` を UI に表示するか、内部整合性チェックのみに使うか
-- [ ] `shortTerm` / `mediumTerm` / `longTerm` のフォーマットを「根拠→判断」で固定するか、LLMに任せるか（固定の方が品質安定しやすい）
+- [x] `shortTerm` / `mediumTerm` / `longTerm` のフォーマットを「根拠→判断」で固定する（強制）
