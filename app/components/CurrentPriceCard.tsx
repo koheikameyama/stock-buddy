@@ -15,6 +15,7 @@ interface CurrentPriceCardProps {
   fiftyTwoWeekHigh?: number | null
   fiftyTwoWeekLow?: number | null
   actions?: ReactNode
+  bottomActions?: ReactNode
 }
 
 export default function CurrentPriceCard({
@@ -24,6 +25,7 @@ export default function CurrentPriceCard({
   fiftyTwoWeekHigh,
   fiftyTwoWeekLow,
   actions,
+  bottomActions,
 }: CurrentPriceCardProps) {
   return (
     <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
@@ -64,6 +66,10 @@ export default function CurrentPriceCard({
                   {(fiftyTwoWeekLow || 0).toLocaleString()}
                 </span>
               </div>
+            )}
+
+            {bottomActions && (
+              <div className="flex justify-end">{bottomActions}</div>
             )}
           </>
         ) : (

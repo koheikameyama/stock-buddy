@@ -410,6 +410,23 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                 </button>
               </>
             }
+            bottomActions={
+              <button
+                onClick={() => {
+                  setTargetBuyPrice(
+                    currentTargetBuyPrice ? String(currentTargetBuyPrice) : ""
+                  )
+                  setShowBuyAlertModal(true)
+                }}
+                className={`text-xs font-medium rounded-full px-3 py-1 transition-colors ${
+                  currentTargetBuyPrice
+                    ? "text-amber-700 bg-amber-100 hover:bg-amber-200"
+                    : "text-amber-600 bg-amber-50 hover:bg-amber-100"
+                }`}
+              >
+                {currentTargetBuyPrice ? `🔔 通知設定中（¥${currentTargetBuyPrice.toLocaleString()}）` : "🔔 買い時通知を設定"}
+              </button>
+            }
           />
 
           {/* AI Purchase Recommendation Section */}

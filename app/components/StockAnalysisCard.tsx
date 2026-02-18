@@ -459,15 +459,6 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                                   あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で到達
                                 </p>
                               )}
-                              {/* 買いアラート設定ボタン（ウォッチリスト用） */}
-                              {onBuyAlertClick && (
-                                <button
-                                  onClick={() => onBuyAlertClick(limitPriceNum)}
-                                  className="mt-2 text-xs text-amber-600 hover:text-amber-800 flex items-center gap-1"
-                                >
-                                  🔔 {currentTargetBuyPrice ? `通知設定中（¥${currentTargetBuyPrice.toLocaleString()}）` : "この価格で通知"}
-                                </button>
-                              )}
                             </>
                           )
                         } else {
