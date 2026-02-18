@@ -1,4 +1,6 @@
-import { ReactNode } from "react"
+"use client"
+
+import { ReactNode, useEffect, useState } from "react"
 import BackButton from "./BackButton"
 import StockHeader from "./StockHeader"
 
@@ -21,8 +23,42 @@ export default function StockDetailLayout({
   backHref = "/my-stocks",
   children,
 }: StockDetailLayoutProps) {
+  const [showStickyHeader, setShowStickyHeader] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // 100px以上スクロールしたらstickyヘッダーを表示
+      setShowStickyHeader(window.scrollY > 100)
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
   return (
     <>
+      {/* Sticky Header */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm transition-transform duration-200 ${
+          showStickyHeader ? "translate-y-0" : "-translate-y-full"
+        }`}
+      >
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center gap-3">
+          <button
+            onClick={() => window.history.back()}
+            className="p-1 -ml-1 text-gray-600 hover:text-gray-900"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-900 truncate">{name}</p>
+            <p className="text-xs text-gray-500">{tickerCode}</p>
+          </div>
+        </div>
+      </div>
+
       <BackButton href={backHref} />
       <StockHeader
         name={name}
