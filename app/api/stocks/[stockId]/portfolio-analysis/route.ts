@@ -5,9 +5,13 @@ import { verifyCronOrSession } from "@/lib/cron-auth"
 import { getOpenAIClient } from "@/lib/openai"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
-import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
-import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
-import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
+import {
+  buildFinancialMetrics,
+  buildCandlestickContext,
+  buildTechnicalContext,
+  buildChartPatternContext,
+  buildWeekChangeContext,
+} from "@/lib/stock-analysis-context"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -258,135 +262,16 @@ export async function POST(
     const prices = historicalPrices.slice(-30) // oldest-first
 
     // ローソク足パターン分析
-    let patternContext = ""
-    if (prices.length >= 1) {
-      const latestCandle: CandlestickData = {
-        date: prices[prices.length - 1].date,
-        open: prices[prices.length - 1].open,
-        high: prices[prices.length - 1].high,
-        low: prices[prices.length - 1].low,
-        close: prices[prices.length - 1].close,
-      }
-      const pattern = analyzeSingleCandle(latestCandle)
-
-      let buySignals = 0
-      let sellSignals = 0
-      for (const price of prices.slice(-5)) {
-        const p = analyzeSingleCandle({
-          date: price.date,
-          open: price.open,
-          high: price.high,
-          low: price.low,
-          close: price.close,
-        })
-        if (p.strength >= 60) {
-          if (p.signal === "buy") buySignals++
-          else if (p.signal === "sell") sellSignals++
-        }
-      }
-
-      patternContext = `
-【ローソク足パターン分析】
-- 最新パターン: ${pattern.description}
-- シグナル: ${pattern.signal}
-- 強さ: ${pattern.strength}%
-- 直近5日の買いシグナル: ${buySignals}回
-- 直近5日の売りシグナル: ${sellSignals}回
-`
-    }
+    const patternContext = buildCandlestickContext(prices)
 
     // テクニカル指標（RSI / MACD）
-    let technicalContext = ""
-    if (prices.length >= 26) {
-      const pricesForCalc = prices.map(p => ({ close: p.close }))
-      const rsi = calculateRSI(pricesForCalc, 14)
-      const macd = calculateMACD(pricesForCalc)
-
-      let rsiInterpretation = ""
-      if (rsi !== null) {
-        if (rsi <= 30) {
-          rsiInterpretation = `${rsi.toFixed(1)}（売られすぎ → 反発の可能性あり）`
-        } else if (rsi <= 40) {
-          rsiInterpretation = `${rsi.toFixed(1)}（やや売られすぎ）`
-        } else if (rsi >= 70) {
-          rsiInterpretation = `${rsi.toFixed(1)}（買われすぎ → 下落の可能性あり）`
-        } else if (rsi >= 60) {
-          rsiInterpretation = `${rsi.toFixed(1)}（やや買われすぎ）`
-        } else {
-          rsiInterpretation = `${rsi.toFixed(1)}（通常範囲）`
-        }
-      }
-
-      let macdInterpretation = ""
-      if (macd.histogram !== null) {
-        if (macd.histogram > 1) {
-          macdInterpretation = "上昇トレンド（勢いあり）"
-        } else if (macd.histogram > 0) {
-          macdInterpretation = "やや上昇傾向"
-        } else if (macd.histogram < -1) {
-          macdInterpretation = "下落トレンド（勢いあり）"
-        } else if (macd.histogram < 0) {
-          macdInterpretation = "やや下落傾向"
-        } else {
-          macdInterpretation = "横ばい"
-        }
-      }
-
-      if (rsi !== null || macd.histogram !== null) {
-        technicalContext = `
-【テクニカル指標】
-${rsi !== null ? `- RSI（売られすぎ・買われすぎの指標）: ${rsiInterpretation}` : ""}
-${macd.histogram !== null ? `- MACD（トレンドの勢い指標）: ${macdInterpretation}` : ""}
-`
-      }
-    }
+    const technicalContext = buildTechnicalContext(prices)
 
     // チャートパターン（複数足フォーメーション）の検出
-    let chartPatternContext = ""
-    if (prices.length >= 15) {
-      const pricePoints: PricePoint[] = prices.map(p => ({
-        date: p.date,
-        open: p.open,
-        high: p.high,
-        low: p.low,
-        close: p.close,
-      }))
-      const chartPatterns = detectChartPatterns(pricePoints)
-      if (chartPatterns.length > 0) {
-        chartPatternContext = "\n" + formatChartPatternsForPrompt(chartPatterns)
-      }
-    }
+    const chartPatternContext = buildChartPatternContext(prices)
 
     // 週間変化率
-    let weekChangeContext = ""
-    if (prices.length >= 5) {
-      const latestClose = prices[prices.length - 1].close
-      const weekAgoClose = prices[Math.max(0, prices.length - 6)].close
-      const weekChangeRate = ((latestClose - weekAgoClose) / weekAgoClose) * 100
-
-      if (weekChangeRate >= 30) {
-        weekChangeContext = `
-【警告: 急騰銘柄】
-- 週間変化率: +${weekChangeRate.toFixed(1)}%（非常に高い）
-- 急騰後は反落リスクが高い状態です
-`
-      } else if (weekChangeRate >= 10) {
-        weekChangeContext = `
-【注意: 上昇率が高い】
-- 週間変化率: +${weekChangeRate.toFixed(1)}%
-`
-      } else if (weekChangeRate <= -10) {
-        weekChangeContext = `
-【注意: 大幅下落】
-- 週間変化率: ${weekChangeRate.toFixed(1)}%
-`
-      } else {
-        weekChangeContext = `
-【週間変化率】
-- 週間変化率: ${weekChangeRate >= 0 ? "+" : ""}${weekChangeRate.toFixed(1)}%
-`
-      }
-    }
+    const { text: weekChangeContext } = buildWeekChangeContext(prices, "portfolio")
 
     // 関連ニュースを取得
     const tickerCode = portfolioStock.stock.tickerCode.replace(".T", "")
@@ -402,124 +287,7 @@ ${macd.histogram !== null ? `- MACD（トレンドの勢い指標）: ${macdInte
 
     // 財務指標のフォーマット
     const stock = portfolioStock.stock
-    const metrics: string[] = []
-
-    if (stock.marketCap) {
-      const marketCap = Number(stock.marketCap)
-      if (marketCap >= 10000) {
-        metrics.push(`- 会社の規模: 大企業（時価総額${(marketCap / 10000).toFixed(1)}兆円）`)
-      } else if (marketCap >= 1000) {
-        metrics.push(`- 会社の規模: 中堅企業（時価総額${marketCap.toFixed(0)}億円）`)
-      } else {
-        metrics.push(`- 会社の規模: 小型企業（時価総額${marketCap.toFixed(0)}億円）`)
-      }
-    }
-
-    if (stock.dividendYield) {
-      const divYield = Number(stock.dividendYield)
-      if (divYield >= 4) {
-        metrics.push(`- 配当: 高配当（年${divYield.toFixed(2)}%）`)
-      } else if (divYield >= 2) {
-        metrics.push(`- 配当: 普通（年${divYield.toFixed(2)}%）`)
-      } else if (divYield > 0) {
-        metrics.push(`- 配当: 低め（年${divYield.toFixed(2)}%）`)
-      } else {
-        metrics.push("- 配当: なし")
-      }
-    }
-
-    if (stock.pbr) {
-      const pbr = Number(stock.pbr)
-      if (pbr < 1) {
-        metrics.push("- 株価水準(PBR): 割安（資産価値より安い）")
-      } else if (pbr < 1.5) {
-        metrics.push("- 株価水準(PBR): 適正")
-      } else {
-        metrics.push("- 株価水準(PBR): やや割高")
-      }
-    }
-
-    // PER（株価収益率）
-    if (stock.per) {
-      const per = Number(stock.per)
-      if (per < 0) {
-        metrics.push("- 収益性(PER): 赤字のため算出不可")
-      } else if (per < 10) {
-        metrics.push(`- 収益性(PER): 割安（${per.toFixed(1)}倍）`)
-      } else if (per < 20) {
-        metrics.push(`- 収益性(PER): 適正（${per.toFixed(1)}倍）`)
-      } else if (per < 30) {
-        metrics.push(`- 収益性(PER): やや割高（${per.toFixed(1)}倍）`)
-      } else {
-        metrics.push(`- 収益性(PER): 割高（${per.toFixed(1)}倍）`)
-      }
-    }
-
-    // ROE（自己資本利益率）
-    if (stock.roe) {
-      const roe = Number(stock.roe) * 100 // 小数点で保存されている場合
-      if (roe >= 15) {
-        metrics.push(`- 経営効率(ROE): 優秀（${roe.toFixed(1)}%）`)
-      } else if (roe >= 10) {
-        metrics.push(`- 経営効率(ROE): 良好（${roe.toFixed(1)}%）`)
-      } else if (roe >= 5) {
-        metrics.push(`- 経営効率(ROE): 普通（${roe.toFixed(1)}%）`)
-      } else if (roe > 0) {
-        metrics.push(`- 経営効率(ROE): 低め（${roe.toFixed(1)}%）`)
-      } else {
-        metrics.push(`- 経営効率(ROE): 赤字`)
-      }
-    }
-
-    // 業績トレンド
-    if (stock.isProfitable !== null && stock.isProfitable !== undefined) {
-      if (stock.isProfitable) {
-        if (stock.profitTrend === "increasing") {
-          metrics.push("- 業績: 黒字（利益増加傾向）")
-        } else if (stock.profitTrend === "decreasing") {
-          metrics.push("- 業績: 黒字（利益減少傾向）")
-        } else {
-          metrics.push("- 業績: 黒字")
-        }
-      } else {
-        metrics.push("- 業績: 赤字")
-      }
-    }
-
-    // 売上成長率
-    if (stock.revenueGrowth) {
-      const growth = Number(stock.revenueGrowth)
-      if (growth >= 20) {
-        metrics.push(`- 売上成長: 急成長（前年比+${growth.toFixed(1)}%）`)
-      } else if (growth >= 10) {
-        metrics.push(`- 売上成長: 好調（前年比+${growth.toFixed(1)}%）`)
-      } else if (growth >= 0) {
-        metrics.push(`- 売上成長: 安定（前年比+${growth.toFixed(1)}%）`)
-      } else if (growth >= -10) {
-        metrics.push(`- 売上成長: やや減少（前年比${growth.toFixed(1)}%）`)
-      } else {
-        metrics.push(`- 売上成長: 減少傾向（前年比${growth.toFixed(1)}%）`)
-      }
-    }
-
-    // EPS（1株当たり利益）
-    if (stock.eps) {
-      const eps = Number(stock.eps)
-      if (eps > 0) {
-        metrics.push(`- 1株利益(EPS): ${eps.toFixed(0)}円`)
-      } else {
-        metrics.push(`- 1株利益(EPS): 赤字`)
-      }
-    }
-
-    if (stock.fiftyTwoWeekHigh && stock.fiftyTwoWeekLow && currentPrice) {
-      const high = Number(stock.fiftyTwoWeekHigh)
-      const low = Number(stock.fiftyTwoWeekLow)
-      const position = high !== low ? ((currentPrice - low) / (high - low)) * 100 : 50
-      metrics.push(`- 1年間の値動き: 高値${high.toFixed(0)}円〜安値${low.toFixed(0)}円（現在は${position.toFixed(0)}%の位置）`)
-    }
-
-    const financialMetrics = metrics.length > 0 ? metrics.join("\n") : "財務データなし"
+    const financialMetrics = buildFinancialMetrics(stock, currentPrice)
 
     // 日経平均の市場文脈を取得
     let marketContext = ""
