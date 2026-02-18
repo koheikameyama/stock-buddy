@@ -211,6 +211,18 @@ model StockAnalysis {
   limitPrice          Decimal? @db.Decimal(12, 2) // 指値（理想の買値）
   stopLossPrice       Decimal? @db.Decimal(12, 2) // 逆指値（損切りライン）
 
+  // テキスト分析（ポートフォリオ・ウォッチリスト共通）
+  shortTermText       String?  @db.Text           // 短期予測テキスト
+  midTermText         String?  @db.Text           // 中期予測テキスト
+  longTermText        String?  @db.Text           // 長期予測テキスト
+
+  // ステータス情報
+  simpleStatus        String?                     // "ホールド", "注意", "売却を検討" など
+  statusType          String?                     // "hold", "caution", "sell" など
+
+  // 売却条件
+  sellCondition       String?  @db.Text           // 売却判断の条件テキスト
+
   analyzedAt          DateTime @default(now())
   createdAt           DateTime @default(now())
 

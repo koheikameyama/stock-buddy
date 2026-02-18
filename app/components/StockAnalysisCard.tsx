@@ -18,16 +18,19 @@ interface PredictionData {
     trend: string
     priceLow: string
     priceHigh: string
+    text?: string | null
   }
   midTerm: {
     trend: string
     priceLow: string
     priceHigh: string
+    text?: string | null
   }
   longTerm: {
     trend: string
     priceLow: string
     priceHigh: string
+    text?: string | null
   }
   recommendation: string
   advice: string
@@ -36,6 +39,9 @@ interface PredictionData {
   stopLossPrice: string | null
   analyzedAt: string
   currentPrice: number | null
+  simpleStatus?: string | null
+  statusType?: string | null
+  sellCondition?: string | null
 }
 
 interface PortfolioAnalysisData {
@@ -371,10 +377,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )}
           </div>
         </div>
-        {portfolioAnalysis?.shortTerm && (
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{portfolioAnalysis.shortTerm}</p>
+        {(prediction?.shortTerm.text || portfolioAnalysis?.shortTerm) && (
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            {prediction?.shortTerm.text || portfolioAnalysis?.shortTerm}
+          </p>
         )}
-        {!portfolioAnalysis?.shortTerm && !prediction && (
+        {!prediction?.shortTerm.text && !portfolioAnalysis?.shortTerm && !prediction && (
           <p className="text-sm text-gray-500">データがありません</p>
         )}
       </div>
@@ -394,10 +402,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )}
           </div>
         </div>
-        {portfolioAnalysis?.mediumTerm && (
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{portfolioAnalysis.mediumTerm}</p>
+        {(prediction?.midTerm.text || portfolioAnalysis?.mediumTerm) && (
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            {prediction?.midTerm.text || portfolioAnalysis?.mediumTerm}
+          </p>
         )}
-        {!portfolioAnalysis?.mediumTerm && !prediction && (
+        {!prediction?.midTerm.text && !portfolioAnalysis?.mediumTerm && !prediction && (
           <p className="text-sm text-gray-500">データがありません</p>
         )}
       </div>
@@ -417,10 +427,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )}
           </div>
         </div>
-        {portfolioAnalysis?.longTerm && (
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{portfolioAnalysis.longTerm}</p>
+        {(prediction?.longTerm.text || portfolioAnalysis?.longTerm) && (
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            {prediction?.longTerm.text || portfolioAnalysis?.longTerm}
+          </p>
         )}
-        {!portfolioAnalysis?.longTerm && !prediction && (
+        {!prediction?.longTerm.text && !portfolioAnalysis?.longTerm && !prediction && (
           <p className="text-sm text-gray-500">データがありません</p>
         )}
       </div>
@@ -480,7 +492,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
               <p className="font-semibold text-gray-800">💡 AIアドバイス</p>
               {getMarketSignalBadge(portfolioAnalysis?.marketSignal)}
             </div>
-            {getStatusBadge(portfolioAnalysis?.simpleStatus)}
+            {getStatusBadge(prediction?.simpleStatus || portfolioAnalysis?.simpleStatus)}
           </div>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}

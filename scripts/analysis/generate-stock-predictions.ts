@@ -228,9 +228,9 @@ async function getBaselineData(tickerCode: string): Promise<BaselineData | null>
 }
 
 interface PredictionResult {
-  shortTerm: { trend: string; priceLow: number; priceHigh: number }
-  midTerm: { trend: string; priceLow: number; priceHigh: number }
-  longTerm: { trend: string; priceLow: number; priceHigh: number }
+  shortTerm: { trend: string; priceLow: number; priceHigh: number; text: string }
+  midTerm: { trend: string; priceLow: number; priceHigh: number; text: string }
+  longTerm: { trend: string; priceLow: number; priceHigh: number; text: string }
   recommendation: string
   advice: string
   confidence: number
@@ -307,17 +307,20 @@ ${patternContext}${supportResistanceContext}${newsContext}
   "shortTerm": {
     "trend": "up" | "neutral" | "down",
     "priceLow": 数値,
-    "priceHigh": 数値
+    "priceHigh": 数値,
+    "text": "短期予測の詳細解説（50-100文字。なぜこの予測か、注目ポイント）"
   },
   "midTerm": {
     "trend": "up" | "neutral" | "down",
     "priceLow": 数値,
-    "priceHigh": 数値
+    "priceHigh": 数値,
+    "text": "中期予測の詳細解説（50-100文字。今後1ヶ月の見通し）"
   },
   "longTerm": {
     "trend": "up" | "neutral" | "down",
     "priceLow": 数値,
-    "priceHigh": 数値
+    "priceHigh": 数値,
+    "text": "長期予測の詳細解説（50-100文字。3ヶ月後までの展望）"
   },
   "recommendation": "buy" | "hold" | "sell",
   "advice": "初心者向けのアドバイス（100文字以内、優しい言葉で、ニュース情報があれば参考にする）",
@@ -374,8 +377,9 @@ ${patternContext}${supportResistanceContext}${newsContext}
                 trend: { type: "string", enum: ["up", "neutral", "down"] },
                 priceLow: { type: "number" },
                 priceHigh: { type: "number" },
+                text: { type: "string" },
               },
-              required: ["trend", "priceLow", "priceHigh"],
+              required: ["trend", "priceLow", "priceHigh", "text"],
               additionalProperties: false,
             },
             midTerm: {
@@ -384,8 +388,9 @@ ${patternContext}${supportResistanceContext}${newsContext}
                 trend: { type: "string", enum: ["up", "neutral", "down"] },
                 priceLow: { type: "number" },
                 priceHigh: { type: "number" },
+                text: { type: "string" },
               },
-              required: ["trend", "priceLow", "priceHigh"],
+              required: ["trend", "priceLow", "priceHigh", "text"],
               additionalProperties: false,
             },
             longTerm: {
@@ -394,8 +399,9 @@ ${patternContext}${supportResistanceContext}${newsContext}
                 trend: { type: "string", enum: ["up", "neutral", "down"] },
                 priceLow: { type: "number" },
                 priceHigh: { type: "number" },
+                text: { type: "string" },
               },
-              required: ["trend", "priceLow", "priceHigh"],
+              required: ["trend", "priceLow", "priceHigh", "text"],
               additionalProperties: false,
             },
             recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
@@ -509,12 +515,15 @@ async function main(): Promise<void> {
             shortTermTrend: prediction.shortTerm.trend,
             shortTermPriceLow: prediction.shortTerm.priceLow,
             shortTermPriceHigh: prediction.shortTerm.priceHigh,
+            shortTermText: prediction.shortTerm.text,
             midTermTrend: prediction.midTerm.trend,
             midTermPriceLow: prediction.midTerm.priceLow,
             midTermPriceHigh: prediction.midTerm.priceHigh,
+            midTermText: prediction.midTerm.text,
             longTermTrend: prediction.longTerm.trend,
             longTermPriceLow: prediction.longTerm.priceLow,
             longTermPriceHigh: prediction.longTerm.priceHigh,
+            longTermText: prediction.longTerm.text,
             recommendation: prediction.recommendation,
             advice: prediction.advice,
             confidence: prediction.confidence,
