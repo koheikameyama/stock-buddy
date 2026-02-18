@@ -41,6 +41,7 @@ interface PurchaseRecommendation {
   confidence: number
   reason: string
   caution: string
+  buyTiming?: "market" | "dip" | null
 }
 
 interface StockCardProps {
@@ -121,9 +122,20 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     >
       {/* AI推奨バッジ - 右上 */}
       {aiJudgment && (
-        <span className={`absolute top-3 right-3 sm:top-4 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
-          {aiJudgment.text}
-        </span>
+        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1.5">
+          {isWatchlist && recommendation?.recommendation === "buy" && recommendation.buyTiming && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+              recommendation.buyTiming === "market"
+                ? "bg-green-100 text-green-700"
+                : "bg-yellow-100 text-yellow-700"
+            }`}>
+              {recommendation.buyTiming === "market" ? "成り行きOK" : "押し目待ち"}
+            </span>
+          )}
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
+            {aiJudgment.text}
+          </span>
+        </div>
       )}
 
       {/* Stock Header */}

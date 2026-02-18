@@ -20,6 +20,7 @@ interface PurchaseRecommendation {
   reason: string
   caution: string
   analyzedAt?: string
+  buyTiming?: "market" | "dip" | null
 }
 
 type TabType = "portfolio" | "watchlist" | "tracked" | "sold"
@@ -187,6 +188,7 @@ export default function MyStocksClient() {
               reason: result.value.data.reason,
               caution: result.value.data.caution,
               analyzedAt: result.value.data.analyzedAt,
+              buyTiming: result.value.data.buyTiming,
             }
           }
         })

@@ -49,6 +49,9 @@ interface RecommendationData {
   // AI推奨価格
   limitPrice?: number | null
   stopLossPrice?: number | null
+  // 購入タイミング
+  buyTiming?: "market" | "dip" | null
+  dipTargetPrice?: number | null
 }
 
 export default function PurchaseRecommendation({ stockId }: PurchaseRecommendationProps) {
@@ -494,6 +497,48 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     )
   }
 
+  // 購入タイミングセクション（buy推奨時のみ）
+  const BuyTimingSection = () => {
+    if (data?.recommendation !== "buy" || !data?.buyTiming) return null
+
+    if (data.buyTiming === "market") {
+      return (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+              成り行き購入OK
+            </span>
+          </div>
+          <p className="text-sm text-gray-700">
+            移動平均線に近く、過熱感もありません。現在の価格帯での購入が検討できます。
+          </p>
+        </div>
+      )
+    }
+
+    if (data.buyTiming === "dip") {
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+              押し目買い推奨
+            </span>
+          </div>
+          {data.dipTargetPrice && (
+            <p className="text-sm text-gray-700 mb-2">
+              25日移動平均線の<span className="font-bold">¥{formatPrice(data.dipTargetPrice)}</span>付近まで待つとより有利です。
+            </p>
+          )}
+          <p className="text-xs text-gray-500">
+            💡 押し目買いとは、上昇トレンドの銘柄が一時的に下落したタイミングで購入する戦略です。移動平均線は過去25日間の平均価格で、株価の基準となる指標です。
+          </p>
+        </div>
+      )
+    }
+
+    return null
+  }
+
   // ヘッダーコンポーネント
   const ReanalyzeHeader = () => (
     <div className="flex items-center justify-between mb-3">
@@ -532,6 +577,9 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
           </div>
 
           <p className="text-sm text-gray-700 mb-4">{data.reason}</p>
+
+          {/* 購入タイミング */}
+          <BuyTimingSection />
 
           {/* D. パーソナライズ */}
           <PersonalizedSection />
