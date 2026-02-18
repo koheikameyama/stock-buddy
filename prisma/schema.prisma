@@ -317,6 +317,9 @@ model PortfolioStock {
   simpleStatus       String?            // 一言ステータス（順調/注意/好調など）
   statusType         String?            // good/caution/excellent/neutral/warning
 
+  // 市場シグナル（評価軸の統一）
+  marketSignal         String?                     // "bullish" | "neutral" | "bearish"
+
   // 売却提案
   suggestedSellPrice   Decimal? @db.Decimal(12, 2) // 提案売却価格
   suggestedSellPercent Int?                        // 推奨売却割合（25, 50, 75, 100）
@@ -390,6 +393,9 @@ model PurchaseRecommendation {
   periodFit            Boolean?             // 投資期間にマッチ？
   riskFit              Boolean?             // リスク許容度に合う？
   personalizedReason   String?  @db.Text    // パーソナライズされた理由
+
+  // 市場シグナル（評価軸の統一）
+  marketSignal         String?  // "bullish" | "neutral" | "bearish"
 
   // 将来拡張用
   analysisData Json?

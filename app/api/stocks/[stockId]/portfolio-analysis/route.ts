@@ -51,6 +51,7 @@ export async function GET(
           lastAnalysis: true,
           simpleStatus: true,
           statusType: true,
+          marketSignal: true,
           suggestedSellPrice: true,
           suggestedSellPercent: true,
           sellReason: true,
@@ -113,6 +114,7 @@ export async function GET(
           isToday: false,
           simpleStatus: null,
           statusType: null,
+          marketSignal: null,
           suggestedSellPrice: null,
           suggestedSellPercent: null,
           sellReason: null,
@@ -143,6 +145,7 @@ export async function GET(
       isToday,
       simpleStatus: portfolioStock.simpleStatus,
       statusType: portfolioStock.statusType,
+      marketSignal: portfolioStock.marketSignal,
       suggestedSellPrice: portfolioStock.suggestedSellPrice ? Number(portfolioStock.suggestedSellPrice) : null,
       suggestedSellPercent: portfolioStock.suggestedSellPercent,
       sellReason: portfolioStock.sellReason,
@@ -575,6 +578,7 @@ ${newsContext}${marketContext}
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
+  "marketSignal": "bullish" | "neutral" | "bearish",
   "shortTerm": "【必須】テクニカル指標・ニュース等の具体的な根拠を1-2文で述べた後、今週の判断（様子見/買い増し検討/売却検討）を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "mediumTerm": "【必須】ファンダメンタル・中期トレンドの根拠を1-2文で述べた後、今月の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "longTerm": "【必須】事業展望・財務状況の根拠を1-2文で述べた後、長期継続の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
@@ -599,6 +603,11 @@ ${newsContext}${marketContext}
   "advice": "テクニカル・ファンダメンタルの根拠に基づく具体的なアドバイス（100文字以内）",
   "confidence": 0.0〜1.0の信頼度
 }
+
+【marketSignalの定義】
+- bullish: テクニカル・ファンダメンタル総合で上昇優勢（RSI底打ち、MACD上昇転換、黒字増益など）
+- neutral: どちらとも言えない、横ばい（シグナルが混在、or 材料不足）
+- bearish: 下落優勢、リスクが高い（RSI高水準、MACD下降、赤字継続など）
 
 【判断の指針】
 - テクニカル指標（RSI・MACD・ローソク足・チャートパターン）を必ず分析に活用してください
@@ -682,6 +691,7 @@ ${newsContext}${marketContext}
           schema: {
             type: "object",
             properties: {
+              marketSignal: { type: "string", enum: ["bullish", "neutral", "bearish"] },
               shortTerm: { type: "string" },
               mediumTerm: { type: "string" },
               longTerm: { type: "string" },
@@ -706,6 +716,7 @@ ${newsContext}${marketContext}
               confidence: { type: "number" },
             },
             required: [
+              "marketSignal",
               "shortTerm", "mediumTerm", "longTerm",
               "suggestedSellPrice", "suggestedSellPercent", "sellReason",
               "suggestedStopLossPrice", "sellCondition",
@@ -738,6 +749,7 @@ ${newsContext}${marketContext}
           longTerm: result.longTerm,
           simpleStatus: result.simpleStatus,
           statusType: result.statusType,
+          marketSignal: result.marketSignal || null,
           suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
           suggestedSellPercent: result.suggestedSellPercent || null,
           sellReason: result.sellReason || null,
@@ -776,6 +788,7 @@ ${newsContext}${marketContext}
       longTerm: result.longTerm,
       simpleStatus: result.simpleStatus,
       statusType: result.statusType,
+      marketSignal: result.marketSignal || null,
       suggestedSellPrice: result.suggestedSellPrice || null,
       suggestedSellPercent: result.suggestedSellPercent || null,
       sellReason: result.sellReason || null,

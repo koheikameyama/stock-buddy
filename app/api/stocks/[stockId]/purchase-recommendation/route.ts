@@ -72,6 +72,7 @@ export async function GET(
       stockName: stock.name,
       tickerCode: stock.tickerCode,
       currentPrice,
+      marketSignal: recommendation.marketSignal,
       recommendation: recommendation.recommendation,
       confidence: recommendation.confidence,
       reason: recommendation.reason,
@@ -518,6 +519,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
+  "marketSignal": "bullish" | "neutral" | "bearish",
   "recommendation": "buy" | "stay" | "avoid",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
@@ -538,6 +540,12 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
   "riskFit": リスク許容度に合うか（true/false）,
   "personalizedReason": "このユーザーにとってのおすすめ理由（2-3文）"
 }
+
+【marketSignalの定義】
+- bullish: テクニカル・ファンダメンタル総合で上昇優勢（RSI底打ち、MACD上昇転換、黒字増益など）
+- neutral: どちらとも言えない、横ばい（シグナルが混在、or 材料不足）
+- bearish: 下落優勢、リスクが高い（RSI高水準、MACD下降、赤字継続など）
+※ marketSignal は recommendation と独立して判断する（強制補正前の純粋な市場シグナル）
 
 【制約】
 - 提供されたニュース情報を参考にしてください
@@ -608,6 +616,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
           schema: {
             type: "object",
             properties: {
+              marketSignal: { type: "string", enum: ["bullish", "neutral", "bearish"] },
               recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
               confidence: { type: "number" },
               reason: { type: "string" },
@@ -626,7 +635,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
               personalizedReason: { type: ["string", "null"] },
             },
             required: [
-              "recommendation", "confidence", "reason", "caution",
+              "marketSignal", "recommendation", "confidence", "reason", "caution",
               "positives", "concerns", "suitableFor",
               "buyCondition",
               "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
@@ -680,6 +689,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
         },
       },
       update: {
+        marketSignal: result.marketSignal || null,
         recommendation: result.recommendation,
         confidence: result.confidence,
         reason: result.reason,
@@ -701,6 +711,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
       create: {
         stockId,
         date: today,
+        marketSignal: result.marketSignal || null,
         recommendation: result.recommendation,
         confidence: result.confidence,
         reason: result.reason,
@@ -754,6 +765,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
       stockName: stock.name,
       tickerCode: stock.tickerCode,
       currentPrice: currentPrice,
+      marketSignal: result.marketSignal || null,
       recommendation: result.recommendation,
       confidence: result.confidence,
       reason: result.reason,
