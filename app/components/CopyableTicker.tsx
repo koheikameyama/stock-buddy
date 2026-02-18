@@ -7,14 +7,21 @@ interface CopyableTickerProps {
   className?: string
 }
 
+// .Tを除いたティッカーコードを取得
+function getCleanTicker(tickerCode: string): string {
+  return tickerCode.replace(/\.T$/, "")
+}
+
 export default function CopyableTicker({ tickerCode, className = "" }: CopyableTickerProps) {
+  const cleanTicker = getCleanTicker(tickerCode)
+
   const handleCopy = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
     try {
-      await navigator.clipboard.writeText(tickerCode)
-      toast.success(`${tickerCode} をコピーしました`)
+      await navigator.clipboard.writeText(cleanTicker)
+      toast.success(`${cleanTicker} をコピーしました`)
     } catch {
       toast.error("コピーに失敗しました")
     }
@@ -29,4 +36,12 @@ export default function CopyableTicker({ tickerCode, className = "" }: CopyableT
       {tickerCode}
     </span>
   )
+}
+
+// 銘柄名からティッカーをコピーするためのユーティリティ
+export function copyTicker(tickerCode: string) {
+  const cleanTicker = getCleanTicker(tickerCode)
+  navigator.clipboard.writeText(cleanTicker)
+    .then(() => toast.success(`${cleanTicker} をコピーしました`))
+    .catch(() => toast.error("コピーに失敗しました"))
 }

@@ -141,7 +141,7 @@ def delete_existing_movers(conn, today: datetime):
 
 
 def save_mover(conn, today: datetime, result: dict, mover_type: str, position: int):
-    """分析結果をDBに保存"""
+    """分析結果をDBに保存（UPSERT）"""
     with conn.cursor() as cur:
         cur.execute('''
             INSERT INTO "DailyMarketMover" (
@@ -149,6 +149,11 @@ def save_mover(conn, today: datetime, result: dict, mover_type: str, position: i
             ) VALUES (
                 gen_random_uuid()::text, %s, %s, %s, %s, %s, %s, %s, NOW()
             )
+            ON CONFLICT (date, type, position) DO UPDATE SET
+                "stockId" = EXCLUDED."stockId",
+                "changeRate" = EXCLUDED."changeRate",
+                analysis = EXCLUDED.analysis,
+                "relatedNews" = EXCLUDED."relatedNews"
         ''', (
             today,
             result["stockId"],

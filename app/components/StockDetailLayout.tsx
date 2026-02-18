@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from "react"
 import BackButton from "./BackButton"
 import StockHeader from "./StockHeader"
+import { copyTicker } from "./CopyableTicker"
 
 interface StockDetailLayoutProps {
   name: string
@@ -35,6 +36,10 @@ export default function StockDetailLayout({
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  const handleCopy = () => {
+    copyTicker(tickerCode)
+  }
+
   return (
     <>
       {/* Sticky Header */}
@@ -52,7 +57,11 @@ export default function StockDetailLayout({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <div className="flex-1 min-w-0">
+          <div
+            onClick={handleCopy}
+            className="flex-1 min-w-0 cursor-pointer hover:text-blue-600 transition-colors"
+            title="タップしてコピー"
+          >
             <p className="text-sm font-bold text-gray-900 truncate">{name}</p>
             <p className="text-xs text-gray-500">{tickerCode}</p>
           </div>
