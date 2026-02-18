@@ -338,6 +338,8 @@ model PortfolioStock {
   suggestedSellPercent Int?                        // 推奨売却割合（25, 50, 75, 100）
   sellCondition        String?  @db.Text           // 売却条件
   sellReason           String?  @db.Text           // 売却理由（AIが生成）
+  sellTiming           String?                     // "market" | "rebound" | null
+  sellTargetPrice      Decimal? @db.Decimal(12, 2) // 戻り売り時の目安価格（SMA25）
 
   // 取引履歴
   transactions Transaction[]
@@ -401,6 +403,8 @@ model PurchaseRecommendation {
   buyCondition         String?  @db.Text    // どうなったら買い時か
   buyTiming            String?              // "market" | "dip" | null（買い推奨時の購入タイミング）
   dipTargetPrice       Decimal? @db.Decimal(12, 2)  // 押し目買い時の目安価格（SMA25）
+  sellTiming           String?                      // "market" | "rebound" | null（avoid時のみ）
+  sellTargetPrice      Decimal? @db.Decimal(10, 2)  // 戻り売り時の目安価格（SMA25）
 
   // D. パーソナライズ（ユーザー設定に基づく評価）
   userFitScore         Int?                 // おすすめ度 0-100
