@@ -3,6 +3,9 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getTodayForDB } from "@/lib/date-utils"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { Decimal } from "@prisma/client/runtime/library"
 import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
 import StockDetailClient from "./StockDetailClient"
 import { StockDetailSkeleton } from "@/components/skeletons"
@@ -44,7 +47,7 @@ async function StockDetailContent({
   userId: string
 }) {
   // Fetch stock and related data
-  const [stock, personalRec, featuredStock, watchlistEntry, trackedEntry] = await Promise.all([
+  const [stock, personalRec, featuredStock, watchlistEntry, trackedEntry, portfolioEntry] = await Promise.all([
     prisma.stock.findUnique({
       where: { id: stockId },
     }),
@@ -63,6 +66,15 @@ async function StockDetailContent({
     // Check if user has this stock in tracked
     prisma.trackedStock.findFirst({
       where: { stockId, userId },
+    }),
+    // Get portfolio entry with transactions (for sold stock info)
+    prisma.portfolioStock.findFirst({
+      where: { stockId, userId },
+      include: {
+        transactions: {
+          orderBy: { transactionDate: "asc" },
+        },
+      },
     }),
   ])
 
@@ -95,6 +107,65 @@ async function StockDetailContent({
     weekChangeRate: stock.weekChangeRate ? Number(stock.weekChangeRate) : null,
   }
 
+  // 売却済み情報を計算
+  let soldStockInfo = null
+  if (portfolioEntry) {
+    const { quantity } = calculatePortfolioFromTransactions(portfolioEntry.transactions)
+
+    // quantity === 0 の場合は売却済み
+    if (quantity === 0) {
+      const buyTransactions = portfolioEntry.transactions.filter((t) => t.type === "buy")
+      const sellTransactions = portfolioEntry.transactions.filter((t) => t.type === "sell")
+
+      if (buyTransactions.length > 0 && sellTransactions.length > 0) {
+        const totalBuyAmount = buyTransactions.reduce(
+          (sum, t) => sum.plus(t.totalAmount),
+          new Decimal(0)
+        )
+        const totalSellAmount = sellTransactions.reduce(
+          (sum, t) => sum.plus(t.totalAmount),
+          new Decimal(0)
+        )
+        const totalBuyQuantity = buyTransactions.reduce((sum, t) => sum + t.quantity, 0)
+        const totalProfit = totalSellAmount.minus(totalBuyAmount)
+        const profitPercent = totalBuyAmount.gt(0)
+          ? totalProfit.div(totalBuyAmount).times(100).toNumber()
+          : 0
+
+        // 現在価格を取得
+        let currentPrice: number | null = null
+        let hypotheticalProfit: number | null = null
+        let hypotheticalProfitPercent: number | null = null
+
+        try {
+          const prices = await fetchStockPrices([stock.tickerCode])
+          if (prices.length > 0) {
+            currentPrice = prices[0].currentPrice
+            const hypotheticalValue = currentPrice * totalBuyQuantity
+            hypotheticalProfit = hypotheticalValue - totalBuyAmount.toNumber()
+            hypotheticalProfitPercent = totalBuyAmount.gt(0)
+              ? (hypotheticalProfit / totalBuyAmount.toNumber()) * 100
+              : 0
+          }
+        } catch (error) {
+          console.error("Error fetching current price:", error)
+        }
+
+        soldStockInfo = {
+          lastSellDate: sellTransactions[sellTransactions.length - 1].transactionDate.toISOString(),
+          totalBuyQuantity,
+          totalBuyAmount: totalBuyAmount.toNumber(),
+          totalSellAmount: totalSellAmount.toNumber(),
+          totalProfit: totalProfit.toNumber(),
+          profitPercent,
+          currentPrice,
+          hypotheticalProfit,
+          hypotheticalProfitPercent,
+        }
+      }
+    }
+  }
+
   // Determine which recommendation to use (personal takes priority)
   const recommendation = personalRec
     ? {
@@ -119,6 +190,7 @@ async function StockDetailContent({
       isInWatchlist={!!watchlistEntry}
       isTracked={!!trackedEntry}
       trackedStockId={trackedEntry?.id}
+      soldStockInfo={soldStockInfo}
     />
   )
 }

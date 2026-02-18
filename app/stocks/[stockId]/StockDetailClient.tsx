@@ -47,12 +47,25 @@ interface RecommendationData {
   date: string
 }
 
+interface SoldStockInfo {
+  lastSellDate: string
+  totalBuyQuantity: number
+  totalBuyAmount: number
+  totalSellAmount: number
+  totalProfit: number
+  profitPercent: number
+  currentPrice: number | null
+  hypotheticalProfit: number | null
+  hypotheticalProfitPercent: number | null
+}
+
 interface Props {
   stock: StockData
   recommendation: RecommendationData | null
   isInWatchlist: boolean
   isTracked: boolean
   trackedStockId?: string
+  soldStockInfo?: SoldStockInfo | null
 }
 
 // Category badge labels and styles
@@ -68,6 +81,7 @@ export default function StockDetailClient({
   isInWatchlist,
   isTracked,
   trackedStockId,
+  soldStockInfo,
 }: Props) {
   const router = useRouter()
   const { price, loading } = useStockPrice(stock.tickerCode)
