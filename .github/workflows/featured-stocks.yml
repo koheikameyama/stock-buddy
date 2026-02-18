@@ -81,12 +81,14 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install yfinance psycopg2-binary openai numpy
+        run: pip install yfinance psycopg2-binary openai numpy requests
 
       - name: Generate user recommendations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           SESSION: ${{ needs.determine-session.outputs.session }}
         run: python scripts/github-actions/generate_personal_recommendations.py
 
