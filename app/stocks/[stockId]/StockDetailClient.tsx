@@ -13,6 +13,7 @@ import StockActionButtons from "@/app/components/StockActionButtons"
 import DeleteButton from "@/app/components/DeleteButton"
 import AddStockDialog from "@/app/my-stocks/AddStockDialog"
 import Tabs from "@/app/components/Tabs"
+import TechnicalAnalysis from "@/app/components/TechnicalAnalysis"
 import { useStockPrice } from "@/app/hooks/useStockPrice"
 
 interface StockData {
@@ -425,6 +426,7 @@ export default function StockDetailClient({
       <Tabs
         tabs={[
           { id: "chart", label: "チャート" },
+          { id: "analysis", label: "分析" },
           { id: "news", label: "ニュース" },
           { id: "details", label: "詳細" },
         ]}
@@ -437,6 +439,9 @@ export default function StockDetailClient({
                 <StockChart stockId={stock.id} embedded />
                 <PriceHistory stockId={stock.id} embedded />
               </>
+            )}
+            {activeTab === "analysis" && (
+              <TechnicalAnalysis stockId={stock.id} embedded />
             )}
             {activeTab === "news" && (
               <RelatedNews stockId={stock.id} embedded />

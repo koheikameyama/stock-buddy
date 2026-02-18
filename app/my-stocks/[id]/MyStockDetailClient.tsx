@@ -13,6 +13,7 @@ import StockDetailLayout from "@/app/components/StockDetailLayout"
 import CurrentPriceCard from "@/app/components/CurrentPriceCard"
 import DeleteButton from "@/app/components/DeleteButton"
 import Tabs from "@/app/components/Tabs"
+import TechnicalAnalysis from "@/app/components/TechnicalAnalysis"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 import AddStockDialog from "../AddStockDialog"
@@ -267,6 +268,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             <Tabs
               tabs={[
                 { id: "chart", label: "チャート" },
+                { id: "analysis", label: "分析" },
                 { id: "news", label: "ニュース" },
                 { id: "details", label: "詳細" },
               ]}
@@ -279,6 +281,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                       <StockChart stockId={stock.stockId} embedded />
                       <PriceHistory stockId={stock.stockId} embedded />
                     </>
+                  )}
+                  {activeTab === "analysis" && (
+                    <TechnicalAnalysis stockId={stock.stockId} embedded />
                   )}
                   {activeTab === "news" && (
                     <RelatedNews stockId={stock.stockId} embedded />
@@ -417,6 +422,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             <Tabs
               tabs={[
                 { id: "chart", label: "チャート" },
+                { id: "analysis", label: "分析" },
                 { id: "news", label: "ニュース" },
                 { id: "details", label: "詳細" },
               ]}
@@ -429,6 +435,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                       <StockChart stockId={stock.stockId} embedded />
                       <PriceHistory stockId={stock.stockId} embedded />
                     </>
+                  )}
+                  {activeTab === "analysis" && (
+                    <TechnicalAnalysis stockId={stock.stockId} embedded />
                   )}
                   {activeTab === "news" && (
                     <RelatedNews stockId={stock.stockId} embedded />
