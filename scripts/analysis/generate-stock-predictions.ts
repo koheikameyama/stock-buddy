@@ -33,6 +33,10 @@ interface BaselineData {
   monthlyTrend: "up" | "neutral" | "down"
   quarterlyTrend: "up" | "neutral" | "down"
   volatility: number
+  atr14: number | null // 14日ATR（損切り幅の基準）
+  rsi14: number | null // 14日RSI（買われすぎ/売られすぎ判断）
+  avgVolume20: number | null // 20日平均出来高
+  volumeRatio: number | null // 直近出来高 / 平均出来高（出来高の増減を判断）
   candlestickPattern: { description: string; signal: string; strength: number } | null
   recentPatterns: { buySignals: number; sellSignals: number } | null
   supportResistance: SupportResistance | null
@@ -43,6 +47,7 @@ interface PriceHistory {
   high: number
   low: number
   close: number
+  volume: number
   date: string
 }
 
@@ -63,6 +68,68 @@ function calculateVolatility(prices: number[]): number {
   const squareDiffs = prices.map((p) => Math.pow(p - mean, 2))
   const variance = squareDiffs.reduce((a, b) => a + b, 0) / prices.length
   return Math.sqrt(variance)
+}
+
+/**
+ * ATR（Average True Range）を計算
+ * 損切り幅の設定に使用。一般的にATR×1.5〜2が損切り幅の目安
+ */
+function calculateATR(priceHistory: PriceHistory[], period: number = 14): number | null {
+  if (priceHistory.length < period + 1) return null
+
+  const trueRanges: number[] = []
+
+  for (let i = 1; i < priceHistory.length && trueRanges.length < period; i++) {
+    const current = priceHistory[i]
+    const previous = priceHistory[i - 1]
+
+    // True Range = max of (High-Low, |High-PrevClose|, |Low-PrevClose|)
+    const tr = Math.max(
+      current.high - current.low,
+      Math.abs(current.high - previous.close),
+      Math.abs(current.low - previous.close)
+    )
+    trueRanges.push(tr)
+  }
+
+  if (trueRanges.length < period) return null
+
+  return trueRanges.reduce((sum, tr) => sum + tr, 0) / period
+}
+
+/**
+ * RSI（Relative Strength Index）を計算
+ * 買われすぎ/売られすぎの判断に使用
+ * RSI > 70: 買われすぎ（売りシグナル）
+ * RSI < 30: 売られすぎ（買いシグナル）
+ */
+function calculateRSI(priceHistory: PriceHistory[], period: number = 14): number | null {
+  if (priceHistory.length < period + 1) return null
+
+  const gains: number[] = []
+  const losses: number[] = []
+
+  // 価格変動を計算（古い順から新しい順に）
+  for (let i = priceHistory.length - 1; i > 0 && gains.length < period; i--) {
+    const change = priceHistory[i - 1].close - priceHistory[i].close
+    if (change > 0) {
+      gains.push(change)
+      losses.push(0)
+    } else {
+      gains.push(0)
+      losses.push(Math.abs(change))
+    }
+  }
+
+  if (gains.length < period) return null
+
+  const avgGain = gains.reduce((sum, g) => sum + g, 0) / period
+  const avgLoss = losses.reduce((sum, l) => sum + l, 0) / period
+
+  if (avgLoss === 0) return 100 // 全て上昇
+
+  const rs = avgGain / avgLoss
+  return 100 - (100 / (1 + rs))
 }
 
 function analyzeCandlestick(candle: PriceHistory): { description: string; signal: string; strength: number } {
@@ -152,6 +219,7 @@ async function getBaselineData(tickerCode: string): Promise<BaselineData | null>
         high: d.high,
         low: d.low,
         close: d.close,
+        volume: d.volume,
         date: d.date,
       }))
 
@@ -215,12 +283,32 @@ async function getBaselineData(tickerCode: string): Promise<BaselineData | null>
       }
     }
 
+    // ATR計算（損切り幅の基準）
+    const atr14 = calculateATR(priceHistory, 14)
+    // RSI計算（買われすぎ/売られすぎ判断）
+    const rsi14 = calculateRSI(priceHistory, 14)
+
+    // 出来高分析（20日平均と直近の比較）
+    let avgVolume20: number | null = null
+    let volumeRatio: number | null = null
+    if (priceHistory.length >= 20) {
+      const volumes20 = priceHistory.slice(0, 20).map((p) => p.volume)
+      avgVolume20 = volumes20.reduce((sum, v) => sum + v, 0) / 20
+      if (avgVolume20 > 0 && priceHistory[0].volume > 0) {
+        volumeRatio = priceHistory[0].volume / avgVolume20
+      }
+    }
+
     return {
       currentPrice,
       weeklyTrend,
       monthlyTrend,
       quarterlyTrend,
       volatility,
+      atr14,
+      rsi14,
+      avgVolume20,
+      volumeRatio,
       candlestickPattern,
       recentPatterns,
       supportResistance,
@@ -301,7 +389,21 @@ ${formatNewsForPrompt(relatedNews)}
 - 3ヶ月: ${trendLabels[baseline.quarterlyTrend]}
 
 【ボラティリティ（価格変動幅）】
-${baseline.volatility.toFixed(2)}円
+${baseline.volatility.toFixed(2)}円${baseline.atr14 ? `
+
+【ATR（14日平均真の値幅）】
+${baseline.atr14.toFixed(2)}円
+※ 損切り幅の目安: ATR×1.5〜2（${(baseline.atr14 * 1.5).toFixed(0)}〜${(baseline.atr14 * 2).toFixed(0)}円）` : ""}${baseline.rsi14 !== null ? `
+
+【RSI（14日相対力指数）】
+${baseline.rsi14.toFixed(1)}
+※ 70以上=買われすぎ（売りシグナル）、30以下=売られすぎ（買いシグナル）` : ""}${baseline.avgVolume20 && baseline.volumeRatio ? `
+
+【出来高分析】
+- 20日平均出来高: ${Math.round(baseline.avgVolume20).toLocaleString()}株
+- 直近出来高: ${Math.round(baseline.avgVolume20 * baseline.volumeRatio).toLocaleString()}株
+- 出来高比率: ${(baseline.volumeRatio * 100).toFixed(0)}%（平均比）
+※ 150%以上=出来高急増（大きな動きの前兆）、50%以下=出来高減少（様子見ムード）` : ""}
 ${patternContext}${supportResistanceContext}${newsContext}
 ---
 
@@ -348,20 +450,22 @@ ${patternContext}${supportResistanceContext}${newsContext}
 - limitPrice（買い指値）:
   - 今すぐ買うべきタイミングなら現在価格をそのまま設定
   - 押し目を待つべきならサポートライン付近（現在価格より数%安い水準）
-- stopLossPrice（逆指値）: サポートを明確に下回る水準。損切りライン
+- stopLossPrice（逆指値）: 買い指値からATR×1.5〜2を引いた水準。または直近サポートを下回る価格
 
 【sell推奨時】
 - limitPrice（利確目標）:
   - 今すぐ売るべきタイミングなら現在価格をそのまま設定
   - まだ上値余地があるならレジスタンスライン付近（現在価格より数%高い水準）
-- stopLossPrice（逆指値）: これ以上下がる前に売却する損切りライン。必ず現在価格より低く設定
+- stopLossPrice（逆指値）: 現在価格からATR×1.5を引いた水準。これ以上下がる前に売却
 
 【hold推奨時】
 - limitPrice（利確目標）: レジスタンスライン付近。ここまで上がったら売却を検討
-- stopLossPrice（逆指値）: サポートを下回る水準。損切りライン
+- stopLossPrice（逆指値）: 現在価格からATR×1.5〜2を引いた水準。または直近サポートを下回る価格
 
-重要: 現在価格が適切な買い時・売り時であれば、現在価格をそのまま設定してください。
-サポート・レジスタンスの情報がない場合は、現在価格を基準に判断してください`
+重要:
+- 現在価格が適切な買い時・売り時であれば、現在価格をそのまま設定してください
+- ATRが提供されている場合は、損切り幅の計算に活用してください
+- サポート・レジスタンスの情報がない場合は、現在価格とATRを基準に判断してください`
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
