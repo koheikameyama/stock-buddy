@@ -1,8 +1,10 @@
-# 移動平均乖離率による推奨補正
+# 移動平均乖離率による推奨補正 + 購入タイミング判断
 
 ## 概要
 
 AIが「上がりきっている銘柄」を推奨してしまう問題を防ぐため、25日移動平均線からの乖離率を購入判断と日次おすすめの両システムに組み込む。
+
+また、買い推奨時に「成り行き購入OK」か「押し目買い推奨」かの購入タイミング判断を、乖離率とRSIを組み合わせたルールベースで提供する。
 
 ## 背景
 
@@ -48,18 +50,29 @@ export const MA_DEVIATION = {
   SCORE_PENALTY: -20,            // 日次おすすめのスコアペナルティ
   SCORE_BONUS: 10,               // 日次おすすめのスコアボーナス
   LOW_VOLATILITY_THRESHOLD: 30,  // 低ボラティリティの閾値（%）
+  DIP_BUY_THRESHOLD: 5,          // 乖離率(%)がこれを超えたら押し目買い推奨
+  RSI_OVERBOUGHT_THRESHOLD: 70,  // RSIがこれを超えたら押し目買い推奨
 }
 ```
 
 ### 3. DBスキーマ変更
 
-**場所:** `prisma/schema.prisma` の `Stock` モデル
+**場所:** `prisma/schema.prisma`
+
+#### Stockモデル
 
 ```prisma
 maDeviationRate  Decimal?  @db.Decimal(10, 2)  // 25日移動平均乖離率(%)
 ```
 
 バッチ処理（`fetch_stocks.py`）で計算・保存し、スコアリング時はDB値を参照する。
+
+#### PurchaseRecommendationモデル
+
+```prisma
+buyTiming       String?              // "market" | "dip" | null（買い推奨時の購入タイミング）
+dipTargetPrice  Decimal? @db.Decimal(10, 2)  // 押し目買い時の目安価格（SMA25）
+```
 
 ### 4. 購入判断APIへの適用
 
@@ -86,7 +99,50 @@ maDeviationRate  Decimal?  @db.Decimal(10, 2)  // 25日移動平均乖離率(%)
 - `confidence` に +0.1 ボーナス（上限1.0）
 - recommendationは変更しない
 
-### 5. 日次おすすめスコアリングへの適用
+### 5. 購入タイミング判断（成り行き / 押し目買い）
+
+**場所:** `app/api/stocks/[stockId]/purchase-recommendation/route.ts`（強制補正の後）
+
+#### 判断ルール
+
+`buy` 推奨時のみ、乖離率とRSIで購入タイミングを判定:
+
+| 条件 | 判定 | buyTiming |
+|---|---|---|
+| 乖離率 ≤ +5% **かつ** RSI ≤ 70 | 成り行き購入OK | `"market"` |
+| 乖離率 > +5% **または** RSI > 70 | 押し目買い推奨 | `"dip"` |
+
+- `buy` 以外（`stay` / `avoid`）→ `buyTiming = null`
+- 乖離率・RSI両方とも取得不可 → `buyTiming = null`
+- 片方だけ取得可 → 取得できた方だけで判断
+- 押し目買い時の `dipTargetPrice` = SMA(25)の値
+
+RSIは既に購入判断APIで `calculateRSI()` を呼んでいるため、その値を再利用する。
+
+#### 押し目買いの理由表示
+
+押し目買い推奨時に、どの条件がトリガーされたかを理由として表示:
+- 乖離率 > +5% のみ: 「移動平均線から+X%乖離しており、割高圏です」
+- RSI > 70 のみ: 「RSIが過熱圏（X）に達しています」
+- 両方: 「乖離率（+X%）とRSI（X）の両方が過熱圏です」
+
+#### UI表示
+
+**購入判断カード内**（`buy` の場合のみセクション追加）:
+
+- 成り行き: 緑バッジ「成り行き購入OK」
+  - 「移動平均線に近く、過熱感もありません」
+- 押し目: 黄バッジ「押し目買い推奨」
+  - 「25日移動平均線の○○円付近まで待つとより有利です」
+  - トリガー理由（乖離率/RSI/両方）
+  - 用語解説（「押し目買いとは…」「移動平均線とは…」）
+
+**ウォッチリストカード**（`buy` の場合のみバッジ追加）:
+
+- `"market"` → 緑系バッジ「成り行きOK」
+- `"dip"` → 黄系バッジ「押し目待ち」
+
+### 6. 日次おすすめスコアリングへの適用
 
 **場所:** `lib/recommendation-scoring.ts`
 
@@ -110,11 +166,13 @@ N+1問題を回避するため、一括取得・一括更新で実装する。
 
 | ファイル | 変更内容 |
 |---|---|
-| `lib/constants.ts` | MA_DEVIATION定数追加 |
+| `lib/constants.ts` | MA_DEVIATION定数追加（DIP_BUY_THRESHOLD, RSI_OVERBOUGHT_THRESHOLD含む） |
 | `lib/technical-indicators.ts` | calculateDeviationRate関数追加 |
-| `prisma/schema.prisma` | Stock.maDeviationRateカラム追加 |
+| `prisma/schema.prisma` | Stock.maDeviationRate + PurchaseRecommendation.buyTiming/dipTargetPrice追加 |
 | `prisma/migrations/` | マイグレーションファイル |
 | `scripts/fetch_stocks.py` | 乖離率計算・保存処理追加 |
-| `app/api/stocks/[stockId]/purchase-recommendation/route.ts` | 強制補正ルール追加 + LLMプロンプト更新 |
+| `app/api/stocks/[stockId]/purchase-recommendation/route.ts` | 強制補正ルール追加 + LLMプロンプト更新 + 購入タイミング判定追加 |
 | `lib/recommendation-scoring.ts` | スコアペナルティ/ボーナス追加 |
 | `lib/stock-analysis-context.ts` | 乖離率コンテキスト生成 |
+| `app/components/PurchaseRecommendation.tsx` | 購入タイミングセクション追加 |
+| `app/my-stocks/StockCard.tsx` | 成り行きOK/押し目待ちバッジ追加 |
