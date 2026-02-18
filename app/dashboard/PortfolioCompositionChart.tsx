@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import {
   PieChart,
   Pie,
@@ -36,18 +37,38 @@ interface CompositionData {
   stockCount: number
 }
 
+interface SectorDiversificationAnalysis {
+  value: string
+  explanation: string
+  evaluation: string
+  evaluationType: "good" | "neutral" | "warning"
+  action: string
+}
+
 export default function PortfolioCompositionChart() {
   const [data, setData] = useState<CompositionData | null>(null)
+  const [sectorAnalysis, setSectorAnalysis] = useState<SectorDiversificationAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("sector")
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/portfolio/composition")
-        if (res.ok) {
-          const json = await res.json()
+        const [compositionRes, analysisRes] = await Promise.all([
+          fetch("/api/portfolio/composition"),
+          fetch("/api/portfolio/overall-analysis"),
+        ])
+
+        if (compositionRes.ok) {
+          const json = await compositionRes.json()
           setData(json)
+        }
+
+        if (analysisRes.ok) {
+          const analysisJson = await analysisRes.json()
+          if (analysisJson.hasAnalysis && analysisJson.metricsAnalysis?.sectorDiversification) {
+            setSectorAnalysis(analysisJson.metricsAnalysis.sectorDiversification)
+          }
         }
       } catch (error) {
         console.error("Failed to fetch composition:", error)
@@ -219,6 +240,35 @@ export default function PortfolioCompositionChart() {
           {formatValue(data.totalValue)}
         </span>
       </div>
+
+      {/* セクター分散度のアドバイス */}
+      {sectorAnalysis && (
+        <div className="mt-4 pt-4 border-t">
+          <div className="flex items-start gap-2">
+            <span
+              className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${
+                sectorAnalysis.evaluationType === "good"
+                  ? "bg-green-100 text-green-700"
+                  : sectorAnalysis.evaluationType === "warning"
+                  ? "bg-yellow-100 text-yellow-700"
+                  : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {sectorAnalysis.evaluation}
+            </span>
+            <p className="text-sm text-gray-700">{sectorAnalysis.action}</p>
+          </div>
+          <Link
+            href="/portfolio-analysis"
+            className="mt-3 flex items-center justify-center gap-1 w-full py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+          >
+            <span>ポートフォリオ総評を見る</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </div>
+      )}
     </div>
   )
 }
