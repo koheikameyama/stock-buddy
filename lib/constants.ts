@@ -82,3 +82,15 @@ export const MARKET_INDEX = {
   UP_TREND_THRESHOLD: 3,    // 上昇トレンド判定（週間変化率%）
   DOWN_TREND_THRESHOLD: -3, // 下落トレンド判定（週間変化率%）
 } as const
+
+// 移動平均乖離率の閾値
+export const MA_DEVIATION = {
+  PERIOD: 25,                    // 移動平均の期間（日）
+  UPPER_THRESHOLD: 20,           // 上方乖離の閾値（%）
+  LOWER_THRESHOLD: -20,          // 下方乖離の閾値（%）
+  CONFIDENCE_PENALTY: -0.15,     // 上方乖離時のconfidenceペナルティ
+  CONFIDENCE_BONUS: 0.1,         // 下方乖離時のconfidenceボーナス
+  SCORE_PENALTY: -20,            // 日次おすすめのスコアペナルティ
+  SCORE_BONUS: 10,               // 日次おすすめのスコアボーナス
+  LOW_VOLATILITY_THRESHOLD: 30,  // 低ボラティリティの閾値（%）
+} as const
