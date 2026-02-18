@@ -507,9 +507,9 @@ ${PROMPT_NEWS_CONSTRAINTS}
 
     // AIはsimpleStatusに英語値("good"/"neutral"/"warning")を返すので、
     // statusTypeとして保存し、simpleStatusには日本語をマッピング
-    const statusType = result.simpleStatus as string
     const simpleStatusMap: Record<string, string> = { good: "好調", neutral: "様子見", warning: "警戒" }
-    const simpleStatus = simpleStatusMap[statusType] || statusType
+    let statusType = result.simpleStatus as string
+    let simpleStatus = simpleStatusMap[statusType] || statusType
 
     // 乖離率・RSI計算（売りタイミング判定用）
     const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
@@ -525,6 +525,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
     ) {
       result.recommendation = "hold"
       result.simpleStatus = "neutral"
+      statusType = "neutral"
+      simpleStatus = simpleStatusMap["neutral"]
       result.sellReason = null
       result.suggestedSellPercent = null
       result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`
