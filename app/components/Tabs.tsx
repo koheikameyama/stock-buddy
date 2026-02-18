@@ -26,7 +26,7 @@ export default function Tabs({ tabs, defaultTab, children }: TabsProps) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
                 activeTab === tab.id
                   ? "bg-blue-600 text-white"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
