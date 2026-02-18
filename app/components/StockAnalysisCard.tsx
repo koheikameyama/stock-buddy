@@ -175,12 +175,15 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     setGenerating(true)
     setError("")
     try {
+      // ポートフォリオ用かウォッチリスト用かで分岐
+      const analysisType = quantity ? "portfolio-analysis" : "purchase-recommendation"
+
       // ジョブを作成
       const createResponse = await fetch("/api/analysis-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "portfolio-analysis",
+          type: analysisType,
           targetId: stockId,
         }),
       })
@@ -195,7 +198,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
       // ポーリングで結果を取得
       await pollJob(jobId)
     } catch (err) {
-      console.error("Error generating portfolio analysis:", err)
+      console.error("Error generating analysis:", err)
       setError(err instanceof Error ? err.message : "分析の生成に失敗しました")
       setGenerating(false)
     }
