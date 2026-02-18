@@ -14,24 +14,12 @@ OPENAI_PROJECT_ID = os.environ.get("OPENAI_PROJECT_ID")
 SLACK_WEBHOOK_URL = os.environ.get("OPENAI_SLACK_WEBHOOK_URL")
 MONTHLY_BUDGET_USD = float(os.environ.get("MONTHLY_BUDGET_USD", "50"))
 
-# モデルごとの料金テーブル (USD per 1M tokens)
-# https://openai.com/api/pricing/
-MODEL_PRICING = {
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    "gpt-4o-mini-2024-07-18": {"input": 0.15, "output": 0.60},
-    "gpt-4o": {"input": 2.50, "output": 10.00},
-    "gpt-4o-2024-08-06": {"input": 2.50, "output": 10.00},
-    "gpt-4o-2024-11-20": {"input": 2.50, "output": 10.00},
-    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-    "gpt-4": {"input": 30.00, "output": 60.00},
-    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-    "text-embedding-3-small": {"input": 0.02, "output": 0.0},
-    "text-embedding-3-large": {"input": 0.13, "output": 0.0},
-    "text-embedding-ada-002": {"input": 0.10, "output": 0.0},
-}
+# 為替レート（円/ドル）
+USD_TO_JPY = 150
 
-# デフォルト料金（未知のモデル用、gpt-4o-miniを想定）
-DEFAULT_PRICING = {"input": 0.15, "output": 0.60}
+# gpt-4o-mini料金で統一計算 (USD per 1M tokens)
+# https://openai.com/api/pricing/
+GPT4O_MINI_PRICING = {"input": 0.15, "output": 0.60}
 
 
 def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
@@ -62,43 +50,26 @@ def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
         sys.exit(1)
 
 
-def calculate_cost_from_tokens(usage_data: dict) -> tuple[float, dict]:
-    """トークン使用量からコストを計算
+def calculate_cost_from_tokens(usage_data: dict) -> tuple[float, int, int]:
+    """トークン使用量からコストを計算（gpt-4o-mini料金で統一）
 
     Returns:
-        tuple[float, dict]: (総コスト, モデルごとの内訳)
+        tuple[float, int, int]: (総コストUSD, 総inputトークン, 総outputトークン)
     """
-    total_cost = 0.0
-    model_breakdown = {}
+    total_input_tokens = 0
+    total_output_tokens = 0
 
     for bucket in usage_data.get("data", []):
         for result in bucket.get("results", []):
-            model = result.get("model", "unknown")
-            input_tokens = result.get("input_tokens", 0)
-            output_tokens = result.get("output_tokens", 0)
+            total_input_tokens += result.get("input_tokens", 0)
+            total_output_tokens += result.get("output_tokens", 0)
 
-            # モデルの料金を取得（見つからなければデフォルト）
-            pricing = MODEL_PRICING.get(model, DEFAULT_PRICING)
+    # gpt-4o-mini料金で計算
+    input_cost = (total_input_tokens / 1_000_000) * GPT4O_MINI_PRICING["input"]
+    output_cost = (total_output_tokens / 1_000_000) * GPT4O_MINI_PRICING["output"]
+    total_cost = input_cost + output_cost
 
-            # コスト計算 (トークン / 1M * USD per 1M)
-            input_cost = (input_tokens / 1_000_000) * pricing["input"]
-            output_cost = (output_tokens / 1_000_000) * pricing["output"]
-            model_cost = input_cost + output_cost
-
-            total_cost += model_cost
-
-            # モデルごとの集計
-            if model not in model_breakdown:
-                model_breakdown[model] = {
-                    "input_tokens": 0,
-                    "output_tokens": 0,
-                    "cost": 0.0,
-                }
-            model_breakdown[model]["input_tokens"] += input_tokens
-            model_breakdown[model]["output_tokens"] += output_tokens
-            model_breakdown[model]["cost"] += model_cost
-
-    return total_cost, model_breakdown
+    return total_cost, total_input_tokens, total_output_tokens
 
 
 def format_tokens(tokens: int) -> str:
@@ -161,56 +132,40 @@ def main():
         )
         period_label = f"{today.year}-{today.month:02d} (今月)"
 
+    # 予算を円換算
+    budget_jpy = MONTHLY_BUDGET_USD * USD_TO_JPY
+
     print(f"📊 Checking OpenAI API usage: {period_label}")
     print(f"📅 Period: {start_of_month.date()} to {end_of_day.date()}")
-    print(f"💰 Monthly budget: ${MONTHLY_BUDGET_USD}\n")
+    print(f"💰 Monthly budget: ¥{budget_jpy:,.0f} (${MONTHLY_BUDGET_USD})\n")
 
     # トークン使用量を取得
     usage_data = get_usage_data(
         int(start_of_month.timestamp()), int(end_of_day.timestamp())
     )
 
-    # コストを計算
-    total_cost, model_breakdown = calculate_cost_from_tokens(usage_data)
-    usage_percentage = (total_cost / MONTHLY_BUDGET_USD) * 100
+    # コストを計算（gpt-4o-mini料金で統一）
+    total_cost_usd, input_tokens, output_tokens = calculate_cost_from_tokens(usage_data)
+    total_cost_jpy = total_cost_usd * USD_TO_JPY
+    usage_percentage = (total_cost_usd / MONTHLY_BUDGET_USD) * 100
 
     # コンソール出力
-    print(f"✅ Estimated cost: ${total_cost:.4f}")
+    print(f"✅ Estimated cost: ¥{total_cost_jpy:,.0f} (${total_cost_usd:.4f})")
     print(f"📈 Budget usage: {usage_percentage:.1f}%")
-    print(f"💵 Remaining: ${MONTHLY_BUDGET_USD - total_cost:.4f}\n")
-
-    if model_breakdown:
-        print("📋 Model breakdown:")
-        for model, data in sorted(
-            model_breakdown.items(), key=lambda x: x[1]["cost"], reverse=True
-        ):
-            print(
-                f"  {model}: ${data['cost']:.4f} "
-                f"(in: {format_tokens(data['input_tokens'])}, "
-                f"out: {format_tokens(data['output_tokens'])})"
-            )
-        print()
+    print(f"💵 Remaining: ¥{budget_jpy - total_cost_jpy:,.0f}")
+    print(f"📊 Tokens: in={format_tokens(input_tokens)}, out={format_tokens(output_tokens)}")
+    print("ℹ️  ※gpt-4o-mini料金で試算\n")
 
     # Slack通知メッセージ作成
     slack_lines = [
         f"*期間*: {start_of_month.date()} 〜 {end_of_day.date()} ({period_label})",
-        f"*推定コスト*: ${total_cost:.4f}",
-        f"*予算*: ${MONTHLY_BUDGET_USD}",
+        f"*推定コスト*: ¥{total_cost_jpy:,.0f}",
+        f"*予算*: ¥{budget_jpy:,.0f}",
         f"*使用率*: {usage_percentage:.1f}%",
+        f"*トークン*: in={format_tokens(input_tokens)}, out={format_tokens(output_tokens)}",
+        "",
+        f"_※gpt-4o-mini料金で試算（$1=¥{USD_TO_JPY}）_",
     ]
-
-    # モデルごとの内訳を追加
-    if model_breakdown:
-        slack_lines.append("")
-        slack_lines.append("*モデル別内訳*:")
-        for model, data in sorted(
-            model_breakdown.items(), key=lambda x: x[1]["cost"], reverse=True
-        )[:5]:  # 上位5モデルまで
-            slack_lines.append(
-                f"• {model}: ${data['cost']:.4f} "
-                f"(in: {format_tokens(data['input_tokens'])}, "
-                f"out: {format_tokens(data['output_tokens'])})"
-            )
 
     slack_message = "\n".join(slack_lines)
 
