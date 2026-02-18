@@ -120,7 +120,7 @@ export async function POST(
   const { stockId } = await params
 
   try {
-    // 銘柄情報を取得
+    // 銘柄情報を取得（財務指標も含む）
     const stock = await prisma.stock.findUnique({
       where: { id: stockId },
       select: {
@@ -128,6 +128,19 @@ export async function POST(
         tickerCode: true,
         name: true,
         sector: true,
+        // 財務指標
+        marketCap: true,
+        dividendYield: true,
+        pbr: true,
+        per: true,
+        roe: true,
+        isProfitable: true,
+        profitTrend: true,
+        revenueGrowth: true,
+        eps: true,
+        fiftyTwoWeekHigh: true,
+        fiftyTwoWeekLow: true,
+        volatility: true,
       },
     })
 
@@ -324,6 +337,121 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
       }
     }
 
+    // 財務指標のフォーマット
+    const metrics: string[] = []
+
+    if (stock.marketCap) {
+      const marketCap = Number(stock.marketCap)
+      if (marketCap >= 10000) {
+        metrics.push(`- 会社の規模: 大企業（時価総額${(marketCap / 10000).toFixed(1)}兆円）`)
+      } else if (marketCap >= 1000) {
+        metrics.push(`- 会社の規模: 中堅企業（時価総額${marketCap.toFixed(0)}億円）`)
+      } else {
+        metrics.push(`- 会社の規模: 小型企業（時価総額${marketCap.toFixed(0)}億円）`)
+      }
+    }
+
+    if (stock.dividendYield) {
+      const divYield = Number(stock.dividendYield)
+      if (divYield >= 4) {
+        metrics.push(`- 配当: 高配当（年${divYield.toFixed(2)}%）`)
+      } else if (divYield >= 2) {
+        metrics.push(`- 配当: 普通（年${divYield.toFixed(2)}%）`)
+      } else if (divYield > 0) {
+        metrics.push(`- 配当: 低め（年${divYield.toFixed(2)}%）`)
+      } else {
+        metrics.push("- 配当: なし")
+      }
+    }
+
+    if (stock.pbr) {
+      const pbr = Number(stock.pbr)
+      if (pbr < 1) {
+        metrics.push("- 株価水準(PBR): 割安（資産価値より安い）")
+      } else if (pbr < 1.5) {
+        metrics.push("- 株価水準(PBR): 適正")
+      } else {
+        metrics.push("- 株価水準(PBR): やや割高")
+      }
+    }
+
+    if (stock.per) {
+      const per = Number(stock.per)
+      if (per < 0) {
+        metrics.push("- 収益性(PER): 赤字のため算出不可")
+      } else if (per < 10) {
+        metrics.push(`- 収益性(PER): 割安（${per.toFixed(1)}倍）`)
+      } else if (per < 20) {
+        metrics.push(`- 収益性(PER): 適正（${per.toFixed(1)}倍）`)
+      } else if (per < 30) {
+        metrics.push(`- 収益性(PER): やや割高（${per.toFixed(1)}倍）`)
+      } else {
+        metrics.push(`- 収益性(PER): 割高（${per.toFixed(1)}倍）`)
+      }
+    }
+
+    if (stock.roe) {
+      const roe = Number(stock.roe) * 100
+      if (roe >= 15) {
+        metrics.push(`- 経営効率(ROE): 優秀（${roe.toFixed(1)}%）`)
+      } else if (roe >= 10) {
+        metrics.push(`- 経営効率(ROE): 良好（${roe.toFixed(1)}%）`)
+      } else if (roe >= 5) {
+        metrics.push(`- 経営効率(ROE): 普通（${roe.toFixed(1)}%）`)
+      } else if (roe > 0) {
+        metrics.push(`- 経営効率(ROE): 低め（${roe.toFixed(1)}%）`)
+      } else {
+        metrics.push(`- 経営効率(ROE): 赤字`)
+      }
+    }
+
+    if (stock.isProfitable !== null && stock.isProfitable !== undefined) {
+      if (stock.isProfitable) {
+        if (stock.profitTrend === "increasing") {
+          metrics.push("- 業績: 黒字（利益増加傾向）")
+        } else if (stock.profitTrend === "decreasing") {
+          metrics.push("- 業績: 黒字（利益減少傾向）")
+        } else {
+          metrics.push("- 業績: 黒字")
+        }
+      } else {
+        metrics.push("- 業績: 赤字")
+      }
+    }
+
+    if (stock.revenueGrowth) {
+      const growth = Number(stock.revenueGrowth)
+      if (growth >= 20) {
+        metrics.push(`- 売上成長: 急成長（前年比+${growth.toFixed(1)}%）`)
+      } else if (growth >= 10) {
+        metrics.push(`- 売上成長: 好調（前年比+${growth.toFixed(1)}%）`)
+      } else if (growth >= 0) {
+        metrics.push(`- 売上成長: 安定（前年比+${growth.toFixed(1)}%）`)
+      } else if (growth >= -10) {
+        metrics.push(`- 売上成長: やや減少（前年比${growth.toFixed(1)}%）`)
+      } else {
+        metrics.push(`- 売上成長: 減少傾向（前年比${growth.toFixed(1)}%）`)
+      }
+    }
+
+    if (stock.eps) {
+      const eps = Number(stock.eps)
+      if (eps > 0) {
+        metrics.push(`- 1株利益(EPS): ${eps.toFixed(0)}円`)
+      } else {
+        metrics.push(`- 1株利益(EPS): 赤字`)
+      }
+    }
+
+    if (stock.fiftyTwoWeekHigh && stock.fiftyTwoWeekLow && currentPrice) {
+      const high = Number(stock.fiftyTwoWeekHigh)
+      const low = Number(stock.fiftyTwoWeekLow)
+      const position = high !== low ? ((currentPrice - low) / (high - low)) * 100 : 50
+      metrics.push(`- 1年間の値動き: 高値${high.toFixed(0)}円〜安値${low.toFixed(0)}円（現在は${position.toFixed(0)}%の位置）`)
+    }
+
+    const financialMetrics = metrics.length > 0 ? metrics.join("\n") : "財務データなし"
+
     // ユーザー設定のコンテキスト
     const periodMap: Record<string, string> = {
       short: "短期（数週間〜数ヶ月）",
@@ -354,6 +482,9 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 - ティッカーコード: ${stock.tickerCode}
 - セクター: ${stock.sector || "不明"}
 - 現在価格: ${currentPrice}円
+
+【財務指標（銘柄の質を評価）】
+${financialMetrics}
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
@@ -398,6 +529,11 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
 - positives、concernsは「・項目1\n・項目2」形式の文字列で返す（配列ではない）
 - ユーザー設定がない場合、パーソナライズ項目はnullにする
 - buyConditionはrecommendationが"stay"の場合のみ具体的な条件を記載し、"buy"や"avoid"の場合はnullにする
+
+【財務指標の活用】
+- 財務指標は銘柄の質を評価する参考情報として活用してください
+- 財務に懸念点がある場合（割高、ROE低めなど）は、cautionやconcernsで言及してください
+- テクニカルが良ければ買い推奨は出せますが、財務リスクは必ず伝えてください
 
 【テクニカル指標の重視】
 - RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
@@ -488,6 +624,16 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
     if (weekChangeRate !== null && weekChangeRate >= 30 && result.recommendation === "buy") {
       result.recommendation = "stay"
       result.caution = `週間+${weekChangeRate.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`
+    }
+
+    // 危険銘柄の強制補正: 赤字 かつ 高ボラティリティでbuyの場合はstayに変更
+    const volatility = stock.volatility ? Number(stock.volatility) : null
+    const isUnprofitable = stock.isProfitable === false
+    const isHighVolatility = volatility !== null && volatility > 50
+
+    if (isUnprofitable && isHighVolatility && result.recommendation === "buy") {
+      result.recommendation = "stay"
+      result.caution = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、様子見を推奨します。${result.caution}`
     }
 
     // データベースに保存（upsert）
