@@ -342,8 +342,7 @@ ${newsContext}${marketContext}
   "sellReason": "具体的なシグナルや指標名を挙げて売却理由を説明する（例：「RSI（売られすぎ・買われすぎの指標）が70超の買われすぎ水準で、レジスタンスラインに到達」）",
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
   "sellCondition": "どの指標がどの水準になったら売るかを具体的に記述（例：「RSIが再び70を超えたら追加売却、MACDがデッドクロスしたら全売却」）",
-  "simpleStatus": "現状を一言で表すステータス（好調/様子見/注意/警戒のいずれか）",
-  "statusType": "ステータスの種類（good/neutral/caution/warningのいずれか）",
+  "simpleStatus": "ステータス（good/neutral/warningのいずれか）",
 
   "shortTermTrend": "up" | "neutral" | "down",
   "shortTermPriceLow": 短期予測の下限価格（数値のみ）,
@@ -396,9 +395,9 @@ ${PROMPT_NEWS_CONSTRAINTS}
   - 75%: 大部分を利確、少量残して様子見
   - 100%: 全売却推奨
 - sellReason: テクニカル・ファンダメンタルに基づく具体的な売却理由を記載（指標名と数値を必ず含める）
-- 【重要】statusType と sellReason の整合性:
-  - 売却を推奨する場合 → statusType は caution または warning にし、sellReason に理由を記載
-  - 様子見（statusType: neutral / good）の場合 → sellReason と suggestedSellPercent は null にする
+- 【重要】simpleStatus と sellReason の整合性:
+  - 売却を推奨する場合 → simpleStatus は warning にし、sellReason に理由を記載
+  - 様子見（simpleStatus: neutral / good）の場合 → sellReason と suggestedSellPercent は null にする
 
 【損切り提案の指針】
 - 損失率が-15%以上かつ下落トレンドが続いている場合は、損切りを選択肢として提示
@@ -406,11 +405,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - 例（良い）: 「RSIが20台の売られすぎ水準が2週間続き、損失率-18%に達しているため、損切りを検討してください」
 - 例（悪い）: 「損失を抱えていますが、次の投資機会のため決断しましょう」
 
-【ステータスの指針】
-- 好調（good）: 利益率 +5%以上、または上昇トレンド
-- 様子見（neutral）: 利益率 -5%〜+5%、横ばい
-- 注意（caution）: 利益率 -5%〜-15%、または下落トレンド
-- 警戒（warning）: 利益率 -15%以下、または急落中
+【ステータスの指針（3段階）】
+- good（買増検討）: 利益率 +5%以上、または上昇トレンド
+- neutral（様子見）: 利益率 -10%〜+5%、横ばい
+- warning（売却推奨）: 利益率 -10%以下、または下落トレンド・急落中
 
 【表現の指針】
 - 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、ダブルボトム（2回底を打って反転するパターン））
@@ -449,8 +447,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
               sellReason: { type: ["string", "null"] },
               suggestedStopLossPrice: { type: ["number", "null"] },
               sellCondition: { type: ["string", "null"] },
-              simpleStatus: { type: "string", enum: ["好調", "様子見", "注意", "警戒"] },
-              statusType: { type: "string", enum: ["good", "neutral", "caution", "warning"] },
+              simpleStatus: { type: "string", enum: ["good", "neutral", "warning"] },
               shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
               shortTermPriceLow: { type: "number" },
               shortTermPriceHigh: { type: "number" },
@@ -469,7 +466,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
               "shortTerm", "mediumTerm", "longTerm",
               "suggestedSellPrice", "suggestedSellPercent", "sellReason",
               "suggestedStopLossPrice", "sellCondition",
-              "simpleStatus", "statusType",
+              "simpleStatus",
               "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
               "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
               "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
@@ -497,7 +494,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
           mediumTerm: result.mediumTerm,
           longTerm: result.longTerm,
           simpleStatus: result.simpleStatus,
-          statusType: result.statusType,
+          statusType: result.simpleStatus,
           marketSignal: result.marketSignal || null,
           suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
           suggestedSellPercent: result.suggestedSellPercent || null,
@@ -529,7 +526,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
           limitPrice: result.suggestedSellPrice || null,
           stopLossPrice: result.suggestedStopLossPrice || null,
           simpleStatus: result.simpleStatus || null,
-          statusType: result.statusType || null,
+          statusType: result.simpleStatus || null,
           sellCondition: result.sellCondition || null,
           analyzedAt: now,
         },
@@ -542,7 +539,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
       simpleStatus: result.simpleStatus,
-      statusType: result.statusType,
+      statusType: result.simpleStatus,
       marketSignal: result.marketSignal || null,
       suggestedSellPrice: result.suggestedSellPrice || null,
       suggestedSellPercent: result.suggestedSellPercent || null,

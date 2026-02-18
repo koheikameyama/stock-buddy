@@ -235,16 +235,10 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
   const getStatusBadge = (status: string | null | undefined) => {
     if (!status) return null
 
-    // 4段階ステータス + 後方互換
     const statusMap: Record<string, { text: string; bgColor: string; textColor: string }> = {
-      "好調": { text: "好調", bgColor: "bg-green-100", textColor: "text-green-800" },
-      "様子見": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
-      "注意": { text: "注意", bgColor: "bg-amber-100", textColor: "text-amber-800" },
-      "警戒": { text: "警戒", bgColor: "bg-red-100", textColor: "text-red-800" },
-      // 後方互換: 旧ステータス
-      "順調": { text: "好調", bgColor: "bg-green-100", textColor: "text-green-800" },
-      "やや低調": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
-      "要確認": { text: "警戒", bgColor: "bg-red-100", textColor: "text-red-800" },
+      "good": { text: "買増検討", bgColor: "bg-green-100", textColor: "text-green-800" },
+      "neutral": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
+      "warning": { text: "売却推奨", bgColor: "bg-red-100", textColor: "text-red-800" },
     }
 
     const badge = statusMap[status]
@@ -554,11 +548,11 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
               </p>
             </div>
           )}
-          {/* AIによる売却提案（注意・警戒時） */}
-          {portfolioAnalysis && (portfolioAnalysis.statusType === "caution" || portfolioAnalysis.statusType === "warning") && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+          {/* AIによる売却提案（warning時） */}
+          {portfolioAnalysis?.statusType === "warning" && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                ⚠️ 売却検討
+                ⚠️ 売却推奨
               </p>
               <div className="space-y-2">
                 {portfolioAnalysis.suggestedSellPercent && (
