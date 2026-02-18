@@ -75,3 +75,10 @@ export const CACHE_TTL = {
   STOCK_PRICES: 2 * 60 * 1000,      // 2分
   PORTFOLIO_SUMMARY: 2 * 60 * 1000, // 2分
 } as const
+
+// 市場指標の閾値
+export const MARKET_INDEX = {
+  CRASH_THRESHOLD: -5,      // 急落判定（週間変化率%）
+  UP_TREND_THRESHOLD: 3,    // 上昇トレンド判定（週間変化率%）
+  DOWN_TREND_THRESHOLD: -3, // 下落トレンド判定（週間変化率%）
+} as const
