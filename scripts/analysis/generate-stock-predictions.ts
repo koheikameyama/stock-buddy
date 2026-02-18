@@ -8,10 +8,14 @@
 
 import { PrismaClient } from "@prisma/client"
 import OpenAI from "openai"
+import pLimit from "p-limit"
 import { getRelatedNews, formatNewsForPrompt } from "../lib/news-fetcher"
 import { fetchHistoricalPrices } from "../../lib/stock-price-fetcher"
 
 const prisma = new PrismaClient()
+
+// AI API同時リクエスト数の制限（OpenAIのレート制限を考慮）
+const AI_CONCURRENCY_LIMIT = 5
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 interface SupportResistance {
@@ -474,74 +478,85 @@ async function main(): Promise<void> {
     const allNews = await getRelatedNews(prisma, tickerCodes, sectors, 30, 7)
     console.log(`Found ${allNews.length} related news articles`)
 
+    // 並行処理用のキュー（同時実行数を制限）
+    const limit = pLimit(AI_CONCURRENCY_LIMIT)
+    console.log(`Using concurrent AI requests with limit: ${AI_CONCURRENCY_LIMIT}`)
+
     let success = 0
     let failed = 0
+    let processed = 0
 
-    for (let i = 0; i < stocks.length; i++) {
-      const stock = stocks[i]
+    // 各銘柄の処理タスクを作成
+    const tasks = stocks.map((stock) =>
+      limit(async () => {
+        try {
+          processed++
+          console.log(`[${processed}/${total}] Processing ${stock.name} (${stock.tickerCode})...`)
 
+          // この銘柄に関連するニュースをフィルタリング
+          const stockNews = allNews
+            .filter(
+              (n) =>
+                n.content.includes(stock.tickerCode) ||
+                n.content.includes(stock.tickerCode.replace(".T", "")) ||
+                n.sector === stock.sector
+            )
+            .slice(0, 5)
 
-      try {
-        console.log(`[${i + 1}/${total}] Processing ${stock.name} (${stock.tickerCode})...`)
+          console.log(`  Found ${stockNews.length} news for this stock`)
 
-        // この銘柄に関連するニュースをフィルタリング
-        const stockNews = allNews
-          .filter(
-            (n) =>
-              n.content.includes(stock.tickerCode) ||
-              n.content.includes(stock.tickerCode.replace(".T", "")) ||
-              n.sector === stock.sector
-          )
-          .slice(0, 5)
+          // 1. 基礎データ計算
+          const baseline = await getBaselineData(stock.tickerCode)
 
-        console.log(`  Found ${stockNews.length} news for this stock`)
+          if (!baseline) {
+            console.log(`  No price data available, skipping...`)
+            failed++
+            return { success: false, stock }
+          }
 
-        // 1. 基礎データ計算
-        const baseline = await getBaselineData(stock.tickerCode)
+          // 2. AI予測生成
+          const prediction = await generateAIPrediction(stock, baseline, stockNews)
 
-        if (!baseline) {
-          console.log(`  No price data available, skipping...`)
+          // 3. データベースに保存
+          await prisma.stockAnalysis.create({
+            data: {
+              stockId: stock.id,
+              shortTermTrend: prediction.shortTerm.trend,
+              shortTermPriceLow: prediction.shortTerm.priceLow,
+              shortTermPriceHigh: prediction.shortTerm.priceHigh,
+              shortTermText: prediction.shortTerm.text,
+              midTermTrend: prediction.midTerm.trend,
+              midTermPriceLow: prediction.midTerm.priceLow,
+              midTermPriceHigh: prediction.midTerm.priceHigh,
+              midTermText: prediction.midTerm.text,
+              longTermTrend: prediction.longTerm.trend,
+              longTermPriceLow: prediction.longTerm.priceLow,
+              longTermPriceHigh: prediction.longTerm.priceHigh,
+              longTermText: prediction.longTerm.text,
+              recommendation: prediction.recommendation,
+              advice: prediction.advice,
+              confidence: prediction.confidence,
+              limitPrice: prediction.limitPrice,
+              stopLossPrice: prediction.stopLossPrice,
+              analyzedAt: new Date(),
+            },
+          })
+
+          success++
+          const limitInfo = prediction.limitPrice ? `, 指値: ¥${prediction.limitPrice}` : ""
+          const stopLossInfo = prediction.stopLossPrice ? `, 逆指値: ¥${prediction.stopLossPrice}` : ""
+          console.log(`  Saved (recommendation: ${prediction.recommendation}${limitInfo}${stopLossInfo})`)
+          return { success: true, stock }
+        } catch (error) {
+          console.log(`  Error: ${error}`)
           failed++
-          continue
+          return { success: false, stock, error }
         }
+      })
+    )
 
-        // 2. AI予測生成
-        const prediction = await generateAIPrediction(stock, baseline, stockNews)
-
-        // 3. データベースに保存
-        await prisma.stockAnalysis.create({
-          data: {
-            stockId: stock.id,
-            shortTermTrend: prediction.shortTerm.trend,
-            shortTermPriceLow: prediction.shortTerm.priceLow,
-            shortTermPriceHigh: prediction.shortTerm.priceHigh,
-            shortTermText: prediction.shortTerm.text,
-            midTermTrend: prediction.midTerm.trend,
-            midTermPriceLow: prediction.midTerm.priceLow,
-            midTermPriceHigh: prediction.midTerm.priceHigh,
-            midTermText: prediction.midTerm.text,
-            longTermTrend: prediction.longTerm.trend,
-            longTermPriceLow: prediction.longTerm.priceLow,
-            longTermPriceHigh: prediction.longTerm.priceHigh,
-            longTermText: prediction.longTerm.text,
-            recommendation: prediction.recommendation,
-            advice: prediction.advice,
-            confidence: prediction.confidence,
-            limitPrice: prediction.limitPrice,
-            stopLossPrice: prediction.stopLossPrice,
-            analyzedAt: new Date(),
-          },
-        })
-
-        success++
-        const limitInfo = prediction.limitPrice ? `, 指値: ¥${prediction.limitPrice}` : ""
-        const stopLossInfo = prediction.stopLossPrice ? `, 逆指値: ¥${prediction.stopLossPrice}` : ""
-        console.log(`  Saved (recommendation: ${prediction.recommendation}${limitInfo}${stopLossInfo})`)
-      } catch (error) {
-        console.log(`  Error: ${error}`)
-        failed++
-      }
-    }
+    // 全タスクを並行実行
+    await Promise.all(tasks)
 
     console.log(`\nCompleted!`)
     console.log(`  Success: ${success}`)
