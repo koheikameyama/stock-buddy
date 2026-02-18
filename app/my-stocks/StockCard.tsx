@@ -171,6 +171,11 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               <span className="font-semibold text-gray-900">{quantity}株</span>
             </div>
 
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">平均取得単価</span>
+              <span className="font-semibold text-gray-900">¥{averagePrice.toLocaleString()}</span>
+            </div>
+
             {price ? (
               <div
                 className={`rounded-lg p-3 sm:p-4 ${
@@ -210,19 +215,24 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                 })()}
               </div>
             ) : (
-              /* 価格未取得時も analyzedAt は表示 */
-              analyzedAt && (
-                <div className="rounded-lg p-3 sm:p-4 bg-gray-50">
-                  {analyzedAt && (() => {
-                    const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
-                    return (
-                      <p className="text-xs text-gray-400 text-right">
-                        <span className={colorClass}>{label}</span> | {relative}
-                      </p>
-                    )
-                  })()}
+              /* 価格未取得時は評価損益を「取得中」で表示 */
+              <div className="rounded-lg p-3 sm:p-4 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs sm:text-sm text-gray-600">評価損益</span>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-400">価格取得中...</p>
+                  </div>
                 </div>
-              )
+                {/* Analysis Time for Portfolio */}
+                {analyzedAt && (() => {
+                  const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
+                  return (
+                    <p className="mt-2 text-xs text-gray-400 text-right border-t border-gray-200 pt-2">
+                      <span className={colorClass}>{label}</span> | {relative}
+                    </p>
+                  )
+                })()}
+              </div>
             )}
 
           </>
