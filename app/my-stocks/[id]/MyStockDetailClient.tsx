@@ -417,6 +417,11 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             <PurchaseRecommendation stockId={stock.stockId} />
           </section>
 
+          {/* AI Analysis Section (価格予測) */}
+          <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+            <StockAnalysisCard stockId={stock.stockId} />
+          </section>
+
           {/* Tabbed Content Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
             <Tabs
