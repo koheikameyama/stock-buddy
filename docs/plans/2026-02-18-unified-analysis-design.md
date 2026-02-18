@@ -1,7 +1,7 @@
 # 統合分析プロンプト設計書
 
 **作成日**: 2026-02-18
-**ステータス**: 設計中
+**ステータス**: 設計中（2026-02-18 更新）
 
 ---
 
@@ -220,12 +220,86 @@ Phase 3: 必要に応じて追加の整合性チェックを実装
 
 ---
 
+## Phase 4: emotionalCoaching → priceMovementReason（追加要件）
+
+### 背景
+
+ユーザーから「感情コーチングよりなぜ下落・上昇しているのかが知りたい」というフィードバック。
+
+### 現状の問題
+
+```
+emotionalCoaching: "下落していますが焦る必要はありません。長期で見ると..."
+→ 励ましはいらない。なぜ動いているかを教えてほしい。
+```
+
+### 変更方針
+
+`emotionalCoaching` フィールドを **`priceMovementReason`（価格変動の理由）** に置き換える。
+
+#### 変更前（現在）
+
+```
+emotionalCoaching: "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）"
+```
+
+#### 変更後
+
+```
+priceMovementReason: "なぜ今の値動きが起きているかの分析（テクニカル・ファンダメンタル・市場環境を統合して説明）"
+```
+
+#### 出力例
+
+```
+【価格変動の理由】
+- テクニカル面: RSIが28で売られすぎ水準に到達。直近5日間に売りシグナルが3回出現。
+- ファンダメンタル面: 先週の決算発表で営業利益が前年比-12%と市場予想を下回ったことが嫌気されている。
+- 市場環境: 日経225が週間-2.1%と軟調で、同セクター全体も下落傾向にある。
+
+→ 現在の下落は決算ミスと市場全体の下落が重なった一時的なもので、RSIの売られすぎ水準からの反発を待つ局面。
+```
+
+### 変更が必要なファイル
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `prisma/schema.prisma` | `emotionalCoaching` → `priceMovementReason` にリネーム |
+| `app/api/stocks/[stockId]/portfolio-analysis/route.ts` | プロンプト指示・JSON Schema・DB保存処理を更新 |
+| `app/components/StockAnalysisCard.tsx` | 表示ラベルと参照フィールドを更新 |
+
+### DBマイグレーション
+
+```sql
+ALTER TABLE "PortfolioStock"
+  RENAME COLUMN "emotionalCoaching" TO "priceMovementReason";
+```
+
+### プロンプト変更
+
+```diff
+- "emotionalCoaching": "ユーザーの気持ちに寄り添うメッセージ（下落時は安心感、上昇時は冷静さを促す）",
++ "priceMovementReason": "なぜ今の値動きが起きているかの分析。テクニカル指標（RSI・MACD・チャートパターン）・ニュース・市場環境（日経225・セクタートレンド）を統合して、初心者が理解できる言葉で3-5文で説明する。最後に現状の一言まとめを入れる。",
+```
+
+### 表示コンポーネント変更
+
+```diff
+- <section label="AIコーチからのメッセージ">
+-   {portfolioAnalysis.emotionalCoaching}
+- </section>
++ <section label="なぜ今の値動き？">
++   {portfolioAnalysis.priceMovementReason}
++ </section>
+```
+
+---
+
 ## 見送り事項
 
 以下は今回の設計に含めない：
 
 - **単一プロンプトへの完全統合**: 評価の文脈が異なるため、分けたまま評価軸だけ統一する
-- **ポートフォリオ固有コーチングロジックの変更**: 感情コーチング・損切り提案・3日間ルールはポートフォリオ分析の価値であり維持する
 - **DBテーブルの統合**: 既存の `PurchaseRecommendation` と `PortfolioStock` は用途が異なり維持する
 
 ---
@@ -234,3 +308,4 @@ Phase 3: 必要に応じて追加の整合性チェックを実装
 
 - [ ] Phase 1 の効果を検証してから Phase 2 に進むか、一気にやるか
 - [ ] `marketSignal` を UI に表示するか、内部整合性チェックのみに使うか
+- [ ] `priceMovementReason` の説明に箇条書き形式（テクニカル面・ファンダメンタル面・市場環境）を強制するか、自由形式にするか
