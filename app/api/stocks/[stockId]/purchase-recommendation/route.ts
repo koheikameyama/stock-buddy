@@ -10,6 +10,7 @@ import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetch
 import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
+import { getNikkei225Data, getTrendDescription, MarketIndexData } from "@/lib/market-index"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -306,6 +307,14 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 `
       : ""
 
+    // 市場全体の状況を取得
+    let marketData: MarketIndexData | null = null
+    try {
+      marketData = await getNikkei225Data()
+    } catch (error) {
+      console.error("市場データ取得失敗（フォールバック）:", error)
+    }
+
     // リアルタイム株価を取得
     const realtimePricesPost = await fetchStockPrices([stock.tickerCode])
     const currentPrice = realtimePricesPost[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
@@ -335,6 +344,22 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 - 週間変化率: ${weekChangeRate.toFixed(1)}%
 - 下落理由を確認し、反発の可能性を慎重に判断してください`
       }
+    }
+
+    // 市場全体の状況コンテキスト
+    let marketContext = ""
+    if (marketData) {
+      const trendDesc = getTrendDescription(marketData.trend)
+      marketContext = `
+【市場全体の状況】
+- 日経平均株価: ${marketData.currentPrice.toLocaleString()}円
+- 週間変化率: ${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%
+- トレンド: ${trendDesc}
+
+※市場全体の状況を考慮して判断してください。
+  市場が弱い中で堅調な銘柄は評価できます。
+  市場上昇時は追い風として言及できます。
+`
     }
 
     // 財務指標のフォーマット
@@ -488,7 +513,7 @@ ${financialMetrics}
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${newsContext}
+${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
@@ -634,6 +659,13 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
     if (isUnprofitable && isHighVolatility && result.recommendation === "buy") {
       result.recommendation = "stay"
       result.caution = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、様子見を推奨します。${result.caution}`
+    }
+
+    // 市場急落時の強制補正: 日経平均が週間-5%以下でbuyの場合はstayに変更
+    if (marketData?.isMarketCrash && result.recommendation === "buy") {
+      result.recommendation = "stay"
+      result.reason = `市場全体が急落しているため、様子見をおすすめします。${result.reason}`
+      result.buyCondition = result.buyCondition || "市場が落ち着いてから検討してください"
     }
 
     // データベースに保存（upsert）
