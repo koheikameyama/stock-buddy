@@ -43,17 +43,19 @@ export async function GET(
     // 最新の購入判断を取得（過去7日以内）
     const sevenDaysAgo = getDaysAgoForDB(7)
 
-    const recommendation = await prisma.purchaseRecommendation.findFirst({
-      where: {
-        stockId,
-        date: {
-          gte: sevenDaysAgo,
+    const [recommendation, analysis] = await Promise.all([
+      prisma.purchaseRecommendation.findFirst({
+        where: {
+          stockId,
+          date: { gte: sevenDaysAgo },
         },
-      },
-      orderBy: {
-        date: "desc",
-      },
-    })
+        orderBy: { date: "desc" },
+      }),
+      prisma.stockAnalysis.findFirst({
+        where: { stockId },
+        orderBy: { analyzedAt: "desc" },
+      }),
+    ])
 
     if (!recommendation) {
       return NextResponse.json(
@@ -90,6 +92,17 @@ export async function GET(
       riskFit: recommendation.riskFit,
       personalizedReason: recommendation.personalizedReason,
       analyzedAt: recommendation.updatedAt.toISOString(),
+      // 価格帯予測（StockAnalysisから）
+      shortTermTrend: analysis?.shortTermTrend ?? null,
+      shortTermPriceLow: analysis?.shortTermPriceLow ? Number(analysis.shortTermPriceLow) : null,
+      shortTermPriceHigh: analysis?.shortTermPriceHigh ? Number(analysis.shortTermPriceHigh) : null,
+      midTermTrend: analysis?.midTermTrend ?? null,
+      midTermPriceLow: analysis?.midTermPriceLow ? Number(analysis.midTermPriceLow) : null,
+      midTermPriceHigh: analysis?.midTermPriceHigh ? Number(analysis.midTermPriceHigh) : null,
+      longTermTrend: analysis?.longTermTrend ?? null,
+      longTermPriceLow: analysis?.longTermPriceLow ? Number(analysis.longTermPriceLow) : null,
+      longTermPriceHigh: analysis?.longTermPriceHigh ? Number(analysis.longTermPriceHigh) : null,
+      advice: analysis?.advice ?? null,
     }
 
     return NextResponse.json(response, { status: 200 })
@@ -520,20 +533,34 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
 
 {
   "marketSignal": "bullish" | "neutral" | "bearish",
+
+  // A. 価格帯予測（予測を根拠として購入判断の前に示す）
+  "shortTermTrend": "up" | "neutral" | "down",
+  "shortTermPriceLow": 短期（今週）の予測安値（数値のみ、円単位）,
+  "shortTermPriceHigh": 短期（今週）の予測高値（数値のみ、円単位）,
+  "midTermTrend": "up" | "neutral" | "down",
+  "midTermPriceLow": 中期（今月）の予測安値（数値のみ、円単位）,
+  "midTermPriceHigh": 中期（今月）の予測高値（数値のみ、円単位）,
+  "longTermTrend": "up" | "neutral" | "down",
+  "longTermPriceLow": 長期（今後3ヶ月）の予測安値（数値のみ、円単位）,
+  "longTermPriceHigh": 長期（今後3ヶ月）の予測高値（数値のみ、円単位）,
+  "advice": "上記予測を踏まえた総合アドバイス（100文字以内）",
+
+  // B. 購入判断（価格帯予測を根拠として導出する）
   "recommendation": "buy" | "stay" | "avoid",
   "confidence": 0.0から1.0の数値（小数点2桁）,
-  "reason": "初心者に分かりやすい言葉で1-2文の理由",
+  "reason": "初心者に分かりやすい言葉で1-2文の理由（価格予測の根拠を含める）",
   "caution": "注意点を1-2文",
 
-  // B. 深掘り評価（文字列で返す。配列ではない）
+  // C. 深掘り評価（文字列で返す。配列ではない）
   "positives": "・良い点1\n・良い点2\n・良い点3",
   "concerns": "・不安な点1\n・不安な点2\n・不安な点3",
   "suitableFor": "こんな人におすすめ（1-2文で具体的に）",
 
-  // C. 買い時条件（recommendationがstayの場合のみ）
+  // D. 買い時条件（recommendationがstayの場合のみ）
   "buyCondition": "どうなったら買い時か（例：「株価が○○円を下回ったら」「RSIが30を下回ったら」など具体的に）",
 
-  // D. パーソナライズ（ユーザー設定がある場合）
+  // E. パーソナライズ（ユーザー設定がある場合）
   "userFitScore": 0-100のおすすめ度,
   "budgetFit": 予算内で購入可能か（true/false）,
   "periodFit": 投資期間にマッチするか（true/false）,
@@ -546,6 +573,15 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
 - neutral: どちらとも言えない、横ばい（シグナルが混在、or 材料不足）
 - bearish: 下落優勢、リスクが高い（RSI高水準、MACD下降、赤字継続など）
 ※ marketSignal は recommendation と独立して判断する（強制補正前の純粋な市場シグナル）
+
+【価格帯予測の指針】
+- 予測は提供されたテクニカル指標・チャートパターン・ファンダメンタルを根拠として算出する
+- 現在価格を起点に、直近ボラティリティ・トレンドを反映した現実的な価格帯にすること
+- shortTermPriceLow/High: 直近のボラティリティと今週のトレンドを基準（現在価格±5〜15%を目安）
+- midTermPriceLow/High: 中期トレンド・ファンダメンタルを基準（現在価格±10〜25%を目安）
+- longTermPriceLow/High: 事業展望・長期トレンドを基準（現在価格±15〜35%を目安）
+- 予測レンジが recommendation と整合すること（例: buyならshortTermが上昇傾向）
+- advice は価格帯予測の数値を踏まえた具体的なコメントにする（例:「今週は○○〜○○円で推移する見込みで...」）
 
 【制約】
 - 提供されたニュース情報を参考にしてください
@@ -607,7 +643,7 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
         { role: "user", content: prompt },
       ],
       temperature: 0.4,
-      max_tokens: 800,
+      max_tokens: 1200,
       response_format: {
         type: "json_schema",
         json_schema: {
@@ -617,17 +653,29 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
             type: "object",
             properties: {
               marketSignal: { type: "string", enum: ["bullish", "neutral", "bearish"] },
+              // A. 価格帯予測
+              shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              shortTermPriceLow: { type: "number" },
+              shortTermPriceHigh: { type: "number" },
+              midTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              midTermPriceLow: { type: "number" },
+              midTermPriceHigh: { type: "number" },
+              longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              longTermPriceLow: { type: "number" },
+              longTermPriceHigh: { type: "number" },
+              advice: { type: "string" },
+              // B. 購入判断
               recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
               confidence: { type: "number" },
               reason: { type: "string" },
               caution: { type: "string" },
-              // B. 深掘り評価
+              // C. 深掘り評価
               positives: { type: ["string", "null"] },
               concerns: { type: ["string", "null"] },
               suitableFor: { type: ["string", "null"] },
-              // C. 買い時条件
+              // D. 買い時条件
               buyCondition: { type: ["string", "null"] },
-              // D. パーソナライズ
+              // E. パーソナライズ
               userFitScore: { type: ["number", "null"] },
               budgetFit: { type: ["boolean", "null"] },
               periodFit: { type: ["boolean", "null"] },
@@ -635,7 +683,12 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
               personalizedReason: { type: ["string", "null"] },
             },
             required: [
-              "marketSignal", "recommendation", "confidence", "reason", "caution",
+              "marketSignal",
+              "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
+              "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
+              "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
+              "advice",
+              "recommendation", "confidence", "reason", "caution",
               "positives", "concerns", "suitableFor",
               "buyCondition",
               "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
@@ -731,6 +784,29 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
       },
     })
 
+    // StockAnalysisに価格帯予測を保存（購入判断の根拠として）
+    const now = new Date()
+    await prisma.stockAnalysis.create({
+      data: {
+        stockId,
+        shortTermTrend: result.shortTermTrend || "neutral",
+        shortTermPriceLow: result.shortTermPriceLow || currentPrice || 0,
+        shortTermPriceHigh: result.shortTermPriceHigh || currentPrice || 0,
+        midTermTrend: result.midTermTrend || "neutral",
+        midTermPriceLow: result.midTermPriceLow || currentPrice || 0,
+        midTermPriceHigh: result.midTermPriceHigh || currentPrice || 0,
+        longTermTrend: result.longTermTrend || "neutral",
+        longTermPriceLow: result.longTermPriceLow || currentPrice || 0,
+        longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
+        recommendation: result.recommendation === "buy" ? "buy" : result.recommendation === "avoid" ? "sell" : "hold",
+        advice: result.advice || result.reason || "",
+        confidence: result.confidence || 0.7,
+        limitPrice: null,
+        stopLossPrice: null,
+        analyzedAt: now,
+      },
+    })
+
     // Outcome作成（推薦保存成功後）
     // 銘柄のvolatilityとmarketCapを取得
     const stockWithMetrics = await prisma.stock.findUnique({
@@ -766,17 +842,29 @@ ${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartP
       tickerCode: stock.tickerCode,
       currentPrice: currentPrice,
       marketSignal: result.marketSignal || null,
+      // A. 価格帯予測
+      shortTermTrend: result.shortTermTrend || null,
+      shortTermPriceLow: result.shortTermPriceLow || null,
+      shortTermPriceHigh: result.shortTermPriceHigh || null,
+      midTermTrend: result.midTermTrend || null,
+      midTermPriceLow: result.midTermPriceLow || null,
+      midTermPriceHigh: result.midTermPriceHigh || null,
+      longTermTrend: result.longTermTrend || null,
+      longTermPriceLow: result.longTermPriceLow || null,
+      longTermPriceHigh: result.longTermPriceHigh || null,
+      advice: result.advice || null,
+      // B. 購入判断
       recommendation: result.recommendation,
       confidence: result.confidence,
       reason: result.reason,
       caution: result.caution,
-      // B. 深掘り評価
+      // C. 深掘り評価
       positives: result.positives || null,
       concerns: result.concerns || null,
       suitableFor: result.suitableFor || null,
-      // C. 買い時条件
+      // D. 買い時条件
       buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
-      // D. パーソナライズ
+      // E. パーソナライズ
       userFitScore: result.userFitScore ?? null,
       budgetFit: result.budgetFit ?? null,
       periodFit: result.periodFit ?? null,

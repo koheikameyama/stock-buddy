@@ -14,17 +14,29 @@ interface RecommendationData {
   tickerCode: string
   currentPrice: number | null
   marketSignal: string | null
+  // A. 価格帯予測
+  shortTermTrend?: string | null
+  shortTermPriceLow?: number | null
+  shortTermPriceHigh?: number | null
+  midTermTrend?: string | null
+  midTermPriceLow?: number | null
+  midTermPriceHigh?: number | null
+  longTermTrend?: string | null
+  longTermPriceLow?: number | null
+  longTermPriceHigh?: number | null
+  advice?: string | null
+  // B. 購入判断
   recommendation: "buy" | "stay" | "avoid"
   confidence: number
   reason: string
   caution: string
-  // B. 深掘り評価
+  // C. 深掘り評価
   positives?: string | null
   concerns?: string | null
   suitableFor?: string | null
-  // C. 買い時条件
+  // D. 買い時条件
   buyCondition?: string | null
-  // D. パーソナライズ
+  // E. パーソナライズ
   userFitScore?: number | null
   budgetFit?: boolean | null
   periodFit?: boolean | null
@@ -226,6 +238,26 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   // 信頼度パーセンテージ
   const confidencePercent = Math.round(data.confidence * 100)
 
+  const getTrendIcon = (trend: string | null | undefined) => {
+    switch (trend) {
+      case "up": return "📈"
+      case "down": return "📉"
+      default: return "📊"
+    }
+  }
+
+  const getTrendText = (trend: string | null | undefined) => {
+    switch (trend) {
+      case "up": return "上昇傾向"
+      case "down": return "下降傾向"
+      default: return "横ばい"
+    }
+  }
+
+  const formatPrice = (price: number) => {
+    return price.toLocaleString("ja-JP", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  }
+
   const getMarketSignalBadge = (signal: string | null | undefined) => {
     if (!signal) return null
     const signalMap: Record<string, { text: string; bgColor: string; textColor: string; icon: string }> = {
@@ -249,6 +281,69 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xs text-gray-500">マーケットシグナル</span>
         {getMarketSignalBadge(data.marketSignal)}
+      </div>
+    )
+  }
+
+  // 価格帯予測セクション（A）
+  const PredictionSection = () => {
+    const hasPrediction = data?.shortTermTrend || data?.midTermTrend || data?.longTermTrend
+    if (!hasPrediction) return null
+
+    return (
+      <div className="space-y-3 mb-4">
+        {/* 短期予測 */}
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">{getTrendIcon(data.shortTermTrend)}</span>
+            <div>
+              <p className="text-sm font-bold text-purple-800">短期予測（今週）</p>
+              {data.shortTermPriceLow && data.shortTermPriceHigh && (
+                <p className="text-xs text-purple-600">
+                  {getTrendText(data.shortTermTrend)} ¥{formatPrice(data.shortTermPriceLow)}〜¥{formatPrice(data.shortTermPriceHigh)}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 中期予測 */}
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">{getTrendIcon(data.midTermTrend)}</span>
+            <div>
+              <p className="text-sm font-bold text-blue-800">中期予測（今月）</p>
+              {data.midTermPriceLow && data.midTermPriceHigh && (
+                <p className="text-xs text-blue-600">
+                  {getTrendText(data.midTermTrend)} ¥{formatPrice(data.midTermPriceLow)}〜¥{formatPrice(data.midTermPriceHigh)}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 長期予測 */}
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">{getTrendIcon(data.longTermTrend)}</span>
+            <div>
+              <p className="text-sm font-bold text-emerald-800">長期予測（今後3ヶ月）</p>
+              {data.longTermPriceLow && data.longTermPriceHigh && (
+                <p className="text-xs text-emerald-600">
+                  {getTrendText(data.longTermTrend)} ¥{formatPrice(data.longTermPriceLow)}〜¥{formatPrice(data.longTermPriceHigh)}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 総合アドバイス */}
+        {data.advice && (
+          <div className="bg-white border border-gray-200 rounded-lg p-3">
+            <p className="text-xs font-semibold text-gray-600 mb-1">💡 予測まとめ</p>
+            <p className="text-sm text-gray-700">{data.advice}</p>
+          </div>
+        )}
       </div>
     )
   }
@@ -369,6 +464,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     return (
       <div>
         <ReanalyzeHeader />
+        {/* A. 価格帯予測 */}
+        <PredictionSection />
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">💡</span>
@@ -415,6 +512,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     return (
       <div>
         <ReanalyzeHeader />
+        {/* A. 価格帯予測 */}
+        <PredictionSection />
         <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg shadow-md p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">🚫</span>
@@ -464,6 +563,8 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   return (
     <div>
       <ReanalyzeHeader />
+      {/* A. 価格帯予測 */}
+      <PredictionSection />
       <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">⏳</span>
