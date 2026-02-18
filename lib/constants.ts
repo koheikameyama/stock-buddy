@@ -96,3 +96,12 @@ export const MA_DEVIATION = {
   DIP_BUY_THRESHOLD: 5,          // 乖離率(%)がこれを超えたら押し目買い推奨
   RSI_OVERBOUGHT_THRESHOLD: 70,  // RSIがこれを超えたら押し目買い推奨
 } as const
+
+// 売りタイミング判断の閾値
+export const SELL_TIMING = {
+  DEVIATION_LOWER_THRESHOLD: -5,   // 乖離率がこれ未満で戻り売り推奨
+  RSI_OVERSOLD_THRESHOLD: 30,      // RSIがこれ未満で戻り売り推奨
+  PANIC_SELL_THRESHOLD: -20,       // 乖離率がこれ以下でsell→hold強制補正
+  PROFIT_TAKING_THRESHOLD: 10,     // 利益率(%)がこれ以上で利確優先
+  STOP_LOSS_THRESHOLD: -15,        // 損失率(%)がこれ以下で損切り優先
+} as const
