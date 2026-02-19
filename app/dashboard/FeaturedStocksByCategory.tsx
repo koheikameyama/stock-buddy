@@ -223,7 +223,7 @@ export default function FeaturedStocksByCategory() {
           </div>
         )}
 
-        {stock.reason && (
+        {!isDisabled && stock.reason && (
           <div className="mb-2 sm:mb-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200">
             <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">
               {stock.reason}
@@ -242,8 +242,8 @@ export default function FeaturedStocksByCategory() {
           </div>
         )}
 
-        {/* リスク情報 */}
-        {(stock.stock.isProfitable === false ||
+        {/* リスク情報（無効化時は非表示） */}
+        {!isDisabled && (stock.stock.isProfitable === false ||
           (stock.stock.volatility != null && stock.stock.volatility > 50) ||
           (stock.stock.weekChangeRate != null && stock.stock.weekChangeRate < -15)) && (
           <div className="mb-2 sm:mb-3 p-2 rounded-lg bg-amber-50 border border-amber-200">
