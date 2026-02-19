@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import PerformanceSummary from "./PerformanceSummary"
 import { useAppStore } from "@/store/useAppStore"
 import type { PortfolioSummary as PortfolioSummaryData, NikkeiData, UserStock } from "@/store/types"
 
@@ -138,7 +139,8 @@ export default function PortfolioSummary({ hasHoldings }: PortfolioSummaryProps)
   const isOutperforming = comparison !== null && comparison > 0
 
   return (
-    <Link href="/my-stocks" className="block mb-6">
+    <>
+    <Link href="/my-stocks" className="block">
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -274,5 +276,7 @@ export default function PortfolioSummary({ hasHoldings }: PortfolioSummaryProps)
         )}
       </div>
     </Link>
+    <PerformanceSummary summary={summary} />
+    </>
   )
 }

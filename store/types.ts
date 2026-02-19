@@ -96,6 +96,14 @@ export interface PortfolioSummary {
   totalCost: number
   unrealizedGain: number
   unrealizedGainPercent: number
+  // 運用成績
+  realizedGain: number
+  totalGain: number
+  totalGainPercent: number
+  winCount: number
+  loseCount: number
+  winRate: number | null
+  averageReturn: number | null
 }
 
 export interface NikkeiData {

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { Decimal } from "@prisma/client/runtime/library"
 
 export async function GET() {
   try {
@@ -35,35 +36,98 @@ export async function GET() {
       return NextResponse.json({ summary: null })
     }
 
-    // 現在の株価を取得
-    const tickerCodes = user.portfolioStocks.map((ps) => ps.stock.tickerCode)
-    const prices = await fetchStockPrices(tickerCodes)
+    // 保有中の銘柄のティッカーコードを取得（株価取得用）
+    const holdingTickers: string[] = []
+    for (const ps of user.portfolioStocks) {
+      const { quantity } = calculatePortfolioFromTransactions(ps.transactions)
+      if (quantity > 0) {
+        holdingTickers.push(ps.stock.tickerCode)
+      }
+    }
+
+    // 現在の株価を取得（保有中の銘柄のみ）
+    const prices = holdingTickers.length > 0
+      ? await fetchStockPrices(holdingTickers)
+      : []
     const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
 
     let totalValue = 0
     let totalCost = 0
+
+    // 確定損益の計算用
+    let realizedGain = 0
+    let totalRealizedCost = 0
+    let winCount = 0
+    let loseCount = 0
+    const returnRates: number[] = []
 
     for (const ps of user.portfolioStocks) {
       const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
         ps.transactions
       )
 
-      // 保有数が0なら（売却済み）スキップ
-      if (quantity <= 0) continue
+      if (quantity > 0) {
+        // 保有中: 含み損益の計算（既存ロジック）
+        const currentPrice = priceMap.get(ps.stock.tickerCode)
+        if (currentPrice == null) continue
 
-      const currentPrice = priceMap.get(ps.stock.tickerCode)
-      if (currentPrice == null) continue
+        totalValue += currentPrice * quantity
+        totalCost += averagePurchasePrice.toNumber() * quantity
+      } else {
+        // 売却済み: 確定損益の計算
+        const buyTransactions = ps.transactions.filter((t) => t.type === "buy")
+        const sellTransactions = ps.transactions.filter((t) => t.type === "sell")
 
-      totalValue += currentPrice * quantity
-      totalCost += averagePurchasePrice.toNumber() * quantity
+        if (buyTransactions.length === 0 || sellTransactions.length === 0) continue
+
+        const totalBuyAmount = buyTransactions.reduce(
+          (sum, t) => sum.plus(t.totalAmount),
+          new Decimal(0)
+        )
+        const totalSellAmount = sellTransactions.reduce(
+          (sum, t) => sum.plus(t.totalAmount),
+          new Decimal(0)
+        )
+
+        const profit = totalSellAmount.minus(totalBuyAmount).toNumber()
+        const buyAmount = totalBuyAmount.toNumber()
+
+        realizedGain += profit
+        totalRealizedCost += buyAmount
+
+        if (profit >= 0) {
+          winCount++
+        } else {
+          loseCount++
+        }
+
+        if (buyAmount > 0) {
+          returnRates.push((profit / buyAmount) * 100)
+        }
+      }
     }
 
-    if (totalCost <= 0) {
+    // 保有も売却もない場合
+    if (totalCost <= 0 && totalRealizedCost <= 0) {
       return NextResponse.json({ summary: null })
     }
 
     const unrealizedGain = totalValue - totalCost
-    const unrealizedGainPercent = (unrealizedGain / totalCost) * 100
+    const unrealizedGainPercent = totalCost > 0
+      ? (unrealizedGain / totalCost) * 100
+      : 0
+
+    const totalGain = unrealizedGain + realizedGain
+    const totalInvested = totalCost + totalRealizedCost
+    const totalGainPercent = totalInvested > 0
+      ? (totalGain / totalInvested) * 100
+      : 0
+
+    const soldCount = winCount + loseCount
+    const winRate = soldCount > 0 ? (winCount / soldCount) * 100 : null
+    const averageReturn = returnRates.length > 0
+      ? returnRates.reduce((sum, r) => sum + r, 0) / returnRates.length
+      : null
 
     return NextResponse.json({
       summary: {
@@ -71,6 +135,13 @@ export async function GET() {
         totalCost,
         unrealizedGain,
         unrealizedGainPercent,
+        realizedGain,
+        totalGain,
+        totalGainPercent,
+        winCount,
+        loseCount,
+        winRate,
+        averageReturn,
       },
     })
   } catch (error) {
