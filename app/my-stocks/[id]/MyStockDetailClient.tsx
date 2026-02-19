@@ -76,6 +76,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const { setStockContext } = useChatContext()
   const { price, loading } = useStockPrice(stock.stock.tickerCode)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [openMenuTransactionId, setOpenMenuTransactionId] = useState<string | null>(null)
   const [showTransactionDialog, setShowTransactionDialog] = useState(false)
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
@@ -135,6 +136,28 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
       }
 
       router.push("/my-stocks")
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "削除に失敗しました")
+    }
+  }
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!confirm("この取引履歴を削除しますか？保有数量と平均単価が再計算されます。")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "削除に失敗しました")
+      }
+
+      router.refresh()
     } catch (err: any) {
       console.error(err)
       alert(err.message || "削除に失敗しました")
@@ -361,25 +384,51 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                           ¥{transaction.totalAmount.toLocaleString()}
                         </p>
                       </div>
-                      <button
-                        onClick={() => setSelectedTransaction(transaction)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="編集"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      <div className="relative">
+                        <button
+                          onClick={() =>
+                            setOpenMenuTransactionId(
+                              openMenuTransactionId === transaction.id ? null : transaction.id
+                            )
+                          }
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          title="メニュー"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="5" r="1.5" />
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="12" cy="19" r="1.5" />
+                          </svg>
+                        </button>
+                        {openMenuTransactionId === transaction.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setOpenMenuTransactionId(null)}
+                            />
+                            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[100px]">
+                              <button
+                                onClick={() => {
+                                  setSelectedTransaction(transaction)
+                                  setOpenMenuTransactionId(null)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                編集
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setOpenMenuTransactionId(null)
+                                  handleDeleteTransaction(transaction.id)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                              >
+                                削除
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

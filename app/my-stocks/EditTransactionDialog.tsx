@@ -76,33 +76,6 @@ export default function EditTransactionDialog({
     }
   }
 
-  const handleDelete = async () => {
-    if (!confirm("この購入履歴を削除しますか？保有数量と平均単価が再計算されます。")) {
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`/api/transactions/${transaction.id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "削除に失敗しました")
-      }
-
-      onSuccess()
-    } catch (err: any) {
-      console.error(err)
-      setError(err.message || "削除に失敗しました")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   if (!isOpen) return null
 
   const totalAmount = parseInt(quantity || "0") * parseFloat(price || "0")
@@ -216,14 +189,6 @@ export default function EditTransactionDialog({
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="px-4 py-2 bg-red-50 text-red-700 rounded-lg font-semibold hover:bg-red-100 transition-colors disabled:bg-gray-100 disabled:text-gray-400"
-              disabled={loading}
-            >
-              削除
-            </button>
             <button
               type="button"
               onClick={onClose}
