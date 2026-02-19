@@ -52,6 +52,50 @@ interface RecommendationData {
   // 購入タイミング
   buyTiming?: "market" | "dip" | null
   dipTargetPrice?: number | null
+  // 売りタイミング（avoid時）
+  sellTiming?: "market" | "rebound" | null
+  sellTargetPrice?: number | null
+}
+
+function AvoidSellTimingSection({ sellTiming, sellTargetPrice }: {
+  sellTiming?: string | null
+  sellTargetPrice?: number | null
+}) {
+  if (!sellTiming) return null
+
+  if (sellTiming === "market") {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+            即見送り推奨
+          </span>
+        </div>
+        <p className="text-sm text-red-800">
+          テクニカル的にも見送りに適したタイミングです。
+        </p>
+      </div>
+    )
+  }
+
+  if (sellTiming === "rebound") {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
+            反発後に判断
+          </span>
+        </div>
+        <p className="text-sm text-yellow-800">
+          {sellTargetPrice
+            ? `現在売られすぎの状態です。${sellTargetPrice.toLocaleString()}円付近まで反発を待ってから再判断するのがおすすめです。`
+            : "現在売られすぎの状態です。反発を待ってから再判断するのがおすすめです。"}
+        </p>
+      </div>
+    )
+  }
+
+  return null
 }
 
 export default function PurchaseRecommendation({ stockId }: PurchaseRecommendationProps) {
@@ -640,6 +684,12 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
           {/* B. 深掘り評価 */}
           <DeepEvaluationSection />
+
+          {/* 売りタイミング */}
+          <AvoidSellTimingSection
+            sellTiming={data.sellTiming}
+            sellTargetPrice={data.sellTargetPrice}
+          />
 
           <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4">
             <p className="text-xs text-amber-800">⚠️ {data.caution}</p>
