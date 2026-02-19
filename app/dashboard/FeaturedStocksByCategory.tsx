@@ -139,10 +139,12 @@ export default function FeaturedStocksByCategory() {
   }
 
   const renderStockCard = (stock: FeaturedStock) => {
+    const isDisabled = stock.stock.isDelisted === true
+
     return (
       <div
         key={stock.id}
-        className="relative flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 border-blue-200 bg-blue-50 hover:shadow-md transition-shadow"
+        className={`relative flex-shrink-0 w-64 sm:w-72 bg-white rounded-lg p-3 sm:p-4 border-2 border-blue-200 bg-blue-50 transition-shadow ${isDisabled ? "opacity-60" : "hover:shadow-md"}`}
       >
         {/* バッジ - 右上 */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
@@ -201,8 +203,8 @@ export default function FeaturedStocksByCategory() {
           </div>
         </div>
 
-        {/* 投資テーマバッジ */}
-        {stock.investmentTheme && INVESTMENT_THEME_CONFIG[stock.investmentTheme] && (
+        {/* 投資テーマバッジ（無効化時は非表示） */}
+        {!isDisabled && stock.investmentTheme && INVESTMENT_THEME_CONFIG[stock.investmentTheme] && (
           <div className="mb-1.5">
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].bg} ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].color}`}>
               <span>{INVESTMENT_THEME_CONFIG[stock.investmentTheme].icon}</span>
@@ -251,8 +253,8 @@ export default function FeaturedStocksByCategory() {
         )}
 
         <div className={CARD_FOOTER_STYLES.container}>
-          {/* アクションボタン（保有中以外で表示） */}
-          {!stock.isOwned && (
+          {/* アクションボタン（保有中・無効化時は非表示） */}
+          {!stock.isOwned && !isDisabled && (
             <div className={CARD_FOOTER_STYLES.actionGroup}>
               <StockActionButtons
                 tickerCode={stock.stock.tickerCode}
@@ -269,25 +271,34 @@ export default function FeaturedStocksByCategory() {
           )}
           {stock.isOwned && <div />}
 
-          <Link
-            href={stock.userStockId ? `/my-stocks/${stock.userStockId}` : `/stocks/${stock.stockId}`}
-            className={CARD_FOOTER_STYLES.detailLink}
-          >
-            <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
-            <svg
-              className="w-4 h-4 ml-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {isDisabled ? (
+            <div className="flex items-center text-gray-300">
+              <span className="text-xs text-gray-300">詳細を見る</span>
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          ) : (
+            <Link
+              href={stock.userStockId ? `/my-stocks/${stock.userStockId}` : `/stocks/${stock.stockId}`}
+              className={CARD_FOOTER_STYLES.detailLink}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </Link>
+              <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
+              <svg
+                className="w-4 h-4 ml-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
+          )}
         </div>
       </div>
     )

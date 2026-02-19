@@ -244,7 +244,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                     )}
                   </div>
                 ) : isStale ? (
-                  <span className="text-xs text-amber-600">株価データが古いため上場廃止か取引停止した銘柄の可能性があります</span>
+                  <span className="text-xs text-amber-600">株価データが取得できませんでした。<br />上場廃止、取引停止の銘柄の可能性があります。</span>
                 ) : (
                   <span className="text-sm text-gray-400">価格情報なし</span>
                 )}
@@ -306,18 +306,10 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Analysis Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            {isStale ? (
-              <div className="bg-amber-50 rounded-lg p-3">
-                <p className="text-xs sm:text-sm text-amber-700">
-                  最新の株価が取得できないため分析がおこなえませんでした
-                </p>
-              </div>
-            ) : (
-              <StockAnalysisCard
-                stockId={stock.stockId}
-                quantity={quantity}
-              />
-            )}
+            <StockAnalysisCard
+              stockId={stock.stockId}
+              quantity={quantity}
+            />
           </section>
 
           {/* Tabbed Content Section */}
@@ -497,15 +489,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Purchase Recommendation Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            {isStale ? (
-              <div className="bg-amber-50 rounded-lg p-3">
-                <p className="text-xs sm:text-sm text-amber-700">
-                  最新の株価が取得できないため分析がおこなえませんでした
-                </p>
-              </div>
-            ) : (
-              <PurchaseRecommendation stockId={stock.stockId} />
-            )}
+            <PurchaseRecommendation stockId={stock.stockId} />
           </section>
 
           {/* Tabbed Content Section */}

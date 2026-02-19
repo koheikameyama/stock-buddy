@@ -95,7 +95,7 @@ export default function CurrentPriceCard({
         ) : isStale ? (
           <div className="bg-amber-50 border-l-4 border-amber-400 p-3">
             <p className="text-xs text-amber-800">
-              株価データが古いため上場廃止か取引停止した銘柄の可能性があります
+              株価データが取得できませんでした。<br />上場廃止、取引停止の銘柄の可能性があります。
             </p>
           </div>
         ) : (

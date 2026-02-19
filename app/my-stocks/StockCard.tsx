@@ -66,10 +66,11 @@ interface StockCardProps {
   onSell?: () => void
   onPurchase?: () => void
   onTrackClick?: () => void
+  onDelete?: () => void
 }
 
 
-export default function StockCard({ stock, price, priceLoaded = false, isStale = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick }: StockCardProps) {
+export default function StockCard({ stock, price, priceLoaded = false, isStale = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick, onDelete }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -98,25 +99,29 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
 
   const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAIStatusBadge()
 
+  // staleまたは上場廃止の銘柄は詳細遷移・バッジ・AI分析を無効化
+  const isDisabled = isStale || stock.stock.isDelisted === true
+
   const handleClick = () => {
+    if (isDisabled) return
     router.push(`/my-stocks/${stock.id}`)
   }
 
   return (
     <div
       onClick={handleClick}
-      className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
+      className={`relative bg-white rounded-xl shadow-md transition-all p-4 sm:p-6 ${isDisabled ? "opacity-60" : "hover:shadow-lg cursor-pointer hover:bg-gray-50"}`}
+      role={isDisabled ? undefined : "button"}
+      tabIndex={isDisabled ? undefined : 0}
+      onKeyDown={isDisabled ? undefined : (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault()
           handleClick()
         }
       }}
     >
-      {/* AI推奨バッジ - 右上（staleの場合は非表示） */}
-      {aiJudgment && !isStale && (
+      {/* AI推奨バッジ - 右上（無効化時は非表示） */}
+      {aiJudgment && !isDisabled && (
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1.5">
           {isWatchlist && recommendation?.recommendation === "buy" && recommendation.buyTiming ? (
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -142,8 +147,8 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
         </div>
       )}
 
-      {/* 投資テーマバッジ（おすすめ経由のウォッチリストのみ） */}
-      {isWatchlist && stock.investmentTheme && INVESTMENT_THEME_CONFIG[stock.investmentTheme] && (
+      {/* 投資テーマバッジ（おすすめ経由のウォッチリストのみ、無効化時は非表示） */}
+      {isWatchlist && !isDisabled && stock.investmentTheme && INVESTMENT_THEME_CONFIG[stock.investmentTheme] && (
         <div className="mb-2">
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].bg} ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].color}`}>
             <span>{INVESTMENT_THEME_CONFIG[stock.investmentTheme].icon}</span>
@@ -212,7 +217,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
             </div>
           ) : priceLoaded ? (
             isStale ? (
-              <p className="text-xs text-amber-600">株価データが古いため上場廃止か取引停止した銘柄の可能性があります</p>
+              <p className="text-xs text-amber-600">株価データが取得できませんでした。<br />上場廃止、取引停止の銘柄の可能性があります。</p>
             ) : (
               <p className="text-sm text-gray-400">価格情報なし</p>
             )
@@ -287,7 +292,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm text-gray-600">評価損益</span>
                   <div className="text-right">
-                    <p className="text-sm text-gray-400">{priceLoaded ? (isStale ? "株価データが古いため上場廃止か取引停止した銘柄の可能性があります" : "価格情報なし") : "価格取得中..."}</p>
+                    <p className="text-sm text-gray-400">{priceLoaded ? (isStale ? "株価データが取得できませんでした。上場廃止、取引停止の銘柄の可能性があります。" : "価格情報なし") : "価格取得中..."}</p>
                   </div>
                 </div>
                 {/* AI Analysis for Portfolio */}
@@ -315,7 +320,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
         )}
 
         {/* AI Analysis Reason for Watchlist */}
-        {isWatchlist && (isStale ? (
+        {isWatchlist && (isDisabled ? (
           <div className="bg-amber-50 rounded-lg p-3">
             <p className="text-xs sm:text-sm text-amber-700">
               最新の株価が取得できないため分析がおこなえませんでした
@@ -343,7 +348,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
         <div className={CARD_FOOTER_STYLES.container}>
           {/* Action Buttons */}
           <div className={CARD_FOOTER_STYLES.actionGroup}>
-            {isHolding && onAdditionalPurchase && (
+            {isHolding && !isDisabled && onAdditionalPurchase && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -365,7 +370,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
                 {ACTION_BUTTON_LABELS.sell}
               </button>
             )}
-            {isWatchlist && onPurchase && (
+            {isWatchlist && !isDisabled && onPurchase && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -376,7 +381,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
                 {ACTION_BUTTON_LABELS.purchase}
               </button>
             )}
-            {isWatchlist && onTrackClick && (
+            {isWatchlist && !isDisabled && onTrackClick && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -387,11 +392,22 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
                 -見送り
               </button>
             )}
+            {isDisabled && onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete()
+                }}
+                className="px-2 py-1 text-xs font-medium rounded transition-colors text-red-600 hover:bg-red-50"
+              >
+                削除
+              </button>
+            )}
           </div>
 
           {/* Detail Link */}
-          <div className={CARD_FOOTER_STYLES.detailLink}>
-            <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
+          <div className={isDisabled ? "flex items-center text-gray-300" : CARD_FOOTER_STYLES.detailLink}>
+            <span className={isDisabled ? "text-xs text-gray-300" : CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
             <svg
               className="w-4 h-4 ml-1"
               fill="none"

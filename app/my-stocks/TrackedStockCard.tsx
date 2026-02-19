@@ -36,9 +36,10 @@ interface TrackedStockCardProps {
   isStale?: boolean
   onMoveToWatchlist: (stockId: string, tickerCode: string, name: string) => void
   onPurchase: (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => void
+  onDelete?: (trackedStockId: string) => void
 }
 
-export default function TrackedStockCard({ trackedStock, isStale = false, onMoveToWatchlist, onPurchase }: TrackedStockCardProps) {
+export default function TrackedStockCard({ trackedStock, isStale = false, onMoveToWatchlist, onPurchase, onDelete }: TrackedStockCardProps) {
   const router = useRouter()
   const { stock, currentPrice, changePercent } = trackedStock
   const [signal, setSignal] = useState<Signal | null>(null)
@@ -64,25 +65,29 @@ export default function TrackedStockCard({ trackedStock, isStale = false, onMove
     fetchSignal()
   }, [trackedStock.stockId])
 
+  // staleまたは上場廃止の銘柄は詳細遷移・バッジを無効化
+  const isDisabled = isStale || stock.isDelisted === true
+
   const handleClick = () => {
+    if (isDisabled) return
     router.push(`/stocks/${trackedStock.stockId}`)
   }
 
   return (
     <div
       onClick={handleClick}
-      className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
+      className={`relative bg-white rounded-xl shadow-md transition-all p-4 sm:p-6 ${isDisabled ? "opacity-60" : "hover:shadow-lg cursor-pointer hover:bg-gray-50"}`}
+      role={isDisabled ? undefined : "button"}
+      tabIndex={isDisabled ? undefined : 0}
+      onKeyDown={isDisabled ? undefined : (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault()
           handleClick()
         }
       }}
     >
-      {/* シグナルバッジ - 右上 */}
-      {signal && (
+      {/* シグナルバッジ - 右上（無効化時は非表示） */}
+      {signal && !isDisabled && (
         <span
           className={`absolute top-3 right-3 sm:top-4 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold ${
             signal.signal === "buy"
@@ -152,7 +157,7 @@ export default function TrackedStockCard({ trackedStock, isStale = false, onMove
             )}
           </div>
         ) : isStale ? (
-          <span className="text-xs text-amber-600">株価データが古いため上場廃止か取引停止した銘柄の可能性があります</span>
+          <span className="text-xs text-amber-600">株価データが取得できませんでした。<br />上場廃止、取引停止の銘柄の可能性があります。</span>
         ) : (
           <span className="text-sm text-gray-400">価格取得中...</span>
         )}
@@ -162,23 +167,35 @@ export default function TrackedStockCard({ trackedStock, isStale = false, onMove
       <div className={CARD_FOOTER_STYLES.containerLarge} onClick={(e) => e.stopPropagation()}>
         {/* Action Buttons */}
         <div className={CARD_FOOTER_STYLES.actionGroup}>
-          <button
-            onClick={() => onMoveToWatchlist(stock.id, stock.tickerCode, stock.name)}
-            className={getActionButtonClass("watchlist")}
-          >
-            {ACTION_BUTTON_LABELS.watchlist}
-          </button>
-          <button
-            onClick={() => onPurchase(stock.id, stock.tickerCode, stock.name, stock.market, stock.sector)}
-            className={getActionButtonClass("purchase")}
-          >
-            {ACTION_BUTTON_LABELS.purchase}
-          </button>
+          {!isDisabled && (
+            <>
+              <button
+                onClick={() => onMoveToWatchlist(stock.id, stock.tickerCode, stock.name)}
+                className={getActionButtonClass("watchlist")}
+              >
+                {ACTION_BUTTON_LABELS.watchlist}
+              </button>
+              <button
+                onClick={() => onPurchase(stock.id, stock.tickerCode, stock.name, stock.market, stock.sector)}
+                className={getActionButtonClass("purchase")}
+              >
+                {ACTION_BUTTON_LABELS.purchase}
+              </button>
+            </>
+          )}
+          {isDisabled && onDelete && (
+            <button
+              onClick={() => onDelete(trackedStock.id)}
+              className="px-2 py-1 text-xs font-medium rounded transition-colors text-red-600 hover:bg-red-50"
+            >
+              削除
+            </button>
+          )}
         </div>
 
         {/* Detail Link */}
-        <div className={CARD_FOOTER_STYLES.detailLink}>
-          <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
+        <div className={isDisabled ? "flex items-center text-gray-300" : CARD_FOOTER_STYLES.detailLink}>
+          <span className={isDisabled ? "text-xs text-gray-300" : CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
           <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

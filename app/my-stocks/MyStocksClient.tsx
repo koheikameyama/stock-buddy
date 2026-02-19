@@ -278,6 +278,34 @@ export default function MyStocksClient() {
     setShowAddDialog(true)
   }
 
+  // ユーザー銘柄（ポートフォリオ・ウォッチリスト）を削除
+  const handleDeleteUserStock = async (stock: UserStock) => {
+    if (!confirm(`${stock.stock.name}を削除しますか？`)) return
+    try {
+      const response = await fetch(`/api/user-stocks/${stock.id}`, { method: "DELETE" })
+      if (!response.ok) throw new Error("削除に失敗しました")
+      setUserStocks((prev) => prev.filter((s) => s.id !== stock.id))
+      toast.success(`${stock.stock.name}を削除しました`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "削除に失敗しました")
+    }
+  }
+
+  // 追跡銘柄を削除
+  const handleDeleteTrackedStock = async (trackedStockId: string) => {
+    const ts = trackedStocks.find((t) => t.id === trackedStockId)
+    if (!confirm(`${ts?.stock.name ?? "この銘柄"}を削除しますか？`)) return
+    try {
+      const response = await fetch(`/api/tracked-stocks/${trackedStockId}`, { method: "DELETE" })
+      if (!response.ok) throw new Error("削除に失敗しました")
+      setTrackedStocks((prev) => prev.filter((t) => t.id !== trackedStockId))
+      removeTrackedStock(trackedStockId)
+      toast.success("追跡銘柄を削除しました")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "削除に失敗しました")
+    }
+  }
+
   const handleAddStock = () => {
     setShowAddDialog(true)
   }
@@ -571,6 +599,7 @@ export default function MyStocksClient() {
                       isStale={trackedStaleTickers.has(ts.stock.tickerCode)}
                       onMoveToWatchlist={handleTrackedToWatchlist}
                       onPurchase={handleTrackedToPurchase}
+                      onDelete={handleDeleteTrackedStock}
                     />
                   ))}
                 </div>
@@ -666,6 +695,7 @@ export default function MyStocksClient() {
                       onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
                       onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
                       onTrackClick={stock.type === "watchlist" ? () => handleTrackClickFromWatchlist(stock) : undefined}
+                      onDelete={() => handleDeleteUserStock(stock)}
                     />
                   ))}
                 </div>
