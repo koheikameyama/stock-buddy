@@ -408,9 +408,11 @@ ${PROMPT_NEWS_CONSTRAINTS}
   - 75%: 大部分を利確、少量残して様子見
   - 100%: 全売却推奨
 - sellReason: テクニカル・ファンダメンタルに基づく具体的な売却理由を記載（指標名と数値を必ず含める）
-- 【重要】statusType と sellReason の整合性:
-  - 売却を推奨する場合 → statusType は warning にし、sellReason に理由を記載
-  - 様子見（statusType: neutral / good）の場合 → sellReason と suggestedSellPercent は null にする
+- 【重要】statusType と recommendation の整合性（必ず守ること）:
+  - recommendation が "sell" → statusType は必ず "warning" にし、sellReason に理由を記載
+  - recommendation が "buy" → statusType は "good" または "neutral"（"warning" にしない）
+  - suggestedSellPrice が現在価格に近い（±2%以内）場合 → recommendation は "sell" とし、statusType は "warning" にする
+  - statusType が "neutral" または "good" の場合 → sellReason と suggestedSellPercent は null にする
 
 【損切り提案の指針】
 - 損失率が-15%以上かつ下落トレンドが続いている場合は、損切りを選択肢として提示
@@ -534,6 +536,29 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.statusType = "warning"
       result.recommendation = "sell"
       result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`
+    }
+
+    // statusType と recommendation の整合性補正
+    // 補正A: recommendation="sell" なのに statusType が "warning" でない
+    if (result.recommendation === "sell" && statusType !== "warning") {
+      statusType = "warning"
+      result.statusType = "warning"
+    }
+    // 補正B: recommendation="hold" + suggestedSellPrice ≈ currentPrice（差が2%以内）→ 実質売り推奨
+    if (
+      result.recommendation === "hold" &&
+      result.suggestedSellPrice &&
+      currentPrice &&
+      Math.abs(result.suggestedSellPrice - currentPrice) / currentPrice < 0.02
+    ) {
+      result.recommendation = "sell"
+      statusType = "warning"
+      result.statusType = "warning"
+    }
+    // 補正C: recommendation="buy" なのに statusType が "warning"
+    if (result.recommendation === "buy" && statusType === "warning") {
+      statusType = "neutral"
+      result.statusType = "neutral"
     }
 
     // 売りタイミング判定（sell推奨時のみ）
