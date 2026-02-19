@@ -723,3 +723,65 @@ const AI_CONCURRENCY_LIMIT = 5
 - [ ] 同時実行数が適切に制限されているか
 
 **重要: ループ内の非同期処理は、特別な理由がない限り並列化してください。**
+
+### パイプライン化の検討
+
+**ループ処理に複数の段階がある場合は、Producer-Consumerパターンでパイプライン化を検討してください。**
+
+#### いつパイプライン化するか
+
+以下の条件を満たす場合、パイプライン化が効果的：
+
+1. **処理が2つ以上の段階に分かれる**（例: データ取得 → AI処理 → DB保存）
+2. **各段階の実行速度が異なる**（例: API取得は遅いがDB保存は速い）
+3. **前段階の全完了を待たずに次段階を開始できる**
+
+#### パターン
+
+```python
+import queue
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+SENTINEL = None  # Producer終了の合図
+
+def producer(items: list, q: queue.Queue):
+    """データ取得（順次）→ キューに投入"""
+    for item in items:
+        result = fetch_data(item)
+        q.put(result)
+        time.sleep(SLEEP_INTERVAL)
+    q.put(SENTINEL)
+
+def main():
+    q: queue.Queue = queue.Queue(maxsize=CONCURRENCY * 2)
+
+    # Producer: バックグラウンドでデータ取得
+    thread = threading.Thread(target=producer, args=(items, q), daemon=True)
+    thread.start()
+
+    # Consumer: キューから取り出して並列処理
+    with ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
+        futures = []
+        while True:
+            item = q.get()
+            if item is SENTINEL:
+                break
+            futures.append(executor.submit(process_item, item))
+
+        # 結果回収
+        for future in futures:
+            result = future.result()
+```
+
+#### 効果
+
+- **直列**: 取得時間 + 処理時間（合計）
+- **パイプライン**: max(取得時間, 処理時間)（重複実行）
+
+#### チェックリスト
+
+バッチ処理を実装する際：
+- [ ] 処理が複数段階に分かれていないか
+- [ ] 各段階を並行実行できないか
+- [ ] `queue.Queue` + `ThreadPoolExecutor` でパイプライン化できないか
