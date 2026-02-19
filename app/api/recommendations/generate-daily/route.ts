@@ -131,14 +131,31 @@ export async function POST(request: NextRequest) {
 
     console.log(`Found ${allStocks.length} stocks with price data`)
 
-    const [portfolioStocks, watchlistStocks] = await Promise.all([
+    const userIds = users.map(u => u.userId)
+
+    const [portfolioStocks, watchlistStocks, allTransactions] = await Promise.all([
       prisma.portfolioStock.findMany({
         select: { userId: true, stockId: true },
       }),
       prisma.watchlistStock.findMany({
         select: { userId: true, stockId: true },
       }),
+      prisma.transaction.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, type: true, totalAmount: true },
+      }),
     ])
+
+    // ユーザーごとのネット投資額（買い合計 - 売り合計）を計算
+    const netInvestedByUser = new Map<string, number>()
+    for (const tx of allTransactions) {
+      const current = netInvestedByUser.get(tx.userId) ?? 0
+      const amount = Number(tx.totalAmount)
+      netInvestedByUser.set(
+        tx.userId,
+        tx.type === "buy" ? current + amount : current - amount
+      )
+    }
 
     const registeredByUser = new Map<string, Set<string>>()
     for (const ps of portfolioStocks) {
@@ -169,12 +186,18 @@ export async function POST(request: NextRequest) {
     const tasks = users.map((user) =>
       limit(async (): Promise<UserResult> => {
         try {
+          const netInvested = netInvestedByUser.get(user.userId) ?? 0
+          const remainingBudget = user.investmentBudget !== null
+            ? Math.max(0, user.investmentBudget - netInvested)
+            : null
+
           const result = await processUser(
             user,
             allStocks,
             registeredByUser.get(user.userId) || new Set(),
             session,
-            marketContext
+            marketContext,
+            remainingBudget
           )
           return result
         } catch (error) {
@@ -243,11 +266,12 @@ async function processUser(
   }>,
   registeredStockIds: Set<string>,
   session: string,
-  marketContext: string
+  marketContext: string,
+  remainingBudget: number | null
 ): Promise<UserResult> {
   const { userId, investmentPeriod, riskTolerance, investmentBudget } = user
 
-  console.log(`\n--- User: ${userId} (budget: ${investmentBudget}, period: ${investmentPeriod}, risk: ${riskTolerance}) ---`)
+  console.log(`\n--- User: ${userId} (totalBudget: ${investmentBudget}, remainingBudget: ${remainingBudget}, period: ${investmentPeriod}, risk: ${riskTolerance}) ---`)
 
   const stocksForScoring: StockForScoring[] = allStocks.map(s => ({
     id: s.id,
@@ -263,7 +287,8 @@ async function processUser(
     maDeviationRate: s.maDeviationRate ? Number(s.maDeviationRate) : null,
   }))
 
-  const filtered = filterByBudget(stocksForScoring, investmentBudget)
+  // 残り予算でフィルタ（総予算からすでに投資した金額を引いた範囲内で購入可能な銘柄のみ）
+  const filtered = filterByBudget(stocksForScoring, remainingBudget)
   console.log(`  Stocks after budget filter: ${filtered.length}/${stocksForScoring.length}`)
 
   if (filtered.length === 0) {
@@ -293,6 +318,7 @@ async function processUser(
     investmentPeriod,
     riskTolerance,
     investmentBudget,
+    remainingBudget,
     session,
     stockContexts,
     marketContext
@@ -412,6 +438,7 @@ async function selectWithAI(
   investmentPeriod: string | null,
   riskTolerance: string | null,
   investmentBudget: number | null,
+  remainingBudget: number | null,
   session: string,
   stockContexts: StockContext[],
   marketContext: string
@@ -419,7 +446,11 @@ async function selectWithAI(
   const prompts = SESSION_PROMPTS[session] || SESSION_PROMPTS.evening
   const periodLabel = PERIOD_LABELS[investmentPeriod || ""] || "不明"
   const riskLabel = RISK_LABELS[riskTolerance || ""] || "不明"
-  const budgetLabel = investmentBudget ? `${investmentBudget.toLocaleString()}円` : "未設定"
+  const budgetLabel = investmentBudget
+    ? remainingBudget !== null
+      ? `${remainingBudget.toLocaleString()}円（残り）/ 合計 ${investmentBudget.toLocaleString()}円`
+      : `${investmentBudget.toLocaleString()}円`
+    : "未設定"
 
   const stockSummaries = stockContexts.map((ctx, idx) => {
     const s = ctx.stock

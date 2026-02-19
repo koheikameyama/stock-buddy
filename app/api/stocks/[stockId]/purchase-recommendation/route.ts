@@ -193,6 +193,25 @@ export async function POST(
         })
       : null
 
+    // 残り予算を計算（総予算 - すでに投資した金額）
+    let remainingBudget: number | null = null
+    if (userId && userSettings?.investmentBudget) {
+      const [buyAgg, sellAgg] = await Promise.all([
+        prisma.transaction.aggregate({
+          where: { userId, type: "buy" },
+          _sum: { totalAmount: true },
+        }),
+        prisma.transaction.aggregate({
+          where: { userId, type: "sell" },
+          _sum: { totalAmount: true },
+        }),
+      ])
+      const buyTotal = Number(buyAgg._sum.totalAmount ?? 0)
+      const sellTotal = Number(sellAgg._sum.totalAmount ?? 0)
+      const netInvested = Math.max(0, buyTotal - sellTotal)
+      remainingBudget = Math.max(0, userSettings.investmentBudget - netInvested)
+    }
+
     if (!stock) {
       return NextResponse.json(
         { error: "銘柄が見つかりません" },
@@ -309,7 +328,8 @@ export async function POST(
 【ユーザーの投資設定】
 - 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
 - リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
-- 投資予算: ${userSettings.investmentBudget ? `${userSettings.investmentBudget.toLocaleString()}円` : "未設定"}
+- 投資予算（合計）: ${userSettings.investmentBudget ? `${userSettings.investmentBudget.toLocaleString()}円` : "未設定"}
+- 投資予算（残り）: ${remainingBudget !== null ? `${remainingBudget.toLocaleString()}円` : userSettings.investmentBudget ? "未計算" : "未設定"}
 `
       : ""
 
