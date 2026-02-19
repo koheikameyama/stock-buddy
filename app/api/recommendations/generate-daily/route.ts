@@ -21,6 +21,7 @@ import {
   PROMPT_MARKET_SIGNAL_DEFINITION,
 } from "@/lib/stock-analysis-context"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
+import { getAllSectorTrends, formatAllSectorTrendsForPrompt, type SectorTrendData } from "@/lib/sector-trend"
 import { calculateDeviationRate } from "@/lib/technical-indicators"
 import { MA_DEVIATION } from "@/lib/constants"
 import { isSurgeStock, isDangerousStock, isOverheated } from "@/lib/stock-safety-rules"
@@ -197,6 +198,14 @@ export async function POST(request: NextRequest) {
     }
     const marketContext = buildMarketContext(marketData)
 
+    // セクタートレンドを一括取得（全ユーザー共通）
+    const sectorTrends = await getAllSectorTrends()
+    const sectorTrendMap: Record<string, SectorTrendData> = {}
+    for (const t of sectorTrends) {
+      sectorTrendMap[t.sector] = t
+    }
+    const sectorTrendContext = formatAllSectorTrendsForPrompt(sectorTrends)
+
     // ユーザー処理を並列実行（同時実行数を制限）
     const limit = pLimit(USER_CONCURRENCY_LIMIT)
     console.log(`Processing ${users.length} users with concurrency limit: ${USER_CONCURRENCY_LIMIT}`)
@@ -215,7 +224,9 @@ export async function POST(request: NextRequest) {
             registeredByUser.get(user.userId) || new Set(),
             session,
             marketContext,
-            remainingBudget
+            remainingBudget,
+            sectorTrendMap,
+            sectorTrendContext
           )
           return result
         } catch (error) {
@@ -287,7 +298,9 @@ async function processUser(
   registeredStockIds: Set<string>,
   session: string,
   marketContext: string,
-  remainingBudget: number | null
+  remainingBudget: number | null,
+  sectorTrendMap: Record<string, SectorTrendData>,
+  sectorTrendContext: string
 ): Promise<UserResult> {
   const { userId, investmentPeriod, riskTolerance, investmentBudget } = user
 
@@ -315,7 +328,7 @@ async function processUser(
     return { userId, success: false, error: "No stocks available after budget filter" }
   }
 
-  const scored = calculateStockScores(filtered, investmentPeriod, riskTolerance)
+  const scored = calculateStockScores(filtered, investmentPeriod, riskTolerance, sectorTrendMap)
   console.log(`  Top 3 scores: ${scored.slice(0, 3).map(s => `${s.tickerCode}:${s.score}`).join(", ")}`)
 
   let diversified = applySectorDiversification(scored)
@@ -342,7 +355,8 @@ async function processUser(
     session,
     stockContexts,
     marketContext,
-    newsContext
+    newsContext,
+    sectorTrendContext
   )
 
   if (!recommendations || recommendations.length === 0) {
@@ -527,7 +541,8 @@ async function selectWithAI(
   session: string,
   stockContexts: StockContext[],
   marketContext: string,
-  newsContext: string
+  newsContext: string,
+  sectorTrendContext: string
 ): Promise<Array<{ tickerCode: string; reason: string; investmentTheme: string }> | null> {
   const prompts = SESSION_PROMPTS[session] || SESSION_PROMPTS.evening
   const periodLabel = PERIOD_LABELS[investmentPeriod || ""] || "不明"
@@ -558,7 +573,7 @@ ${prompts.intro}
 - 投資期間: ${periodLabel}
 - リスク許容度: ${riskLabel}
 - 投資資金: ${budgetLabel}
-${marketContext}
+${marketContext}${sectorTrendContext}
 【選べる銘柄一覧（詳細分析付き）】
 ${stockSummaries}
 ${newsContext}
