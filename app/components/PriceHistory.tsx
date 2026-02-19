@@ -89,7 +89,7 @@ export default function PriceHistory({ stockId, embedded = false }: PriceHistory
     )
   }
 
-  const displayData = showAll ? data : data.slice(0, 10)
+  const displayData = showAll ? data : data.slice(0, 5)
 
   return (
     <div className={wrapperClass}>
