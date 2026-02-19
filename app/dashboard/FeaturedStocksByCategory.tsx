@@ -29,6 +29,7 @@ interface FeaturedStock {
     weekChangeRate: number | null
     fetchFailCount?: number
     isDelisted?: boolean
+    isStale?: boolean
   }
 }
 
@@ -53,8 +54,9 @@ export default function FeaturedStocksByCategory() {
       const priceMap = new Map<string, { currentPrice: number; marketTime: number | null }>(
         data.prices?.map((p: { tickerCode: string; currentPrice: number; marketTime: number | null }) => [p.tickerCode, { currentPrice: p.currentPrice, marketTime: p.marketTime }]) || []
       )
+      const staleTickers = new Set<string>(data.staleTickers || [])
 
-      // 株価を更新
+      // 株価を更新（stale情報も反映）
       setPersonalRecommendations((prev) =>
         prev.map((s) => {
           const priceData = priceMap.get(s.stock.tickerCode)
@@ -64,6 +66,7 @@ export default function FeaturedStocksByCategory() {
               ...s.stock,
               currentPrice: priceData?.currentPrice ?? s.stock.currentPrice,
               marketTime: priceData?.marketTime ?? s.stock.marketTime,
+              isStale: staleTickers.has(s.stock.tickerCode),
             },
           }
         })
@@ -139,7 +142,7 @@ export default function FeaturedStocksByCategory() {
   }
 
   const renderStockCard = (stock: FeaturedStock) => {
-    const isDisabled = stock.stock.isDelisted === true
+    const isDisabled = stock.stock.isDelisted === true || stock.stock.isStale === true
 
     return (
       <div
@@ -185,6 +188,8 @@ export default function FeaturedStocksByCategory() {
             <div className="text-base sm:text-lg font-bold text-gray-900">
               {stock.stock.currentPrice != null ? (
                 `¥${stock.stock.currentPrice.toLocaleString()}`
+              ) : stock.stock.isStale ? (
+                <span className="text-amber-600 text-xs">株価データが取得できませんでした。<br />上場廃止、取引停止の銘柄の可能性があります。</span>
               ) : (
                 <span className="text-gray-400 text-sm">取得中...</span>
               )}
