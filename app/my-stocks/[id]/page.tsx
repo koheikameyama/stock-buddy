@@ -167,6 +167,8 @@ async function StockDetailContent({
       latestNetIncome: userStock.stock.latestNetIncome
         ? Number(userStock.stock.latestNetIncome)
         : null,
+      fetchFailCount: userStock.stock.fetchFailCount,
+      isDelisted: userStock.stock.isDelisted,
     },
   }
 

@@ -34,16 +34,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return !!auth
     },
     async jwt({ token, user }) {
-      // 初回ログイン時にユーザーIDをトークンに保存
+      // 初回ログイン時にユーザーIDとロールをトークンに保存
       if (user) {
         token.id = user.id
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id as string },
+          select: { role: true },
+        })
+        token.role = dbUser?.role ?? "user"
       }
       return token
     },
     async session({ session, token }) {
-      // トークンからユーザーIDをセッションに追加
+      // トークンからユーザーIDとロールをセッションに追加
       if (session.user && token.id) {
         session.user.id = token.id as string
+        session.user.role = (token.role as string) ?? "user"
       }
       return session
     },

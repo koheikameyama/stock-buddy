@@ -49,6 +49,8 @@ export interface UserStockResponse {
     sector: string | null
     market: string
     currentPrice: number | null
+    fetchFailCount?: number
+    isDelisted?: boolean
   }
   createdAt: string
   updatedAt: string
@@ -84,12 +86,12 @@ export async function GET(request: NextRequest) {
 
     let watchlistStocks: Awaited<ReturnType<typeof prisma.watchlistStock.findMany<{
       where: { userId: string }
-      include: { stock: { select: { id: true; tickerCode: true; name: true; sector: true; market: true } } }
+      include: { stock: { select: { id: true; tickerCode: true; name: true; sector: true; market: true; fetchFailCount: true; isDelisted: true } } }
     }>>> = []
     let portfolioStocks: Awaited<ReturnType<typeof prisma.portfolioStock.findMany<{
       where: { userId: string }
       include: {
-        stock: { select: { id: true; tickerCode: true; name: true; sector: true; market: true; analyses: { select: { recommendation: true; analyzedAt: true }; orderBy: { analyzedAt: "desc" }; take: 1 } } }
+        stock: { select: { id: true; tickerCode: true; name: true; sector: true; market: true; fetchFailCount: true; isDelisted: true; analyses: { select: { recommendation: true; analyzedAt: true }; orderBy: { analyzedAt: "desc" }; take: 1 } } }
         transactions: { orderBy: { transactionDate: "asc" } }
       }
     }>>> = []
@@ -106,6 +108,8 @@ export async function GET(request: NextRequest) {
               name: true,
               sector: true,
               market: true,
+              fetchFailCount: true,
+              isDelisted: true,
             },
           },
         },
@@ -124,6 +128,8 @@ export async function GET(request: NextRequest) {
               name: true,
               sector: true,
               market: true,
+              fetchFailCount: true,
+              isDelisted: true,
               // 最新のStockAnalysisからrecommendationとanalyzedAtを取得
               analyses: {
                 select: {
@@ -157,6 +163,8 @@ export async function GET(request: NextRequest) {
         sector: ws.stock.sector,
         market: ws.stock.market,
         currentPrice: null, // クライアント側で非同期取得
+        fetchFailCount: ws.stock.fetchFailCount,
+        isDelisted: ws.stock.isDelisted,
       },
       createdAt: ws.createdAt.toISOString(),
       updatedAt: ws.updatedAt.toISOString(),
@@ -209,6 +217,8 @@ export async function GET(request: NextRequest) {
           sector: ps.stock.sector,
           market: ps.stock.market,
           currentPrice: null, // クライアント側で非同期取得
+          fetchFailCount: ps.stock.fetchFailCount,
+          isDelisted: ps.stock.isDelisted,
         },
         createdAt: ps.createdAt.toISOString(),
         updatedAt: ps.updatedAt.toISOString(),

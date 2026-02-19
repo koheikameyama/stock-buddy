@@ -15,12 +15,13 @@ import type { UserStock, TrackedStock, SoldStock, StockPrice } from "@/store/typ
 import { MyStocksSkeleton } from "@/components/skeletons/my-stocks-skeleton"
 
 interface PurchaseRecommendation {
-  recommendation: "buy" | "stay"
+  recommendation: "buy" | "stay" | "avoid"
   confidence: number
   reason: string
   caution: string
   analyzedAt?: string
   buyTiming?: "market" | "dip" | null
+  sellTiming?: "market" | "rebound" | null
 }
 
 type TabType = "portfolio" | "watchlist" | "tracked" | "sold"
@@ -189,6 +190,7 @@ export default function MyStocksClient() {
               caution: result.value.data.caution,
               analyzedAt: result.value.data.analyzedAt,
               buyTiming: result.value.data.buyTiming,
+              sellTiming: result.value.data.sellTiming,
             }
           }
         })

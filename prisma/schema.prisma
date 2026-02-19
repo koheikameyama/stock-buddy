@@ -47,6 +47,9 @@ model User {
   privacyPolicyAccepted   Boolean                  @default(false)
   privacyPolicyAcceptedAt DateTime?
 
+  // ロール
+  role                    String                   @default("user") // 'user' | 'admin'
+
   // 課金プラン（将来用）
   subscriptionPlan        String                   @default("free") // 'free' | 'premium'
   subscriptionExpiry      DateTime?
@@ -145,6 +148,7 @@ model Stock {
   // 株価取得失敗トラッキング
   fetchFailCount    Int       @default(0)  // 連続失敗回数
   lastFetchFailedAt DateTime?              // 最後に失敗した日時
+  isDelisted        Boolean   @default(false) // 上場廃止フラグ
 
   analyses                StockAnalysis[]
   featuredStocks          DailyFeaturedStock[]

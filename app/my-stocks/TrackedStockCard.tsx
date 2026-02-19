@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
+import { FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
+import DelistedWarning from "@/app/components/DelistedWarning"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface TrackedStock {
@@ -14,6 +16,8 @@ interface TrackedStock {
     name: string
     sector: string | null
     market: string
+    fetchFailCount?: number
+    isDelisted?: boolean
   }
   currentPrice: number | null
   change: number | null
@@ -105,14 +109,28 @@ export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPu
         </div>
       </div>
 
+      {/* Delisted Warning */}
+      {(stock.isDelisted || (stock.fetchFailCount ?? 0) >= FETCH_FAIL_WARNING_THRESHOLD) && (
+        <div className="mb-3">
+          <DelistedWarning
+            isDelisted={stock.isDelisted ?? false}
+            fetchFailCount={stock.fetchFailCount ?? 0}
+            compact
+          />
+        </div>
+      )}
+
       {/* Price Info */}
       <div className="mb-4">
+        {stock.isDelisted && (
+          <span className="text-xs text-gray-500 mb-1 block">最終価格</span>
+        )}
         {currentPrice ? (
           <div className="flex items-baseline gap-3">
-            <span className="text-2xl font-bold text-gray-900">
+            <span className={`text-2xl font-bold ${stock.isDelisted ? "text-gray-400" : "text-gray-900"}`}>
               ¥{currentPrice.toLocaleString()}
             </span>
-            {changePercent !== null && (
+            {!stock.isDelisted && changePercent !== null && (
               <span className={`text-sm font-semibold ${changePercent >= 0 ? "text-green-600" : "text-red-600"}`}>
                 {changePercent >= 0 ? "+" : ""}{changePercent.toFixed(2)}%
               </span>

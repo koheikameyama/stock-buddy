@@ -15,11 +15,13 @@ export default async function MenuPage() {
     await signOut({ redirectTo: "/" })
   }
 
+  const isAdmin = session.user.role === "admin"
+
   return (
     <AuthenticatedLayout maxWidth="lg">
       <h1 className="text-xl font-bold text-gray-900 mb-6">その他</h1>
 
-      <MenuClient />
+      <MenuClient isAdmin={isAdmin} />
 
       {/* ログアウト */}
       <form action={handleSignOut} className="mt-2">

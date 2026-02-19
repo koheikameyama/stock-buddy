@@ -27,6 +27,8 @@ export interface UserStock {
     sector: string | null
     market: string
     currentPrice: number | null
+    fetchFailCount?: number
+    isDelisted?: boolean
   }
   createdAt: string
   updatedAt: string
@@ -41,6 +43,8 @@ export interface TrackedStock {
     name: string
     sector: string | null
     market: string
+    fetchFailCount?: number
+    isDelisted?: boolean
   }
   currentPrice: number | null
   change: number | null

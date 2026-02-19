@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
-import { PORTFOLIO_STATUS_CONFIG, PURCHASE_JUDGMENT_CONFIG } from "@/lib/constants"
+import { PORTFOLIO_STATUS_CONFIG, PURCHASE_JUDGMENT_CONFIG, FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
+import DelistedWarning from "@/app/components/DelistedWarning"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface UserStock {
@@ -23,6 +24,8 @@ interface UserStock {
     sector: string | null
     market: string
     currentPrice: number | null
+    fetchFailCount?: number
+    isDelisted?: boolean
   }
 }
 
@@ -115,9 +118,13 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               {recommendation.buyTiming === "market" ? "成り行きOK" : "押し目待ち"}
             </span>
           )}
-          {isWatchlist && recommendation?.recommendation === "avoid" && recommendation.sellTiming === "rebound" && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
-              戻り待ち
+          {isWatchlist && recommendation?.recommendation === "avoid" && recommendation.sellTiming && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+              recommendation.sellTiming === "market"
+                ? "bg-red-100 text-red-700"
+                : "bg-yellow-100 text-yellow-700"
+            }`}>
+              {recommendation.sellTiming === "market" ? "即見送り" : "戻り待ち"}
             </span>
           )}
           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
@@ -139,24 +146,39 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
         </p>
       </div>
 
+      {/* Delisted Warning */}
+      {(stock.stock.isDelisted || (stock.stock.fetchFailCount ?? 0) >= FETCH_FAIL_WARNING_THRESHOLD) && (
+        <div className="mb-3">
+          <DelistedWarning
+            isDelisted={stock.stock.isDelisted ?? false}
+            fetchFailCount={stock.stock.fetchFailCount ?? 0}
+            compact
+          />
+        </div>
+      )}
+
       {/* Price and Holdings Info */}
       <div className="space-y-3">
         {/* Current Price */}
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">現在価格</span>
+          <span className="text-sm text-gray-600">
+            {stock.stock.isDelisted ? "最終価格" : "現在価格"}
+          </span>
           {price ? (
             <div className="text-right">
-              <p className="text-lg sm:text-xl font-bold text-gray-900">
+              <p className={`text-lg sm:text-xl font-bold ${stock.stock.isDelisted ? "text-gray-400" : "text-gray-900"}`}>
                 ¥{price.currentPrice.toLocaleString()}
               </p>
-              <p
-                className={`text-xs sm:text-sm font-semibold ${
-                  price.change >= 0 ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {price.change >= 0 ? "+" : ""}
-                {price.changePercent.toFixed(2)}%
-              </p>
+              {!stock.stock.isDelisted && (
+                <p
+                  className={`text-xs sm:text-sm font-semibold ${
+                    price.change >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {price.change >= 0 ? "+" : ""}
+                  {price.changePercent.toFixed(2)}%
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-sm text-gray-400">読み込み中...</p>

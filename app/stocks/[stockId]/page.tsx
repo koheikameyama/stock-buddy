@@ -105,6 +105,8 @@ async function StockDetailContent({
     latestNetIncome: stock.latestNetIncome ? Number(stock.latestNetIncome) : null,
     volatility: stock.volatility ? Number(stock.volatility) : null,
     weekChangeRate: stock.weekChangeRate ? Number(stock.weekChangeRate) : null,
+    fetchFailCount: stock.fetchFailCount,
+    isDelisted: stock.isDelisted,
   }
 
   // 売却済み情報を計算

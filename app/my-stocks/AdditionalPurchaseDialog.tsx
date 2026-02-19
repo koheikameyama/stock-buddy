@@ -104,13 +104,13 @@ export default function AdditionalPurchaseDialog({
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || (isBuy ? "追加購入の登録に失敗しました" : "売却の登録に失敗しました"))
+        throw new Error(data.error || (isBuy ? "追加購入の保存に失敗しました" : "売却の保存に失敗しました"))
       }
 
       const updatedStock = await response.json()
       onSuccess(updatedStock)
     } catch (err: any) {
-      const errorMessage = err.message || (isBuy ? "追加購入の登録に失敗しました" : "売却の登録に失敗しました")
+      const errorMessage = err.message || (isBuy ? "追加購入の保存に失敗しました" : "売却の保存に失敗しました")
       setError(errorMessage)
       toast.error(errorMessage)
     } finally {
@@ -312,7 +312,7 @@ export default function AdditionalPurchaseDialog({
               }`}
               disabled={loading}
             >
-              {loading ? "登録中..." : (isBuy ? "追加購入を登録" : "売却を登録")}
+              {loading ? "保存中..." : "保存"}
             </button>
           </div>
         </form>

@@ -127,6 +127,8 @@ export async function GET() {
           isProfitable: r.stock.isProfitable,
           volatility: r.stock.volatility ? Number(r.stock.volatility) : null,
           weekChangeRate: r.stock.weekChangeRate ? Number(r.stock.weekChangeRate) : null,
+          fetchFailCount: r.stock.fetchFailCount,
+          isDelisted: r.stock.isDelisted,
         },
       }))
     }

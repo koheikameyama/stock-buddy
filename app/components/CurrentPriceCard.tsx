@@ -16,6 +16,7 @@ interface CurrentPriceCardProps {
   fiftyTwoWeekLow?: number | null
   actions?: ReactNode
   bottomActions?: ReactNode
+  isDelisted?: boolean
 }
 
 export default function CurrentPriceCard({
@@ -26,6 +27,7 @@ export default function CurrentPriceCard({
   fiftyTwoWeekLow,
   actions,
   bottomActions,
+  isDelisted = false,
 }: CurrentPriceCardProps) {
   return (
     <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
@@ -42,19 +44,23 @@ export default function CurrentPriceCard({
         ) : price ? (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">現在価格</span>
+              <span className="text-sm text-gray-600">
+                {isDelisted ? "最終価格" : "現在価格"}
+              </span>
               <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">
+                <p className={`text-2xl font-bold ${isDelisted ? "text-gray-400" : "text-gray-900"}`}>
                   ¥{price.currentPrice.toLocaleString()}
                 </p>
-                <p
-                  className={`text-sm font-semibold ${
-                    price.change >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {price.change >= 0 ? "+" : ""}
-                  {price.changePercent.toFixed(2)}%
-                </p>
+                {!isDelisted && (
+                  <p
+                    className={`text-sm font-semibold ${
+                      price.change >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {price.change >= 0 ? "+" : ""}
+                    {price.changePercent.toFixed(2)}%
+                  </p>
+                )}
               </div>
             </div>
 
