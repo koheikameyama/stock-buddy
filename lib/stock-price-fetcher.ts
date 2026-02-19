@@ -94,7 +94,7 @@ export async function fetchStockPrices(
 
     const { stdout, stderr } = await execAsync(
       `python3 "${scriptPath}" "${tickerArg}"`,
-      { timeout: 60000 }
+      { timeout: 90000 }
     )
 
     if (stderr) {
