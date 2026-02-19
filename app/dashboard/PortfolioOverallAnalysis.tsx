@@ -7,6 +7,7 @@ import type {
   WatchlistSimulation,
 } from "@/lib/portfolio-overall-analysis"
 import CopyableTicker from "@/app/components/CopyableTicker"
+import { OVERALL_STATUS_CONFIG, EVALUATION_BADGE_CONFIG } from "@/lib/constants"
 
 interface OverallAnalysisData {
   hasAnalysis: boolean
@@ -37,34 +38,18 @@ interface Props {
   watchlistCount: number
 }
 
+const DEFAULT_BADGE_STYLE = "bg-gray-100 text-gray-800"
+
 function getStatusBadgeStyle(statusType: string | undefined) {
-  switch (statusType) {
-    case "excellent":
-      return "bg-green-100 text-green-800"
-    case "good":
-      return "bg-blue-100 text-blue-800"
-    case "neutral":
-      return "bg-gray-100 text-gray-800"
-    case "caution":
-      return "bg-yellow-100 text-yellow-800"
-    case "warning":
-      return "bg-red-100 text-red-800"
-    default:
-      return "bg-gray-100 text-gray-800"
-  }
+  if (!statusType) return DEFAULT_BADGE_STYLE
+  const config = OVERALL_STATUS_CONFIG[statusType]
+  return config ? `${config.bg} ${config.color}` : DEFAULT_BADGE_STYLE
 }
 
 function getEvaluationBadgeStyle(evaluationType: string | undefined) {
-  switch (evaluationType) {
-    case "good":
-      return "bg-green-100 text-green-700"
-    case "neutral":
-      return "bg-gray-100 text-gray-700"
-    case "warning":
-      return "bg-yellow-100 text-yellow-700"
-    default:
-      return "bg-gray-100 text-gray-700"
-  }
+  if (!evaluationType) return "bg-gray-100 text-gray-700"
+  const config = EVALUATION_BADGE_CONFIG[evaluationType]
+  return config ? `${config.bg} ${config.color}` : "bg-gray-100 text-gray-700"
 }
 
 function MetricCard({

@@ -83,17 +83,64 @@ export const MARKET_INDEX = {
   DOWN_TREND_THRESHOLD: -3, // 下落トレンド判定（週間変化率%）
 } as const
 
-// ポートフォリオステータスの表示設定
-// statusType（英語キー）から表示テキスト・色を一元管理
+// バッジ表示設定
+// 各種ステータスの英語キーから表示テキスト・色を一元管理
+
+// ポートフォリオ個別銘柄ステータス
 export const PORTFOLIO_STATUS_CONFIG: Record<string, {
-  text: string     // バッジテキスト
-  color: string    // テキスト色
-  bg: string       // 背景色
+  text: string
+  color: string
+  bg: string
 }> = {
   good: { text: "買増検討", color: "text-green-700", bg: "bg-green-50" },
   neutral: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
   caution: { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
   warning: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
+}
+
+// ウォッチリスト購入判断
+export const PURCHASE_JUDGMENT_CONFIG: Record<string, {
+  text: string
+  color: string
+  bg: string
+}> = {
+  buy: { text: "買い推奨", color: "text-green-700", bg: "bg-green-50" },
+  stay: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
+  avoid: { text: "見送り推奨", color: "text-red-700", bg: "bg-red-50" },
+}
+
+// ポートフォリオ総評ステータス
+export const OVERALL_STATUS_CONFIG: Record<string, {
+  color: string
+  bg: string
+}> = {
+  excellent: { color: "text-green-800", bg: "bg-green-100" },
+  good: { color: "text-blue-800", bg: "bg-blue-100" },
+  neutral: { color: "text-gray-800", bg: "bg-gray-100" },
+  caution: { color: "text-yellow-800", bg: "bg-yellow-100" },
+  warning: { color: "text-red-800", bg: "bg-red-100" },
+}
+
+// 指標評価バッジ
+export const EVALUATION_BADGE_CONFIG: Record<string, {
+  color: string
+  bg: string
+}> = {
+  good: { color: "text-green-700", bg: "bg-green-100" },
+  neutral: { color: "text-gray-700", bg: "bg-gray-100" },
+  warning: { color: "text-yellow-700", bg: "bg-yellow-100" },
+}
+
+// 市場シグナルバッジ
+export const MARKET_SIGNAL_CONFIG: Record<string, {
+  text: string
+  color: string
+  bg: string
+  icon: string
+}> = {
+  bullish: { text: "上昇優勢", color: "text-green-700", bg: "bg-green-100", icon: "↑" },
+  neutral: { text: "横ばい", color: "text-gray-600", bg: "bg-gray-100", icon: "→" },
+  bearish: { text: "下落優勢", color: "text-red-700", bg: "bg-red-100", icon: "↓" },
 }
 
 // 移動平均乖離率の閾値

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import AnalysisTimestamp from "./AnalysisTimestamp"
-import { UPDATE_SCHEDULES, PORTFOLIO_STATUS_CONFIG } from "@/lib/constants"
+import { UPDATE_SCHEDULES, PORTFOLIO_STATUS_CONFIG, MARKET_SIGNAL_CONFIG } from "@/lib/constants"
 
 interface StockAnalysisCardProps {
   stockId: string
@@ -292,18 +292,11 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
 
   const getMarketSignalBadge = (signal: string | null | undefined) => {
     if (!signal) return null
-
-    const signalMap: Record<string, { text: string; bgColor: string; textColor: string; icon: string }> = {
-      bullish: { text: "上昇優勢", bgColor: "bg-green-100", textColor: "text-green-700", icon: "↑" },
-      neutral: { text: "横ばい", bgColor: "bg-gray-100", textColor: "text-gray-600", icon: "→" },
-      bearish: { text: "下落優勢", bgColor: "bg-red-100", textColor: "text-red-700", icon: "↓" },
-    }
-
-    const badge = signalMap[signal]
+    const badge = MARKET_SIGNAL_CONFIG[signal]
     if (!badge) return null
 
     return (
-      <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 ${badge.bgColor} ${badge.textColor} rounded-full text-xs font-medium`}>
+      <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 ${badge.bg} ${badge.color} rounded-full text-xs font-medium`}>
         <span>{badge.icon}</span>
         <span>{badge.text}</span>
       </span>

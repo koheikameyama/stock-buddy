@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
-import { PORTFOLIO_STATUS_CONFIG } from "@/lib/constants"
+import { PORTFOLIO_STATUS_CONFIG, PURCHASE_JUDGMENT_CONFIG } from "@/lib/constants"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface UserStock {
@@ -75,14 +75,7 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
   // AI Purchase Judgment using real recommendations (for watchlist)
   const getAIPurchaseJudgment = () => {
     if (!recommendation) return null
-
-    const displayMap = {
-      buy: { text: "買い推奨", color: "text-green-700", bg: "bg-green-50" },
-      stay: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-      avoid: { text: "見送り推奨", color: "text-red-700", bg: "bg-red-50" },
-    }
-
-    return displayMap[recommendation.recommendation]
+    return PURCHASE_JUDGMENT_CONFIG[recommendation.recommendation] || null
   }
 
   // AI Status Badge using statusType (for portfolio)
