@@ -111,15 +111,17 @@ export async function GET(
       const signalLine: (number | null)[] = []
       const histogram: (number | null)[] = []
 
-      let signalIdx = 0
+      // signalEMA[0..7] は calculateEMA のウォームアップ用の 0（本物の値ではない）
+      // signalEMA[8] が最初の正しい SMA ベースのシグナル値なので 8 からスタート
+      let signalIdx = 8
       for (let i = 0; i < closes.length; i++) {
-        if (i < 33) { // 26 + 9 - 2
+        if (i < 33) { // EMA26 が安定する 25 + シグナル EMA が安定する 8 = 33
           signalLine.push(null)
           histogram.push(null)
         } else {
-          const sig = signalEMA[signalIdx] || 0
-          signalLine.push(Math.round(sig * 100) / 100)
-          histogram.push(Math.round(((macdLine[i] || 0) - sig) * 100) / 100)
+          const sig = signalEMA[signalIdx] ?? null
+          signalLine.push(sig !== null ? Math.round(sig * 100) / 100 : null)
+          histogram.push(sig !== null && macdLine[i] !== null ? Math.round(((macdLine[i] as number) - sig) * 100) / 100 : null)
           signalIdx++
         }
       }

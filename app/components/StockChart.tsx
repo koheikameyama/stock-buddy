@@ -196,11 +196,11 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
     )
   }
 
-  if (error) {
+  if (error || data.length === 0) {
     return (
       <div className={wrapperClass || "p-4"}>
         <div className="text-center text-gray-500 py-8">
-          <p>{error}</p>
+          <p>データが取得できませんでした</p>
         </div>
       </div>
     )
