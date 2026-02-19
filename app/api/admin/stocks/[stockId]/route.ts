@@ -26,9 +26,16 @@ export async function PATCH(
     )
   }
 
+  // isDelistedをfalseにする場合はfetchFailCountもリセット
+  const data: Record<string, unknown> = { isDelisted }
+  if (!isDelisted) {
+    data.fetchFailCount = 0
+    data.lastFetchFailedAt = null
+  }
+
   const stock = await prisma.stock.update({
     where: { id: stockId },
-    data: { isDelisted },
+    data,
     select: {
       id: true,
       tickerCode: true,
