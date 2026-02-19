@@ -16,7 +16,7 @@ import {
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
-import { MA_DEVIATION } from "@/lib/constants"
+import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
 import { calculateDeviationRate, calculateSMA, calculateRSI } from "@/lib/technical-indicators"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
@@ -97,6 +97,7 @@ export async function GET(
       buyCondition: recommendation.buyCondition,
       buyTiming: recommendation.buyTiming,
       dipTargetPrice: recommendation.dipTargetPrice ? Number(recommendation.dipTargetPrice) : null,
+      sellTiming: recommendation.sellTiming,
       // D. パーソナライズ
       userFitScore: recommendation.userFitScore,
       budgetFit: recommendation.budgetFit,
@@ -562,6 +563,16 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.confidence = Math.min(1.0, result.confidence + MA_DEVIATION.CONFIDENCE_BONUS)
     }
 
+    // 下方乖離 (-20%以下) → avoid→stay（パニック売り防止）
+    if (
+      deviationRate !== null &&
+      deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
+      result.recommendation === "avoid"
+    ) {
+      result.recommendation = "stay"
+      result.caution = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており売られすぎです。大底で見送るのはもったいないため、様子見を推奨します。${result.caution}`
+    }
+
     // 購入タイミング判断（成り行き / 押し目買い）
     let buyTiming: string | null = null
     let dipTargetPrice: number | null = null
@@ -581,6 +592,27 @@ ${PROMPT_NEWS_CONSTRAINTS}
         buyTiming = "market"
       }
       // If both are null, buyTiming stays null
+    }
+
+    // 売りタイミング判定（avoid推奨時のみ、テクニカルのみ）
+    let sellTiming: string | null = null
+    let sellTargetPrice: number | null = null
+
+    if (result.recommendation === "avoid") {
+      const rsi = calculateRSI(pricesNewestFirst, 14)
+      const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD)
+
+      const isDeviationOk = deviationRate === null || deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD
+      const isRsiOk = rsi === null || rsi >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD
+
+      if (deviationRate === null && rsi === null) {
+        sellTiming = null
+      } else if (isDeviationOk && isRsiOk) {
+        sellTiming = "market"
+      } else {
+        sellTiming = "rebound"
+        sellTargetPrice = sma25
+      }
     }
 
     // データベースに保存（upsert）
@@ -608,6 +640,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
         buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
         buyTiming: buyTiming,
         dipTargetPrice: dipTargetPrice,
+        sellTiming: sellTiming,
+        sellTargetPrice: sellTargetPrice,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
@@ -632,6 +666,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
         buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
         buyTiming: buyTiming,
         dipTargetPrice: dipTargetPrice,
+        sellTiming: sellTiming,
+        sellTargetPrice: sellTargetPrice,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
