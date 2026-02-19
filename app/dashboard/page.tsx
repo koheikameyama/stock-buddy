@@ -10,6 +10,7 @@ import PortfolioSummary from "./PortfolioSummary"
 import PortfolioHistoryChart from "./PortfolioHistoryChart"
 import PortfolioCompositionChart from "./PortfolioCompositionChart"
 import NikkeiSummary from "./NikkeiSummary"
+import BudgetSummary from "./BudgetSummary"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -166,6 +167,9 @@ export default async function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* 投資資金サマリー */}
+          {user.settings?.investmentBudget && <BudgetSummary />}
 
           {/* 日経平均株価 */}
           <NikkeiSummary />
