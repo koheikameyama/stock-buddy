@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import AnalysisTimestamp from "./AnalysisTimestamp"
-import { UPDATE_SCHEDULES, PORTFOLIO_STATUS_CONFIG, MARKET_SIGNAL_CONFIG } from "@/lib/constants"
+import { UPDATE_SCHEDULES, PORTFOLIO_STATUS_CONFIG, MARKET_SIGNAL_CONFIG, SELL_TIMING } from "@/lib/constants"
 
 interface StockAnalysisCardProps {
   stockId: string
@@ -63,49 +63,6 @@ interface PortfolioAnalysisData {
   sellTargetPrice?: number | null   // 戻り売り時のSMA(25)
 }
 
-function SellTimingSection({ sellTiming, sellTargetPrice }: {
-  sellTiming?: string | null
-  sellTargetPrice?: number | null
-}) {
-  if (!sellTiming) return null
-
-  if (sellTiming === "market") {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
-            成り行き売却OK
-          </span>
-        </div>
-        <p className="text-sm text-red-800">
-          現在の価格帯での売却を検討できます。価格もモメンタムも売却に適した状態です。
-        </p>
-      </div>
-    )
-  }
-
-  if (sellTiming === "rebound") {
-    return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
-            戻り売り推奨
-          </span>
-        </div>
-        <p className="text-sm text-yellow-800">
-          {sellTargetPrice
-            ? `25日移動平均線の${sellTargetPrice.toLocaleString()}円付近まで反発を待つとより有利です。`
-            : "現在売られすぎの状態です。反発を待ってから売却するのがおすすめです。"}
-        </p>
-        <p className="text-xs text-yellow-600 mt-1">
-          戻り売り: 下落後の一時的な反発（リバウンド）を狙って売ること。移動平均線は過去25日間の平均価格で、株価が戻りやすい目安になります。
-        </p>
-      </div>
-    )
-  }
-
-  return null
-}
 
 export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice, embedded = false }: StockAnalysisCardProps) {
   const [prediction, setPrediction] = useState<PredictionData | null>(null)
@@ -594,19 +551,51 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                   </div>
                 )}
                 {prediction.recommendation === "sell" ? (
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">売却方法:</span>
-                      <span className="font-bold text-red-600">
-                        成行で今すぐ売却検討
-                      </span>
-                    </div>
-                    {prediction.currentPrice && (
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        現在価格: {prediction.currentPrice.toLocaleString()}円
+                  portfolioAnalysis.sellTiming === "rebound" ? (
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">売却方法:</span>
+                        <span className="font-bold text-amber-600">戻り売り推奨</span>
+                      </div>
+                      <p className="text-sm text-yellow-800 mt-1">
+                        {portfolioAnalysis.sellTargetPrice
+                          ? `25日移動平均線の${portfolioAnalysis.sellTargetPrice.toLocaleString()}円付近まで反発を待つとより有利です。`
+                          : "現在は売られすぎの状態です。少し反発してから売却するのがおすすめです。"}
                       </p>
-                    )}
-                  </div>
+                      <p className="text-xs text-yellow-600 mt-1">
+                        戻り売り: 下落後の一時的な反発（リバウンド）を狙って売ること。移動平均線は過去25日間の平均価格で、株価が戻りやすい目安になります。
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">売却方法:</span>
+                        <span className="font-bold text-red-600">
+                          成行での売却を検討
+                        </span>
+                      </div>
+                      {(() => {
+                        const currentPrice = prediction.currentPrice
+                        const avgPrice = portfolioAnalysis.averagePurchasePrice
+                        if (currentPrice && avgPrice) {
+                          const diffPercent = ((currentPrice - avgPrice) / avgPrice) * 100
+                          if (diffPercent >= 0 && diffPercent <= SELL_TIMING.NEAR_AVERAGE_PRICE_THRESHOLD) {
+                            const suggestedLimitPrice = Math.round(avgPrice * 1.01)
+                            return (
+                              <p className="text-xs text-blue-600 mt-0.5">
+                                💡 平均購入価格（{avgPrice.toLocaleString()}円）付近のため、{suggestedLimitPrice.toLocaleString()}円の指値注文で少し利益を確保する方法もあります
+                              </p>
+                            )
+                          }
+                        }
+                        return currentPrice ? (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            現在価格: {currentPrice.toLocaleString()}円
+                          </p>
+                        ) : null
+                      })()}
+                    </div>
+                  )
                 ) : portfolioAnalysis.suggestedSellPrice && (
                   <div>
                     <div className="flex items-center gap-2">
@@ -633,10 +622,6 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                     💡 {portfolioAnalysis.sellCondition}
                   </div>
                 )}
-                <SellTimingSection
-                  sellTiming={portfolioAnalysis.sellTiming}
-                  sellTargetPrice={portfolioAnalysis.sellTargetPrice}
-                />
               </div>
             </div>
           )}
