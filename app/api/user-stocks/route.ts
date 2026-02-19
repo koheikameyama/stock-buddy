@@ -33,6 +33,9 @@ export interface UserStockResponse {
   sellCondition?: string | null
   // 買い時通知（Watchlist only）
   targetBuyPrice?: number | null
+  // おすすめ経由の情報（Watchlist only）
+  investmentTheme?: string | null
+  recommendationReason?: string | null
   // Transaction data
   transactions?: {
     id: string
@@ -63,6 +66,9 @@ interface CreateUserStockRequest {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
+  // おすすめ経由の場合
+  investmentTheme?: string
+  recommendationReason?: string
 }
 
 /**
@@ -156,6 +162,8 @@ export async function GET(request: NextRequest) {
       stockId: ws.stockId,
       type: "watchlist" as const,
       targetBuyPrice: ws.targetBuyPrice ? Number(ws.targetBuyPrice) : null,
+      investmentTheme: ws.investmentTheme,
+      recommendationReason: ws.recommendationReason,
       stock: {
         id: ws.stock.id,
         tickerCode: ws.stock.tickerCode,
@@ -408,6 +416,8 @@ export async function POST(request: NextRequest) {
         data: {
           userId,
           stockId: stock.id,
+          ...(body.investmentTheme && { investmentTheme: body.investmentTheme }),
+          ...(body.recommendationReason && { recommendationReason: body.recommendationReason }),
         },
         include: {
           stock: {

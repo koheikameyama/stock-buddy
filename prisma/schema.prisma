@@ -306,6 +306,10 @@ model WatchlistStock {
   // 買い時通知の目標価格（この価格以下で通知）
   targetBuyPrice Decimal? @db.Decimal(12, 2)
 
+  // おすすめ経由で追加された場合の情報
+  investmentTheme      String?
+  recommendationReason String?  @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -455,6 +459,7 @@ model UserDailyRecommendation {
   stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
   position    Int      // 表示順序（1, 2, 3）
   reason      String   @db.Text // AIが生成した初心者向け理由
+  investmentTheme String? // 投資テーマ: "短期成長" | "中長期安定成長" | "高配当" | "割安反発" | "テクニカル好転" | "安定ディフェンシブ"
   createdAt   DateTime @default(now())
 
   @@unique([userId, date, position])

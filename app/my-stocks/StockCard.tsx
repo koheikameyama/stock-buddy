@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
-import { PORTFOLIO_STATUS_CONFIG, PURCHASE_JUDGMENT_CONFIG, FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
+import { PORTFOLIO_STATUS_CONFIG, PURCHASE_JUDGMENT_CONFIG, FETCH_FAIL_WARNING_THRESHOLD, INVESTMENT_THEME_CONFIG } from "@/lib/constants"
 import DelistedWarning from "@/app/components/DelistedWarning"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
@@ -19,6 +19,9 @@ interface UserStock {
   statusType?: string | null
   // AI分析テキスト（Portfolio）
   shortTerm?: string | null
+  // おすすめ経由の情報（Watchlist only）
+  investmentTheme?: string | null
+  recommendationReason?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -135,6 +138,16 @@ export default function StockCard({ stock, price, priceLoaded = false, recommend
               {aiJudgment.text}
             </span>
           )}
+        </div>
+      )}
+
+      {/* 投資テーマバッジ（おすすめ経由のウォッチリストのみ） */}
+      {isWatchlist && stock.investmentTheme && INVESTMENT_THEME_CONFIG[stock.investmentTheme] && (
+        <div className="mb-2">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].bg} ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].color}`}>
+            <span>{INVESTMENT_THEME_CONFIG[stock.investmentTheme].icon}</span>
+            {INVESTMENT_THEME_CONFIG[stock.investmentTheme].text}
+          </span>
         </div>
       )}
 

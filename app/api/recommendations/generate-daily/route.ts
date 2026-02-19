@@ -30,7 +30,7 @@ import {
   StockForScoring,
   ScoredStock,
 } from "@/lib/recommendation-scoring"
-import { STALE_DATA_DAYS } from "@/lib/constants"
+import { STALE_DATA_DAYS, INVESTMENT_THEMES } from "@/lib/constants"
 import { insertRecommendationOutcome } from "@/lib/outcome-utils"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
@@ -42,7 +42,7 @@ interface GenerateRequest {
 interface UserResult {
   userId: string
   success: boolean
-  recommendations?: Array<{ tickerCode: string; reason: string }>
+  recommendations?: Array<{ tickerCode: string; reason: string; investmentTheme: string }>
   error?: string
 }
 
@@ -449,7 +449,7 @@ async function selectWithAI(
   session: string,
   stockContexts: StockContext[],
   marketContext: string
-): Promise<Array<{ tickerCode: string; reason: string }> | null> {
+): Promise<Array<{ tickerCode: string; reason: string; investmentTheme: string }> | null> {
   const prompts = SESSION_PROMPTS[session] || SESSION_PROMPTS.evening
   const periodLabel = PERIOD_LABELS[investmentPeriod || ""] || "不明"
   const riskLabel = RISK_LABELS[riskTolerance || ""] || "不明"
@@ -493,6 +493,14 @@ ${PROMPT_MARKET_SIGNAL_DEFINITION}
 - 理由は専門用語を使いつつ、解説を添えてください
   例: 「RSI（売られすぎ・買われすぎの指標）が30を下回り、反発が期待できます」
 - marketSignal は候補全体を見て市場の雰囲気を判断してください
+- 各銘柄に投資テーマ（investmentTheme）を1つ付けてください
+  選択肢: "短期成長" / "中長期安定成長" / "高配当" / "割安反発" / "テクニカル好転" / "安定ディフェンシブ"
+  - 短期成長: RSI反発、モメンタム上昇など短期的な値上がり期待
+  - 中長期安定成長: 堅実なファンダメンタルズ、安定した業績成長
+  - 高配当: 配当利回りが高く、インカムゲイン重視
+  - 割安反発: PBR/PERが低く、反転上昇の可能性
+  - テクニカル好転: MACDゴールデンクロス、チャートパターン好転
+  - 安定ディフェンシブ: 低ボラティリティ、景気に左右されにくい
 
 【制約】
 ${PROMPT_NEWS_CONSTRAINTS}
@@ -507,7 +515,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
   "selections": [
     {
       "tickerCode": "銘柄コード",
-      "reason": "おすすめ理由（テクニカル・ファンダメンタルの根拠を含む、2-3文）"
+      "reason": "おすすめ理由（テクニカル・ファンダメンタルの根拠を含む、2-3文）",
+      "investmentTheme": "短期成長" | "中長期安定成長" | "高配当" | "割安反発" | "テクニカル好転" | "安定ディフェンシブ"
     }
   ]
 }`
@@ -541,8 +550,12 @@ ${PROMPT_NEWS_CONSTRAINTS}
                   properties: {
                     tickerCode: { type: "string" },
                     reason: { type: "string" },
+                    investmentTheme: {
+                      type: "string",
+                      enum: INVESTMENT_THEMES,
+                    },
                   },
-                  required: ["tickerCode", "reason"],
+                  required: ["tickerCode", "reason", "investmentTheme"],
                   additionalProperties: false,
                 },
               },
@@ -563,7 +576,9 @@ ${PROMPT_NEWS_CONSTRAINTS}
     }
 
     const validSelections = result.selections
-      .filter((s: { tickerCode?: string; reason?: string }) => s.tickerCode && s.reason)
+      .filter((s: { tickerCode?: string; reason?: string; investmentTheme?: string }) =>
+        s.tickerCode && s.reason && s.investmentTheme
+      )
       .slice(0, 5)
 
     console.log(`  AI selected ${validSelections.length} stocks (marketSignal: ${result.marketSignal})`)
@@ -576,7 +591,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
 
 async function saveRecommendations(
   userId: string,
-  recommendations: Array<{ tickerCode: string; reason: string }>,
+  recommendations: Array<{ tickerCode: string; reason: string; investmentTheme: string }>,
   candidates: ScoredStock[]
 ): Promise<number> {
   const today = getTodayForDB()
@@ -607,6 +622,7 @@ async function saveRecommendations(
         update: {
           stockId: stock.id,
           reason: rec.reason,
+          investmentTheme: rec.investmentTheme,
         },
         create: {
           userId,
@@ -614,6 +630,7 @@ async function saveRecommendations(
           stockId: stock.id,
           position: idx + 1,
           reason: rec.reason,
+          investmentTheme: rec.investmentTheme,
         },
       })
 

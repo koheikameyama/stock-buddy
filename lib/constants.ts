@@ -137,6 +137,24 @@ export const EVALUATION_BADGE_CONFIG: Record<string, {
   warning: { color: "text-yellow-700", bg: "bg-yellow-100" },
 }
 
+// 投資テーマバッジ（おすすめの根拠）
+export const INVESTMENT_THEME_CONFIG: Record<string, {
+  text: string
+  color: string
+  bg: string
+  icon: string
+}> = {
+  "短期成長": { text: "短期成長", color: "text-orange-700", bg: "bg-orange-50", icon: "🚀" },
+  "中長期安定成長": { text: "中長期安定成長", color: "text-blue-700", bg: "bg-blue-50", icon: "📈" },
+  "高配当": { text: "高配当", color: "text-emerald-700", bg: "bg-emerald-50", icon: "💰" },
+  "割安反発": { text: "割安反発", color: "text-purple-700", bg: "bg-purple-50", icon: "💎" },
+  "テクニカル好転": { text: "テクニカル好転", color: "text-cyan-700", bg: "bg-cyan-50", icon: "📊" },
+  "安定ディフェンシブ": { text: "安定ディフェンシブ", color: "text-teal-700", bg: "bg-teal-50", icon: "🛡️" },
+}
+
+// 投資テーマのenumリスト（AI生成用）
+export const INVESTMENT_THEMES = Object.keys(INVESTMENT_THEME_CONFIG)
+
 // 市場シグナルバッジ
 export const MARKET_SIGNAL_CONFIG: Record<string, {
   text: string

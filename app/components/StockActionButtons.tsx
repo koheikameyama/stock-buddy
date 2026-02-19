@@ -14,6 +14,8 @@ interface StockActionButtonsProps {
   onPurchaseClick?: () => void
   isInWatchlist?: boolean
   isTracked?: boolean
+  investmentTheme?: string | null
+  recommendationReason?: string | null
   onWatchlistSuccess?: () => void
   onTrackedSuccess?: (trackedStockId?: string) => void
 }
@@ -27,6 +29,8 @@ export default function StockActionButtons({
   onPurchaseClick,
   isInWatchlist = false,
   isTracked = false,
+  investmentTheme,
+  recommendationReason,
   onWatchlistSuccess,
   onTrackedSuccess,
 }: StockActionButtonsProps) {
@@ -45,6 +49,8 @@ export default function StockActionButtons({
         body: JSON.stringify({
           tickerCode,
           type: "watchlist",
+          ...(investmentTheme && { investmentTheme }),
+          ...(recommendationReason && { recommendationReason }),
         }),
       })
 

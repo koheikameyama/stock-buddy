@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { UPDATE_SCHEDULES, FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
+import { UPDATE_SCHEDULES, FETCH_FAIL_WARNING_THRESHOLD, INVESTMENT_THEME_CONFIG } from "@/lib/constants"
 import { CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import StockActionButtons from "@/app/components/StockActionButtons"
 import CopyableTicker from "@/app/components/CopyableTicker"
@@ -11,6 +11,7 @@ interface FeaturedStock {
   id: string
   stockId: string
   category: string | null
+  investmentTheme: string | null
   reason: string | null
   isOwned: boolean // ポートフォリオにある場合
   isRegistered: boolean // ウォッチリストにある場合
@@ -200,6 +201,16 @@ export default function FeaturedStocksByCategory() {
           </div>
         </div>
 
+        {/* 投資テーマバッジ */}
+        {stock.investmentTheme && INVESTMENT_THEME_CONFIG[stock.investmentTheme] && (
+          <div className="mb-1.5">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].bg} ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].color}`}>
+              <span>{INVESTMENT_THEME_CONFIG[stock.investmentTheme].icon}</span>
+              {INVESTMENT_THEME_CONFIG[stock.investmentTheme].text}
+            </span>
+          </div>
+        )}
+
         {stock.reason && (
           <div className="mb-2 sm:mb-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200">
             <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">
@@ -249,6 +260,8 @@ export default function FeaturedStocksByCategory() {
                 showTracked={!stock.isRegistered && !stock.isTracked}
                 isInWatchlist={stock.isRegistered}
                 isTracked={stock.isTracked}
+                investmentTheme={stock.investmentTheme}
+                recommendationReason={stock.reason}
                 onWatchlistSuccess={() => updateStockStatus(stock.stockId, "watchlist")}
                 onTrackedSuccess={() => updateStockStatus(stock.stockId, "tracked")}
               />

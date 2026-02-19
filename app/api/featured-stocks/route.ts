@@ -53,6 +53,7 @@ export async function GET() {
       id: string
       stockId: string
       reason: string
+      investmentTheme: string | null
       category: string | null
       isOwned: boolean
       isRegistered: boolean
@@ -113,6 +114,7 @@ export async function GET() {
         id: r.id,
         stockId: r.stockId,
         reason: r.reason,
+        investmentTheme: r.investmentTheme,
         category: null,
         isOwned: portfolioStockIds.includes(r.stockId),
         isRegistered: watchlistStockIds.includes(r.stockId),
