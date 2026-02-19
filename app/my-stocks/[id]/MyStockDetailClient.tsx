@@ -36,7 +36,6 @@ interface Stock {
   quantity?: number
   averagePurchasePrice?: number
   purchaseDate?: string
-  simpleStatus?: string | null
   statusType?: string | null
   suggestedSellPrice?: number | null
   sellCondition?: string | null

@@ -39,14 +39,12 @@ interface PredictionData {
   stopLossPrice: string | null
   analyzedAt: string
   currentPrice: number | null
-  simpleStatus?: string | null
   statusType?: string | null
   sellCondition?: string | null
 }
 
 interface PortfolioAnalysisData {
   lastAnalysis: string | null
-  simpleStatus: string | null
   statusType: string | null
   marketSignal: string | null
   suggestedSellPrice: number | null

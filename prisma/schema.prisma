@@ -218,8 +218,7 @@ model StockAnalysis {
   longTermText        String?  @db.Text           // 長期予測テキスト
 
   // ステータス情報
-  simpleStatus        String?                     // "ホールド", "注意", "売却を検討" など
-  statusType          String?                     // "hold", "caution", "sell" など
+  statusType          String?                     // "good", "neutral", "caution", "warning"
 
   // 売却条件
   sellCondition       String?  @db.Text           // 売却判断の条件テキスト
@@ -327,7 +326,6 @@ model PortfolioStock {
   longTerm     String?   @db.Text
 
   // ステータス
-  simpleStatus       String?            // 一言ステータス（順調/注意/好調など）
   statusType         String?            // good/caution/excellent/neutral/warning
 
   // 市場シグナル（評価軸の統一）

@@ -60,7 +60,6 @@ export async function GET(
           mediumTerm: true,
           longTerm: true,
           lastAnalysis: true,
-          simpleStatus: true,
           statusType: true,
           marketSignal: true,
           suggestedSellPrice: true,
@@ -125,7 +124,6 @@ export async function GET(
           longTerm: null,
           lastAnalysis: null,
           isToday: false,
-          simpleStatus: null,
           statusType: null,
           marketSignal: null,
           suggestedSellPrice: null,
@@ -158,7 +156,6 @@ export async function GET(
       longTerm: portfolioStock.longTerm,
       lastAnalysis: portfolioStock.lastAnalysis.toISOString(),
       isToday,
-      simpleStatus: portfolioStock.simpleStatus,
       statusType: portfolioStock.statusType,
       marketSignal: portfolioStock.marketSignal,
       suggestedSellPrice: portfolioStock.suggestedSellPrice ? Number(portfolioStock.suggestedSellPrice) : null,
@@ -354,7 +351,7 @@ ${newsContext}${marketContext}
   "sellReason": "具体的なシグナルや指標名を挙げて売却理由を説明する（例：「RSI（売られすぎ・買われすぎの指標）が70超の買われすぎ水準で、レジスタンスラインに到達」）",
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
   "sellCondition": "どの指標がどの水準になったら売るかを具体的に記述（例：「RSIが再び70を超えたら追加売却、MACDがデッドクロスしたら全売却」）",
-  "simpleStatus": "ステータス（good/neutral/warningのいずれか）",
+  "statusType": "ステータス（good/neutral/warningのいずれか）",
 
   "shortTermTrend": "up" | "neutral" | "down",
   "shortTermPriceLow": 短期予測の下限価格（数値のみ）,
@@ -407,9 +404,9 @@ ${PROMPT_NEWS_CONSTRAINTS}
   - 75%: 大部分を利確、少量残して様子見
   - 100%: 全売却推奨
 - sellReason: テクニカル・ファンダメンタルに基づく具体的な売却理由を記載（指標名と数値を必ず含める）
-- 【重要】simpleStatus と sellReason の整合性:
-  - 売却を推奨する場合 → simpleStatus は warning にし、sellReason に理由を記載
-  - 様子見（simpleStatus: neutral / good）の場合 → sellReason と suggestedSellPercent は null にする
+- 【重要】statusType と sellReason の整合性:
+  - 売却を推奨する場合 → statusType は warning にし、sellReason に理由を記載
+  - 様子見（statusType: neutral / good）の場合 → sellReason と suggestedSellPercent は null にする
 
 【損切り提案の指針】
 - 損失率が-15%以上かつ下落トレンドが続いている場合は、損切りを選択肢として提示
@@ -471,7 +468,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
               sellReason: { type: ["string", "null"] },
               suggestedStopLossPrice: { type: ["number", "null"] },
               sellCondition: { type: ["string", "null"] },
-              simpleStatus: { type: "string", enum: ["good", "neutral", "warning"] },
+              statusType: { type: "string", enum: ["good", "neutral", "warning"] },
               shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
               shortTermPriceLow: { type: "number" },
               shortTermPriceHigh: { type: "number" },
@@ -490,7 +487,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
               "shortTerm", "mediumTerm", "longTerm",
               "suggestedSellPrice", "suggestedSellPercent", "sellReason",
               "suggestedStopLossPrice", "sellCondition",
-              "simpleStatus",
+              "statusType",
               "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
               "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
               "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
@@ -505,11 +502,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
     const content = response.choices[0].message.content?.trim() || "{}"
     const result = JSON.parse(content)
 
-    // AIはsimpleStatusに英語値("good"/"neutral"/"warning")を返すので、
-    // statusTypeとして保存し、simpleStatusには日本語をマッピング
-    const simpleStatusMap: Record<string, string> = { good: "好調", neutral: "様子見", warning: "警戒" }
-    let statusType = result.simpleStatus as string
-    let simpleStatus = simpleStatusMap[statusType] || statusType
+    let statusType = result.statusType as string
 
     // 乖離率・RSI計算（売りタイミング判定用）
     const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
@@ -524,9 +517,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.recommendation === "sell"
     ) {
       result.recommendation = "hold"
-      result.simpleStatus = "neutral"
+      result.statusType = "neutral"
       statusType = "neutral"
-      simpleStatus = simpleStatusMap["neutral"]
       result.sellReason = null
       result.suggestedSellPercent = null
       result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`
@@ -573,7 +565,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
           shortTerm: result.shortTerm,
           mediumTerm: result.mediumTerm,
           longTerm: result.longTerm,
-          simpleStatus,
           statusType,
           marketSignal: result.marketSignal || null,
           suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
@@ -607,7 +598,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
           confidence: result.confidence || 0.7,
           limitPrice: result.suggestedSellPrice || null,
           stopLossPrice: result.suggestedStopLossPrice || null,
-          simpleStatus: simpleStatus || null,
           statusType: statusType || null,
           sellCondition: result.sellCondition || null,
           analyzedAt: now,
@@ -620,7 +610,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
       shortTerm: result.shortTerm,
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
-      simpleStatus,
       statusType,
       marketSignal: result.marketSignal || null,
       suggestedSellPrice: result.suggestedSellPrice || null,

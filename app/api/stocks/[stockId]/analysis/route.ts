@@ -68,7 +68,6 @@ export async function GET(
         priceHigh: analysis.longTermPriceHigh,
         text: analysis.longTermText,
       },
-      simpleStatus: analysis.simpleStatus,
       statusType: analysis.statusType,
       sellCondition: analysis.sellCondition,
       recommendation: analysis.recommendation,

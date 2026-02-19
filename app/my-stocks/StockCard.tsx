@@ -15,7 +15,6 @@ interface UserStock {
   averagePurchasePrice?: number
   purchaseDate?: string
   // ステータス
-  simpleStatus?: string | null
   statusType?: string | null
   stock: {
     id: string

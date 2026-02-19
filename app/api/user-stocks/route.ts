@@ -27,7 +27,6 @@ export interface UserStockResponse {
   // 分析日時（StockAnalysisから取得）
   analyzedAt?: string | null
   // ステータス（Portfolio only）
-  simpleStatus?: string | null
   statusType?: string | null
   // 売却提案（Portfolio only）
   suggestedSellPrice?: number | null
@@ -191,7 +190,6 @@ export async function GET(request: NextRequest) {
         recommendation,
         analyzedAt,
         // ステータス
-        simpleStatus: ps.simpleStatus,
         statusType: ps.statusType,
         // 売却提案
         suggestedSellPrice: ps.suggestedSellPrice ? Number(ps.suggestedSellPrice) : null,
