@@ -165,9 +165,10 @@ export const MA_DEVIATION = {
 
 // 売りタイミング判断の閾値
 export const SELL_TIMING = {
-  DEVIATION_LOWER_THRESHOLD: -5,   // 乖離率がこれ未満で戻り売り推奨
-  RSI_OVERSOLD_THRESHOLD: 30,      // RSIがこれ未満で戻り売り推奨
-  PANIC_SELL_THRESHOLD: -20,       // 乖離率がこれ以下でsell→hold強制補正
-  PROFIT_TAKING_THRESHOLD: 10,     // 利益率(%)がこれ以上で利確優先
-  STOP_LOSS_THRESHOLD: -15,        // 損失率(%)がこれ以下で損切り優先
+  DEVIATION_LOWER_THRESHOLD: -5,        // 乖離率がこれ未満で戻り売り推奨
+  RSI_OVERSOLD_THRESHOLD: 30,           // RSIがこれ未満で戻り売り推奨
+  PANIC_SELL_THRESHOLD: -20,            // 乖離率がこれ以下でsell→hold強制補正
+  PROFIT_TAKING_THRESHOLD: 10,          // 利益率(%)がこれ以上で利確優先
+  STOP_LOSS_THRESHOLD: -15,             // 損失率(%)がこれ以下で損切り優先
+  NEAR_AVERAGE_PRICE_THRESHOLD: 5,      // 平均購入価格から+5%以内は「平均価格に近い」とみなす（指値提案）
 } as const
