@@ -32,7 +32,7 @@ export default function PerformanceSummary({ summary }: PerformanceSummaryProps)
             </Link>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* トータル損益 */}
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">トータル損益</div>
@@ -49,19 +49,6 @@ export default function PerformanceSummary({ summary }: PerformanceSummaryProps)
             }`}>
               {summary.totalGainPercent >= 0 ? "+" : ""}
               {summary.totalGainPercent.toFixed(1)}%
-            </div>
-          </div>
-
-          {/* 含み損益 */}
-          <div className="text-center">
-            <div className="text-xs text-gray-500 mb-1">含み損益</div>
-            <div
-              className={`text-base sm:text-lg font-bold ${
-                summary.unrealizedGain >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {summary.unrealizedGain >= 0 ? "+" : ""}
-              ¥{Math.round(summary.unrealizedGain).toLocaleString()}
             </div>
           </div>
 

@@ -593,11 +593,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
       if (isHighDeviation || isOverboughtRSI) {
         buyTiming = "dip"
         dipTargetPrice = sma25
-      } else if (deviationRate !== null || rsi !== null) {
-        // At least one indicator available and neither triggers dip
+      } else {
+        // 指標が計算できない場合も含め、買い推奨なら成行OK
         buyTiming = "market"
       }
-      // If both are null, buyTiming stays null
     }
 
     // 売りタイミング判定（avoid推奨時のみ、テクニカルのみ）
@@ -611,9 +610,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
       const isDeviationOk = deviationRate === null || deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD
       const isRsiOk = rsi === null || rsi >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD
 
-      if (deviationRate === null && rsi === null) {
-        sellTiming = null
-      } else if (isDeviationOk && isRsiOk) {
+      if (isDeviationOk && isRsiOk) {
         sellTiming = "market"
       } else {
         sellTiming = "rebound"

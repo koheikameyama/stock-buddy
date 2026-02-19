@@ -118,9 +118,13 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
               {recommendation.buyTiming === "market" ? "成り行きOK" : "押し目待ち"}
             </span>
           )}
-          {isWatchlist && recommendation?.recommendation === "avoid" && recommendation.sellTiming === "rebound" && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
-              戻り待ち
+          {isWatchlist && recommendation?.recommendation === "avoid" && recommendation.sellTiming && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+              recommendation.sellTiming === "market"
+                ? "bg-red-100 text-red-700"
+                : "bg-yellow-100 text-yellow-700"
+            }`}>
+              {recommendation.sellTiming === "market" ? "即見送り" : "戻り待ち"}
             </span>
           )}
           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
