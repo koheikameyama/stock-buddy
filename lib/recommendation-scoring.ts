@@ -4,6 +4,8 @@
  * Pythonスクリプト (generate_personal_recommendations.py) から移植
  */
 
+import { MA_DEVIATION } from "@/lib/constants"
+
 // 設定
 export const SCORING_CONFIG = {
   MAX_PER_SECTOR: 5,       // 各セクターからの最大銘柄数
@@ -80,6 +82,7 @@ export interface StockForScoring {
   volumeRatio: number | null
   marketCap: number | null
   isProfitable: boolean | null
+  maDeviationRate: number | null
 }
 
 export interface ScoredStock extends StockForScoring {
@@ -192,6 +195,22 @@ export function calculateStockScores(
     if (stock.isProfitable === null) {
       totalScore -= 5
       scoreBreakdown["unknownEarningsPenalty"] = -5
+    }
+
+    // 移動平均乖離率によるペナルティ/ボーナス
+    if (stock.maDeviationRate !== null) {
+      if (stock.maDeviationRate >= MA_DEVIATION.UPPER_THRESHOLD) {
+        totalScore += MA_DEVIATION.SCORE_PENALTY
+        scoreBreakdown["maDeviationPenalty"] = MA_DEVIATION.SCORE_PENALTY
+      } else if (
+        stock.maDeviationRate <= MA_DEVIATION.LOWER_THRESHOLD &&
+        stock.isProfitable === true &&
+        stock.volatility !== null &&
+        stock.volatility <= MA_DEVIATION.LOW_VOLATILITY_THRESHOLD
+      ) {
+        totalScore += MA_DEVIATION.SCORE_BONUS
+        scoreBreakdown["maDeviationBonus"] = MA_DEVIATION.SCORE_BONUS
+      }
     }
 
     scoredStocks.push({

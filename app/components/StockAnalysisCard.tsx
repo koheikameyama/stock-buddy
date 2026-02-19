@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import AnalysisTimestamp from "./AnalysisTimestamp"
-import { UPDATE_SCHEDULES } from "@/lib/constants"
+import { UPDATE_SCHEDULES, PORTFOLIO_STATUS_CONFIG } from "@/lib/constants"
 
 interface StockAnalysisCardProps {
   stockId: string
@@ -61,6 +61,52 @@ interface PortfolioAnalysisData {
   targetReturnRate: number | null
   userTargetPrice: number | null
   userStopLossPrice: number | null
+  sellTiming?: string | null        // "market" | "rebound" | null
+  sellTargetPrice?: number | null   // 戻り売り時のSMA(25)
+}
+
+function SellTimingSection({ sellTiming, sellTargetPrice }: {
+  sellTiming?: string | null
+  sellTargetPrice?: number | null
+}) {
+  if (!sellTiming) return null
+
+  if (sellTiming === "market") {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+            成り行き売却OK
+          </span>
+        </div>
+        <p className="text-sm text-red-800">
+          現在の価格帯での売却を検討できます。価格もモメンタムも売却に適した状態です。
+        </p>
+      </div>
+    )
+  }
+
+  if (sellTiming === "rebound") {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
+            戻り売り推奨
+          </span>
+        </div>
+        <p className="text-sm text-yellow-800">
+          {sellTargetPrice
+            ? `25日移動平均線の${sellTargetPrice.toLocaleString()}円付近まで反発を待つとより有利です。`
+            : "現在売られすぎの状態です。反発を待ってから売却するのがおすすめです。"}
+        </p>
+        <p className="text-xs text-yellow-600 mt-1">
+          戻り売り: 下落後の一時的な反発（リバウンド）を狙って売ること。移動平均線は過去25日間の平均価格で、株価が戻りやすい目安になります。
+        </p>
+      </div>
+    )
+  }
+
+  return null
 }
 
 export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice, embedded = false }: StockAnalysisCardProps) {
@@ -232,21 +278,14 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     }
   }
 
-  const getStatusBadge = (status: string | null | undefined) => {
-    if (!status) return null
-
-    const statusMap: Record<string, { text: string; bgColor: string; textColor: string }> = {
-      "good": { text: "買増検討", bgColor: "bg-green-100", textColor: "text-green-800" },
-      "neutral": { text: "様子見", bgColor: "bg-blue-100", textColor: "text-blue-800" },
-      "warning": { text: "売却推奨", bgColor: "bg-red-100", textColor: "text-red-800" },
-    }
-
-    const badge = statusMap[status]
-    if (!badge) return null
+  const getStatusBadge = (statusType: string | null | undefined) => {
+    if (!statusType) return null
+    const config = PORTFOLIO_STATUS_CONFIG[statusType]
+    if (!config) return null
 
     return (
-      <span className={`inline-block px-3 py-1 ${badge.bgColor} ${badge.textColor} rounded-full text-sm font-semibold`}>
-        {badge.text}
+      <span className={`inline-block px-3 py-1 ${config.bg} ${config.color} rounded-full text-sm font-semibold`}>
+        {config.text}
       </span>
     )
   }
@@ -408,12 +447,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
       {/* AIアドバイス */}
       {prediction && (
         <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
-          <div className="flex justify-between items-start mb-2">
+          <div className="mb-2">
+            <p className="font-semibold text-gray-800 mb-1.5">💡 AIアドバイス</p>
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-gray-800">💡 AIアドバイス</p>
+              {getStatusBadge(prediction?.statusType || portfolioAnalysis?.statusType)}
               {getMarketSignalBadge(portfolioAnalysis?.marketSignal)}
             </div>
-            {getStatusBadge(prediction?.simpleStatus || portfolioAnalysis?.simpleStatus)}
           </div>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
             {prediction.advice}
@@ -458,15 +497,6 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                                 <p className="text-xs text-yellow-600">
                                   あと{Math.abs(priceDiff).toLocaleString()}円 / {Math.abs(Number(priceDiffPercent))}%下落で到達
                                 </p>
-                              )}
-                              {/* 買いアラート設定ボタン（ウォッチリスト用） */}
-                              {onBuyAlertClick && (
-                                <button
-                                  onClick={() => onBuyAlertClick(limitPriceNum)}
-                                  className="mt-2 text-xs text-amber-600 hover:text-amber-800 flex items-center gap-1"
-                                >
-                                  🔔 {currentTargetBuyPrice ? `通知設定中（¥${currentTargetBuyPrice.toLocaleString()}）` : "この価格で通知"}
-                                </button>
                               )}
                             </>
                           )
@@ -612,6 +642,10 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                     💡 {portfolioAnalysis.sellCondition}
                   </div>
                 )}
+                <SellTimingSection
+                  sellTiming={portfolioAnalysis.sellTiming}
+                  sellTargetPrice={portfolioAnalysis.sellTargetPrice}
+                />
               </div>
             </div>
           )}

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
+import { PORTFOLIO_STATUS_CONFIG } from "@/lib/constants"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface UserStock {
@@ -41,6 +42,8 @@ interface PurchaseRecommendation {
   confidence: number
   reason: string
   caution: string
+  buyTiming?: "market" | "dip" | null
+  sellTiming?: "market" | "rebound" | null
 }
 
 interface StockCardProps {
@@ -82,22 +85,11 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     return displayMap[recommendation.recommendation]
   }
 
-  // AI Status Badge using simpleStatus (for portfolio)
+  // AI Status Badge using statusType (for portfolio)
   const getAIStatusBadge = () => {
-    const status = stock.simpleStatus
-    if (!status) return null
-
-    const displayMap: Record<string, { text: string; color: string; bg: string }> = {
-      "好調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
-      "様子見": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-      "注意": { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
-      "警戒": { text: "警戒", color: "text-red-700", bg: "bg-red-50" },
-      // 後方互換: 旧ステータスもマッピング
-      "順調": { text: "好調", color: "text-green-700", bg: "bg-green-50" },
-      "やや低調": { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-      "要確認": { text: "警戒", color: "text-red-700", bg: "bg-red-50" },
-    }
-    return displayMap[status] || null
+    const statusType = stock.statusType
+    if (!statusType) return null
+    return PORTFOLIO_STATUS_CONFIG[statusType] || null
   }
 
   const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAIStatusBadge()
@@ -121,9 +113,25 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
     >
       {/* AI推奨バッジ - 右上 */}
       {aiJudgment && (
-        <span className={`absolute top-3 right-3 sm:top-4 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
-          {aiJudgment.text}
-        </span>
+        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1.5">
+          {isWatchlist && recommendation?.recommendation === "buy" && recommendation.buyTiming && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+              recommendation.buyTiming === "market"
+                ? "bg-green-100 text-green-700"
+                : "bg-yellow-100 text-yellow-700"
+            }`}>
+              {recommendation.buyTiming === "market" ? "成り行きOK" : "押し目待ち"}
+            </span>
+          )}
+          {isWatchlist && recommendation?.recommendation === "avoid" && recommendation.sellTiming === "rebound" && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+              戻り待ち
+            </span>
+          )}
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
+            {aiJudgment.text}
+          </span>
+        </div>
       )}
 
       {/* Stock Header */}

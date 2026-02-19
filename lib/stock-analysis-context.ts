@@ -9,7 +9,8 @@
 
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
-import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
+import { calculateRSI, calculateMACD, calculateDeviationRate } from "@/lib/technical-indicators"
+import { MA_DEVIATION } from "@/lib/constants"
 import { MarketIndexData } from "@/lib/market-index"
 
 // OHLCV データ型（oldest-first で渡す）
@@ -258,6 +259,35 @@ export function buildTechnicalContext(prices: OHLCVData[]): string {
 【テクニカル指標】
 ${rsi !== null ? `- RSI（売られすぎ・買われすぎの指標）: ${rsiInterpretation}` : ""}
 ${macd.histogram !== null ? `- MACD（トレンドの勢い指標）: ${macdInterpretation}` : ""}
+`
+}
+
+/**
+ * 移動平均乖離率コンテキスト文字列を生成する
+ * @param prices - OHLCV データ（oldest-first）
+ */
+export function buildDeviationRateContext(prices: OHLCVData[]): string {
+  if (prices.length < MA_DEVIATION.PERIOD) return ""
+
+  // oldest-first → newest-first に変換して乖離率を計算
+  const pricesForCalc = [...prices].reverse().map(p => ({ close: p.close }))
+  const rate = calculateDeviationRate(pricesForCalc, MA_DEVIATION.PERIOD)
+  if (rate === null) return ""
+
+  let interpretation = ""
+  if (rate >= MA_DEVIATION.UPPER_THRESHOLD) {
+    interpretation = `${rate.toFixed(1)}%（過熱圏。高値づかみリスクに注意）`
+  } else if (rate <= MA_DEVIATION.LOWER_THRESHOLD) {
+    interpretation = `${rate.toFixed(1)}%（売られすぎ圏。リバウンドの可能性あり）`
+  } else if (Math.abs(rate) <= 5) {
+    interpretation = `${rate >= 0 ? "+" : ""}${rate.toFixed(1)}%（移動平均線に沿った安定した値動き）`
+  } else {
+    interpretation = `${rate >= 0 ? "+" : ""}${rate.toFixed(1)}%`
+  }
+
+  return `
+【移動平均乖離率】
+- 25日移動平均線からの乖離率: ${interpretation}
 `
 }
 

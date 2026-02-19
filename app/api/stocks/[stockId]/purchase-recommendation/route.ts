@@ -12,9 +12,12 @@ import {
   buildChartPatternContext,
   buildWeekChangeContext,
   buildMarketContext,
+  buildDeviationRateContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
+import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
+import { calculateDeviationRate, calculateSMA, calculateRSI } from "@/lib/technical-indicators"
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
@@ -92,6 +95,9 @@ export async function GET(
       suitableFor: recommendation.suitableFor,
       // C. 買い時条件
       buyCondition: recommendation.buyCondition,
+      buyTiming: recommendation.buyTiming,
+      dipTargetPrice: recommendation.dipTargetPrice ? Number(recommendation.dipTargetPrice) : null,
+      sellTiming: recommendation.sellTiming,
       // D. パーソナライズ
       userFitScore: recommendation.userFitScore,
       budgetFit: recommendation.budgetFit,
@@ -211,6 +217,9 @@ export async function POST(
     // チャートパターン（複数足フォーメーション）の検出
     const chartPatternContext = buildChartPatternContext(prices)
 
+    // 移動平均乖離率
+    const deviationRateContext = buildDeviationRateContext(prices)
+
     // 関連ニュースを取得
     const tickerCode = stock.tickerCode.replace(".T", "")
     const news = await getRelatedNews({
@@ -317,7 +326,7 @@ ${financialMetrics}
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartPatternContext}${newsContext}
+${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 ${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をそのまま使用してください。" : ""}
@@ -532,6 +541,80 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.buyCondition = result.buyCondition || "市場が落ち着いてから検討してください"
     }
 
+    // 移動平均乖離率による補正
+    const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
+    const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
+
+    // ルール4: 上方乖離 (+20%以上) でbuyの場合はstayに変更
+    if (deviationRate !== null && deviationRate >= MA_DEVIATION.UPPER_THRESHOLD && result.recommendation === "buy") {
+      result.recommendation = "stay"
+      result.confidence = Math.max(0, result.confidence + MA_DEVIATION.CONFIDENCE_PENALTY)
+      result.caution = `25日移動平均線から+${deviationRate.toFixed(1)}%乖離しており過熱圏のため、様子見を推奨します。${result.caution}`
+    }
+
+    // ルール5: 下方乖離 (-20%以下) + 黒字 + 低ボラティリティ → confidenceボーナス
+    const isLowVolatility = volatility !== null && volatility <= MA_DEVIATION.LOW_VOLATILITY_THRESHOLD
+    if (
+      deviationRate !== null &&
+      deviationRate <= MA_DEVIATION.LOWER_THRESHOLD &&
+      stock.isProfitable === true &&
+      isLowVolatility
+    ) {
+      result.confidence = Math.min(1.0, result.confidence + MA_DEVIATION.CONFIDENCE_BONUS)
+    }
+
+    // 下方乖離 (-20%以下) → avoid→stay（パニック売り防止）
+    if (
+      deviationRate !== null &&
+      deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
+      result.recommendation === "avoid"
+    ) {
+      result.recommendation = "stay"
+      result.caution = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており売られすぎです。大底で見送るのはもったいないため、様子見を推奨します。${result.caution}`
+    }
+
+    // 購入タイミング判断（成り行き / 押し目買い）
+    let buyTiming: string | null = null
+    let dipTargetPrice: number | null = null
+
+    if (result.recommendation === "buy") {
+      const rsi = calculateRSI(pricesNewestFirst, 14)
+      const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD)
+
+      const isHighDeviation = deviationRate !== null && deviationRate > MA_DEVIATION.DIP_BUY_THRESHOLD
+      const isOverboughtRSI = rsi !== null && rsi > MA_DEVIATION.RSI_OVERBOUGHT_THRESHOLD
+
+      if (isHighDeviation || isOverboughtRSI) {
+        buyTiming = "dip"
+        dipTargetPrice = sma25
+      } else if (deviationRate !== null || rsi !== null) {
+        // At least one indicator available and neither triggers dip
+        buyTiming = "market"
+      }
+      // If both are null, buyTiming stays null
+    }
+
+    // 売りタイミング判定（avoid推奨時のみ、テクニカルのみ）
+    let sellTiming: string | null = null
+    let sellTargetPrice: number | null = null
+
+    if (result.recommendation === "avoid") {
+      const rsi = calculateRSI(pricesNewestFirst, 14)
+      const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD)
+
+      const isDeviationOk = deviationRate === null || deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD
+      const isRsiOk = rsi === null || rsi >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD
+
+      if (deviationRate === null && rsi === null) {
+        sellTiming = null
+      } else if (isDeviationOk && isRsiOk) {
+        sellTiming = "market"
+      } else {
+        sellTiming = "rebound"
+        sellTargetPrice = sma25
+      }
+    }
+
     // データベースに保存（upsert）
     // JSTの今日00:00をUTCに変換
     const today = getTodayForDB()
@@ -555,6 +638,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
         suitableFor: result.suitableFor || null,
         // C. 買い時条件
         buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
+        buyTiming: buyTiming,
+        dipTargetPrice: dipTargetPrice,
+        sellTiming: sellTiming,
+        sellTargetPrice: sellTargetPrice,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
@@ -577,6 +664,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
         suitableFor: result.suitableFor || null,
         // C. 買い時条件
         buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
+        buyTiming: buyTiming,
+        dipTargetPrice: dipTargetPrice,
+        sellTiming: sellTiming,
+        sellTargetPrice: sellTargetPrice,
         // D. パーソナライズ
         userFitScore: result.userFitScore ?? null,
         budgetFit: result.budgetFit ?? null,
@@ -666,6 +757,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       suitableFor: result.suitableFor || null,
       // D. 買い時条件
       buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
+      buyTiming: buyTiming,
+      dipTargetPrice: dipTargetPrice,
       // E. パーソナライズ
       userFitScore: result.userFitScore ?? null,
       budgetFit: result.budgetFit ?? null,

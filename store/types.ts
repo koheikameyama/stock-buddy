@@ -19,6 +19,8 @@ export interface UserStock {
   longTerm?: string | null
   recommendation?: "buy" | "sell" | "hold" | null
   analyzedAt?: string | null
+  simpleStatus?: string | null
+  statusType?: string | null
   stock: {
     id: string
     tickerCode: string

@@ -82,3 +82,39 @@ export const MARKET_INDEX = {
   UP_TREND_THRESHOLD: 3,    // 上昇トレンド判定（週間変化率%）
   DOWN_TREND_THRESHOLD: -3, // 下落トレンド判定（週間変化率%）
 } as const
+
+// ポートフォリオステータスの表示設定
+// statusType（英語キー）から表示テキスト・色を一元管理
+export const PORTFOLIO_STATUS_CONFIG: Record<string, {
+  text: string     // バッジテキスト
+  color: string    // テキスト色
+  bg: string       // 背景色
+}> = {
+  good: { text: "買増検討", color: "text-green-700", bg: "bg-green-50" },
+  neutral: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
+  caution: { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
+  warning: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
+}
+
+// 移動平均乖離率の閾値
+export const MA_DEVIATION = {
+  PERIOD: 25,                    // 移動平均の期間（日）
+  UPPER_THRESHOLD: 20,           // 上方乖離の閾値（%）
+  LOWER_THRESHOLD: -20,          // 下方乖離の閾値（%）
+  CONFIDENCE_PENALTY: -0.15,     // 上方乖離時のconfidenceペナルティ
+  CONFIDENCE_BONUS: 0.1,         // 下方乖離時のconfidenceボーナス
+  SCORE_PENALTY: -20,            // 日次おすすめのスコアペナルティ
+  SCORE_BONUS: 10,               // 日次おすすめのスコアボーナス
+  LOW_VOLATILITY_THRESHOLD: 30,  // 低ボラティリティの閾値（%）
+  DIP_BUY_THRESHOLD: 5,          // 乖離率(%)がこれを超えたら押し目買い推奨
+  RSI_OVERBOUGHT_THRESHOLD: 70,  // RSIがこれを超えたら押し目買い推奨
+} as const
+
+// 売りタイミング判断の閾値
+export const SELL_TIMING = {
+  DEVIATION_LOWER_THRESHOLD: -5,   // 乖離率がこれ未満で戻り売り推奨
+  RSI_OVERSOLD_THRESHOLD: 30,      // RSIがこれ未満で戻り売り推奨
+  PANIC_SELL_THRESHOLD: -20,       // 乖離率がこれ以下でsell→hold強制補正
+  PROFIT_TAKING_THRESHOLD: 10,     // 利益率(%)がこれ以上で利確優先
+  STOP_LOSS_THRESHOLD: -15,        // 損失率(%)がこれ以下で損切り優先
+} as const
