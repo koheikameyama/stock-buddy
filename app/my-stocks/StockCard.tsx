@@ -61,10 +61,11 @@ interface StockCardProps {
   onAdditionalPurchase?: () => void
   onSell?: () => void
   onPurchase?: () => void
+  onTrackClick?: () => void
 }
 
 
-export default function StockCard({ stock, price, priceLoaded = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
+export default function StockCard({ stock, price, priceLoaded = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -349,6 +350,17 @@ export default function StockCard({ stock, price, priceLoaded = false, recommend
                 className={getActionButtonClass("purchase")}
               >
                 {ACTION_BUTTON_LABELS.purchase}
+              </button>
+            )}
+            {isWatchlist && onTrackClick && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTrackClick()
+                }}
+                className={getActionButtonClass("tracked")}
+              >
+                -見送り
               </button>
             )}
           </div>
