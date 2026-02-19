@@ -62,10 +62,12 @@ const DOWN_THRESHOLD = -20
 // --- 型定義 ---
 
 interface SectorNewsAgg {
-  positive: number
-  negative: number
-  neutral: number
-  total: number
+  jpPositive: number
+  jpNegative: number
+  jpNeutral: number
+  usPositive: number
+  usNegative: number
+  usNeutral: number
   usNewsCount: number
 }
 
@@ -94,27 +96,38 @@ function clamp(value: number, min: number, max: number): number {
  * newsScore = ((weighted_positive - weighted_negative) / weighted_total) * 100 * log2(weighted_total + 1)
  */
 function calcNewsScore(agg: SectorNewsAgg): number {
-  if (agg.total === 0) return 0
-
-  // JP/US比率から各センチメントの内訳を推定
-  // usNewsCount はUSニュースの総数。JP/USの比率でpositive/negativeを按分
-  const jpTotal = agg.total - agg.usNewsCount
-  const usTotal = agg.usNewsCount
+  const jpTotal = agg.jpPositive + agg.jpNegative + agg.jpNeutral
+  const usTotal = agg.usPositive + agg.usNegative + agg.usNeutral
 
   if (jpTotal + usTotal === 0) return 0
 
-  // JP/US比率
-  const jpRatio = jpTotal > 0 ? jpTotal / agg.total : 0
-  const usRatio = usTotal > 0 ? usTotal / agg.total : 0
-
-  // 各センチメントをJP/US比率で按分してから重み付け
-  const weightedPositive = agg.positive * jpRatio + agg.positive * usRatio * US_INFLUENCE_WEIGHT
-  const weightedNegative = agg.negative * jpRatio + agg.negative * usRatio * US_INFLUENCE_WEIGHT
+  const weightedPositive = agg.jpPositive + agg.usPositive * US_INFLUENCE_WEIGHT
+  const weightedNegative = agg.jpNegative + agg.usNegative * US_INFLUENCE_WEIGHT
   const weightedTotal = jpTotal + usTotal * US_INFLUENCE_WEIGHT
 
   if (weightedTotal === 0) return 0
 
   return ((weightedPositive - weightedNegative) / weightedTotal) * 100 * Math.log2(weightedTotal + 1)
+}
+
+/** JP/US合算のニュース総数（DB保存用、重みなし） */
+function totalNewsCount(agg: SectorNewsAgg): number {
+  return agg.jpPositive + agg.jpNegative + agg.jpNeutral + agg.usPositive + agg.usNegative + agg.usNeutral
+}
+
+/** JP/US合算のポジティブ件数（DB保存用、重みなし） */
+function totalPositive(agg: SectorNewsAgg): number {
+  return agg.jpPositive + agg.usPositive
+}
+
+/** JP/US合算のネガティブ件数（DB保存用、重みなし） */
+function totalNegative(agg: SectorNewsAgg): number {
+  return agg.jpNegative + agg.usNegative
+}
+
+/** JP/US合算のニュートラル件数（DB保存用、重みなし） */
+function totalNeutral(agg: SectorNewsAgg): number {
+  return agg.jpNeutral + agg.usNeutral
 }
 
 /**
@@ -170,9 +183,14 @@ async function main(): Promise<void> {
   // 初期化
   const agg3d: Record<string, SectorNewsAgg> = {}
   const agg7d: Record<string, SectorNewsAgg> = {}
+  const emptyAgg = (): SectorNewsAgg => ({
+    jpPositive: 0, jpNegative: 0, jpNeutral: 0,
+    usPositive: 0, usNegative: 0, usNeutral: 0,
+    usNewsCount: 0,
+  })
   for (const sector of JP_SECTORS) {
-    agg3d[sector] = { positive: 0, negative: 0, neutral: 0, total: 0, usNewsCount: 0 }
-    agg7d[sector] = { positive: 0, negative: 0, neutral: 0, total: 0, usNewsCount: 0 }
+    agg3d[sector] = emptyAgg()
+    agg7d[sector] = emptyAgg()
   }
 
   for (const news of allNews) {
@@ -206,7 +224,7 @@ async function main(): Promise<void> {
     const a7 = agg7d[sector]
     const a3 = agg3d[sector]
     console.log(
-      `  ${sector}: 7d=${a7.total}件(+${a7.positive}/-${a7.negative}/=${a7.neutral}, US=${a7.usNewsCount}), 3d=${a3.total}件(+${a3.positive}/-${a3.negative}/=${a3.neutral}, US=${a3.usNewsCount})`
+      `  ${sector}: 7d=${totalNewsCount(a7)}件(+${totalPositive(a7)}/-${totalNegative(a7)}/=${totalNeutral(a7)}, US=${a7.usNewsCount}), 3d=${totalNewsCount(a3)}件(+${totalPositive(a3)}/-${totalNegative(a3)}/=${totalNeutral(a3)}, US=${a3.usNewsCount})`
     )
   }
 
@@ -310,59 +328,33 @@ async function main(): Promise<void> {
       `  ${sector}: news=${newsScore.toFixed(1)}, price=${priceScore.toFixed(1)}, vol=${volumeScore.toFixed(1)} → composite=${compositeScore.toFixed(1)} (${trendDirection})`
     )
 
+    const data = {
+      score3d,
+      newsCount3d: totalNewsCount(a3),
+      positive3d: totalPositive(a3),
+      negative3d: totalNegative(a3),
+      neutral3d: totalNeutral(a3),
+      score7d,
+      newsCount7d: totalNewsCount(a7),
+      positive7d: totalPositive(a7),
+      negative7d: totalNegative(a7),
+      neutral7d: totalNeutral(a7),
+      usNewsCount3d: a3.usNewsCount,
+      usNewsCount7d: a7.usNewsCount,
+      avgWeekChangeRate: m.avgWeekChangeRate,
+      avgDailyChangeRate: m.avgDailyChangeRate,
+      avgMaDeviationRate: m.avgMaDeviationRate,
+      avgVolumeRatio: m.avgVolumeRatio,
+      avgVolatility: m.avgVolatility,
+      stockCount: m.stockCount,
+      compositeScore,
+      trendDirection,
+    }
+
     return prisma.sectorTrend.upsert({
-      where: {
-        date_sector: {
-          date: today,
-          sector,
-        },
-      },
-      update: {
-        score3d,
-        newsCount3d: a3.total,
-        positive3d: a3.positive,
-        negative3d: a3.negative,
-        neutral3d: a3.neutral,
-        score7d,
-        newsCount7d: a7.total,
-        positive7d: a7.positive,
-        negative7d: a7.negative,
-        neutral7d: a7.neutral,
-        usNewsCount3d: a3.usNewsCount,
-        usNewsCount7d: a7.usNewsCount,
-        avgWeekChangeRate: m.avgWeekChangeRate,
-        avgDailyChangeRate: m.avgDailyChangeRate,
-        avgMaDeviationRate: m.avgMaDeviationRate,
-        avgVolumeRatio: m.avgVolumeRatio,
-        avgVolatility: m.avgVolatility,
-        stockCount: m.stockCount,
-        compositeScore,
-        trendDirection,
-      },
-      create: {
-        date: today,
-        sector,
-        score3d,
-        newsCount3d: a3.total,
-        positive3d: a3.positive,
-        negative3d: a3.negative,
-        neutral3d: a3.neutral,
-        score7d,
-        newsCount7d: a7.total,
-        positive7d: a7.positive,
-        negative7d: a7.negative,
-        neutral7d: a7.neutral,
-        usNewsCount3d: a3.usNewsCount,
-        usNewsCount7d: a7.usNewsCount,
-        avgWeekChangeRate: m.avgWeekChangeRate,
-        avgDailyChangeRate: m.avgDailyChangeRate,
-        avgMaDeviationRate: m.avgMaDeviationRate,
-        avgVolumeRatio: m.avgVolumeRatio,
-        avgVolatility: m.avgVolatility,
-        stockCount: m.stockCount,
-        compositeScore,
-        trendDirection,
-      },
+      where: { date_sector: { date: today, sector } },
+      update: data,
+      create: { date: today, sector, ...data },
     })
   })
 
@@ -375,23 +367,22 @@ async function main(): Promise<void> {
 
 /**
  * センチメントを集計に加算する
- * USニュースの場合は usNewsCount もカウント
+ * JP/USを分離して記録し、スコア計算時に重み付けする
  */
 function addSentiment(agg: SectorNewsAgg, sentiment: string | null, isUS: boolean): void {
-  agg.total++
-  if (isUS) agg.usNewsCount++
-
-  switch (sentiment) {
-    case "positive":
-      agg.positive++
-      break
-    case "negative":
-      agg.negative++
-      break
-    case "neutral":
-      agg.neutral++
-      break
-    // sentiment が null の場合は total のみカウント（neutral 扱いにはしない）
+  if (isUS) {
+    agg.usNewsCount++
+    switch (sentiment) {
+      case "positive": agg.usPositive++; break
+      case "negative": agg.usNegative++; break
+      case "neutral": agg.usNeutral++; break
+    }
+  } else {
+    switch (sentiment) {
+      case "positive": agg.jpPositive++; break
+      case "negative": agg.jpNegative++; break
+      case "neutral": agg.jpNeutral++; break
+    }
   }
 }
 
