@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-AI分析パフォーマンス週次レポート
+AI分析パフォーマンス日次レポート
 
-毎週日曜に過去7日間の3種類のAI分析パフォーマンスを集計してDBに保存する。
+毎日、過去7日間の3種類のAI分析パフォーマンスを集計してDBに保存する。
 - おすすめ銘柄 (UserDailyRecommendation)
 - 購入推奨 (PurchaseRecommendation)
 - ポートフォリオ分析 (StockAnalysis)
@@ -793,10 +793,10 @@ def save_report_to_db(
     analysis: dict,
     insights: dict | None,
 ):
-    """週次レポートをDBに保存"""
-    today = datetime.now(timezone.utc).date()
-    week_start = today - timedelta(days=7)
-    week_end = today - timedelta(days=1)
+    """日次レポートをDBに保存（過去7日間の滚动集計）"""
+    # JSTの今日（UTC-9時間）
+    jst_offset = timezone(timedelta(hours=9))
+    today_jst = datetime.now(jst_offset).date()
 
     # 詳細データをJSON形式で構築
     details = {
@@ -820,10 +820,9 @@ def save_report_to_db(
 
     with conn.cursor() as cur:
         cur.execute('''
-            INSERT INTO "WeeklyAIReport" (
+            INSERT INTO "DailyAIReport" (
                 id,
-                "weekStart",
-                "weekEnd",
+                date,
                 "dailyRecommendationCount",
                 "dailyRecommendationAvgReturn",
                 "dailyRecommendationPlusRate",
@@ -843,14 +842,13 @@ def save_report_to_db(
                 "createdAt"
             ) VALUES (
                 gen_random_uuid()::text,
-                %s, %s,
+                %s,
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, NOW()
             )
-            ON CONFLICT ("weekStart") DO UPDATE SET
-                "weekEnd" = EXCLUDED."weekEnd",
+            ON CONFLICT (date) DO UPDATE SET
                 "dailyRecommendationCount" = EXCLUDED."dailyRecommendationCount",
                 "dailyRecommendationAvgReturn" = EXCLUDED."dailyRecommendationAvgReturn",
                 "dailyRecommendationPlusRate" = EXCLUDED."dailyRecommendationPlusRate",
@@ -868,8 +866,7 @@ def save_report_to_db(
                 "stockAnalysisImprovement" = EXCLUDED."stockAnalysisImprovement",
                 details = EXCLUDED.details
         ''', (
-            week_start,
-            week_end,
+            today_jst,
             daily["count"] if daily["count"] > 0 else None,
             daily["avgReturn"] if daily["count"] > 0 else None,
             daily["positiveRate"] if daily["count"] > 0 else None,
@@ -893,7 +890,7 @@ def save_report_to_db(
 
 def main():
     print("=" * 60)
-    print("Weekly AI Analysis Performance Report")
+    print("Daily AI Analysis Performance Report")
     print("=" * 60)
     print(f"Time: {datetime.now().isoformat()}")
 

@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma"
 
 /**
  * GET /api/reports/ai-accuracy
- * AI精度レポートを取得（直近N週間分）
+ * AI精度レポートを取得（直近N日分）
  * クエリパラメータ:
- * - limit: 取得する週数（デフォルト: 12）
+ * - limit: 取得する日数（デフォルト: 30）
  */
 export async function GET(request: NextRequest) {
   try {
@@ -16,10 +16,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = Math.min(parseInt(searchParams.get("limit") || "12"), 52)
+    const limit = Math.min(parseInt(searchParams.get("limit") || "30"), 90)
 
-    const reports = await prisma.weeklyAIReport.findMany({
-      orderBy: { weekStart: "desc" },
+    const reports = await prisma.dailyAIReport.findMany({
+      orderBy: { date: "desc" },
       take: limit,
     })
 
@@ -28,8 +28,7 @@ export async function GET(request: NextRequest) {
 
     // グラフ用に日付順でソート（古い順）
     const chartData = [...reports].reverse().map((r) => ({
-      weekStart: r.weekStart,
-      weekEnd: r.weekEnd,
+      date: r.date,
       daily: {
         count: r.dailyRecommendationCount,
         avgReturn: r.dailyRecommendationAvgReturn
@@ -63,8 +62,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       latest: latest
         ? {
-            weekStart: latest.weekStart,
-            weekEnd: latest.weekEnd,
+            date: latest.date,
             daily: {
               count: latest.dailyRecommendationCount,
               avgReturn: latest.dailyRecommendationAvgReturn
@@ -108,7 +106,7 @@ export async function GET(request: NextRequest) {
           }
         : null,
       chartData,
-      totalWeeks: reports.length,
+      totalDays: reports.length,
     })
   } catch (error) {
     console.error("Error fetching AI accuracy report:", error)
