@@ -6,7 +6,11 @@ yfinanceを使って東京証券取引所の株価をリアルタイム取得
 
 import json
 import sys
+import time
 import yfinance as yf
+
+# 株価データの鮮度チェック（日数）（lib/constants.ts の STALE_DATA_DAYS と同じ値）
+STALE_DATA_DAYS = 14
 
 
 def fetch_prices(tickers: list[str]) -> list[dict]:
@@ -41,6 +45,12 @@ def fetch_prices(tickers: list[str]) -> list[dict]:
             high = info.get("dayHigh") or info.get("regularMarketDayHigh") or current_price
             low = info.get("dayLow") or info.get("regularMarketDayLow") or current_price
             volume = info.get("volume") or info.get("regularMarketVolume") or 0
+
+            # 最終取引時刻が2週間以上前なら古すぎるため無視
+            market_time = info.get("regularMarketTime", 0)
+            if market_time and (time.time() - market_time) > STALE_DATA_DAYS * 86400:
+                print(f"Stale data for {ticker} (last trade: {market_time})", file=sys.stderr)
+                continue
 
             if current_price > 0:
                 results.append(

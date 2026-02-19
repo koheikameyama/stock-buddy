@@ -13,6 +13,9 @@ export const MAX_PASSED_STOCKS_RETRIEVE = 20
 // 株価取得失敗の警告閾値（上場廃止の可能性）
 export const FETCH_FAIL_WARNING_THRESHOLD = 3
 
+// 株価データの鮮度チェック（日数）: これより古いデータは無視
+export const STALE_DATA_DAYS = 14
+
 // デフォルト値
 export const DEFAULT_INVESTMENT_BUDGET = 100000
 

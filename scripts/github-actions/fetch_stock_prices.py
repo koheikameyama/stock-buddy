@@ -30,6 +30,9 @@ CONFIG = {
 # 株価取得失敗の警告閾値（lib/constants.ts の FETCH_FAIL_WARNING_THRESHOLD と同じ値）
 FETCH_FAIL_WARNING_THRESHOLD = 3
 
+# 株価データの鮮度チェック（日数）（lib/constants.ts の STALE_DATA_DAYS と同じ値）
+STALE_DATA_DAYS = 14
+
 
 def get_database_url() -> str:
     """データベースURLを取得"""
@@ -135,8 +138,7 @@ def _compute_price_data(hist) -> dict | None:
     if len(hist) < 2:
         return None
 
-    # 最新データが2週間以上前なら古すぎるため無視
-    STALE_DATA_DAYS = 14
+    # 最新データが古すぎる場合は無視
     latest_date = hist.index[-1].to_pydatetime()
     if latest_date.tzinfo is None:
         latest_date = latest_date.replace(tzinfo=timezone.utc)
