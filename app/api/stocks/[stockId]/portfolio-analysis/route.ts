@@ -6,6 +6,7 @@ import {
   executePortfolioAnalysis,
   AnalysisError,
 } from "@/lib/portfolio-analysis-core"
+import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -35,8 +36,8 @@ export async function GET(
 
     const userId = session.user.id
 
-    // ポートフォリオ分析とユーザー設定を取得
-    const [portfolioStock, userSettings] = await Promise.all([
+    // ポートフォリオ分析・ユーザー設定・StockAnalysis（価格帯予測）を並列取得
+    const [portfolioStock, userSettings, stockAnalysis] = await Promise.all([
       prisma.portfolioStock.findFirst({
         where: {
           userId,
@@ -58,11 +59,18 @@ export async function GET(
           transactions: {
             orderBy: { transactionDate: "asc" },
           },
+          stock: {
+            select: { tickerCode: true },
+          },
         },
       }),
       prisma.userSettings.findUnique({
         where: { userId },
         select: { stopLossRate: true, targetReturnRate: true },
+      }),
+      prisma.stockAnalysis.findFirst({
+        where: { stockId },
+        orderBy: { analyzedAt: "desc" },
       }),
     ])
 
@@ -71,6 +79,13 @@ export async function GET(
         { error: "この銘柄はポートフォリオに登録されていません" },
         { status: 404 }
       )
+    }
+
+    // リアルタイム株価を取得
+    let currentPrice: number | null = null
+    if (portfolioStock.stock?.tickerCode) {
+      const { prices } = await fetchStockPrices([portfolioStock.stock.tickerCode])
+      currentPrice = prices[0]?.currentPrice ?? null
     }
 
     // 買値（平均取得単価）を計算
@@ -127,6 +142,25 @@ export async function GET(
           targetReturnRate,
           userTargetPrice,
           userStopLossPrice,
+          // StockAnalysis（価格帯予測）
+          currentPrice,
+          shortTermTrend: null,
+          shortTermPriceLow: null,
+          shortTermPriceHigh: null,
+          shortTermText: null,
+          midTermTrend: null,
+          midTermPriceLow: null,
+          midTermPriceHigh: null,
+          midTermText: null,
+          longTermTrend: null,
+          longTermPriceLow: null,
+          longTermPriceHigh: null,
+          longTermText: null,
+          advice: null,
+          confidence: null,
+          limitPrice: null,
+          stopLossPrice: null,
+          analyzedAt: null,
         },
         { status: 200 }
       )
@@ -151,7 +185,7 @@ export async function GET(
       sellCondition: portfolioStock.sellCondition,
       sellTiming: portfolioStock.sellTiming,
       sellTargetPrice: portfolioStock.sellTargetPrice ? Number(portfolioStock.sellTargetPrice) : null,
-      recommendation: null, // GETでは取得しない（StockAnalysisから取得）
+      recommendation: stockAnalysis?.recommendation ?? null,
       // 損切りアラート用
       averagePurchasePrice,
       stopLossRate,
@@ -159,6 +193,25 @@ export async function GET(
       targetReturnRate,
       userTargetPrice,
       userStopLossPrice,
+      // StockAnalysis（価格帯予測）
+      currentPrice,
+      shortTermTrend: stockAnalysis?.shortTermTrend ?? null,
+      shortTermPriceLow: stockAnalysis?.shortTermPriceLow ? Number(stockAnalysis.shortTermPriceLow) : null,
+      shortTermPriceHigh: stockAnalysis?.shortTermPriceHigh ? Number(stockAnalysis.shortTermPriceHigh) : null,
+      shortTermText: stockAnalysis?.shortTermText ?? null,
+      midTermTrend: stockAnalysis?.midTermTrend ?? null,
+      midTermPriceLow: stockAnalysis?.midTermPriceLow ? Number(stockAnalysis.midTermPriceLow) : null,
+      midTermPriceHigh: stockAnalysis?.midTermPriceHigh ? Number(stockAnalysis.midTermPriceHigh) : null,
+      midTermText: stockAnalysis?.midTermText ?? null,
+      longTermTrend: stockAnalysis?.longTermTrend ?? null,
+      longTermPriceLow: stockAnalysis?.longTermPriceLow ? Number(stockAnalysis.longTermPriceLow) : null,
+      longTermPriceHigh: stockAnalysis?.longTermPriceHigh ? Number(stockAnalysis.longTermPriceHigh) : null,
+      longTermText: stockAnalysis?.longTermText ?? null,
+      advice: stockAnalysis?.advice ?? null,
+      confidence: stockAnalysis?.confidence ?? null,
+      limitPrice: stockAnalysis?.limitPrice ? Number(stockAnalysis.limitPrice) : null,
+      stopLossPrice: stockAnalysis?.stopLossPrice ? Number(stockAnalysis.stopLossPrice) : null,
+      analyzedAt: stockAnalysis?.analyzedAt?.toISOString() ?? null,
     }
 
     return NextResponse.json(response, { status: 200 })

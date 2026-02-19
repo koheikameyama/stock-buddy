@@ -13,37 +13,8 @@ interface StockAnalysisCardProps {
   embedded?: boolean
 }
 
-interface PredictionData {
-  shortTerm: {
-    trend: string
-    priceLow: string
-    priceHigh: string
-    text?: string | null
-  }
-  midTerm: {
-    trend: string
-    priceLow: string
-    priceHigh: string
-    text?: string | null
-  }
-  longTerm: {
-    trend: string
-    priceLow: string
-    priceHigh: string
-    text?: string | null
-  }
-  recommendation: string
-  advice: string
-  confidence: number
-  limitPrice: string | null
-  stopLossPrice: string | null
-  analyzedAt: string
-  currentPrice: number | null
-  statusType?: string | null
-  sellCondition?: string | null
-}
-
-interface PortfolioAnalysisData {
+interface AnalysisData {
+  // PortfolioStock
   lastAnalysis: string | null
   statusType: string | null
   marketSignal: string | null
@@ -51,22 +22,38 @@ interface PortfolioAnalysisData {
   suggestedSellPercent: number | null
   sellReason: string | null
   sellCondition: string | null
-  recommendation: string | null
-  // 損切りアラート用
+  sellTiming?: string | null
+  sellTargetPrice?: number | null
   averagePurchasePrice: number | null
   stopLossRate: number | null
-  // ユーザー設定に基づく価格
   targetReturnRate: number | null
   userTargetPrice: number | null
   userStopLossPrice: number | null
-  sellTiming?: string | null        // "market" | "rebound" | null
-  sellTargetPrice?: number | null   // 戻り売り時のSMA(25)
+  // StockAnalysis（価格帯予測）
+  currentPrice: number | null
+  recommendation: string | null
+  advice: string | null
+  confidence: number | null
+  limitPrice: number | null
+  stopLossPrice: number | null
+  analyzedAt: string | null
+  shortTermTrend: string | null
+  shortTermPriceLow: number | null
+  shortTermPriceHigh: number | null
+  shortTermText: string | null
+  midTermTrend: string | null
+  midTermPriceLow: number | null
+  midTermPriceHigh: number | null
+  midTermText: string | null
+  longTermTrend: string | null
+  longTermPriceLow: number | null
+  longTermPriceHigh: number | null
+  longTermText: string | null
 }
 
 
 export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice, embedded = false }: StockAnalysisCardProps) {
-  const [prediction, setPrediction] = useState<PredictionData | null>(null)
-  const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysisData | null>(null)
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [noData, setNoData] = useState(false)
@@ -76,34 +63,19 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     setLoading(true)
     setError("")
     try {
-      // 2つのAPIを並列で取得
-      const [predictionRes, portfolioRes] = await Promise.all([
-        fetch(`/api/stocks/${stockId}/analysis`),
-        fetch(`/api/stocks/${stockId}/portfolio-analysis`),
-      ])
+      const response = await fetch(`/api/stocks/${stockId}/portfolio-analysis`)
 
-      // 価格帯予測データ
-      if (predictionRes.ok) {
-        const data = await predictionRes.json()
-        setPrediction(data)
-      }
-
-      // テキスト分析データ
-      if (portfolioRes.ok) {
-        const data = await portfolioRes.json()
-        setPortfolioAnalysis(data)
-        // lastAnalysisがnullの場合はデータがない（生成ボタンを表示）
-        if (!data.lastAnalysis) {
+      if (response.ok) {
+        const data = await response.json()
+        setAnalysis(data)
+        if (!data.lastAnalysis && !data.analyzedAt) {
           setNoData(true)
         } else {
           setNoData(false)
         }
-      } else if (portfolioRes.status === 404) {
+      } else if (response.status === 404) {
         setNoData(true)
-      }
-
-      // 両方とも取得できなかった場合
-      if (!predictionRes.ok && !portfolioRes.ok) {
+      } else {
         setNoData(true)
       }
     } catch (err) {
@@ -198,8 +170,8 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     )
   }
 
-  const formatPrice = (price: string) => {
-    return parseFloat(price).toLocaleString("ja-JP", {
+  const formatPrice = (price: number) => {
+    return price.toLocaleString("ja-JP", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })
@@ -233,8 +205,8 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
   }
 
   // noDataはlastAnalysisがnullの場合にtrueになる
-  // predictionがない場合は生成ボタンを表示
-  if ((noData || error) && !prediction) {
+  // analysisのrecommendationがない場合は生成ボタンを表示
+  if ((noData || error) && !analysis?.recommendation) {
     return (
       <div className="bg-gray-50 rounded-lg p-6 text-center">
         <div className="text-4xl mb-3">📊</div>
@@ -255,7 +227,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
   }
 
   // 分析日時（より新しい方を表示）
-  const analysisDate = prediction?.analyzedAt || portfolioAnalysis?.lastAnalysis
+  const analysisDate = analysis?.analyzedAt || analysis?.lastAnalysis
 
   return (
     <div className="space-y-4">
@@ -287,9 +259,9 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
 
       {/* 損切りアラート（ユーザーが損切りラインを設定している場合のみ表示） */}
       {(() => {
-        const currentPrice = prediction?.currentPrice
-        const avgPrice = portfolioAnalysis?.averagePurchasePrice
-        const stopLossRate = portfolioAnalysis?.stopLossRate
+        const currentPrice = analysis?.currentPrice
+        const avgPrice = analysis?.averagePurchasePrice
+        const stopLossRate = analysis?.stopLossRate
 
         // 損切りラインが未設定の場合は表示しない
         if (!currentPrice || !avgPrice || stopLossRate === null || stopLossRate === undefined) return null
@@ -333,27 +305,27 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
       })()}
 
       {/* AIアドバイス */}
-      {prediction && (
+      {analysis?.recommendation && (
         <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
           <div className="mb-2">
             <p className="font-semibold text-gray-800 mb-1.5">💡 AIアドバイス</p>
             <div className="flex items-center gap-2">
-              {getStatusBadge(prediction?.statusType || portfolioAnalysis?.statusType)}
-              {getMarketSignalBadge(portfolioAnalysis?.marketSignal)}
+              {getStatusBadge(analysis.statusType)}
+              {getMarketSignalBadge(analysis.marketSignal)}
             </div>
           </div>
           <p className="text-sm text-gray-700 leading-relaxed mb-3">
-            {prediction.advice}
+            {analysis.advice}
           </p>
           {/* 指値・逆指値（推奨に応じて表示を切り替え） */}
           {(() => {
             // sell推奨時は「AI推奨価格」セクションを非表示（「売却検討」セクションに統合）
-            if (prediction.recommendation === "sell") return null
+            if (analysis.recommendation === "sell") return null
 
             // buy → 指値 + 逆指値、hold → 利確目標 + 逆指値
-            const showLimitPrice = prediction.recommendation === "buy" || prediction.recommendation === "hold"
+            const showLimitPrice = analysis.recommendation === "buy" || analysis.recommendation === "hold"
             const showStopLossPrice = true // buy/holdで逆指値を表示
-            const hasPrice = (showLimitPrice && prediction.limitPrice) || (showStopLossPrice && prediction.stopLossPrice)
+            const hasPrice = (showLimitPrice && analysis.limitPrice) || (showStopLossPrice && analysis.stopLossPrice)
 
             if (!hasPrice) return null
 
@@ -361,12 +333,12 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
                 <p className="text-sm font-semibold text-gray-800 mb-2">🎯 AI推奨価格</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {showLimitPrice && prediction.limitPrice && (
+                  {showLimitPrice && analysis.limitPrice && (
                     <div>
                       {(() => {
-                        const limitPriceNum = parseFloat(prediction.limitPrice)
-                        const currentPrice = prediction.currentPrice
-                        const isBuy = prediction.recommendation === "buy"
+                        const limitPriceNum = analysis.limitPrice
+                        const currentPrice = analysis.currentPrice
+                        const isBuy = analysis.recommendation === "buy"
 
                         if (isBuy) {
                           // buy推奨時: 現在価格と比較
@@ -379,7 +351,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                                 {isNowBuyTime ? "今が買い時" : "指値（買い）"}
                               </p>
                               <p className="text-base font-bold text-green-600">
-                                {isNowBuyTime ? "成行で購入OK" : `${formatPrice(prediction.limitPrice)}円`}
+                                {isNowBuyTime ? "成行で購入OK" : `${formatPrice(limitPriceNum)}円`}
                               </p>
                               {!isNowBuyTime && currentPrice && priceDiff < 0 && (
                                 <p className="text-xs text-yellow-600">
@@ -391,7 +363,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                         } else {
                           // hold推奨時: 利確目標
                           // 含み損がある場合は「成行で売却OK」を表示しない（利確は含み益があってこそ意味がある）
-                          const avgPrice = portfolioAnalysis?.averagePurchasePrice
+                          const avgPrice = analysis.averagePurchasePrice
                           const hasLoss = avgPrice && currentPrice && currentPrice < avgPrice
                           const isNowSellTime = !hasLoss && currentPrice && Math.abs(limitPriceNum - currentPrice) / currentPrice < 0.01
                           const priceDiff = currentPrice ? limitPriceNum - currentPrice : 0
@@ -402,7 +374,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                                 {isNowSellTime ? "今が売り時" : "利確目標"}
                               </p>
                               <p className="text-base font-bold text-green-600">
-                                {isNowSellTime ? "成行で売却OK" : `${formatPrice(prediction.limitPrice)}円`}
+                                {isNowSellTime ? "成行で売却OK" : `${formatPrice(limitPriceNum)}円`}
                               </p>
                               {!isNowSellTime && currentPrice && priceDiff > 0 && (
                                 <p className="text-xs text-green-600">
@@ -415,11 +387,11 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                       })()}
                     </div>
                   )}
-                  {showStopLossPrice && prediction.stopLossPrice && (
+                  {showStopLossPrice && analysis.stopLossPrice && (
                     <div>
                       {(() => {
-                        const stopLossPriceNum = parseFloat(prediction.stopLossPrice)
-                        const currentPrice = prediction.currentPrice
+                        const stopLossPriceNum = analysis.stopLossPrice
+                        const currentPrice = analysis.currentPrice
                         const priceDiff = currentPrice ? stopLossPriceNum - currentPrice : 0
                         const priceDiffPercent = currentPrice ? ((priceDiff / currentPrice) * 100).toFixed(1) : "0"
                         const isNearStopLoss = currentPrice && Math.abs(priceDiff / currentPrice) < 0.03 // 3%以内なら注意
@@ -428,7 +400,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                           <>
                             <p className="text-xs text-gray-500">逆指値（損切り）</p>
                             <p className="text-base font-bold text-red-600">
-                              {formatPrice(prediction.stopLossPrice)}円
+                              {formatPrice(stopLossPriceNum)}円
                             </p>
                             {currentPrice && priceDiff < 0 && (
                               <p className={`text-xs ${isNearStopLoss ? "text-red-600 font-semibold" : "text-gray-500"}`}>
@@ -445,7 +417,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             )
           })()}
           {/* 買増検討（好調時） */}
-          {portfolioAnalysis?.statusType === "good" && prediction.recommendation === "buy" && (
+          {analysis.statusType === "good" && analysis.recommendation === "buy" && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
                 📈 買増検討
@@ -456,7 +428,7 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             </div>
           )}
           {/* 様子見（neutral時） */}
-          {portfolioAnalysis?.statusType === "neutral" && (
+          {analysis.statusType === "neutral" && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
                 👀 様子見
@@ -467,39 +439,39 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
             </div>
           )}
           {/* AIによる売却提案（warning時） */}
-          {portfolioAnalysis?.statusType === "warning" && (
+          {analysis.statusType === "warning" && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
                 ⚠️ 売却推奨
               </p>
               <div className="space-y-2">
-                {portfolioAnalysis.suggestedSellPercent && (
+                {analysis.suggestedSellPercent && (
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500">推奨売却:</span>
                       <span className={`font-bold ${
-                        portfolioAnalysis.suggestedSellPercent === 100 ? "text-red-600" : "text-amber-600"
+                        analysis.suggestedSellPercent === 100 ? "text-red-600" : "text-amber-600"
                       }`}>
-                        {portfolioAnalysis.suggestedSellPercent}%
+                        {analysis.suggestedSellPercent}%
                       </span>
                     </div>
                     {quantity && quantity > 0 && (
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {quantity}株中 {Math.round(quantity * portfolioAnalysis.suggestedSellPercent / 100)}株
+                        {quantity}株中 {Math.round(quantity * analysis.suggestedSellPercent / 100)}株
                       </p>
                     )}
                   </div>
                 )}
-                {prediction.recommendation === "sell" ? (
-                  portfolioAnalysis.sellTiming === "rebound" ? (
+                {analysis.recommendation === "sell" ? (
+                  analysis.sellTiming === "rebound" ? (
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">売却方法:</span>
                         <span className="font-bold text-amber-600">戻り売り推奨</span>
                       </div>
                       <p className="text-sm text-yellow-800 mt-1">
-                        {portfolioAnalysis.sellTargetPrice
-                          ? `25日移動平均線の${portfolioAnalysis.sellTargetPrice.toLocaleString()}円付近まで反発を待つとより有利です。`
+                        {analysis.sellTargetPrice
+                          ? `25日移動平均線の${analysis.sellTargetPrice.toLocaleString()}円付近まで反発を待つとより有利です。`
                           : "現在は売られすぎの状態です。少し反発してから売却するのがおすすめです。"}
                       </p>
                       <p className="text-xs text-yellow-600 mt-1">
@@ -515,8 +487,8 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                         </span>
                       </div>
                       {(() => {
-                        const currentPrice = prediction.currentPrice
-                        const avgPrice = portfolioAnalysis.averagePurchasePrice
+                        const currentPrice = analysis.currentPrice
+                        const avgPrice = analysis.averagePurchasePrice
                         if (currentPrice && avgPrice) {
                           const diffPercent = ((currentPrice - avgPrice) / avgPrice) * 100
                           if (diffPercent >= 0 && diffPercent <= SELL_TIMING.NEAR_AVERAGE_PRICE_THRESHOLD) {
@@ -536,30 +508,30 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                       })()}
                     </div>
                   )
-                ) : portfolioAnalysis.suggestedSellPrice && (
+                ) : analysis.suggestedSellPrice && (
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500">売却価格:</span>
                       <span className="font-bold text-gray-800">
-                        {portfolioAnalysis.suggestedSellPrice.toLocaleString()}円
+                        {analysis.suggestedSellPrice.toLocaleString()}円
                       </span>
                     </div>
-                    {prediction.currentPrice && (
+                    {analysis.currentPrice && (
                       <p className="text-xs text-gray-500 mt-0.5">
-                        現在価格: {prediction.currentPrice.toLocaleString()}円
+                        現在価格: {analysis.currentPrice.toLocaleString()}円
                       </p>
                     )}
                   </div>
                 )}
-                {portfolioAnalysis.sellReason && (
+                {analysis.sellReason && (
                   <div className="mt-2 p-2 bg-white rounded border border-gray-100">
                     <p className="text-xs text-gray-500 mb-1">理由:</p>
-                    <p className="text-sm text-gray-700">{portfolioAnalysis.sellReason}</p>
+                    <p className="text-sm text-gray-700">{analysis.sellReason}</p>
                   </div>
                 )}
-                {portfolioAnalysis.sellCondition && (
+                {analysis.sellCondition && (
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 {portfolioAnalysis.sellCondition}
+                    💡 {analysis.sellCondition}
                   </div>
                 )}
               </div>
@@ -567,109 +539,115 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
           )}
 
           {/* ユーザー設定に基づく目標価格 */}
-          {(portfolioAnalysis?.userTargetPrice || portfolioAnalysis?.userStopLossPrice) && (
+          {(analysis.userTargetPrice || analysis.userStopLossPrice) && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2">📊 あなたの設定に基づく目標</p>
               <div className="grid grid-cols-2 gap-3">
-                {portfolioAnalysis.userTargetPrice && portfolioAnalysis.targetReturnRate && (
+                {analysis.userTargetPrice && analysis.targetReturnRate && (
                   <div>
                     <p className="text-xs text-gray-500">
-                      利確目標（+{portfolioAnalysis.targetReturnRate}%）
+                      利確目標（+{analysis.targetReturnRate}%）
                     </p>
                     <p className="text-base font-bold text-green-600">
-                      {portfolioAnalysis.userTargetPrice.toLocaleString()}円
+                      {analysis.userTargetPrice.toLocaleString()}円
                     </p>
                   </div>
                 )}
-                {portfolioAnalysis.userStopLossPrice && portfolioAnalysis.stopLossRate && (
+                {analysis.userStopLossPrice && analysis.stopLossRate && (
                   <div>
                     <p className="text-xs text-gray-500">
-                      損切り（{portfolioAnalysis.stopLossRate}%）
+                      損切り（{analysis.stopLossRate}%）
                     </p>
                     <p className="text-base font-bold text-red-600">
-                      {portfolioAnalysis.userStopLossPrice.toLocaleString()}円
+                      {analysis.userStopLossPrice.toLocaleString()}円
                     </p>
                   </div>
                 )}
               </div>
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all"
-                style={{ width: `${prediction.confidence * 100}%` }}
-              ></div>
+          {analysis.confidence !== null && (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all"
+                  style={{ width: `${analysis.confidence * 100}%` }}
+                ></div>
+              </div>
+              <span className="text-xs text-gray-600">
+                信頼度 {Math.round(analysis.confidence * 100)}%
+              </span>
             </div>
-            <span className="text-xs text-gray-600">
-              信頼度 {Math.round(prediction.confidence * 100)}%
-            </span>
-          </div>
+          )}
         </div>
       )}
 
       {/* 価格帯予測 */}
-      {prediction && (
+      {analysis?.shortTermTrend && (
         <>
           {/* 短期予測 */}
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow-md p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xl">
-                {getTrendIcon(prediction.shortTerm.trend)}
+                {getTrendIcon(analysis.shortTermTrend)}
               </span>
               <div className="flex-1">
                 <h4 className="text-sm font-bold text-purple-800">短期予測（今週）</h4>
                 <p className="text-xs text-purple-600">
-                  {getTrendText(prediction.shortTerm.trend)} ¥{formatPrice(prediction.shortTerm.priceLow)}〜¥{formatPrice(prediction.shortTerm.priceHigh)}
+                  {getTrendText(analysis.shortTermTrend)} {analysis.shortTermPriceLow && analysis.shortTermPriceHigh && `¥${formatPrice(analysis.shortTermPriceLow)}〜¥${formatPrice(analysis.shortTermPriceHigh)}`}
                 </p>
               </div>
             </div>
-            {prediction.shortTerm.text && (
+            {analysis.shortTermText && (
               <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {prediction.shortTerm.text}
+                {analysis.shortTermText}
               </p>
             )}
           </div>
 
           {/* 中期予測 */}
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg shadow-md p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xl">
-                {getTrendIcon(prediction.midTerm.trend)}
-              </span>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-blue-800">中期予測（今月）</h4>
-                <p className="text-xs text-blue-600">
-                  {getTrendText(prediction.midTerm.trend)} ¥{formatPrice(prediction.midTerm.priceLow)}〜¥{formatPrice(prediction.midTerm.priceHigh)}
-                </p>
+          {analysis.midTermTrend && (
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg shadow-md p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">
+                  {getTrendIcon(analysis.midTermTrend)}
+                </span>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-blue-800">中期予測（今月）</h4>
+                  <p className="text-xs text-blue-600">
+                    {getTrendText(analysis.midTermTrend)} {analysis.midTermPriceLow && analysis.midTermPriceHigh && `¥${formatPrice(analysis.midTermPriceLow)}〜¥${formatPrice(analysis.midTermPriceHigh)}`}
+                  </p>
+                </div>
               </div>
+              {analysis.midTermText && (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {analysis.midTermText}
+                </p>
+              )}
             </div>
-            {prediction.midTerm.text && (
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {prediction.midTerm.text}
-              </p>
-            )}
-          </div>
+          )}
 
           {/* 長期予測 */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg shadow-md p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xl">
-                {getTrendIcon(prediction.longTerm.trend)}
-              </span>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-emerald-800">長期予測（今後3ヶ月）</h4>
-                <p className="text-xs text-emerald-600">
-                  {getTrendText(prediction.longTerm.trend)} ¥{formatPrice(prediction.longTerm.priceLow)}〜¥{formatPrice(prediction.longTerm.priceHigh)}
-                </p>
+          {analysis.longTermTrend && (
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg shadow-md p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">
+                  {getTrendIcon(analysis.longTermTrend)}
+                </span>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-emerald-800">長期予測（今後3ヶ月）</h4>
+                  <p className="text-xs text-emerald-600">
+                    {getTrendText(analysis.longTermTrend)} {analysis.longTermPriceLow && analysis.longTermPriceHigh && `¥${formatPrice(analysis.longTermPriceLow)}〜¥${formatPrice(analysis.longTermPriceHigh)}`}
+                  </p>
+                </div>
               </div>
+              {analysis.longTermText && (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {analysis.longTermText}
+                </p>
+              )}
             </div>
-            {prediction.longTerm.text && (
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {prediction.longTerm.text}
-              </p>
-            )}
-          </div>
+          )}
         </>
       )}
 
