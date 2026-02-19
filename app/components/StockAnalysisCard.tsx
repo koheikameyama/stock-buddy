@@ -61,6 +61,52 @@ interface PortfolioAnalysisData {
   targetReturnRate: number | null
   userTargetPrice: number | null
   userStopLossPrice: number | null
+  sellTiming?: string | null        // "market" | "rebound" | null
+  sellTargetPrice?: number | null   // 戻り売り時のSMA(25)
+}
+
+function SellTimingSection({ sellTiming, sellTargetPrice }: {
+  sellTiming?: string | null
+  sellTargetPrice?: number | null
+}) {
+  if (!sellTiming) return null
+
+  if (sellTiming === "market") {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+            成り行き売却OK
+          </span>
+        </div>
+        <p className="text-sm text-red-800">
+          現在の価格帯での売却を検討できます。価格もモメンタムも売却に適した状態です。
+        </p>
+      </div>
+    )
+  }
+
+  if (sellTiming === "rebound") {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
+            戻り売り推奨
+          </span>
+        </div>
+        <p className="text-sm text-yellow-800">
+          {sellTargetPrice
+            ? `25日移動平均線の${sellTargetPrice.toLocaleString()}円付近まで反発を待つとより有利です。`
+            : "現在売られすぎの状態です。反発を待ってから売却するのがおすすめです。"}
+        </p>
+        <p className="text-xs text-yellow-600 mt-1">
+          戻り売り: 下落後の一時的な反発（リバウンド）を狙って売ること。移動平均線は過去25日間の平均価格で、株価が戻りやすい目安になります。
+        </p>
+      </div>
+    )
+  }
+
+  return null
 }
 
 export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice, embedded = false }: StockAnalysisCardProps) {
@@ -596,6 +642,10 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
                     💡 {portfolioAnalysis.sellCondition}
                   </div>
                 )}
+                <SellTimingSection
+                  sellTiming={portfolioAnalysis.sellTiming}
+                  sellTargetPrice={portfolioAnalysis.sellTargetPrice}
+                />
               </div>
             </div>
           )}
