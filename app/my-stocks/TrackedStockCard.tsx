@@ -183,7 +183,7 @@ export default function TrackedStockCard({ trackedStock, isStale = false, priceL
 
         {/* Detail Link */}
         {linkDisabled ? (
-          <div className="flex items-center text-gray-300">
+          <div className="flex items-center text-gray-300 ml-auto">
             <span className="text-xs text-gray-300">詳細を見る</span>
             <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
