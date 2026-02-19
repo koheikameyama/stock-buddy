@@ -16,8 +16,9 @@ from datetime import datetime
 import psycopg2
 import requests
 
-# 買い推奨通知の閾値
-BUY_RECOMMENDATION_CONFIDENCE_THRESHOLD = 0.6
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import BUY_RECOMMENDATION_CONFIDENCE_THRESHOLD
 
 
 def get_database_url() -> str:

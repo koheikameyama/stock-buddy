@@ -16,8 +16,9 @@ from datetime import datetime, timezone, timedelta
 import psycopg2
 import requests
 
-
-MOVERS_COUNT = 5  # 上昇/下落それぞれ5銘柄
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import MOVERS_COUNT
 
 
 def get_database_url() -> str:

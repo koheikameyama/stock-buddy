@@ -28,11 +28,9 @@ import psycopg2
 import psycopg2.extras
 import yfinance as yf
 
-# 設定
-CONFIG = {
-    "ROTATION_DAYS": 7,     # 全銘柄を取得するのに何日かけるか
-    "SLEEP_INTERVAL": 0.5,  # リクエスト間隔（秒）
-}
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import EARNINGS_ROTATION_DAYS, EARNINGS_SLEEP_INTERVAL
 
 
 def get_database_url() -> str:
@@ -184,8 +182,8 @@ def update_earnings_data(conn, stock_id: str, data: dict | None):
 
 
 def main():
-    rotation_days = CONFIG["ROTATION_DAYS"]
-    sleep_interval = CONFIG["SLEEP_INTERVAL"]
+    rotation_days = EARNINGS_ROTATION_DAYS
+    sleep_interval = EARNINGS_SLEEP_INTERVAL
 
     conn = psycopg2.connect(get_database_url())
 

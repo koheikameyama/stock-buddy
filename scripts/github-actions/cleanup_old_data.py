@@ -7,8 +7,9 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import psycopg2
 
-# データ保持期間
-RETENTION_DAYS = 30
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import RETENTION_DAYS
 
 
 def get_database_url() -> str:

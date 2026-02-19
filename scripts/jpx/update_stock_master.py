@@ -22,13 +22,16 @@ from pathlib import Path
 import psycopg2
 import psycopg2.extras
 
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import DB_BATCH_SIZE
+
 
 def generate_cuid() -> str:
     """CUIDの代わりにUUIDベースのIDを生成"""
     return str(uuid.uuid4())
 
-# バッチサイズ
-BATCH_SIZE = 100
+BATCH_SIZE = DB_BATCH_SIZE
 
 
 def get_database_url() -> str:

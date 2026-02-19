@@ -24,8 +24,23 @@ import pandas as pd
 import yfinance as yf
 from openai import OpenAI
 
-# AI API同時リクエスト数の制限
-AI_CONCURRENCY_LIMIT = 3
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import (
+    OPENAI_MODEL,
+    OPENAI_TEMPERATURE,
+    OPENAI_MAX_TOKENS_INSIGHT,
+    OPENAI_MAX_TOKENS_IMPROVEMENT,
+    AI_CONCURRENCY_LIMIT,
+    REPORT_LOOKBACK_DAYS,
+    DAILY_SUCCESS_THRESHOLD,
+    PURCHASE_BUY_SUCCESS_THRESHOLD,
+    PURCHASE_STAY_SUCCESS_THRESHOLD,
+    PURCHASE_REMOVE_SUCCESS_THRESHOLD,
+    ANALYSIS_UP_SUCCESS_THRESHOLD,
+    ANALYSIS_DOWN_SUCCESS_THRESHOLD,
+    ANALYSIS_NEUTRAL_SUCCESS_THRESHOLD,
+)
 
 # .envファイルから環境変数を読み込む（ローカル実行用）
 env_path = Path(__file__).resolve().parents[2] / ".env"
@@ -120,13 +135,13 @@ def generate_single_insight(client: OpenAI, category: str, data: dict) -> str | 
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "あなたは株式投資AIの分析官です。簡潔に日本語で回答してください。提供されたデータのみを使用し、外部情報や推測は含めないでください。"},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
-            max_tokens=100,
+            temperature=OPENAI_TEMPERATURE,
+            max_tokens=OPENAI_MAX_TOKENS_INSIGHT,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -211,14 +226,14 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "あなたは株式投資AIの分析改善アドバイザーです。失敗パターンを分析し、具体的な改善提案を行ってください。提供されたデータのみを使用し、外部情報や推測は含めないでください。"},
                 {"role": "user", "content": prompt},
             ],
             response_format=IMPROVEMENT_SCHEMA,
-            temperature=0.3,
-            max_tokens=200,
+            temperature=OPENAI_TEMPERATURE,
+            max_tokens=OPENAI_MAX_TOKENS_IMPROVEMENT,
         )
         result = json.loads(response.choices[0].message.content)
         return result
@@ -441,7 +456,7 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
             sector_stats[sector] = {
                 "count": len(perfs_list),
                 "avgReturn": sum(perfs_list) / len(perfs_list),
-                "successRate": sum(1 for p in perfs_list if p > -3) / len(perfs_list) * 100,  # 緩和: -3%以上
+                "successRate": sum(1 for p in perfs_list if p > DAILY_SUCCESS_THRESHOLD) / len(perfs_list) * 100,
             }
 
     # 成績順にソート
@@ -485,10 +500,10 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
             return "安値圏"
         return "中間"
 
-    # 失敗銘柄を収集（-3%以下）、ユニーク化（同じ銘柄は最悪のパフォーマンスのみ残す）
+    # 失敗銘柄を収集、ユニーク化（同じ銘柄は最悪のパフォーマンスのみ残す）
     failure_by_ticker = {}
     for v in valid:
-        if v["performance"] <= -3:
+        if v["performance"] <= DAILY_SUCCESS_THRESHOLD:
             ticker = v["tickerCode"]
             if ticker not in failure_by_ticker or v["performance"] < failure_by_ticker[ticker]["performance"]:
                 failure_by_ticker[ticker] = {
@@ -512,7 +527,7 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
         "count": len(valid),
         "avgReturn": sum(perfs) / len(perfs),
         "positiveRate": sum(1 for p in perfs if p > 0) / len(perfs) * 100,
-        "successRate": sum(1 for p in perfs if p > -3) / len(perfs) * 100,  # 緩和: -3%以上で成功
+        "successRate": sum(1 for p in perfs if p > DAILY_SUCCESS_THRESHOLD) / len(perfs) * 100,
         "best": unique_best,
         "worst": unique_worst,
         "topSectors": top_sectors,
@@ -572,11 +587,11 @@ def analyze_purchase_recommendations(data: list[dict], prices: dict) -> dict:
             perf = ((current_price - price_at_rec) / price_at_rec) * 100
             rec = d["recommendation"]
             if rec == "buy":
-                is_success = perf > -3  # 緩和: -3%以上
+                is_success = perf > PURCHASE_BUY_SUCCESS_THRESHOLD
             elif rec == "stay":
-                is_success = perf <= 5  # 緩和: 5%以下
+                is_success = perf <= PURCHASE_STAY_SUCCESS_THRESHOLD
             elif rec == "remove":
-                is_success = perf < 3   # 緩和: 3%未満
+                is_success = perf < PURCHASE_REMOVE_SUCCESS_THRESHOLD
             else:
                 is_success = None
             valid.append({**d, "performance": perf, "isSuccess": is_success})
@@ -697,11 +712,11 @@ def analyze_stock_analyses(data: list[dict], prices: dict) -> dict:
             perf = ((current_price - price_at_rec) / price_at_rec) * 100
             trend = d["shortTermTrend"]
             if trend == "up":
-                is_success = perf > -3  # 緩和: -3%以上
+                is_success = perf > ANALYSIS_UP_SUCCESS_THRESHOLD
             elif trend == "down":
-                is_success = perf < 3   # 緩和: 3%未満
+                is_success = perf < ANALYSIS_DOWN_SUCCESS_THRESHOLD
             elif trend == "neutral":
-                is_success = -5 <= perf <= 5  # 緩和: ±5%以内
+                is_success = -ANALYSIS_NEUTRAL_SUCCESS_THRESHOLD <= perf <= ANALYSIS_NEUTRAL_SUCCESS_THRESHOLD
             else:
                 is_success = None
             valid.append({**d, "performance": perf, "isSuccess": is_success})
@@ -887,13 +902,13 @@ def main():
     try:
         # 1. 各データソースからデータ取得
         print("\n1. Fetching data from database...")
-        daily_data = get_daily_recommendations(conn, days_ago=7)
+        daily_data = get_daily_recommendations(conn, days_ago=REPORT_LOOKBACK_DAYS)
         print(f"   Daily recommendations: {len(daily_data)} records")
 
-        purchase_data = get_purchase_recommendations(conn, days_ago=7)
+        purchase_data = get_purchase_recommendations(conn, days_ago=REPORT_LOOKBACK_DAYS)
         print(f"   Purchase recommendations: {len(purchase_data)} records")
 
-        analysis_data = get_stock_analyses(conn, days_ago=7)
+        analysis_data = get_stock_analyses(conn, days_ago=REPORT_LOOKBACK_DAYS)
         print(f"   Stock analyses: {len(analysis_data)} records")
 
         # 2. ユニークな銘柄を抽出

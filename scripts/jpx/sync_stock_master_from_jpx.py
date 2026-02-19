@@ -19,11 +19,14 @@ import psycopg2
 import psycopg2.extras
 import requests
 
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import DB_BATCH_SIZE
+
 # JPXの東証上場銘柄一覧Excelファイル
 JPX_EXCEL_URL = "https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls"
 
-# バッチサイズ
-BATCH_SIZE = 100
+BATCH_SIZE = DB_BATCH_SIZE
 
 
 def get_database_url() -> str:

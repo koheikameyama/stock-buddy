@@ -21,17 +21,14 @@ import psycopg2
 import psycopg2.extras
 import yfinance as yf
 
-# 設定
-CONFIG = {
-    "DOWNLOAD_BATCH_SIZE": 500,  # yf.download() 1回あたりの最大銘柄数
-    "DB_BATCH_SIZE": 100,        # DB更新のバッチサイズ
-}
-
-# 株価取得失敗の警告閾値（lib/constants.ts の FETCH_FAIL_WARNING_THRESHOLD と同じ値）
-FETCH_FAIL_WARNING_THRESHOLD = 3
-
-# 株価データの鮮度チェック（日数）（lib/constants.ts の STALE_DATA_DAYS と同じ値）
-STALE_DATA_DAYS = 14
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import (
+    DOWNLOAD_BATCH_SIZE,
+    DB_BATCH_SIZE,
+    FETCH_FAIL_WARNING_THRESHOLD,
+    STALE_DATA_DAYS,
+)
 
 
 def get_database_url() -> str:
@@ -254,7 +251,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
             WHERE id = %s
             ''',
             data,
-            page_size=CONFIG["DB_BATCH_SIZE"]
+            page_size=DB_BATCH_SIZE
         )
     conn.commit()
     return len(updates)
@@ -270,7 +267,7 @@ def reset_fetch_fail_counts(conn, stock_ids: list[str]) -> int:
             cur,
             'UPDATE "Stock" SET "fetchFailCount" = 0 WHERE id = %s AND "fetchFailCount" > 0',
             [(stock_id,) for stock_id in stock_ids],
-            page_size=CONFIG["DB_BATCH_SIZE"]
+            page_size=DB_BATCH_SIZE
         )
     conn.commit()
     return len(stock_ids)
@@ -292,7 +289,7 @@ def increment_fetch_fail_counts(conn, stock_ids: list[str]) -> int:
             WHERE id = %s
             ''',
             [(now, stock_id) for stock_id in stock_ids],
-            page_size=CONFIG["DB_BATCH_SIZE"]
+            page_size=DB_BATCH_SIZE
         )
     conn.commit()
     return len(stock_ids)
@@ -365,7 +362,7 @@ def main():
     print("=" * 60)
     print(f"Time: {datetime.now().isoformat()}")
     print(f"Mode: {mode}")
-    print(f"Config: DOWNLOAD_BATCH_SIZE={CONFIG['DOWNLOAD_BATCH_SIZE']}")
+    print(f"Config: DOWNLOAD_BATCH_SIZE={DOWNLOAD_BATCH_SIZE}")
     print()
 
     # DB接続
@@ -392,7 +389,7 @@ def main():
         # バッチごとに yf.download() で取得
         total_updated = 0
         total_errors = 0
-        batch_size = CONFIG["DOWNLOAD_BATCH_SIZE"]
+        batch_size = DOWNLOAD_BATCH_SIZE
 
         # 成功/失敗した銘柄を追跡
         all_success_ids = []

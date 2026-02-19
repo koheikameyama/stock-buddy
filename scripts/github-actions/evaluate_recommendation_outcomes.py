@@ -22,11 +22,9 @@ import yfinance as yf
 # scriptsディレクトリをPythonパスに追加
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from lib.date_utils import get_today_jst_date, get_days_ago_for_db
+from lib.constants import EVALUATION_DAYS
 
 JST = ZoneInfo("Asia/Tokyo")
-
-# 評価対象の日数
-EVALUATION_DAYS = [1, 3, 7, 14]
 
 
 def get_database_url() -> str:

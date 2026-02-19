@@ -19,18 +19,16 @@ from decimal import Decimal
 import psycopg2
 import requests
 
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import SURGE_THRESHOLD, PLUNGE_THRESHOLD
+
 # ロギング設定
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-# 設定
-CONFIG = {
-    "SURGE_THRESHOLD": 5.0,   # 急騰しきい値（%）
-    "PLUNGE_THRESHOLD": -5.0, # 急落しきい値（%）
-}
 
 
 def get_env_variable(name: str, required: bool = True) -> str | None:
@@ -406,8 +404,8 @@ def main():
         logger.info("Checking portfolio surge/plunge alerts...")
         surge_plunge_alerts = fetch_portfolio_surge_plunge_alerts(
             conn,
-            CONFIG["SURGE_THRESHOLD"],
-            CONFIG["PLUNGE_THRESHOLD"]
+            SURGE_THRESHOLD,
+            PLUNGE_THRESHOLD
         )
         logger.info(f"  Found {len(surge_plunge_alerts)} portfolio surge/plunge alerts")
 

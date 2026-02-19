@@ -9,17 +9,14 @@ import sys
 from datetime import datetime, timedelta
 import requests
 
+# scriptsディレクトリをPythonパスに追加
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from lib.constants import USD_TO_JPY, GPT4O_MINI_PRICING
+
 OPENAI_ADMIN_KEY = os.environ.get("OPENAI_ADMIN_KEY")
 OPENAI_PROJECT_ID = os.environ.get("OPENAI_PROJECT_ID")
 SLACK_WEBHOOK_URL = os.environ.get("OPENAI_SLACK_WEBHOOK_URL")
 MONTHLY_BUDGET_USD = float(os.environ.get("MONTHLY_BUDGET_USD", "50"))
-
-# 為替レート（円/ドル）
-USD_TO_JPY = 150
-
-# gpt-4o-mini料金で統一計算 (USD per 1M tokens)
-# https://openai.com/api/pricing/
-GPT4O_MINI_PRICING = {"input": 0.15, "output": 0.60}
 
 
 def get_usage_data(start_timestamp: int, end_timestamp: int) -> dict:
