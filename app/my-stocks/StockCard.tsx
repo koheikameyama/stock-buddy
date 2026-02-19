@@ -37,6 +37,7 @@ interface StockPrice {
   volume: number
   high: number
   low: number
+  marketTime?: number | null
 }
 
 interface PurchaseRecommendation {
@@ -177,6 +178,17 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                 >
                   {price.change >= 0 ? "+" : ""}
                   {price.changePercent.toFixed(2)}%
+                </p>
+              )}
+              {price.marketTime && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  {new Date(price.marketTime * 1000).toLocaleString("ja-JP", {
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  時点
                 </p>
               )}
             </div>

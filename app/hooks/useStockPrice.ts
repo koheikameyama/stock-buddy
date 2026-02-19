@@ -7,6 +7,7 @@ export interface StockPrice {
   previousClose: number
   change: number
   changePercent: number
+  marketTime: number | null
 }
 
 interface UseStockPriceResult {

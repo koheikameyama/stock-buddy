@@ -149,6 +149,7 @@ export default function MyStocksClient() {
                   currentPrice: priceData.currentPrice,
                   change: priceData.change,
                   changePercent: priceData.changePercent,
+                  marketTime: priceData.marketTime,
                 }
               : ts
           })

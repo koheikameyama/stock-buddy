@@ -63,6 +63,7 @@ def fetch_prices(tickers: list[str]) -> list[dict]:
                         "volume": volume,
                         "high": round(high, 2),
                         "low": round(low, 2),
+                        "marketTime": market_time or None,
                     }
                 )
             else:

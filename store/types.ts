@@ -49,6 +49,7 @@ export interface TrackedStock {
   currentPrice: number | null
   change: number | null
   changePercent: number | null
+  marketTime: number | null
   createdAt: string
 }
 
@@ -93,6 +94,7 @@ export interface StockPrice {
   volume: number
   high: number
   low: number
+  marketTime: number | null
 }
 
 export interface PortfolioSummary {

@@ -22,6 +22,7 @@ interface TrackedStock {
   currentPrice: number | null
   change: number | null
   changePercent: number | null
+  marketTime: number | null
   createdAt: string
 }
 
@@ -126,14 +127,27 @@ export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPu
           <span className="text-xs text-gray-500 mb-1 block">最終価格</span>
         )}
         {currentPrice ? (
-          <div className="flex items-baseline gap-3">
-            <span className={`text-2xl font-bold ${stock.isDelisted ? "text-gray-400" : "text-gray-900"}`}>
-              ¥{currentPrice.toLocaleString()}
-            </span>
-            {!stock.isDelisted && changePercent !== null && (
-              <span className={`text-sm font-semibold ${changePercent >= 0 ? "text-green-600" : "text-red-600"}`}>
-                {changePercent >= 0 ? "+" : ""}{changePercent.toFixed(2)}%
+          <div>
+            <div className="flex items-baseline gap-3">
+              <span className={`text-2xl font-bold ${stock.isDelisted ? "text-gray-400" : "text-gray-900"}`}>
+                ¥{currentPrice.toLocaleString()}
               </span>
+              {!stock.isDelisted && changePercent !== null && (
+                <span className={`text-sm font-semibold ${changePercent >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {changePercent >= 0 ? "+" : ""}{changePercent.toFixed(2)}%
+                </span>
+              )}
+            </div>
+            {trackedStock.marketTime && (
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                {new Date(trackedStock.marketTime * 1000).toLocaleString("ja-JP", {
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                時点
+              </p>
             )}
           </div>
         ) : (

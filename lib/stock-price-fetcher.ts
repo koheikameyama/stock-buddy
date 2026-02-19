@@ -20,6 +20,7 @@ export interface StockPrice {
   volume: number
   high: number
   low: number
+  marketTime: number | null
 }
 
 export interface HistoricalPrice {

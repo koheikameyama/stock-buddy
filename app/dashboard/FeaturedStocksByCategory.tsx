@@ -22,6 +22,7 @@ interface FeaturedStock {
     name: string
     sector: string | null
     currentPrice: number | null
+    marketTime: number | null
     isProfitable: boolean | null
     volatility: number | null
     weekChangeRate: number | null
@@ -48,19 +49,23 @@ export default function FeaturedStocksByCategory() {
       if (!response.ok) return
 
       const data = await response.json()
-      const priceMap = new Map<string, number>(
-        data.prices?.map((p: { tickerCode: string; currentPrice: number }) => [p.tickerCode, p.currentPrice]) || []
+      const priceMap = new Map<string, { currentPrice: number; marketTime: number | null }>(
+        data.prices?.map((p: { tickerCode: string; currentPrice: number; marketTime: number | null }) => [p.tickerCode, { currentPrice: p.currentPrice, marketTime: p.marketTime }]) || []
       )
 
       // 株価を更新
       setPersonalRecommendations((prev) =>
-        prev.map((s) => ({
-          ...s,
-          stock: {
-            ...s.stock,
-            currentPrice: priceMap.get(s.stock.tickerCode) ?? s.stock.currentPrice,
-          },
-        }))
+        prev.map((s) => {
+          const priceData = priceMap.get(s.stock.tickerCode)
+          return {
+            ...s,
+            stock: {
+              ...s.stock,
+              currentPrice: priceData?.currentPrice ?? s.stock.currentPrice,
+              marketTime: priceData?.marketTime ?? s.stock.marketTime,
+            },
+          }
+        })
       )
     } catch (error) {
       console.error("Error fetching prices:", error)
@@ -173,11 +178,24 @@ export default function FeaturedStocksByCategory() {
             </div>
           </div>
 
-          <div className="text-base sm:text-lg font-bold text-gray-900 mt-1.5 sm:mt-2">
-            {stock.stock.currentPrice != null ? (
-              `¥${stock.stock.currentPrice.toLocaleString()}`
-            ) : (
-              <span className="text-gray-400 text-sm">取得中...</span>
+          <div className="mt-1.5 sm:mt-2">
+            <div className="text-base sm:text-lg font-bold text-gray-900">
+              {stock.stock.currentPrice != null ? (
+                `¥${stock.stock.currentPrice.toLocaleString()}`
+              ) : (
+                <span className="text-gray-400 text-sm">取得中...</span>
+              )}
+            </div>
+            {stock.stock.marketTime && (
+              <p className="text-[10px] text-gray-400">
+                {new Date(stock.stock.marketTime * 1000).toLocaleString("ja-JP", {
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                時点
+              </p>
             )}
           </div>
         </div>
