@@ -142,6 +142,10 @@ model Stock {
   profitTrend            String?            // 'increasing' | 'decreasing' | 'stable'
   earningsUpdatedAt      DateTime?          // 業績データ更新日時
 
+  // 事業内容（yfinance + OpenAI翻訳で取得）
+  businessDescription    String?            @db.Text // 企業の事業概要（日本語）
+  businessDescriptionUpdatedAt DateTime?    // 事業内容の更新日時
+
   // IPO対応
   listedDate        DateTime?          // 上場日
 
