@@ -2,38 +2,40 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** ニュースデータからセクター別トレンドを分析し、おすすめ・購入判断・ポートフォリオ分析・ダッシュボードに統合する。
+**Goal:** ニュース + 株価データからセクター別トレンドを分析し、おすすめ・購入判断・ポートフォリオ分析・ダッシュボードに統合する。
 
-**Architecture:** ニュース取得後にセクター×センチメントを集計してSectorTrendテーブルに保存。各分析APIとダッシュボードから参照する。US→JP連動は既存セクターマッピングで合算。
+**Architecture:** 株価予測バッチ（stock-predictions.yml）の後にセクタートレンド計算を実行。MarketNewsのセンチメント + Stockの株価モメンタム（weekChangeRate, volumeRatio等）を統合して compositeScore を算出し、SectorTrendテーブルに保存。各分析APIとダッシュボードから参照する。US→JP連動は既存セクターマッピングで合算。
 
-**Tech Stack:** Next.js, Prisma, TypeScript, Recharts, OpenAI (gpt-4o-mini), GitHub Actions
+**Tech Stack:** Next.js, Prisma, TypeScript, GitHub Actions
+
+**設計書:** `docs/plans/2026-02-19-sector-trend-analysis-design.md`
 
 ---
 
 ## Task 1: Prismaスキーマ - SectorTrendモデル追加
 
 **Files:**
-- Modify: `prisma/schema.prisma:191` (MarketNewsモデルの直後)
+- Modify: `prisma/schema.prisma:191` (MarketNewsモデルの `}` の直後)
 
 **Step 1: スキーマにSectorTrendモデルを追加**
 
 `prisma/schema.prisma` の MarketNews モデル（191行目 `}` の後）に追加:
 
 ```prisma
-// セクタートレンド分析（ニュースベース）
+// セクタートレンド分析（ニュース + 株価統合）
 model SectorTrend {
   id        String   @id @default(cuid())
   date      DateTime @db.Date
   sector    String
 
-  // 3日窓（短期の勢い）
+  // 3日窓（短期の勢い）- ニュース
   score3d       Float
   newsCount3d   Int
   positive3d    Int
   negative3d    Int
   neutral3d     Int
 
-  // 7日窓（中期トレンド）
+  // 7日窓（中期トレンド）- ニュース
   score7d       Float
   newsCount7d   Int
   positive7d    Int
@@ -44,8 +46,19 @@ model SectorTrend {
   usNewsCount3d Int   @default(0)
   usNewsCount7d Int   @default(0)
 
+  // 株価モメンタム（セクター内全銘柄の平均）
+  avgWeekChangeRate   Float?   // セクター平均週間変化率（%）
+  avgDailyChangeRate  Float?   // セクター平均日次変化率（%）
+  avgMaDeviationRate  Float?   // セクター平均MA乖離率（%）
+  avgVolumeRatio      Float?   // セクター平均出来高比率
+  avgVolatility       Float?   // セクター平均ボラティリティ（%）
+  stockCount          Int      @default(0) // 集計対象の銘柄数
+
+  // 総合スコア（ニュース + 株価を統合）
+  compositeScore      Float?   // -100 〜 +100
+
   // メタ
-  trendDirection String  // "up" | "down" | "neutral"
+  trendDirection String   // "up" | "down" | "neutral"
   createdAt  DateTime @default(now())
 
   @@unique([date, sector])
@@ -81,6 +94,13 @@ CREATE TABLE "SectorTrend" (
     "neutral7d" INTEGER NOT NULL,
     "usNewsCount3d" INTEGER NOT NULL DEFAULT 0,
     "usNewsCount7d" INTEGER NOT NULL DEFAULT 0,
+    "avgWeekChangeRate" DOUBLE PRECISION,
+    "avgDailyChangeRate" DOUBLE PRECISION,
+    "avgMaDeviationRate" DOUBLE PRECISION,
+    "avgVolumeRatio" DOUBLE PRECISION,
+    "avgVolatility" DOUBLE PRECISION,
+    "stockCount" INTEGER NOT NULL DEFAULT 0,
+    "compositeScore" DOUBLE PRECISION,
     "trendDirection" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -112,25 +132,33 @@ git commit -m "feat: SectorTrendテーブルを追加"
 ## Task 2: 定数定義
 
 **Files:**
-- Modify: `lib/constants.ts:192` (SELL_TIMING定数の後)
+- Modify: `lib/constants.ts:195` (SELL_TIMING定数の `} as const` の後)
 
 **Step 1: セクタートレンド定数を追加**
 
-`lib/constants.ts` の末尾（193行目の後）に追加:
+`lib/constants.ts` の末尾（195行目の後）に追加:
 
 ```typescript
-// セクタートレンド分析の閾値
+// セクタートレンド分析の閾値・重み
 export const SECTOR_TREND = {
-  UP_THRESHOLD: 20,           // score3d >= 20 → "up"
-  DOWN_THRESHOLD: -20,        // score3d <= -20 → "down"
+  UP_THRESHOLD: 20,           // compositeScore >= 20 → "up"
+  DOWN_THRESHOLD: -20,        // compositeScore <= -20 → "down"
   US_INFLUENCE_WEIGHT: 0.7,   // US→JPの影響度係数
+  // 総合スコアの重み配分
+  NEWS_WEIGHT: 0.4,           // ニューススコアの重み
+  PRICE_WEIGHT: 0.4,          // 株価モメンタムの重み
+  VOLUME_WEIGHT: 0.2,         // 出来高スコアの重み
+  // スケーリング用キャップ
+  PRICE_CLAMP: 10,            // weekChangeRate のキャップ（±%）
+  VOLUME_CLAMP: 1,            // volumeRatio - 1.0 のキャップ（±）
+  // 強弱閾値
   STRONG_UP_THRESHOLD: 40,    // 強い追い風の閾値
   STRONG_DOWN_THRESHOLD: -40, // 強い逆風の閾値
   // おすすめスコアリングへのボーナス/ペナルティ
-  STRONG_UP_BONUS: 15,        // score3d >= 40 → +15点
-  UP_BONUS: 10,               // score3d >= 20 → +10点
-  DOWN_PENALTY: -5,           // score3d <= -20 → -5点
-  STRONG_DOWN_PENALTY: -10,   // score3d <= -40 → -10点
+  STRONG_UP_BONUS: 15,        // compositeScore >= 40 → +15点
+  UP_BONUS: 10,               // compositeScore >= 20 → +10点
+  DOWN_PENALTY: -5,           // compositeScore <= -20 → -5点
+  STRONG_DOWN_PENALTY: -10,   // compositeScore <= -40 → -10点
 } as const
 
 // 10セクターの定義
@@ -187,6 +215,13 @@ export interface SectorTrendData {
   neutral7d: number
   usNewsCount3d: number
   usNewsCount7d: number
+  avgWeekChangeRate: number | null
+  avgDailyChangeRate: number | null
+  avgMaDeviationRate: number | null
+  avgVolumeRatio: number | null
+  avgVolatility: number | null
+  stockCount: number
+  compositeScore: number | null
   trendDirection: string
 }
 
@@ -208,7 +243,7 @@ export async function getAllSectorTrends(): Promise<SectorTrendData[]> {
   const today = getTodayForDB()
   const trends = await prisma.sectorTrend.findMany({
     where: { date: today },
-    orderBy: { score3d: "desc" },
+    orderBy: { compositeScore: "desc" },
   })
   return trends
 }
@@ -225,7 +260,8 @@ function getTrendArrow(direction: string): string {
 /**
  * トレンド強度のラベルを取得
  */
-function getTrendLabel(score: number): string {
+function getTrendLabel(score: number | null): string {
+  if (score === null) return "データ不足"
   if (score >= SECTOR_TREND.STRONG_UP_THRESHOLD) return "強い追い風"
   if (score >= SECTOR_TREND.UP_THRESHOLD) return "追い風"
   if (score <= SECTOR_TREND.STRONG_DOWN_THRESHOLD) return "強い逆風"
@@ -238,12 +274,21 @@ function getTrendLabel(score: number): string {
  */
 export function formatSectorTrendForPrompt(trend: SectorTrendData): string {
   const arrow = getTrendArrow(trend.trendDirection)
-  const label = getTrendLabel(trend.score3d)
+  const score = trend.compositeScore ?? trend.score3d
+  const label = getTrendLabel(trend.compositeScore)
   const usNote = trend.usNewsCount3d > 0
     ? ` / 米国関連ニュース${trend.usNewsCount3d}件`
     : ""
+  const priceNote = trend.avgWeekChangeRate !== null
+    ? ` / セクター平均週間${trend.avgWeekChangeRate >= 0 ? "+" : ""}${trend.avgWeekChangeRate.toFixed(1)}%`
+    : ""
+  const volumeNote = trend.avgVolumeRatio !== null
+    ? `、出来高${trend.avgVolumeRatio.toFixed(1)}倍`
+    : ""
 
-  return `【${trend.sector}】${arrow} ${label}（スコア${trend.score3d >= 0 ? "+" : ""}${trend.score3d.toFixed(0)}、ニュース${trend.newsCount3d}件中ポジティブ${trend.positive3d}件${usNote}）`
+  return `【${trend.sector}】${arrow} ${label}（総合スコア${score >= 0 ? "+" : ""}${score.toFixed(0)}）
+  ニュース: ポジティブ${trend.positive3d}件/${trend.newsCount3d}件（スコア${trend.score3d >= 0 ? "+" : ""}${trend.score3d.toFixed(0)}）${usNote}
+  株価: ${priceNote ? priceNote.replace(" / ", "") : "データなし"}${volumeNote}`
 }
 
 /**
@@ -255,7 +300,7 @@ export function formatAllSectorTrendsForPrompt(trends: SectorTrendData[]): strin
   const lines = trends.map(formatSectorTrendForPrompt)
   return `
 ## 市場セクター動向
-以下は直近のセクター別ニューストレンドです。銘柄選定の参考にしてください。
+以下は直近のセクター別トレンド（ニュース + 株価統合）です。銘柄選定の参考にしてください。
 ${lines.join("\n")}
 `
 }
@@ -265,7 +310,7 @@ ${lines.join("\n")}
  */
 export function getSectorScoreBonus(trend: SectorTrendData | null): number {
   if (!trend) return 0
-  const score = trend.score3d
+  const score = trend.compositeScore ?? trend.score3d
 
   if (score >= SECTOR_TREND.STRONG_UP_THRESHOLD) return SECTOR_TREND.STRONG_UP_BONUS
   if (score >= SECTOR_TREND.UP_THRESHOLD) return SECTOR_TREND.UP_BONUS
@@ -291,20 +336,23 @@ git commit -m "feat: セクタートレンド共通ユーティリティを追�
 
 **Step 1: 計算スクリプトを作成**
 
-`scripts/news/fetch-news.ts` と同じパターンで作成。
+`scripts/news/fetch-news.ts` と同じパターンで作成。ニュース集計 + 株価モメンタム集計 → compositeScore算出。
 
 ```typescript
 #!/usr/bin/env npx tsx
 /**
  * セクタートレンド計算スクリプト
  *
- * MarketNewsテーブルから直近7日分のニュースを集計し、
- * セクター別のトレンドスコアを計算してSectorTrendテーブルに保存する。
+ * 1. MarketNewsテーブルから直近7日分のニュースを集計（センチメント×セクター）
+ * 2. Stockテーブルからセクター別の株価指標を集計（平均weekChangeRate等）
+ * 3. US→JP連動: USニュースのセンチメントを対応するJPセクターに合算（×0.7減衰）
+ * 4. compositeScore = newsScore × 0.4 + priceScore × 0.4 + volumeScore × 0.2
+ * 5. SectorTrendテーブルにUPSERT
  *
- * US→JP連動: USニュースのセンチメントを対応するJPセクターに合算（×0.7減衰）
+ * 実行タイミング: stock-predictions.yml の stock-predictions ジョブの後
  */
 
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Prisma } from "@prisma/client"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -331,16 +379,31 @@ const US_TO_JP_SECTOR_MAP: Record<string, string[]> = {
 
 const JP_SECTORS = Object.keys(US_TO_JP_SECTOR_MAP)
 
+// 定数（lib/constants.tsと同値 - スクリプトはスタンドアロン実行のため直接定義）
 const US_INFLUENCE_WEIGHT = 0.7
+const NEWS_WEIGHT = 0.4
+const PRICE_WEIGHT = 0.4
+const VOLUME_WEIGHT = 0.2
+const PRICE_CLAMP = 10  // weekChangeRate のキャップ（±%）
+const VOLUME_CLAMP = 1  // volumeRatio - 1.0 のキャップ（±）
 const UP_THRESHOLD = 20
 const DOWN_THRESHOLD = -20
 
-interface SectorStats {
+interface NewsSectorStats {
   positive: number
   negative: number
   neutral: number
   total: number
   usCount: number
+}
+
+interface PriceSectorStats {
+  avgWeekChangeRate: number | null
+  avgDailyChangeRate: number | null
+  avgMaDeviationRate: number | null
+  avgVolumeRatio: number | null
+  avgVolatility: number | null
+  stockCount: number
 }
 
 /**
@@ -356,10 +419,10 @@ function mapToJPSector(usSector: string): string | null {
 }
 
 /**
- * スコアを計算
+ * ニューススコアを計算
  * score = ((positive - negative) / total) × 100 × log2(total + 1)
  */
-function calculateScore(stats: SectorStats): number {
+function calculateNewsScore(stats: NewsSectorStats): number {
   if (stats.total === 0) return 0
   const sentimentRatio = (stats.positive - stats.negative) / stats.total
   const volumeWeight = Math.log2(stats.total + 1)
@@ -367,11 +430,47 @@ function calculateScore(stats: SectorStats): number {
 }
 
 /**
- * トレンド方向を判定
+ * 株価モメンタムスコアを計算
+ * priceScore = clamp(avgWeekChangeRate, -PRICE_CLAMP, +PRICE_CLAMP) × (100/PRICE_CLAMP)
  */
-function determineTrendDirection(score3d: number): string {
-  if (score3d >= UP_THRESHOLD) return "up"
-  if (score3d <= DOWN_THRESHOLD) return "down"
+function calculatePriceScore(avgWeekChangeRate: number | null): number {
+  if (avgWeekChangeRate === null) return 0
+  const clamped = Math.max(-PRICE_CLAMP, Math.min(PRICE_CLAMP, avgWeekChangeRate))
+  return clamped * (100 / PRICE_CLAMP)  // -100 〜 +100
+}
+
+/**
+ * 出来高スコアを計算
+ * volumeScore = clamp(avgVolumeRatio - 1.0, -VOLUME_CLAMP, +VOLUME_CLAMP) × 100
+ */
+function calculateVolumeScore(avgVolumeRatio: number | null): number {
+  if (avgVolumeRatio === null) return 0
+  const diff = avgVolumeRatio - 1.0
+  const clamped = Math.max(-VOLUME_CLAMP, Math.min(VOLUME_CLAMP, diff))
+  return clamped * 100  // -100 〜 +100
+}
+
+/**
+ * 総合スコアを計算
+ * compositeScore = newsScore × 0.4 + priceScore × 0.4 + volumeScore × 0.2
+ */
+function calculateCompositeScore(
+  newsScore: number,
+  priceScore: number,
+  volumeScore: number
+): number {
+  return Math.round(
+    (newsScore * NEWS_WEIGHT + priceScore * PRICE_WEIGHT + volumeScore * VOLUME_WEIGHT) * 100
+  ) / 100
+}
+
+/**
+ * トレンド方向を判定（compositeScoreベース）
+ */
+function determineTrendDirection(compositeScore: number | null, newsScore: number): string {
+  const score = compositeScore ?? newsScore
+  if (score >= UP_THRESHOLD) return "up"
+  if (score <= DOWN_THRESHOLD) return "down"
   return "neutral"
 }
 
@@ -382,7 +481,7 @@ async function main() {
   const threeDaysAgo = dayjs().tz(JST).subtract(3, "day").startOf("day").utc().toDate()
   const sevenDaysAgo = dayjs().tz(JST).subtract(7, "day").startOf("day").utc().toDate()
 
-  // 直近7日分のニュースを一括取得
+  // ===== 1. ニュース集計 =====
   const allNews = await prisma.marketNews.findMany({
     where: {
       publishedAt: { gte: sevenDaysAgo },
@@ -396,16 +495,15 @@ async function main() {
     },
   })
 
-  console.log(`  取得ニュース数: ${allNews.length}件`)
+  console.log(`  ニュース取得: ${allNews.length}件`)
 
   // セクター × 期間で集計
-  const stats3d: Record<string, SectorStats> = {}
-  const stats7d: Record<string, SectorStats> = {}
+  const newsStats3d: Record<string, NewsSectorStats> = {}
+  const newsStats7d: Record<string, NewsSectorStats> = {}
 
-  // 初期化
   for (const sector of JP_SECTORS) {
-    stats3d[sector] = { positive: 0, negative: 0, neutral: 0, total: 0, usCount: 0 }
-    stats7d[sector] = { positive: 0, negative: 0, neutral: 0, total: 0, usCount: 0 }
+    newsStats3d[sector] = { positive: 0, negative: 0, neutral: 0, total: 0, usCount: 0 }
+    newsStats7d[sector] = { positive: 0, negative: 0, neutral: 0, total: 0, usCount: 0 }
   }
 
   for (const news of allNews) {
@@ -418,86 +516,132 @@ async function main() {
     let jpSector: string | null = null
     if (isUS) {
       jpSector = mapToJPSector(news.sector)
-      if (!jpSector) continue // マッピングできないUSニュースはスキップ
+      if (!jpSector) continue
     } else {
       jpSector = JP_SECTORS.includes(news.sector) ? news.sector : null
       if (!jpSector) continue
     }
 
-    // センチメントの重みを計算（USは0.7倍）
+    // センチメントの重み（USは0.7倍）
     const weight = isUS ? US_INFLUENCE_WEIGHT : 1
 
     // 7日窓に加算
     if (news.sentiment === "positive") {
-      stats7d[jpSector].positive += weight
+      newsStats7d[jpSector].positive += weight
     } else if (news.sentiment === "negative") {
-      stats7d[jpSector].negative += weight
+      newsStats7d[jpSector].negative += weight
     } else {
-      stats7d[jpSector].neutral += weight
+      newsStats7d[jpSector].neutral += weight
     }
-    stats7d[jpSector].total += weight
-    if (isUS) stats7d[jpSector].usCount++
+    newsStats7d[jpSector].total += weight
+    if (isUS) newsStats7d[jpSector].usCount++
 
     // 3日窓に加算
     if (isWithin3d) {
       if (news.sentiment === "positive") {
-        stats3d[jpSector].positive += weight
+        newsStats3d[jpSector].positive += weight
       } else if (news.sentiment === "negative") {
-        stats3d[jpSector].negative += weight
+        newsStats3d[jpSector].negative += weight
       } else {
-        stats3d[jpSector].neutral += weight
+        newsStats3d[jpSector].neutral += weight
       }
-      stats3d[jpSector].total += weight
-      if (isUS) stats3d[jpSector].usCount++
+      newsStats3d[jpSector].total += weight
+      if (isUS) newsStats3d[jpSector].usCount++
     }
   }
 
-  // スコア計算 & DB保存
+  // ===== 2. 株価モメンタム集計 =====
+  // セクター別の株価指標を1クエリで集計
+  const priceStats: Record<string, PriceSectorStats> = {}
+
+  const sectorAggregations = await prisma.stock.groupBy({
+    by: ["sector"],
+    where: {
+      sector: { in: JP_SECTORS },
+      isDelisted: false,
+      weekChangeRate: { not: null },
+    },
+    _avg: {
+      weekChangeRate: true,
+      dailyChangeRate: true,
+      maDeviationRate: true,
+      volumeRatio: true,
+      volatility: true,
+    },
+    _count: {
+      id: true,
+    },
+  })
+
+  for (const sector of JP_SECTORS) {
+    priceStats[sector] = {
+      avgWeekChangeRate: null,
+      avgDailyChangeRate: null,
+      avgMaDeviationRate: null,
+      avgVolumeRatio: null,
+      avgVolatility: null,
+      stockCount: 0,
+    }
+  }
+
+  for (const agg of sectorAggregations) {
+    if (!agg.sector) continue
+    priceStats[agg.sector] = {
+      avgWeekChangeRate: agg._avg.weekChangeRate ? Number(agg._avg.weekChangeRate) : null,
+      avgDailyChangeRate: agg._avg.dailyChangeRate ? Number(agg._avg.dailyChangeRate) : null,
+      avgMaDeviationRate: agg._avg.maDeviationRate ? Number(agg._avg.maDeviationRate) : null,
+      avgVolumeRatio: agg._avg.volumeRatio ? Number(agg._avg.volumeRatio) : null,
+      avgVolatility: agg._avg.volatility ? Number(agg._avg.volatility) : null,
+      stockCount: agg._count.id,
+    }
+  }
+
+  console.log(`  株価集計: ${sectorAggregations.length}セクター`)
+
+  // ===== 3. 総合スコア計算 & DB保存 =====
   const upsertPromises = JP_SECTORS.map((sector) => {
-    const s3 = stats3d[sector]
-    const s7 = stats7d[sector]
-    const score3d = calculateScore(s3)
-    const score7d = calculateScore(s7)
-    const trendDirection = determineTrendDirection(score3d)
+    const n3 = newsStats3d[sector]
+    const n7 = newsStats7d[sector]
+    const p = priceStats[sector]
+
+    const newsScore3d = calculateNewsScore(n3)
+    const newsScore7d = calculateNewsScore(n7)
+    const priceScore = calculatePriceScore(p.avgWeekChangeRate)
+    const volumeScore = calculateVolumeScore(p.avgVolumeRatio)
+    const compositeScore = calculateCompositeScore(newsScore3d, priceScore, volumeScore)
+    const trendDirection = determineTrendDirection(compositeScore, newsScore3d)
 
     console.log(
-      `  ${sector}: 3d=${score3d.toFixed(1)} (${s3.total.toFixed(0)}件) / 7d=${score7d.toFixed(1)} (${s7.total.toFixed(0)}件) → ${trendDirection}`
+      `  ${sector}: composite=${compositeScore.toFixed(1)} (news=${newsScore3d.toFixed(1)}, price=${priceScore.toFixed(1)}, vol=${volumeScore.toFixed(1)}) / 銘柄${p.stockCount}件 → ${trendDirection}`
     )
+
+    const data = {
+      score3d: newsScore3d,
+      newsCount3d: Math.round(n3.total),
+      positive3d: Math.round(n3.positive),
+      negative3d: Math.round(n3.negative),
+      neutral3d: Math.round(n3.neutral),
+      score7d: newsScore7d,
+      newsCount7d: Math.round(n7.total),
+      positive7d: Math.round(n7.positive),
+      negative7d: Math.round(n7.negative),
+      neutral7d: Math.round(n7.neutral),
+      usNewsCount3d: n3.usCount,
+      usNewsCount7d: n7.usCount,
+      avgWeekChangeRate: p.avgWeekChangeRate,
+      avgDailyChangeRate: p.avgDailyChangeRate,
+      avgMaDeviationRate: p.avgMaDeviationRate,
+      avgVolumeRatio: p.avgVolumeRatio,
+      avgVolatility: p.avgVolatility,
+      stockCount: p.stockCount,
+      compositeScore,
+      trendDirection,
+    }
 
     return prisma.sectorTrend.upsert({
       where: { date_sector: { date: today, sector } },
-      create: {
-        date: today,
-        sector,
-        score3d,
-        newsCount3d: Math.round(s3.total),
-        positive3d: Math.round(s3.positive),
-        negative3d: Math.round(s3.negative),
-        neutral3d: Math.round(s3.neutral),
-        score7d,
-        newsCount7d: Math.round(s7.total),
-        positive7d: Math.round(s7.positive),
-        negative7d: Math.round(s7.negative),
-        neutral7d: Math.round(s7.neutral),
-        usNewsCount3d: s3.usCount,
-        usNewsCount7d: s7.usCount,
-        trendDirection,
-      },
-      update: {
-        score3d,
-        newsCount3d: Math.round(s3.total),
-        positive3d: Math.round(s3.positive),
-        negative3d: Math.round(s3.negative),
-        neutral3d: Math.round(s3.neutral),
-        score7d,
-        newsCount7d: Math.round(s7.total),
-        positive7d: Math.round(s7.positive),
-        negative7d: Math.round(s7.negative),
-        neutral7d: Math.round(s7.neutral),
-        usNewsCount3d: s3.usCount,
-        usNewsCount7d: s7.usCount,
-        trendDirection,
-      },
+      create: { date: today, sector, ...data },
+      update: data,
     })
   })
 
@@ -520,7 +664,7 @@ main()
 
 ```bash
 git add scripts/news/calculate-sector-trends.ts
-git commit -m "feat: セクタートレンド計算スクリプトを追加"
+git commit -m "feat: セクタートレンド計算スクリプトを追加（ニュース+株価統合）"
 ```
 
 ---
@@ -528,16 +672,19 @@ git commit -m "feat: セクタートレンド計算スクリプトを追加"
 ## Task 5: GitHub Actionsワークフロー更新
 
 **Files:**
-- Modify: `.github/workflows/fetch-news.yml:89` (fetch-us-news jobの後)
+- Modify: `.github/workflows/stock-predictions.yml`
+
+**変更概要:**
+- `stock-predictions` の後、`purchase-recommendations` / `portfolio-analysis` の前に `calculate-sector-trends` ジョブを挿入
+- `purchase-recommendations` と `portfolio-analysis` の `needs` を `calculate-sector-trends` に変更
 
 **Step 1: calculate-sector-trends ジョブを追加**
 
-`.github/workflows/fetch-news.yml` の `fetch-us-news` ジョブ（88行目）と `notify` ジョブ（90行目）の間に追加:
+`.github/workflows/stock-predictions.yml` の `stock-predictions` ジョブ（70行目 `run: npx tsx scripts/analysis/generate-stock-predictions.ts`）の後、`purchase-recommendations` ジョブ（72行目）の前に追加:
 
 ```yaml
   calculate-sector-trends:
-    needs: [fetch-jp-news, fetch-us-news]
-    if: always() && needs.fetch-jp-news.result == 'success'
+    needs: stock-predictions
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -558,28 +705,44 @@ git commit -m "feat: セクタートレンド計算スクリプトを追加"
         run: npx tsx scripts/news/calculate-sector-trends.ts
 ```
 
-**Step 2: notifyジョブのneedsを更新**
+**Step 2: purchase-recommendations の needs を変更**
 
-`notify` ジョブの `needs` を更新:
+```yaml
+  purchase-recommendations:
+    needs: calculate-sector-trends  # 変更: stock-predictions → calculate-sector-trends
+```
+
+**Step 3: portfolio-analysis の needs を変更**
+
+```yaml
+  portfolio-analysis:
+    needs: calculate-sector-trends  # 変更: stock-predictions → calculate-sector-trends
+```
+
+**Step 4: gainers-losers / portfolio-snapshots の needs も更新**
+
+```yaml
+  gainers-losers:
+    needs: [determine-time, calculate-sector-trends]  # 変更: stock-predictions → calculate-sector-trends
+```
+
+```yaml
+  portfolio-snapshots:
+    needs: [determine-time, calculate-sector-trends]  # 変更: stock-predictions → calculate-sector-trends
+```
+
+**Step 5: notify の needs に calculate-sector-trends を追加**
 
 ```yaml
   notify:
-    needs: [fetch-jp-news, fetch-us-news, calculate-sector-trends]
-    if: always()
+    needs: [calculate-sector-trends, purchase-recommendations, portfolio-analysis, portfolio-overall, gainers-losers, portfolio-snapshots]
 ```
 
-成功判定も更新:
-
-```yaml
-      - name: Notify Slack on success
-        if: needs.fetch-jp-news.result == 'success' && (needs.fetch-us-news.result == 'success' || needs.fetch-us-news.result == 'skipped') && (needs.calculate-sector-trends.result == 'success' || needs.calculate-sector-trends.result == 'skipped')
-```
-
-**Step 3: コミット**
+**Step 6: コミット**
 
 ```bash
-git add .github/workflows/fetch-news.yml
-git commit -m "feat: ニュース取得ワークフローにセクタートレンド計算を追加"
+git add .github/workflows/stock-predictions.yml
+git commit -m "feat: stock-predictions後にセクタートレンド計算ジョブを追加"
 ```
 
 ---
@@ -641,7 +804,7 @@ export function SectorTrendSkeleton() {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {[...Array(10)].map((_, i) => (
-          <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
+          <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
         ))}
       </div>
     </div>
@@ -671,6 +834,9 @@ interface SectorTrend {
   negative7d: number
   usNewsCount3d: number
   usNewsCount7d: number
+  avgWeekChangeRate: number | null
+  avgVolumeRatio: number | null
+  compositeScore: number | null
   trendDirection: string
 }
 
@@ -744,7 +910,10 @@ export function SectorTrendHeatmap() {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {trends.map((trend) => {
-          const score = window === "3d" ? trend.score3d : trend.score7d
+          // 3dの場合はcompositeScore、7dの場合はnewsScore7d（compositeは3dベース）
+          const score = window === "3d"
+            ? (trend.compositeScore ?? trend.score3d)
+            : trend.score7d
           const newsCount = window === "3d" ? trend.newsCount3d : trend.newsCount7d
           const usCount = window === "3d" ? trend.usNewsCount3d : trend.usNewsCount7d
           const colorClass = getTrendColor(score)
@@ -762,6 +931,14 @@ export function SectorTrendHeatmap() {
                   {score >= 0 ? "+" : ""}{score.toFixed(0)}
                 </span>
               </div>
+              {window === "3d" && trend.compositeScore !== null && (
+                <div className="flex items-center gap-1.5 mt-0.5 text-[10px] opacity-70">
+                  <span>📰{trend.score3d >= 0 ? "+" : ""}{trend.score3d.toFixed(0)}</span>
+                  {trend.avgWeekChangeRate !== null && (
+                    <span>📈{trend.avgWeekChangeRate >= 0 ? "+" : ""}{trend.avgWeekChangeRate.toFixed(1)}%</span>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-1 mt-0.5 text-[10px] opacity-70">
                 <span>{newsCount}件</span>
                 {usCount > 0 && <span>🇺🇸{usCount}</span>}
@@ -801,20 +978,35 @@ git commit -m "feat: ダッシュボードにセクタートレンドヒート�
 ## Task 8: おすすめ銘柄スコアリングへのセクターボーナス統合
 
 **Files:**
-- Modify: `lib/recommendation-scoring.ts:214` (MA乖離率ボーナスの後)
-- Modify: `app/api/recommendations/generate-daily/route.ts` (スコアリング呼び出し部分とAIプロンプト)
+- Modify: `lib/recommendation-scoring.ts:133` (calculateStockScores関数シグネチャ) + `214` (MA乖離率ボーナスの後)
+- Modify: `app/api/recommendations/generate-daily/route.ts:318` (calculateStockScores呼び出し) + `561` (AIプロンプト)
 
 **Step 1: スコアリング関数にセクタートレンド引数を追加**
 
-`lib/recommendation-scoring.ts` の `calculateStockScores` 関数のシグネチャにセクタートレンドマップ引数を追加。
+`lib/recommendation-scoring.ts`:
 
-214行目の MA乖離率ボーナス/ペナルティの後（`}` の後、216行目 `scoredStocks.push({` の前）に追加:
+import追加（7行目の `import { MA_DEVIATION } from "@/lib/constants"` の後）:
+```typescript
+import { SECTOR_TREND } from "@/lib/constants"
+import { getSectorScoreBonus, type SectorTrendData } from "@/lib/sector-trend"
+```
+
+関数シグネチャ変更（133行目）:
+```typescript
+export function calculateStockScores(
+  stocks: StockForScoring[],
+  period: string | null,
+  risk: string | null,
+  sectorTrends?: Record<string, SectorTrendData>
+): ScoredStock[] {
+```
+
+214行目の `}` の後（MA乖離率のif文の閉じ括弧の後、216行目 `scoredStocks.push({` の前）に追加:
 
 ```typescript
     // セクタートレンドによるボーナス/ペナルティ
     if (sectorTrends && stock.sector && sectorTrends[stock.sector]) {
-      const trend = sectorTrends[stock.sector]
-      const bonus = getSectorScoreBonus(trend)
+      const bonus = getSectorScoreBonus(sectorTrends[stock.sector])
       if (bonus !== 0) {
         totalScore += bonus
         scoreBreakdown["sectorTrendBonus"] = bonus
@@ -822,24 +1014,18 @@ git commit -m "feat: ダッシュボードにセクタートレンドヒート�
     }
 ```
 
-関数シグネチャの変更: `calculateStockScores` の引数に `sectorTrends?: Record<string, SectorTrendData>` を追加。
-
-importに追加:
-```typescript
-import { SECTOR_TREND } from "@/lib/constants"
-import { getSectorScoreBonus, SectorTrendData } from "@/lib/sector-trend"
-```
-
 **Step 2: generate-daily/route.ts でセクタートレンドを取得してスコアリングとAIプロンプトに渡す**
 
-`app/api/recommendations/generate-daily/route.ts` にimport追加:
+`app/api/recommendations/generate-daily/route.ts`:
+
+import追加（23行目 `import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"` の後）:
 ```typescript
-import { getAllSectorTrends, formatAllSectorTrendsForPrompt, SectorTrendData } from "@/lib/sector-trend"
+import { getAllSectorTrends, formatAllSectorTrendsForPrompt, type SectorTrendData } from "@/lib/sector-trend"
 ```
 
-ユーザー処理の前にセクタートレンドを一括取得（全ユーザー共通なので1回だけ）:
+ユーザー処理の前（ルート関数の先頭付近、全ユーザー共通データ取得エリア）にセクタートレンドを一括取得:
 ```typescript
-// セクタートレンドを一括取得
+// セクタートレンドを一括取得（全ユーザー共通）
 const sectorTrends = await getAllSectorTrends()
 const sectorTrendMap: Record<string, SectorTrendData> = {}
 for (const t of sectorTrends) {
@@ -848,10 +1034,12 @@ for (const t of sectorTrends) {
 const sectorTrendContext = formatAllSectorTrendsForPrompt(sectorTrends)
 ```
 
-`calculateStockScores` 呼び出し時に `sectorTrendMap` を渡す。
+318行目の `calculateStockScores` 呼び出しに `sectorTrendMap` を追加:
+```typescript
+const scored = calculateStockScores(filtered, investmentPeriod, riskTolerance, sectorTrendMap)
+```
 
-AIプロンプト（553行目付近）の `${marketContext}` の後に `${sectorTrendContext}` を追加:
-
+AIプロンプト（561行目 `${marketContext}` の後、562行目 `【選べる銘柄一覧` の前）に追加:
 ```
 ${marketContext}${sectorTrendContext}
 【選べる銘柄一覧（詳細分析付き）】
@@ -873,7 +1061,7 @@ git commit -m "feat: おすすめスコアリングにセクタートレンド�
 
 **Step 1: セクタートレンドコンテキストを追加**
 
-import追加:
+import追加（ファイル先頭のimport群に）:
 ```typescript
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 ```
@@ -890,7 +1078,7 @@ import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
     }
 ```
 
-プロンプト内の `${marketContext}` の後に `${sectorTrendContext}` を追加（361行目付近）:
+プロンプト内（361行目付近）の `${marketContext}` の後に `${sectorTrendContext}` を追加:
 ```
 ${delistingContext}${weekChangeContext}${marketContext}${sectorTrendContext}${patternContext}...
 ```
@@ -911,7 +1099,7 @@ git commit -m "feat: 購入判断にセクタートレンドコンテキスト�
 
 **Step 1: セクタートレンドコンテキストを追加**
 
-import追加:
+import追加（ファイル先頭のimport群に）:
 ```typescript
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 ```
@@ -928,7 +1116,7 @@ import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
     }
 ```
 
-プロンプト内の `${marketContext}` の後に `${sectorTrendContext}` を追加（343行目付近）:
+プロンプト内（343行目付近）の `${marketContext}` の後に `${sectorTrendContext}` を追加:
 ```
 ${newsContext}${marketContext}${sectorTrendContext}
 ```
@@ -942,7 +1130,7 @@ git commit -m "feat: ポートフォリオ分析にセクタートレンドコ�
 
 ---
 
-## Task 11: ビルド確認 & 最終コミット
+## Task 11: ビルド確認 & PR作成
 
 **Step 1: ビルド確認**
 
@@ -956,6 +1144,6 @@ Expected: ビルド成功（warningのみ、errorなし）
 2. 3日/7日の切り替えが動作すること
 3. `/api/sector-trends` がデータを返すこと
 
-**Step 3: Linearタスク作成 & ブランチ作成**
+**Step 3: Linearタスク作成 & PR作成**
 
-Linearにタスクを作成し、featureブランチでPRを作成する。
+Linearにタスクを作成し、featureブランチでPRを作成する。PR本文に `Fixes KOH-XX` を記載。

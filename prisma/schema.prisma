@@ -190,6 +190,50 @@ model MarketNews {
   @@index([market])
 }
 
+// セクタートレンド分析（ニュース + 株価統合）
+model SectorTrend {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  sector    String
+
+  // 3日窓（短期の勢い）- ニュース
+  score3d       Float
+  newsCount3d   Int
+  positive3d    Int
+  negative3d    Int
+  neutral3d     Int
+
+  // 7日窓（中期トレンド）- ニュース
+  score7d       Float
+  newsCount7d   Int
+  positive7d    Int
+  negative7d    Int
+  neutral7d     Int
+
+  // US→JP連動
+  usNewsCount3d Int   @default(0)
+  usNewsCount7d Int   @default(0)
+
+  // 株価モメンタム（セクター内全銘柄の平均）
+  avgWeekChangeRate   Float?   // セクター平均週間変化率（%）
+  avgDailyChangeRate  Float?   // セクター平均日次変化率（%）
+  avgMaDeviationRate  Float?   // セクター平均MA乖離率（%）
+  avgVolumeRatio      Float?   // セクター平均出来高比率
+  avgVolatility       Float?   // セクター平均ボラティリティ（%）
+  stockCount          Int      @default(0) // 集計対象の銘柄数
+
+  // 総合スコア（ニュース + 株価を統合）
+  compositeScore      Float?   // -100 〜 +100
+
+  // メタ
+  trendDirection String   // "up" | "down" | "neutral"
+  createdAt  DateTime @default(now())
+
+  @@unique([date, sector])
+  @@index([date])
+  @@index([sector])
+}
+
 // 銘柄分析（AI予測機能）
 model StockAnalysis {
   id                  String   @id @default(cuid())

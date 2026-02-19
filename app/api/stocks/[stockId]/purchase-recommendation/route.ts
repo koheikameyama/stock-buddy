@@ -24,6 +24,7 @@ import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { isSurgeStock, isDangerousStock, isOverheated } from "@/lib/stock-safety-rules"
+import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -311,6 +312,15 @@ export async function POST(
     // 市場全体の状況コンテキスト
     const marketContext = buildMarketContext(marketData)
 
+    // セクタートレンド
+    let sectorTrendContext = ""
+    if (stock.sector) {
+      const sectorTrend = await getSectorTrend(stock.sector)
+      if (sectorTrend) {
+        sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`
+      }
+    }
+
     // 財務指標のフォーマット
     const financialMetrics = buildFinancialMetrics(stock, currentPrice)
 
@@ -358,7 +368,7 @@ ${financialMetrics}
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${delistingContext}${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${newsContext}
+${delistingContext}${weekChangeContext}${marketContext}${sectorTrendContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 ${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をそのまま使用してください。" : ""}

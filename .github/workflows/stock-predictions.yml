@@ -69,8 +69,29 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: npx tsx scripts/analysis/generate-stock-predictions.ts
 
-  purchase-recommendations:
+  calculate-sector-trends:
     needs: stock-predictions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Calculate sector trends
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx tsx scripts/news/calculate-sector-trends.ts
+
+  purchase-recommendations:
+    needs: calculate-sector-trends
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -92,7 +113,7 @@ jobs:
         run: python scripts/github-actions/generate_purchase_recommendations.py
 
   portfolio-analysis:
-    needs: stock-predictions
+    needs: calculate-sector-trends
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -137,7 +158,7 @@ jobs:
         run: python scripts/github-actions/generate_portfolio_overall_analysis.py
 
   gainers-losers:
-    needs: [determine-time, stock-predictions]
+    needs: [determine-time, calculate-sector-trends]
     if: needs.determine-time.outputs.context == 'close'
     runs-on: ubuntu-latest
     steps:
@@ -160,7 +181,7 @@ jobs:
         run: python scripts/github-actions/generate_gainers_losers_analysis.py
 
   portfolio-snapshots:
-    needs: [determine-time, stock-predictions]
+    needs: [determine-time, calculate-sector-trends]
     if: needs.determine-time.outputs.context == 'close'
     runs-on: ubuntu-latest
     steps:
@@ -181,7 +202,7 @@ jobs:
         run: python scripts/github-actions/generate_portfolio_snapshots.py
 
   notify:
-    needs: [purchase-recommendations, portfolio-analysis, portfolio-overall, gainers-losers, portfolio-snapshots]
+    needs: [calculate-sector-trends, purchase-recommendations, portfolio-analysis, portfolio-overall, gainers-losers, portfolio-snapshots]
     if: always()
     runs-on: ubuntu-latest
     steps:

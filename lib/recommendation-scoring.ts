@@ -5,6 +5,7 @@
  */
 
 import { MA_DEVIATION } from "@/lib/constants"
+import { getSectorScoreBonus, type SectorTrendData } from "@/lib/sector-trend"
 
 // 設定
 export const SCORING_CONFIG = {
@@ -133,7 +134,8 @@ function normalizeValues(
 export function calculateStockScores(
   stocks: StockForScoring[],
   period: string | null,
-  risk: string | null
+  risk: string | null,
+  sectorTrends?: Record<string, SectorTrendData>
 ): ScoredStock[] {
   const key = `${period || "medium"}_${risk || "medium"}`
   const weights = SCORE_WEIGHTS[key] || SCORE_WEIGHTS["medium_medium"]
@@ -210,6 +212,15 @@ export function calculateStockScores(
       ) {
         totalScore += MA_DEVIATION.SCORE_BONUS
         scoreBreakdown["maDeviationBonus"] = MA_DEVIATION.SCORE_BONUS
+      }
+    }
+
+    // セクタートレンドによるボーナス/ペナルティ
+    if (sectorTrends && stock.sector && sectorTrends[stock.sector]) {
+      const bonus = getSectorScoreBonus(sectorTrends[stock.sector])
+      if (bonus !== 0) {
+        totalScore += bonus
+        scoreBreakdown["sectorTrendBonus"] = bonus
       }
     }
 

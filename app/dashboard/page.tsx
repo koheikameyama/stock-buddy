@@ -11,6 +11,7 @@ import PortfolioHistoryChart from "./PortfolioHistoryChart"
 import PortfolioCompositionChart from "./PortfolioCompositionChart"
 import NikkeiSummary from "./NikkeiSummary"
 import BudgetSummary from "./BudgetSummary"
+import { SectorTrendHeatmap } from "./SectorTrendHeatmap"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -190,6 +191,9 @@ export default async function DashboardPage() {
               <PortfolioCompositionChart />
             </div>
           )}
+
+          {/* セクタートレンドヒートマップ */}
+          <SectorTrendHeatmap />
 
           {/* 今日の注目銘柄（カテゴリ別） */}
           <div className="mt-4 sm:mt-6">
