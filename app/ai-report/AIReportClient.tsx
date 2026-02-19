@@ -52,8 +52,7 @@ interface DetailData {
 }
 
 interface LatestReport {
-  weekStart: string
-  weekEnd: string
+  date: string
   daily: CategoryData
   purchase: CategoryData
   analysis: CategoryData
@@ -61,8 +60,7 @@ interface LatestReport {
 }
 
 interface ChartDataPoint {
-  weekStart: string
-  weekEnd: string
+  date: string
   daily: { count: number | null; avgReturn: number | null; successRate: number | null }
   purchase: { count: number | null; avgReturn: number | null; successRate: number | null }
   analysis: { count: number | null; avgReturn: number | null; successRate: number | null }
@@ -71,11 +69,11 @@ interface ChartDataPoint {
 interface AIAccuracyData {
   latest: LatestReport | null
   chartData: ChartDataPoint[]
-  totalWeeks: number
+  totalDays: number
 }
 
-function formatWeek(weekStart: string): string {
-  const date = new Date(weekStart)
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr)
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
@@ -112,7 +110,7 @@ export default function AIReportClient() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("/api/reports/ai-accuracy?limit=12")
+        const response = await fetch("/api/reports/ai-accuracy?limit=30")
         if (!response.ok) {
           throw new Error("データの取得に失敗しました")
         }
@@ -196,7 +194,7 @@ export default function AIReportClient() {
         <div className="bg-white rounded-xl p-6 shadow-md text-center text-gray-500 py-12">
           <span className="text-4xl mb-4 block">🤖</span>
           <p>まだレポートデータがありません</p>
-          <p className="text-sm mt-2">週次レポートが生成されると表示されます</p>
+          <p className="text-sm mt-2">日次レポートが生成されると表示されます</p>
         </div>
       </div>
     )
@@ -207,7 +205,7 @@ export default function AIReportClient() {
 
   // グラフ用データの変換
   const graphData = chartData.map((d) => ({
-    week: formatWeek(d.weekStart),
+    date: formatDate(d.date),
     おすすめ: d.daily.successRate,
     購入判断: d.purchase.successRate,
     銘柄分析: d.analysis.successRate,
@@ -229,7 +227,7 @@ export default function AIReportClient() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">AI精度レポート</h1>
           <p className="text-sm text-gray-500">
             {activeTab === "overview"
-              ? `${formatWeek(latest.weekStart)}〜${formatWeek(latest.weekEnd)}週のパフォーマンス`
+              ? `${formatDate(latest.date)} 時点（直近7日間集計）`
               : "推薦精度の詳細分析"}
           </p>
         </div>
@@ -342,7 +340,7 @@ export default function AIReportClient() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={graphData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#9ca3af" />
                 <YAxis
                   domain={[0, 100]}
                   tick={{ fontSize: 12 }}
@@ -351,7 +349,7 @@ export default function AIReportClient() {
                 />
                 <Tooltip
                   formatter={(value) => [`${(value as number)?.toFixed(1)}%`, ""]}
-                  labelFormatter={(label) => `${label}週`}
+                  labelFormatter={(label) => `${label}`}
                 />
                 <Legend />
                 <Line
