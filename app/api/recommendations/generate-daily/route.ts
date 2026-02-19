@@ -30,6 +30,7 @@ import {
   StockForScoring,
   ScoredStock,
 } from "@/lib/recommendation-scoring"
+import { STALE_DATA_DAYS } from "@/lib/constants"
 import { insertRecommendationOutcome } from "@/lib/outcome-utils"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
@@ -101,9 +102,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`Found ${users.length} users with settings`)
 
+    const staleThreshold = new Date(Date.now() - STALE_DATA_DAYS * 24 * 60 * 60 * 1000)
     const allStocks = await prisma.stock.findMany({
       where: {
-        priceUpdatedAt: { not: null },
+        isDelisted: false,
+        priceUpdatedAt: { not: null, gte: staleThreshold },
         latestPrice: { not: null },
       },
       select: {
