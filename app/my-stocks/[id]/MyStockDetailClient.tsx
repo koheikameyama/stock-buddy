@@ -525,7 +525,17 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
       {showTrackingModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">この銘柄を追跡しますか？</h3>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-bold text-gray-900">この銘柄を追跡しますか？</h3>
+              <button
+                onClick={() => setShowTrackingModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <p className="text-sm text-gray-600 mb-2">
               <span className="font-semibold">{stock.stock.name}</span>
             </p>
@@ -587,7 +597,17 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
       {showBuyAlertModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">🔔 買い時通知</h3>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-bold text-gray-900">🔔 買い時通知</h3>
+              <button
+                onClick={() => setShowBuyAlertModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <p className="text-sm text-gray-600 mb-4">
               設定した価格以下になったら通知します
             </p>
