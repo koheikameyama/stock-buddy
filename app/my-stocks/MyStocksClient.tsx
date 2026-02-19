@@ -57,6 +57,10 @@ export default function MyStocksClient() {
   const [activeTab, setActiveTab] = useState<TabType>("portfolio")
   // ウォッチリストからの購入用
   const [purchaseFromWatchlist, setPurchaseFromWatchlist] = useState<UserStock | null>(null)
+  // ウォッチリストからの追跡確認モーダル用
+  const [showTrackingModal, setShowTrackingModal] = useState(false)
+  const [trackingFromWatchlist, setTrackingFromWatchlist] = useState<UserStock | null>(null)
+  const [trackingInProgress, setTrackingInProgress] = useState(false)
   // 追跡・過去の保有銘柄からの移動用
   const [stockToMove, setStockToMove] = useState<{
     stockId: string
@@ -285,6 +289,39 @@ export default function MyStocksClient() {
   const handlePurchaseFromWatchlist = (stock: UserStock) => {
     setPurchaseFromWatchlist(stock)
     setShowAddDialog(true)
+  }
+
+  const handleTrackClickFromWatchlist = (stock: UserStock) => {
+    setTrackingFromWatchlist(stock)
+    setShowTrackingModal(true)
+  }
+
+  const handleConfirmTracking = async () => {
+    if (!trackingFromWatchlist) return
+    setTrackingInProgress(true)
+    try {
+      const response = await fetch("/api/tracked-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickerCode: trackingFromWatchlist.stock.tickerCode }),
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "追跡に失敗しました")
+      }
+      const newTracked = await response.json()
+      // ウォッチリストから削除
+      await fetch(`/api/user-stocks/${trackingFromWatchlist.id}`, { method: "DELETE" })
+      setUserStocks((prev) => prev.filter((s) => s.id !== trackingFromWatchlist.id))
+      setTrackedStocks((prev) => [...prev, newTracked as unknown as TrackedStock])
+      setShowTrackingModal(false)
+      setTrackingFromWatchlist(null)
+      setActiveTab("tracked")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "追跡に失敗しました")
+    } finally {
+      setTrackingInProgress(false)
+    }
   }
 
   const handleStockAdded = (newStock: UserStock) => {
@@ -618,6 +655,7 @@ export default function MyStocksClient() {
                       onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
                       onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
                       onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
+                      onTrackClick={stock.type === "watchlist" ? () => handleTrackClickFromWatchlist(stock) : undefined}
                     />
                   ))}
                 </div>
@@ -683,6 +721,39 @@ export default function MyStocksClient() {
         onSuccess={handleTransactionSuccess}
         transactionType={transactionType}
       />
+
+      {/* Tracking Confirmation Modal */}
+      {showTrackingModal && trackingFromWatchlist && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">この銘柄を追跡しますか？</h3>
+            <p className="text-sm text-gray-600 mb-2">
+              <span className="font-semibold">{trackingFromWatchlist.stock.name}</span>
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              追跡すると、AI分析なしで株価だけを追いかけられます。気になるリストからは移動されます。
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowTrackingModal(false)
+                  setTrackingFromWatchlist(null)
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                見送る
+              </button>
+              <button
+                onClick={handleConfirmTracking}
+                disabled={trackingInProgress}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {trackingInProgress ? "処理中..." : "追跡する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
