@@ -54,6 +54,7 @@ interface PurchaseRecommendation {
 interface StockCardProps {
   stock: UserStock
   price?: StockPrice
+  priceLoaded?: boolean
   recommendation?: PurchaseRecommendation
   portfolioRecommendation?: "buy" | "sell" | "hold" | null
   analyzedAt?: string | null
@@ -63,7 +64,7 @@ interface StockCardProps {
 }
 
 
-export default function StockCard({ stock, price, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
+export default function StockCard({ stock, price, priceLoaded = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -194,6 +195,8 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                 </p>
               )}
             </div>
+          ) : priceLoaded ? (
+            <p className="text-sm text-gray-400">価格情報なし</p>
           ) : (
             <p className="text-sm text-gray-400">読み込み中...</p>
           )}
@@ -265,7 +268,7 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm text-gray-600">評価損益</span>
                   <div className="text-right">
-                    <p className="text-sm text-gray-400">価格取得中...</p>
+                    <p className="text-sm text-gray-400">{priceLoaded ? "価格情報なし" : "価格取得中..."}</p>
                   </div>
                 </div>
                 {/* AI Analysis for Portfolio */}
