@@ -31,6 +31,7 @@ import {
   ScoredStock,
 } from "@/lib/recommendation-scoring"
 import { insertRecommendationOutcome } from "@/lib/outcome-utils"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 interface GenerateRequest {
   session?: "morning" | "afternoon" | "evening"
@@ -133,28 +134,31 @@ export async function POST(request: NextRequest) {
 
     const userIds = users.map(u => u.userId)
 
-    const [portfolioStocks, watchlistStocks, allTransactions] = await Promise.all([
+    const [portfolioStocks, watchlistStocks] = await Promise.all([
       prisma.portfolioStock.findMany({
-        select: { userId: true, stockId: true },
+        select: {
+          userId: true,
+          stockId: true,
+          transactions: {
+            select: { type: true, quantity: true, price: true, transactionDate: true },
+            orderBy: { transactionDate: "asc" },
+          },
+        },
       }),
       prisma.watchlistStock.findMany({
         select: { userId: true, stockId: true },
       }),
-      prisma.transaction.findMany({
-        where: { userId: { in: userIds } },
-        select: { userId: true, type: true, totalAmount: true },
-      }),
     ])
 
-    // ユーザーごとのネット投資額（買い合計 - 売り合計）を計算
-    const netInvestedByUser = new Map<string, number>()
-    for (const tx of allTransactions) {
-      const current = netInvestedByUser.get(tx.userId) ?? 0
-      const amount = Number(tx.totalAmount)
-      netInvestedByUser.set(
-        tx.userId,
-        tx.type === "buy" ? current + amount : current - amount
-      )
+    // ユーザーごとの保有株取得コスト合計を計算（保有コスト方式）
+    // 売却済みの株は含まない。売れば（利確・損切り問わず）予算に戻ってくる。
+    const holdingsCostByUser = new Map<string, number>()
+    for (const ps of portfolioStocks) {
+      const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(ps.transactions)
+      if (quantity > 0) {
+        const current = holdingsCostByUser.get(ps.userId) ?? 0
+        holdingsCostByUser.set(ps.userId, current + quantity * averagePurchasePrice.toNumber())
+      }
     }
 
     const registeredByUser = new Map<string, Set<string>>()
@@ -186,9 +190,9 @@ export async function POST(request: NextRequest) {
     const tasks = users.map((user) =>
       limit(async (): Promise<UserResult> => {
         try {
-          const netInvested = netInvestedByUser.get(user.userId) ?? 0
+          const holdingsCost = holdingsCostByUser.get(user.userId) ?? 0
           const remainingBudget = user.investmentBudget !== null
-            ? Math.max(0, user.investmentBudget - netInvested)
+            ? Math.max(0, user.investmentBudget - holdingsCost)
             : null
 
           const result = await processUser(

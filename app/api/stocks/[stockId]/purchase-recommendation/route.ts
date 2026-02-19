@@ -22,6 +22,7 @@ import { calculateDeviationRate, calculateSMA, calculateRSI } from "@/lib/techni
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -193,23 +194,27 @@ export async function POST(
         })
       : null
 
-    // 残り予算を計算（総予算 - すでに投資した金額）
+    // 残り予算を計算（総予算 - 現在保有中の株の取得コスト合計）
+    // 保有コスト方式: 売却すれば（利確・損切り問わず）その分が予算に戻ってくる
     let remainingBudget: number | null = null
     if (userId && userSettings?.investmentBudget) {
-      const [buyAgg, sellAgg] = await Promise.all([
-        prisma.transaction.aggregate({
-          where: { userId, type: "buy" },
-          _sum: { totalAmount: true },
-        }),
-        prisma.transaction.aggregate({
-          where: { userId, type: "sell" },
-          _sum: { totalAmount: true },
-        }),
-      ])
-      const buyTotal = Number(buyAgg._sum.totalAmount ?? 0)
-      const sellTotal = Number(sellAgg._sum.totalAmount ?? 0)
-      const netInvested = Math.max(0, buyTotal - sellTotal)
-      remainingBudget = Math.max(0, userSettings.investmentBudget - netInvested)
+      const userPortfolioStocks = await prisma.portfolioStock.findMany({
+        where: { userId },
+        select: {
+          transactions: {
+            select: { type: true, quantity: true, price: true, transactionDate: true },
+            orderBy: { transactionDate: "asc" },
+          },
+        },
+      })
+      let holdingsCost = 0
+      for (const ps of userPortfolioStocks) {
+        const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(ps.transactions)
+        if (quantity > 0) {
+          holdingsCost += quantity * averagePurchasePrice.toNumber()
+        }
+      }
+      remainingBudget = Math.max(0, userSettings.investmentBudget - holdingsCost)
     }
 
     if (!stock) {
