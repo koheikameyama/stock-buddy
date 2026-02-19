@@ -43,6 +43,7 @@ interface PurchaseRecommendation {
   reason: string
   caution: string
   buyTiming?: "market" | "dip" | null
+  sellTiming?: "market" | "rebound" | null
 }
 
 interface StockCardProps {
@@ -120,6 +121,11 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                 : "bg-yellow-100 text-yellow-700"
             }`}>
               {recommendation.buyTiming === "market" ? "成り行きOK" : "押し目待ち"}
+            </span>
+          )}
+          {isWatchlist && recommendation?.recommendation === "avoid" && recommendation.sellTiming === "rebound" && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+              戻り待ち
             </span>
           )}
           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${aiJudgment.bg} ${aiJudgment.color}`}>
