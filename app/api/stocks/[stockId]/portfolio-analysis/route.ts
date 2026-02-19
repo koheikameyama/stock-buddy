@@ -18,6 +18,7 @@ import {
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
 import { getNikkei225Data } from "@/lib/market-index"
+import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 import { calculateDeviationRate, calculateRSI, calculateSMA } from "@/lib/technical-indicators"
 import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
 import dayjs from "dayjs"
@@ -315,6 +316,15 @@ export async function POST(
     }
     const marketContext = buildMarketContext(marketData)
 
+    // セクタートレンド
+    let sectorTrendContext = ""
+    if (stock.sector) {
+      const sectorTrend = await getSectorTrend(stock.sector)
+      if (sectorTrend) {
+        sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`
+      }
+    }
+
     // プロンプト構築
     const prompt = `あなたは投資初心者向けのAIアナリストです。
 以下の保有銘柄について、テクニカル分析と売買判断を提供してください。
@@ -340,7 +350,7 @@ ${financialMetrics}
 【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${newsContext}${marketContext}
+${newsContext}${marketContext}${sectorTrendContext}
 
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
