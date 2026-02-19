@@ -135,6 +135,14 @@ def _compute_price_data(hist) -> dict | None:
     if len(hist) < 2:
         return None
 
+    # 最新データが2週間以上前なら古すぎるため無視
+    STALE_DATA_DAYS = 14
+    latest_date = hist.index[-1].to_pydatetime()
+    if latest_date.tzinfo is None:
+        latest_date = latest_date.replace(tzinfo=timezone.utc)
+    if (datetime.now(timezone.utc) - latest_date).days > STALE_DATA_DAYS:
+        return None
+
     latest = hist.iloc[-1]
     latest_price = float(latest["Close"])
 
