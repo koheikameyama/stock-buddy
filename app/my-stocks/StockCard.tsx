@@ -17,6 +17,8 @@ interface UserStock {
   purchaseDate?: string
   // ステータス
   statusType?: string | null
+  // AI分析テキスト（Portfolio）
+  shortTerm?: string | null
   stock: {
     id: string
     tickerCode: string
@@ -270,6 +272,16 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
             )}
 
           </>
+        )}
+
+        {/* AI Analysis Reason for Portfolio */}
+        {isHolding && stock.shortTerm && (
+          <div className="bg-blue-50 rounded-lg p-3">
+            <p className="text-xs sm:text-sm text-gray-700">
+              <span className="font-semibold text-blue-700">💡 AI分析: </span>
+              {stock.shortTerm}
+            </p>
+          </div>
         )}
 
         {/* AI Analysis Reason for Watchlist */}
