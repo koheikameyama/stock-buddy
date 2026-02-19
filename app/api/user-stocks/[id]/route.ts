@@ -132,7 +132,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
     })
 
     // リアルタイム株価を取得
-    const prices = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
+    const { prices } = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
     const currentPrice = prices[0]?.currentPrice ?? null
 
     const response: UserStockResponse = {
@@ -194,7 +194,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
     })
 
     // リアルタイム株価を取得
-    const watchlistPrices = await fetchStockPrices([newWatchlistStock.stock.tickerCode])
+    const { prices: watchlistPrices } = await fetchStockPrices([newWatchlistStock.stock.tickerCode])
     const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null
 
     const response: UserStockResponse = {
@@ -258,7 +258,7 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       : watchlistStock
 
     // リアルタイム株価を取得
-    const watchlistPrices = await fetchStockPrices([updated.stock.tickerCode])
+    const { prices: watchlistPrices } = await fetchStockPrices([updated.stock.tickerCode])
     const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null
 
     const response: UserStockResponse = {
@@ -282,7 +282,7 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
     return NextResponse.json(response)
   } else if (portfolioStock) {
     // リアルタイム株価を取得
-    const portfolioPrices = await fetchStockPrices([portfolioStock.stock.tickerCode])
+    const { prices: portfolioPrices } = await fetchStockPrices([portfolioStock.stock.tickerCode])
     const portfolioCurrentPrice = portfolioPrices[0]?.currentPrice ?? null
 
     // Portfolio has no editable fields now (transactions are updated separately)

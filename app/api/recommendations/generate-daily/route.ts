@@ -414,7 +414,7 @@ async function buildStockContexts(
 
   const [pricesResults, realtimePricesResult, relatedNews, analyses] = await Promise.all([
     Promise.all(pricesPromises),
-    fetchStockPrices(candidates.map(c => c.tickerCode)).catch((error) => {
+    fetchStockPrices(candidates.map(c => c.tickerCode)).then(r => r.prices).catch((error) => {
       console.error("  Failed to fetch realtime prices:", error)
       return [] as { tickerCode: string; currentPrice: number }[]
     }),

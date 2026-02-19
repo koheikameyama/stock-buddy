@@ -104,7 +104,7 @@ export default function StockDetailClient({
   soldStockInfo,
 }: Props) {
   const router = useRouter()
-  const { price, loading } = useStockPrice(stock.tickerCode)
+  const { price, loading, isStale } = useStockPrice(stock.tickerCode)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [movingToWatchlist, setMovingToWatchlist] = useState(false)
   const [localIsTracked, setLocalIsTracked] = useState(isTracked)
@@ -229,6 +229,7 @@ export default function StockDetailClient({
         fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
         fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
         isDelisted={stock.isDelisted}
+        isStale={isStale}
         actions={
           localIsTracked ? (
             // 追跡中のアクション

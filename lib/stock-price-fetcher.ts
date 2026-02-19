@@ -23,6 +23,11 @@ export interface StockPrice {
   marketTime: number | null
 }
 
+export interface StockPriceResult {
+  prices: StockPrice[]
+  staleTickers: string[]
+}
+
 export interface HistoricalPrice {
   date: string
   open: number
@@ -75,9 +80,9 @@ function getPythonScriptPath(scriptName: string): string {
  */
 export async function fetchStockPrices(
   tickerCodes: string[]
-): Promise<StockPrice[]> {
+): Promise<StockPriceResult> {
   if (tickerCodes.length === 0) {
-    return []
+    return { prices: [], staleTickers: [] }
   }
 
   // ティッカーコードを正規化
@@ -101,9 +106,9 @@ export async function fetchStockPrices(
       console.error("Python stderr:", stderr)
     }
 
-    const results: StockPrice[] = JSON.parse(stdout.trim())
+    const result: StockPriceResult = JSON.parse(stdout.trim())
 
-    return results
+    return result
   } catch (error) {
     throw new Error(`Failed to fetch stock prices: ${error instanceof Error ? error.message : error}`)
   }

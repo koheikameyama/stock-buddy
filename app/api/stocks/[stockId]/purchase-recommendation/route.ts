@@ -79,7 +79,7 @@ export async function GET(
     }
 
     // リアルタイム株価を取得
-    const realtimePrices = await fetchStockPrices([stock.tickerCode])
+    const { prices: realtimePrices } = await fetchStockPrices([stock.tickerCode])
     const currentPrice = realtimePrices[0]?.currentPrice ?? null
 
     // レスポンス整形
@@ -226,6 +226,15 @@ export async function POST(
       )
     }
 
+    // staleチェック兼リアルタイム株価取得（1回のyfinance呼び出しで両方取得）
+    const { prices: realtimePrices, staleTickers: staleCheck } = await fetchStockPrices([stock.tickerCode])
+    if (staleCheck.includes(stock.tickerCode)) {
+      return NextResponse.json(
+        { error: "最新の株価が取得できないため分析がおこなえません" },
+        { status: 400 }
+      )
+    }
+
     // 直近30日の価格データを取得（yfinanceからリアルタイム取得）
     const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m")
     const prices = historicalPrices.slice(-30) // oldest-first（共通関数に合わせて古い順）
@@ -302,9 +311,8 @@ export async function POST(
       console.error("市場データ取得失敗（フォールバック）:", error)
     }
 
-    // リアルタイム株価を取得
-    const realtimePricesPost = await fetchStockPrices([stock.tickerCode])
-    const currentPrice = realtimePricesPost[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
+    // staleチェック時に取得済みのリアルタイム株価を再利用
+    const currentPrice = realtimePrices[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
 
     // 週間変化率を計算
     const { text: weekChangeContext, rate: weekChangeRate } = buildWeekChangeContext(prices, "watchlist")

@@ -58,6 +58,7 @@ interface StockCardProps {
   stock: UserStock
   price?: StockPrice
   priceLoaded?: boolean
+  isStale?: boolean
   recommendation?: PurchaseRecommendation
   portfolioRecommendation?: "buy" | "sell" | "hold" | null
   analyzedAt?: string | null
@@ -68,7 +69,7 @@ interface StockCardProps {
 }
 
 
-export default function StockCard({ stock, price, priceLoaded = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick }: StockCardProps) {
+export default function StockCard({ stock, price, priceLoaded = false, isStale = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick }: StockCardProps) {
   const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
@@ -114,8 +115,8 @@ export default function StockCard({ stock, price, priceLoaded = false, recommend
         }
       }}
     >
-      {/* AI推奨バッジ - 右上 */}
-      {aiJudgment && (
+      {/* AI推奨バッジ - 右上（staleの場合は非表示） */}
+      {aiJudgment && !isStale && (
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1.5">
           {isWatchlist && recommendation?.recommendation === "buy" && recommendation.buyTiming ? (
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -210,7 +211,11 @@ export default function StockCard({ stock, price, priceLoaded = false, recommend
               )}
             </div>
           ) : priceLoaded ? (
-            <p className="text-sm text-gray-400">価格情報なし</p>
+            isStale ? (
+              <p className="text-xs text-amber-600">株価データが古いため上場廃止か取引停止した銘柄の可能性があります</p>
+            ) : (
+              <p className="text-sm text-gray-400">価格情報なし</p>
+            )
           ) : (
             <p className="text-sm text-gray-400">読み込み中...</p>
           )}
@@ -282,7 +287,7 @@ export default function StockCard({ stock, price, priceLoaded = false, recommend
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm text-gray-600">評価損益</span>
                   <div className="text-right">
-                    <p className="text-sm text-gray-400">{priceLoaded ? "価格情報なし" : "価格取得中..."}</p>
+                    <p className="text-sm text-gray-400">{priceLoaded ? (isStale ? "株価データが古いため上場廃止か取引停止した銘柄の可能性があります" : "価格情報なし") : "価格取得中..."}</p>
                   </div>
                 </div>
                 {/* AI Analysis for Portfolio */}
@@ -310,7 +315,13 @@ export default function StockCard({ stock, price, priceLoaded = false, recommend
         )}
 
         {/* AI Analysis Reason for Watchlist */}
-        {isWatchlist && recommendation?.reason && (
+        {isWatchlist && (isStale ? (
+          <div className="bg-amber-50 rounded-lg p-3">
+            <p className="text-xs sm:text-sm text-amber-700">
+              最新の株価が取得できないため分析がおこなえませんでした
+            </p>
+          </div>
+        ) : recommendation?.reason ? (
           <div className="bg-blue-50 rounded-lg p-3">
             <p className="text-xs sm:text-sm text-gray-700">
               <span className="font-semibold text-blue-700">💡 AI分析: </span>
@@ -326,7 +337,7 @@ export default function StockCard({ stock, price, priceLoaded = false, recommend
               )
             })()}
           </div>
-        )}
+        ) : null)}
 
         {/* Footer: Actions + Detail Link */}
         <div className={CARD_FOOTER_STYLES.container}>

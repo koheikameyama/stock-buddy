@@ -36,7 +36,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Install yfinance for real-time stock price fetching
-RUN pip3 install --no-cache-dir --break-system-packages yfinance
+RUN pip3 install --no-cache-dir --break-system-packages yfinance>=1.2.0
 
 # Copy everything needed for production
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json

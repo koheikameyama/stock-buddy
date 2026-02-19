@@ -42,7 +42,7 @@ export async function GET(
     }
 
     // リアルタイム株価を取得
-    const prices = await fetchStockPrices([analysis.stock.tickerCode])
+    const { prices } = await fetchStockPrices([analysis.stock.tickerCode])
     const currentPrice = prices[0]?.currentPrice ?? null
 
     return NextResponse.json({

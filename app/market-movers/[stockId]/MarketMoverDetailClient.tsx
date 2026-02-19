@@ -49,7 +49,7 @@ interface Props {
 }
 
 export default function MarketMoverDetailClient({ stock, mover }: Props) {
-  const { price, loading } = useStockPrice(stock.tickerCode)
+  const { price, loading, isStale } = useStockPrice(stock.tickerCode)
 
   const isGainer = mover?.type === "gainer"
   const dateLabel = mover?.date
@@ -74,6 +74,7 @@ export default function MarketMoverDetailClient({ stock, mover }: Props) {
             loading={loading}
             fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
             fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
+            isStale={isStale}
             actions={
               <StockActionButtons
                 tickerCode={stock.tickerCode}

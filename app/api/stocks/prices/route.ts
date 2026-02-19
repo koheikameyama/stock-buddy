@@ -60,9 +60,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 株価を取得（モジュール化）
-    const prices = await fetchStockPrices(tickerCodes)
+    const { prices, staleTickers } = await fetchStockPrices(tickerCodes)
 
-    return NextResponse.json({ prices })
+    return NextResponse.json({ prices, staleTickers })
   } catch (error) {
     console.error("Error fetching stock prices:", error)
     return NextResponse.json(

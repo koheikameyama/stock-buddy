@@ -8,7 +8,7 @@ import { fetchStockPrices } from "@/lib/stock-price-fetcher"
  */
 export async function GET() {
   try {
-    const prices = await fetchStockPrices(["^N225"])
+    const { prices } = await fetchStockPrices(["^N225"])
 
     if (prices.length === 0) {
       return NextResponse.json(

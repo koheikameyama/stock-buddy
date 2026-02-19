@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       ...watchlistStocks.map((ws) => ws.stock.tickerCode),
     ]
     const uniqueTickerCodes = Array.from(new Set(allTickerCodes))
-    const realtimePrices = await fetchStockPrices(uniqueTickerCodes)
+    const { prices: realtimePrices } = await fetchStockPrices(uniqueTickerCodes)
     const priceMap = new Map(realtimePrices.map((p) => [p.tickerCode.replace(".T", ""), p.currentPrice]))
 
     // 市場全体の状況を取得
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
       // リアルタイム株価を取得（この銘柄の詳細情報）
       const tickerCode = stockContext.tickerCode.replace(".T", "")
-      const [stockPriceData] = await fetchStockPrices([tickerCode])
+      const { prices: [stockPriceData] } = await fetchStockPrices([tickerCode])
 
       // 構造化データを作成
       interface StockData {

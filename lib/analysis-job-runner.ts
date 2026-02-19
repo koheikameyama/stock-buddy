@@ -67,8 +67,21 @@ export async function runPortfolioAnalysis(
 
     const averagePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0
 
+    // staleチェック: 株価データが古すぎる銘柄はスキップ
+    const { prices: realtimePrices, staleTickers: portfolioStaleTickers } = await fetchStockPrices([portfolioStock.stock.tickerCode])
+    if (portfolioStaleTickers.includes(portfolioStock.stock.tickerCode)) {
+      await prisma.analysisJob.update({
+        where: { id: jobId },
+        data: {
+          status: "completed",
+          completedAt: new Date(),
+          result: "skipped: stale stock data",
+        },
+      })
+      return
+    }
+
     // リアルタイム株価を取得
-    const realtimePrices = await fetchStockPrices([portfolioStock.stock.tickerCode])
     const currentPrice = realtimePrices[0]?.currentPrice ?? null
 
     // 損益計算
@@ -347,7 +360,7 @@ ${macd.histogram !== null ? `- MACD（トレンドの勢い指標）: ${macdInte
     // 日経平均の市場文脈を取得
     let marketContext = ""
     try {
-      const nikkeiPrices = await fetchStockPrices(["^N225"])
+      const { prices: nikkeiPrices } = await fetchStockPrices(["^N225"])
       if (nikkeiPrices.length > 0) {
         const nikkei = nikkeiPrices[0]
         const nikkeiHistorical = await fetchHistoricalPrices("^N225", "1m")
@@ -678,6 +691,20 @@ export async function runPurchaseRecommendation(
       },
     })
 
+    // staleチェック兼リアルタイム株価取得（1回のyfinance呼び出しで両方取得）
+    const { prices: realtimePrices, staleTickers } = await fetchStockPrices([stock.tickerCode])
+    if (staleTickers.includes(stock.tickerCode)) {
+      await prisma.analysisJob.update({
+        where: { id: jobId },
+        data: {
+          status: "completed",
+          completedAt: new Date(),
+          result: "skipped: stale stock data",
+        },
+      })
+      return
+    }
+
     // 直近30日の価格データを取得（yfinanceからリアルタイム取得）
     const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m")
     const prices = historicalPrices.slice(-30).reverse() // 新しい順に
@@ -861,9 +888,8 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
 `
       : ""
 
-    // リアルタイム株価を取得
-    const realtimePricesPost = await fetchStockPrices([stock.tickerCode])
-    const currentPrice = realtimePricesPost[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
+    // staleチェック時に取得済みのリアルタイム株価を再利用
+    const currentPrice = realtimePrices[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
 
     // ユーザー設定のコンテキスト
     const periodMap: Record<string, string> = {

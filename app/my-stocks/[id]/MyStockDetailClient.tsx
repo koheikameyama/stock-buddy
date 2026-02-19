@@ -74,7 +74,7 @@ interface Stock {
 export default function MyStockDetailClient({ stock }: { stock: Stock }) {
   const router = useRouter()
   const { setStockContext } = useChatContext()
-  const { price, loading } = useStockPrice(stock.stock.tickerCode)
+  const { price, loading, isStale } = useStockPrice(stock.stock.tickerCode)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [openMenuTransactionId, setOpenMenuTransactionId] = useState<string | null>(null)
   const [showTransactionDialog, setShowTransactionDialog] = useState(false)
@@ -243,6 +243,8 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                       </p>
                     )}
                   </div>
+                ) : isStale ? (
+                  <span className="text-xs text-amber-600">株価データが古いため上場廃止か取引停止した銘柄の可能性があります</span>
                 ) : (
                   <span className="text-sm text-gray-400">価格情報なし</span>
                 )}
@@ -304,10 +306,18 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Analysis Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <StockAnalysisCard
-              stockId={stock.stockId}
-              quantity={quantity}
-            />
+            {isStale ? (
+              <div className="bg-amber-50 rounded-lg p-3">
+                <p className="text-xs sm:text-sm text-amber-700">
+                  最新の株価が取得できないため分析がおこなえませんでした
+                </p>
+              </div>
+            ) : (
+              <StockAnalysisCard
+                stockId={stock.stockId}
+                quantity={quantity}
+              />
+            )}
           </section>
 
           {/* Tabbed Content Section */}
@@ -448,6 +458,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             fiftyTwoWeekHigh={stock.stock.fiftyTwoWeekHigh}
             fiftyTwoWeekLow={stock.stock.fiftyTwoWeekLow}
             isDelisted={stock.stock.isDelisted ?? false}
+            isStale={isStale}
             actions={
               <>
                 <button
@@ -486,7 +497,15 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Purchase Recommendation Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <PurchaseRecommendation stockId={stock.stockId} />
+            {isStale ? (
+              <div className="bg-amber-50 rounded-lg p-3">
+                <p className="text-xs sm:text-sm text-amber-700">
+                  最新の株価が取得できないため分析がおこなえませんでした
+                </p>
+              </div>
+            ) : (
+              <PurchaseRecommendation stockId={stock.stockId} />
+            )}
           </section>
 
           {/* Tabbed Content Section */}

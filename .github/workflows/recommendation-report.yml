@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install psycopg2-binary yfinance pandas openai
+          pip install psycopg2-binary "yfinance>=1.2.0" pandas openai
 
       - name: Generate report
         env:

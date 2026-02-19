@@ -70,7 +70,7 @@ export async function GET() {
 
     // 現在の株価を取得
     const tickerCodes = user.portfolioStocks.map((ps) => ps.stock.tickerCode)
-    const prices = await fetchStockPrices(tickerCodes)
+    const { prices } = await fetchStockPrices(tickerCodes)
     const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
 
     // 銘柄別構成を計算

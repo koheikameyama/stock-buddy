@@ -33,11 +33,12 @@ interface Signal {
 
 interface TrackedStockCardProps {
   trackedStock: TrackedStock
+  isStale?: boolean
   onMoveToWatchlist: (stockId: string, tickerCode: string, name: string) => void
   onPurchase: (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => void
 }
 
-export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPurchase }: TrackedStockCardProps) {
+export default function TrackedStockCard({ trackedStock, isStale = false, onMoveToWatchlist, onPurchase }: TrackedStockCardProps) {
   const router = useRouter()
   const { stock, currentPrice, changePercent } = trackedStock
   const [signal, setSignal] = useState<Signal | null>(null)
@@ -150,6 +151,8 @@ export default function TrackedStockCard({ trackedStock, onMoveToWatchlist, onPu
               </p>
             )}
           </div>
+        ) : isStale ? (
+          <span className="text-xs text-amber-600">株価データが古いため上場廃止か取引停止した銘柄の可能性があります</span>
         ) : (
           <span className="text-sm text-gray-400">価格取得中...</span>
         )}

@@ -448,7 +448,7 @@ export async function POST(request: NextRequest) {
       })
 
       // リアルタイム株価を取得
-      const prices = await fetchStockPrices([watchlistStock.stock.tickerCode])
+      const { prices } = await fetchStockPrices([watchlistStock.stock.tickerCode])
       const currentPrice = prices[0]?.currentPrice ?? null
 
       const response: UserStockResponse = {
@@ -629,7 +629,7 @@ export async function POST(request: NextRequest) {
       })
 
       // リアルタイム株価を取得
-      const prices = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
+      const { prices } = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
       const currentPrice = prices[0]?.currentPrice ?? null
 
       // 全トランザクションから保有数と平均取得単価を計算

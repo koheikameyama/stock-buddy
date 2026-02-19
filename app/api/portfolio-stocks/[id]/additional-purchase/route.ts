@@ -145,7 +145,7 @@ export async function POST(
     const firstPurchaseDate = firstBuyTransaction?.transactionDate || result.createdAt
 
     // リアルタイム株価を取得
-    const prices = await fetchStockPrices([result.stock.tickerCode])
+    const { prices } = await fetchStockPrices([result.stock.tickerCode])
     const currentPrice = prices[0]?.currentPrice ?? null
 
     // レスポンス用のデータ整形

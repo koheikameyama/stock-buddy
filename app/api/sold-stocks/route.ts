@@ -121,7 +121,7 @@ export async function GET() {
     const priceMap: Map<string, number> = new Map()
     if (tickerCodes.length > 0) {
       try {
-        const prices = await fetchStockPrices(tickerCodes)
+        const { prices } = await fetchStockPrices(tickerCodes)
         prices.forEach((p) => {
           // .Tを除去してマッピング
           const code = p.tickerCode.replace(/\.T$/, "")

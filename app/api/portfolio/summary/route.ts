@@ -46,9 +46,9 @@ export async function GET() {
     }
 
     // 現在の株価を取得（保有中の銘柄のみ）
-    const prices = holdingTickers.length > 0
+    const { prices } = holdingTickers.length > 0
       ? await fetchStockPrices(holdingTickers)
-      : []
+      : { prices: [] }
     const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
 
     let totalValue = 0

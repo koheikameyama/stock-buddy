@@ -140,7 +140,7 @@ async function StockDetailContent({
         let hypotheticalProfitPercent: number | null = null
 
         try {
-          const prices = await fetchStockPrices([stock.tickerCode])
+          const { prices } = await fetchStockPrices([stock.tickerCode])
           if (prices.length > 0) {
             currentPrice = prices[0].currentPrice
             const hypotheticalValue = currentPrice * totalBuyQuantity

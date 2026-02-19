@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     // リアルタイム株価を取得
     const tickerCodes = stocks.map((s) => s.tickerCode)
-    const prices = await fetchStockPrices(tickerCodes)
+    const { prices } = await fetchStockPrices(tickerCodes)
     const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
 
     // Format response with latest price

@@ -36,6 +36,7 @@ export default function MyStocksClient() {
     fetchTrackedStocks,
     fetchSoldStocks,
     fetchStockPrices,
+    staleTickers,
     updateUserStock,
     removeTrackedStock,
     invalidatePortfolioSummary,
@@ -48,6 +49,7 @@ export default function MyStocksClient() {
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
   const [pricesLoaded, setPricesLoaded] = useState(false)
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
+  const [trackedStaleTickers, setTrackedStaleTickers] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -125,6 +127,7 @@ export default function MyStocksClient() {
     }
 
     if (userStocks.length > 0 && (activeTab === "portfolio" || activeTab === "watchlist")) {
+      setPricesLoaded(false)
       fetchPricesFromStore()
       const interval = setInterval(fetchPricesFromStore, 5 * 60 * 1000)
       return () => clearInterval(interval)
@@ -145,6 +148,11 @@ export default function MyStocksClient() {
         const priceMap = new Map<string, StockPrice>(
           data.prices?.map((p: StockPrice) => [p.tickerCode, p]) || []
         )
+
+        // staleティッカーを記録
+        if (data.staleTickers?.length > 0) {
+          setTrackedStaleTickers(new Set(data.staleTickers as string[]))
+        }
 
         // 追跡銘柄の株価を更新
         setTrackedStocks((prev) =>
@@ -560,6 +568,7 @@ export default function MyStocksClient() {
                     <TrackedStockCard
                       key={ts.id}
                       trackedStock={ts}
+                      isStale={trackedStaleTickers.has(ts.stock.tickerCode)}
                       onMoveToWatchlist={handleTrackedToWatchlist}
                       onPurchase={handleTrackedToPurchase}
                     />
@@ -649,6 +658,7 @@ export default function MyStocksClient() {
                       stock={stock}
                       price={prices[stock.stock.tickerCode]}
                       priceLoaded={pricesLoaded}
+                      isStale={staleTickers.has(stock.stock.tickerCode)}
                       recommendation={recommendations[stock.stockId]}
                       portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
                       analyzedAt={stock.type === "watchlist" ? recommendations[stock.stockId]?.analyzedAt : stock.analyzedAt}

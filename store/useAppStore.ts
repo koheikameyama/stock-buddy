@@ -20,6 +20,7 @@ interface AppState {
   trackedStocks: CacheEntry<TrackedStock[]> | null
   soldStocks: CacheEntry<SoldStock[]> | null
   stockPrices: Map<string, CacheEntry<StockPrice>>
+  staleTickers: Set<string>
   portfolioSummary: CacheEntry<PortfolioSummary> | null
   nikkei: CacheEntry<NikkeiData> | null
 
@@ -52,6 +53,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   trackedStocks: null,
   soldStocks: null,
   stockPrices: new Map(),
+  staleTickers: new Set(),
   portfolioSummary: null,
   nikkei: null,
 
@@ -130,15 +132,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       )
 
       const newPrices = new Map(currentPrices)
+      const newStaleTickers = new Set(get().staleTickers)
       for (const res of responses) {
-        if (res.status === "fulfilled" && res.value?.prices) {
-          for (const price of res.value.prices as StockPrice[]) {
-            newPrices.set(price.tickerCode, createCacheEntry(price))
-            result.set(price.tickerCode, price)
+        if (res.status === "fulfilled" && res.value) {
+          if (res.value.prices) {
+            for (const price of res.value.prices as StockPrice[]) {
+              newPrices.set(price.tickerCode, createCacheEntry(price))
+              result.set(price.tickerCode, price)
+            }
+          }
+          if (res.value.staleTickers) {
+            for (const ticker of res.value.staleTickers as string[]) {
+              newStaleTickers.add(ticker)
+            }
           }
         }
       }
-      set({ stockPrices: newPrices })
+      set({ stockPrices: newPrices, staleTickers: newStaleTickers })
     }
 
     return result
@@ -185,6 +195,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       trackedStocks: null,
       soldStocks: null,
       stockPrices: new Map(),
+      staleTickers: new Set(),
       portfolioSummary: null,
       nikkei: null,
     }),

@@ -255,8 +255,16 @@ export async function POST(
 
     const averagePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0
 
+    // staleチェック: 株価データが古すぎる銘柄は分析スキップ
+    const { prices: realtimePrices, staleTickers: staleCheck } = await fetchStockPrices([portfolioStock.stock.tickerCode])
+    if (staleCheck.includes(portfolioStock.stock.tickerCode)) {
+      return NextResponse.json(
+        { error: "最新の株価が取得できないため分析がおこなえません" },
+        { status: 400 }
+      )
+    }
+
     // リアルタイム株価を取得
-    const realtimePrices = await fetchStockPrices([portfolioStock.stock.tickerCode])
     const currentPrice = realtimePrices[0]?.currentPrice ?? null
 
     // 損益計算

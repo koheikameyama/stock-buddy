@@ -611,7 +611,7 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
     ...user.portfolioStocks.map(ps => ps.stock.tickerCode),
     ...user.watchlistStocks.map(ws => ws.stock.tickerCode),
   ]
-  const prices = await fetchStockPrices(allTickerCodes)
+  const { prices } = await fetchStockPrices(allTickerCodes)
   const priceMap = new Map(prices.map(p => [p.tickerCode, p.currentPrice]))
 
   // ポートフォリオデータを構築
