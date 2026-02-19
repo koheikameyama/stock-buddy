@@ -863,14 +863,33 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
       orderBy: { analyzedAt: "desc" },
     })
 
+    const trendLabel = (trend: string) =>
+      trend === "up" ? "上昇" : trend === "down" ? "下落" : "横ばい"
+
     const predictionContext = analysis
       ? `
-【予測情報】
-- 短期予測: ${analysis.advice || "不明"}
-- 中期予測: ${analysis.advice || "不明"}
-- 長期予測: ${analysis.advice || "不明"}
+【AI予測データ（購入判断の重要な根拠として活用）】
+※ 以下は事前に生成された価格予測です。この予測を踏まえて購入判断を出してください。
+
+■ 短期予測（今週）: ${trendLabel(analysis.shortTermTrend)}
+  - 予測価格帯: ${Number(analysis.shortTermPriceLow).toLocaleString()}円 〜 ${Number(analysis.shortTermPriceHigh).toLocaleString()}円
+  - 解説: ${analysis.shortTermText || "解説なし"}
+
+■ 中期予測（今月）: ${trendLabel(analysis.midTermTrend)}
+  - 予測価格帯: ${Number(analysis.midTermPriceLow).toLocaleString()}円 〜 ${Number(analysis.midTermPriceHigh).toLocaleString()}円
+  - 解説: ${analysis.midTermText || "解説なし"}
+
+■ 長期予測（3ヶ月）: ${trendLabel(analysis.longTermTrend)}
+  - 予測価格帯: ${Number(analysis.longTermPriceLow).toLocaleString()}円 〜 ${Number(analysis.longTermPriceHigh).toLocaleString()}円
+  - 解説: ${analysis.longTermText || "解説なし"}
+
+■ 総合判断: ${analysis.recommendation === "buy" ? "買い推奨" : analysis.recommendation === "sell" ? "売り推奨" : "ホールド"}
+■ アドバイス: ${analysis.advice || "なし"}
+■ 信頼度: ${(analysis.confidence * 100).toFixed(0)}%
 `
       : ""
+
+    const hasPrediction = analysis !== null
 
     // 前回の購入判断データを取得（一貫性のため）
     const previousRecommendation = await prisma.purchaseRecommendation.findFirst({
@@ -915,6 +934,7 @@ ${macd.histogram !== null ? `- トレンドの勢い: ${macdInterpretation}` : "
     const prompt = `あなたは投資を学びたい人向けのAIコーチです。
 以下の銘柄について、詳細な購入判断をしてください。
 テクニカル分析の結果を活用し、専門用語は解説を添えて使ってください。
+${hasPrediction ? "\n【重要】AI予測データが提供されています。この予測を購入判断の主要な根拠として活用してください。" : ""}
 
 【銘柄情報】
 - 名前: ${stock.name}
@@ -927,28 +947,67 @@ ${userContext}${predictionContext}${previousAnalysisContext}
 ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
+${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をそのまま使用してください。" : ""}
 
 {
+  "marketSignal": "bullish" | "neutral" | "bearish",
+
+  // A. 価格帯予測${hasPrediction ? "（【AI予測データ】の値をそのまま使用）" : "（予測を根拠として購入判断の前に示す）"}
+  "shortTermTrend": "up" | "neutral" | "down",
+  "shortTermPriceLow": ${hasPrediction && analysis ? Number(analysis.shortTermPriceLow) : "短期（今週）の予測安値（数値のみ、円単位）"},
+  "shortTermPriceHigh": ${hasPrediction && analysis ? Number(analysis.shortTermPriceHigh) : "短期（今週）の予測高値（数値のみ、円単位）"},
+  "shortTermText": "短期予測の根拠・解説（初心者向け、60文字以内）",
+  "midTermTrend": "up" | "neutral" | "down",
+  "midTermPriceLow": ${hasPrediction && analysis ? Number(analysis.midTermPriceLow) : "中期（今月）の予測安値（数値のみ、円単位）"},
+  "midTermPriceHigh": ${hasPrediction && analysis ? Number(analysis.midTermPriceHigh) : "中期（今月）の予測高値（数値のみ、円単位）"},
+  "midTermText": "中期予測の根拠・解説（初心者向け、60文字以内）",
+  "longTermTrend": "up" | "neutral" | "down",
+  "longTermPriceLow": ${hasPrediction && analysis ? Number(analysis.longTermPriceLow) : "長期（今後3ヶ月）の予測安値（数値のみ、円単位）"},
+  "longTermPriceHigh": ${hasPrediction && analysis ? Number(analysis.longTermPriceHigh) : "長期（今後3ヶ月）の予測高値（数値のみ、円単位）"},
+  "longTermText": "長期予測の根拠・解説（初心者向け、60文字以内）",
+  "advice": "${hasPrediction ? "【AI予測データ】を踏まえた購入判断のアドバイス" : "上記予測を踏まえた総合アドバイス"}（100文字以内）",
+
+  // B. 購入判断
   "recommendation": "buy" | "stay" | "avoid",
   "confidence": 0.0から1.0の数値（小数点2桁）,
   "reason": "初心者に分かりやすい言葉で1-2文の理由",
   "caution": "注意点を1-2文",
 
-  // B. 深掘り評価（文字列で返す。配列ではない）
+  // C. 深掘り評価（文字列で返す。配列ではない）
   "positives": "・良い点1\n・良い点2\n・良い点3",
   "concerns": "・不安な点1\n・不安な点2\n・不安な点3",
   "suitableFor": "こんな人におすすめ（1-2文で具体的に）",
 
-  // C. 買い時条件（recommendationがstayの場合のみ）
+  // D. 買い時条件（recommendationがstayの場合のみ）
   "buyCondition": "どうなったら買い時か（例：「株価が○○円を下回ったら」「RSIが30を下回ったら」など具体的に）",
 
-  // D. パーソナライズ（ユーザー設定がある場合）
+  // E. パーソナライズ（ユーザー設定がある場合）
   "userFitScore": 0-100のおすすめ度,
   "budgetFit": 予算内で購入可能か（true/false）,
   "periodFit": 投資期間にマッチするか（true/false）,
   "riskFit": リスク許容度に合うか（true/false）,
   "personalizedReason": "このユーザーにとってのおすすめ理由（2-3文）"
 }
+
+【価格帯予測の指針】
+${hasPrediction ? `
+- 【重要】AI予測データが提供されている場合は、その値をそのまま使用してください
+- 価格帯（priceLow/priceHigh）は提供された値を変更しないでください
+- トレンド（shortTermTrend等）も提供された値に従ってください
+- 購入判断（recommendation）は、この予測を根拠として導出してください
+- 予測が「上昇」なら買い検討、「下落」なら様子見、という整合性を保ってください` : `
+- 予測は提供されたテクニカル指標を根拠として算出する
+- 現在価格を起点に、直近ボラティリティ・トレンドを反映した現実的な価格帯にすること
+- shortTermPriceLow/High: 直近のボラティリティと今週のトレンドを基準（現在価格±5〜15%を目安）
+- midTermPriceLow/High: 中期トレンドを基準（現在価格±10〜25%を目安）
+- longTermPriceLow/High: 長期トレンドを基準（現在価格±15〜35%を目安）`}
+- advice は価格帯予測の数値を踏まえた具体的なコメントにする（例:「今週は○○〜○○円で推移する見込みで...」）
+
+【重要: この銘柄はまだ購入していません】
+- この分析はウォッチリスト（購入検討中）の銘柄に対するものです
+- ユーザーはまだこの株を保有していません
+- 「損切り」「損切りライン」「利確」「利益確定」「売り時」「売却」「保有株」「含み損」「含み益」など、株を保有している前提の表現は絶対に使わないでください
+- 代わりに「購入を検討」「エントリー」「買いのタイミング」「見送り」など、購入前の視点で表現してください
 
 【制約】
 - 提供されたニュース情報を参考にしてください
@@ -1012,17 +1071,33 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
           schema: {
             type: "object",
             properties: {
+              marketSignal: { type: "string", enum: ["bullish", "neutral", "bearish"] },
+              // A. 価格帯予測
+              shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              shortTermPriceLow: { type: "number" },
+              shortTermPriceHigh: { type: "number" },
+              shortTermText: { type: "string" },
+              midTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              midTermPriceLow: { type: "number" },
+              midTermPriceHigh: { type: "number" },
+              midTermText: { type: "string" },
+              longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+              longTermPriceLow: { type: "number" },
+              longTermPriceHigh: { type: "number" },
+              longTermText: { type: "string" },
+              advice: { type: "string" },
+              // B. 購入判断
               recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
               confidence: { type: "number" },
               reason: { type: "string" },
               caution: { type: "string" },
-              // B. 深掘り評価
+              // C. 深掘り評価
               positives: { type: ["string", "null"] },
               concerns: { type: ["string", "null"] },
               suitableFor: { type: ["string", "null"] },
-              // C. 買い時条件
+              // D. 買い時条件
               buyCondition: { type: ["string", "null"] },
-              // D. パーソナライズ
+              // E. パーソナライズ
               userFitScore: { type: ["number", "null"] },
               budgetFit: { type: ["boolean", "null"] },
               periodFit: { type: ["boolean", "null"] },
@@ -1030,6 +1105,11 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
               personalizedReason: { type: ["string", "null"] },
             },
             required: [
+              "marketSignal",
+              "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh", "shortTermText",
+              "midTermTrend", "midTermPriceLow", "midTermPriceHigh", "midTermText",
+              "longTermTrend", "longTermPriceLow", "longTermPriceHigh", "longTermText",
+              "advice",
               "recommendation", "confidence", "reason", "caution",
               "positives", "concerns", "suitableFor",
               "buyCondition",
@@ -1106,6 +1186,32 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
       },
     })
 
+    // StockAnalysisに価格帯予測を保存（購入判断の根拠として）
+    const now = new Date()
+    await prisma.stockAnalysis.create({
+      data: {
+        stockId,
+        shortTermTrend: result.shortTermTrend || "neutral",
+        shortTermPriceLow: result.shortTermPriceLow || currentPrice || 0,
+        shortTermPriceHigh: result.shortTermPriceHigh || currentPrice || 0,
+        shortTermText: result.shortTermText || "",
+        midTermTrend: result.midTermTrend || "neutral",
+        midTermPriceLow: result.midTermPriceLow || currentPrice || 0,
+        midTermPriceHigh: result.midTermPriceHigh || currentPrice || 0,
+        midTermText: result.midTermText || "",
+        longTermTrend: result.longTermTrend || "neutral",
+        longTermPriceLow: result.longTermPriceLow || currentPrice || 0,
+        longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
+        longTermText: result.longTermText || "",
+        recommendation: result.recommendation === "buy" ? "buy" : result.recommendation === "avoid" ? "sell" : "hold",
+        advice: result.advice || result.reason || "",
+        confidence: result.confidence || 0.7,
+        limitPrice: null,
+        stopLossPrice: null,
+        analyzedAt: now,
+      },
+    })
+
     // ジョブを完了に更新
     await prisma.analysisJob.update({
       where: { id: jobId },
@@ -1117,6 +1223,22 @@ ${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${
           stockName: stock.name,
           tickerCode: stock.tickerCode,
           currentPrice,
+          marketSignal: result.marketSignal || null,
+          // A. 価格帯予測
+          shortTermTrend: result.shortTermTrend || null,
+          shortTermPriceLow: result.shortTermPriceLow || null,
+          shortTermPriceHigh: result.shortTermPriceHigh || null,
+          shortTermText: result.shortTermText || null,
+          midTermTrend: result.midTermTrend || null,
+          midTermPriceLow: result.midTermPriceLow || null,
+          midTermPriceHigh: result.midTermPriceHigh || null,
+          midTermText: result.midTermText || null,
+          longTermTrend: result.longTermTrend || null,
+          longTermPriceLow: result.longTermPriceLow || null,
+          longTermPriceHigh: result.longTermPriceHigh || null,
+          longTermText: result.longTermText || null,
+          advice: result.advice || null,
+          // B. 購入判断
           recommendation: result.recommendation,
           confidence: result.confidence,
           reason: result.reason,
