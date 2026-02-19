@@ -735,13 +735,24 @@ export default function MyStocksClient() {
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowTrackingModal(false)
-                  setTrackingFromWatchlist(null)
+                onClick={async () => {
+                  if (!trackingFromWatchlist) return
+                  setTrackingInProgress(true)
+                  try {
+                    await fetch(`/api/user-stocks/${trackingFromWatchlist.id}`, { method: "DELETE" })
+                    setUserStocks((prev) => prev.filter((s) => s.id !== trackingFromWatchlist.id))
+                    setShowTrackingModal(false)
+                    setTrackingFromWatchlist(null)
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "削除に失敗しました")
+                  } finally {
+                    setTrackingInProgress(false)
+                  }
                 }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                disabled={trackingInProgress}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
-                見送る
+                {trackingInProgress ? "処理中..." : "見送る"}
               </button>
               <button
                 onClick={handleConfirmTracking}

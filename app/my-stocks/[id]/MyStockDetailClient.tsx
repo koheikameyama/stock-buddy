@@ -534,10 +534,22 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => setShowTrackingModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                onClick={async () => {
+                  setTrackingStock(true)
+                  try {
+                    await fetch(`/api/user-stocks/${stock.id}`, { method: "DELETE" })
+                    router.push("/my-stocks")
+                  } catch (err: any) {
+                    alert(err.message || "削除に失敗しました")
+                  } finally {
+                    setTrackingStock(false)
+                    setShowTrackingModal(false)
+                  }
+                }}
+                disabled={trackingStock}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
-                見送る
+                {trackingStock ? "処理中..." : "見送る"}
               </button>
               <button
                 onClick={async () => {
