@@ -16,9 +16,14 @@ import {
   buildChartPatternContext,
   buildWeekChangeContext,
   buildMarketContext,
+  buildDeviationRateContext,
   PROMPT_NEWS_CONSTRAINTS,
   PROMPT_MARKET_SIGNAL_DEFINITION,
 } from "@/lib/stock-analysis-context"
+import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
+import { calculateDeviationRate } from "@/lib/technical-indicators"
+import { MA_DEVIATION } from "@/lib/constants"
+import { isSurgeStock, isDangerousStock, isOverheated } from "@/lib/stock-safety-rules"
 import {
   calculateStockScores,
   applySectorDiversification,
@@ -54,6 +59,10 @@ interface StockContext {
   candlestickContext: string
   chartPatternContext: string
   weekChangeContext: string
+  weekChangeRate: number | null
+  deviationRateContext: string
+  deviationRate: number | null
+  predictionContext: string
 }
 
 /**
@@ -130,6 +139,8 @@ export async function POST(request: NextRequest) {
         eps: true,
         fiftyTwoWeekHigh: true,
         fiftyTwoWeekLow: true,
+        isDelisted: true,
+        fetchFailCount: true,
       },
     })
 
@@ -270,6 +281,8 @@ async function processUser(
     eps: unknown
     fiftyTwoWeekHigh: unknown
     fiftyTwoWeekLow: unknown
+    isDelisted: boolean
+    fetchFailCount: number
   }>,
   registeredStockIds: Set<string>,
   session: string,
@@ -318,7 +331,7 @@ async function processUser(
 
   const topCandidates = diversified.slice(0, SCORING_CONFIG.MAX_CANDIDATES_FOR_AI)
 
-  const stockContexts = await buildStockContexts(topCandidates, allStocks)
+  const { contexts: stockContexts, newsContext } = await buildStockContexts(topCandidates, allStocks)
 
   const recommendations = await selectWithAI(
     userId,
@@ -328,7 +341,8 @@ async function processUser(
     remainingBudget,
     session,
     stockContexts,
-    marketContext
+    marketContext,
+    newsContext
   )
 
   if (!recommendations || recommendations.length === 0) {
@@ -361,8 +375,10 @@ async function buildStockContexts(
     fiftyTwoWeekHigh: unknown
     fiftyTwoWeekLow: unknown
     marketCap: unknown
+    isDelisted: boolean
+    fetchFailCount: number
   }>
-): Promise<StockContext[]> {
+): Promise<{ contexts: StockContext[]; newsContext: string }> {
   console.log(`  Fetching detailed data for ${candidates.length} candidates...`)
 
   const stockDataMap = new Map(allStocksData.map(s => [s.id, s]))
@@ -377,19 +393,62 @@ async function buildStockContexts(
     }
   })
 
-  const pricesResults = await Promise.all(pricesPromises)
-  const pricesMap = new Map(pricesResults.map(r => [r.stockId, r.prices]))
+  // 価格取得・ニュース取得・AI予測取得を並列実行
+  const stockIds = candidates.map(c => c.id)
+  const tickerCodesForNews = candidates.map(c => c.tickerCode.replace(".T", ""))
+  const sectors = Array.from(new Set(candidates.map(c => c.sector).filter((s): s is string => s !== null)))
 
-  const tickerCodes = candidates.map(c => c.tickerCode)
-  let currentPrices: Map<string, number> = new Map()
-  try {
-    const realtimePrices = await fetchStockPrices(tickerCodes)
-    currentPrices = new Map(
-      realtimePrices.map(p => [p.tickerCode, p.currentPrice])
-    )
-  } catch (error) {
-    console.error("  Failed to fetch realtime prices:", error)
-  }
+  const [pricesResults, realtimePricesResult, relatedNews, analyses] = await Promise.all([
+    Promise.all(pricesPromises),
+    fetchStockPrices(candidates.map(c => c.tickerCode)).catch((error) => {
+      console.error("  Failed to fetch realtime prices:", error)
+      return [] as { tickerCode: string; currentPrice: number }[]
+    }),
+    getRelatedNews({
+      tickerCodes: tickerCodesForNews,
+      sectors,
+      limit: 10,
+      daysAgo: 7,
+    }).catch((error) => {
+      console.error("  Failed to fetch news:", error)
+      return []
+    }),
+    prisma.stockAnalysis.findMany({
+      where: { stockId: { in: stockIds } },
+      orderBy: { analyzedAt: "desc" },
+      distinct: ["stockId"],
+      select: {
+        stockId: true,
+        shortTermTrend: true,
+        shortTermPriceLow: true,
+        shortTermPriceHigh: true,
+        midTermTrend: true,
+        midTermPriceLow: true,
+        midTermPriceHigh: true,
+        longTermTrend: true,
+        longTermPriceLow: true,
+        longTermPriceHigh: true,
+        recommendation: true,
+        advice: true,
+        confidence: true,
+      },
+    }),
+  ])
+
+  const pricesMap = new Map(pricesResults.map(r => [r.stockId, r.prices]))
+  const currentPrices = new Map(
+    realtimePricesResult.map(p => [p.tickerCode, p.currentPrice])
+  )
+  const analysisMap = new Map(analyses.map(a => [a.stockId, a]))
+
+  const newsContext = relatedNews.length > 0
+    ? `\n【最新のニュース情報】\n${formatNewsForPrompt(relatedNews)}`
+    : ""
+
+  console.log(`  News: ${relatedNews.length} articles, Predictions: ${analyses.length} stocks`)
+
+  const trendLabel = (trend: string) =>
+    trend === "up" ? "上昇" : trend === "down" ? "下落" : "横ばい"
 
   const contexts: StockContext[] = []
 
@@ -423,7 +482,22 @@ async function buildStockContexts(
     const technicalContext = buildTechnicalContext(ohlcvPrices)
     const candlestickContext = buildCandlestickContext(ohlcvPrices)
     const chartPatternContext = buildChartPatternContext(ohlcvPrices)
-    const { text: weekChangeContext } = buildWeekChangeContext(ohlcvPrices, "watchlist")
+    const { text: weekChangeContext, rate: weekChangeRate } = buildWeekChangeContext(ohlcvPrices, "watchlist")
+    const deviationRateContext = buildDeviationRateContext(ohlcvPrices)
+
+    // 乖離率の数値（後補正用）
+    const pricesNewestFirst = [...ohlcvPrices].reverse().map(p => ({ close: p.close }))
+    const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
+
+    // AI予測コンテキスト
+    const analysis = analysisMap.get(candidate.id)
+    const predictionContext = analysis
+      ? `\n【AI予測データ】
+- 短期予測: ${trendLabel(analysis.shortTermTrend)} (${Number(analysis.shortTermPriceLow).toLocaleString()}〜${Number(analysis.shortTermPriceHigh).toLocaleString()}円)
+- 中期予測: ${trendLabel(analysis.midTermTrend)} (${Number(analysis.midTermPriceLow).toLocaleString()}〜${Number(analysis.midTermPriceHigh).toLocaleString()}円)
+- 長期予測: ${trendLabel(analysis.longTermTrend)} (${Number(analysis.longTermPriceLow).toLocaleString()}〜${Number(analysis.longTermPriceHigh).toLocaleString()}円)
+- AI推奨: ${analysis.recommendation === "buy" ? "買い" : analysis.recommendation === "sell" ? "売り" : "ホールド"} (信頼度: ${(analysis.confidence * 100).toFixed(0)}%)`
+      : ""
 
     contexts.push({
       stock: candidate,
@@ -433,11 +507,15 @@ async function buildStockContexts(
       candlestickContext,
       chartPatternContext,
       weekChangeContext,
+      weekChangeRate,
+      deviationRateContext,
+      deviationRate,
+      predictionContext,
     })
   }
 
   console.log(`  Built contexts for ${contexts.length} stocks`)
-  return contexts
+  return { contexts, newsContext }
 }
 
 async function selectWithAI(
@@ -448,7 +526,8 @@ async function selectWithAI(
   remainingBudget: number | null,
   session: string,
   stockContexts: StockContext[],
-  marketContext: string
+  marketContext: string,
+  newsContext: string
 ): Promise<Array<{ tickerCode: string; reason: string; investmentTheme: string }> | null> {
   const prompts = SESSION_PROMPTS[session] || SESSION_PROMPTS.evening
   const periodLabel = PERIOD_LABELS[investmentPeriod || ""] || "不明"
@@ -468,7 +547,7 @@ async function selectWithAI(
 - スコア: ${s.score}点
 
 ${ctx.financialMetrics}
-${ctx.technicalContext}${ctx.candlestickContext}${ctx.chartPatternContext}${ctx.weekChangeContext}`
+${ctx.technicalContext}${ctx.candlestickContext}${ctx.chartPatternContext}${ctx.weekChangeContext}${ctx.deviationRateContext}${ctx.predictionContext}`
   }).join("\n\n")
 
   const prompt = `あなたは投資初心者を優しくサポートするAIコーチです。
@@ -482,8 +561,21 @@ ${prompts.intro}
 ${marketContext}
 【選べる銘柄一覧（詳細分析付き）】
 ${stockSummaries}
-
+${newsContext}
 ${PROMPT_MARKET_SIGNAL_DEFINITION}
+
+【評価基準（購入判断と同等の基準で厳選してください）】
+- AI予測データがある銘柄は、その予測を重要な根拠として活用してください
+- 予測が「下落」の銘柄は選ばないでください（明確な反発根拠がない限り）
+- 移動平均乖離率が過熱圏（+20%以上）の銘柄は避けてください
+- 急騰銘柄（週間+30%以上）は選ばないでください
+- 赤字かつ高ボラティリティ（50%超）の銘柄は選ばないでください
+- 複数のテクニカル指標が同じ方向を示している場合は信頼度が高いと判断してください
+- 指標間で矛盾がある場合は慎重な判断をしてください
+
+【株価変動時の原因分析】
+- 週間変化率がマイナスの銘柄を選ぶ場合、下落の原因（地合い/材料/需給）をreasonで推測してください
+- 週間変化率が+10%以上の銘柄を選ぶ場合、上昇の原因をreasonで推測してください
 
 【回答ルール】
 - 必ず5銘柄を選んでください（候補が5未満なら全て選ぶ）
@@ -506,6 +598,8 @@ ${PROMPT_MARKET_SIGNAL_DEFINITION}
 ${PROMPT_NEWS_CONSTRAINTS}
 - 急騰銘柄（週間+20%以上）は「上がりきった可能性」を考慮してください
 - 赤字企業は「業績リスク」を理由で必ず言及してください
+- 提供されたニュース情報がある場合は、判断の根拠として活用してください
+- ニュースにない情報は推測や創作をしないでください
 
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
@@ -532,8 +626,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.5,
-      max_tokens: 1000,
+      temperature: 0.4,
+      max_tokens: 1200,
       response_format: {
         type: "json_schema",
         json_schema: {
@@ -580,6 +674,25 @@ ${PROMPT_NEWS_CONSTRAINTS}
         s.tickerCode && s.reason && s.investmentTheme
       )
       .slice(0, 5)
+
+    // AI後のログ警告: 危険な銘柄を検出してログに記録（除外はしない）
+    for (const selection of validSelections) {
+      const ctx = stockContexts.find((c: StockContext) => c.stock.tickerCode === selection.tickerCode)
+      if (!ctx) continue
+
+      const s = ctx.stock
+      const volatility = s.volatility !== null ? Number(s.volatility) : null
+
+      if (isSurgeStock(ctx.weekChangeRate)) {
+        console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is surge stock (week: +${ctx.weekChangeRate?.toFixed(0)}%)`)
+      }
+      if (isDangerousStock(s.isProfitable, volatility)) {
+        console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is dangerous (unprofitable + high volatility)`)
+      }
+      if (isOverheated(ctx.deviationRate)) {
+        console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is overheated (deviation: +${ctx.deviationRate?.toFixed(1)}%)`)
+      }
+    }
 
     console.log(`  AI selected ${validSelections.length} stocks (marketSignal: ${result.marketSignal})`)
     return validSelections
