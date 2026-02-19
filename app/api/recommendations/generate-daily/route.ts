@@ -31,6 +31,7 @@ import {
   ScoredStock,
 } from "@/lib/recommendation-scoring"
 import { insertRecommendationOutcome } from "@/lib/outcome-utils"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 interface GenerateRequest {
   session?: "morning" | "afternoon" | "evening"
@@ -131,14 +132,34 @@ export async function POST(request: NextRequest) {
 
     console.log(`Found ${allStocks.length} stocks with price data`)
 
+    const userIds = users.map(u => u.userId)
+
     const [portfolioStocks, watchlistStocks] = await Promise.all([
       prisma.portfolioStock.findMany({
-        select: { userId: true, stockId: true },
+        select: {
+          userId: true,
+          stockId: true,
+          transactions: {
+            select: { type: true, quantity: true, price: true, transactionDate: true },
+            orderBy: { transactionDate: "asc" },
+          },
+        },
       }),
       prisma.watchlistStock.findMany({
         select: { userId: true, stockId: true },
       }),
     ])
+
+    // ユーザーごとの保有株取得コスト合計を計算（保有コスト方式）
+    // 売却済みの株は含まない。売れば（利確・損切り問わず）予算に戻ってくる。
+    const holdingsCostByUser = new Map<string, number>()
+    for (const ps of portfolioStocks) {
+      const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(ps.transactions)
+      if (quantity > 0) {
+        const current = holdingsCostByUser.get(ps.userId) ?? 0
+        holdingsCostByUser.set(ps.userId, current + quantity * averagePurchasePrice.toNumber())
+      }
+    }
 
     const registeredByUser = new Map<string, Set<string>>()
     for (const ps of portfolioStocks) {
@@ -169,12 +190,18 @@ export async function POST(request: NextRequest) {
     const tasks = users.map((user) =>
       limit(async (): Promise<UserResult> => {
         try {
+          const holdingsCost = holdingsCostByUser.get(user.userId) ?? 0
+          const remainingBudget = user.investmentBudget !== null
+            ? Math.max(0, user.investmentBudget - holdingsCost)
+            : null
+
           const result = await processUser(
             user,
             allStocks,
             registeredByUser.get(user.userId) || new Set(),
             session,
-            marketContext
+            marketContext,
+            remainingBudget
           )
           return result
         } catch (error) {
@@ -243,11 +270,12 @@ async function processUser(
   }>,
   registeredStockIds: Set<string>,
   session: string,
-  marketContext: string
+  marketContext: string,
+  remainingBudget: number | null
 ): Promise<UserResult> {
   const { userId, investmentPeriod, riskTolerance, investmentBudget } = user
 
-  console.log(`\n--- User: ${userId} (budget: ${investmentBudget}, period: ${investmentPeriod}, risk: ${riskTolerance}) ---`)
+  console.log(`\n--- User: ${userId} (totalBudget: ${investmentBudget}, remainingBudget: ${remainingBudget}, period: ${investmentPeriod}, risk: ${riskTolerance}) ---`)
 
   const stocksForScoring: StockForScoring[] = allStocks.map(s => ({
     id: s.id,
@@ -263,7 +291,8 @@ async function processUser(
     maDeviationRate: s.maDeviationRate ? Number(s.maDeviationRate) : null,
   }))
 
-  const filtered = filterByBudget(stocksForScoring, investmentBudget)
+  // 残り予算でフィルタ（総予算からすでに投資した金額を引いた範囲内で購入可能な銘柄のみ）
+  const filtered = filterByBudget(stocksForScoring, remainingBudget)
   console.log(`  Stocks after budget filter: ${filtered.length}/${stocksForScoring.length}`)
 
   if (filtered.length === 0) {
@@ -293,6 +322,7 @@ async function processUser(
     investmentPeriod,
     riskTolerance,
     investmentBudget,
+    remainingBudget,
     session,
     stockContexts,
     marketContext
@@ -412,6 +442,7 @@ async function selectWithAI(
   investmentPeriod: string | null,
   riskTolerance: string | null,
   investmentBudget: number | null,
+  remainingBudget: number | null,
   session: string,
   stockContexts: StockContext[],
   marketContext: string
@@ -419,7 +450,11 @@ async function selectWithAI(
   const prompts = SESSION_PROMPTS[session] || SESSION_PROMPTS.evening
   const periodLabel = PERIOD_LABELS[investmentPeriod || ""] || "不明"
   const riskLabel = RISK_LABELS[riskTolerance || ""] || "不明"
-  const budgetLabel = investmentBudget ? `${investmentBudget.toLocaleString()}円` : "未設定"
+  const budgetLabel = investmentBudget
+    ? remainingBudget !== null
+      ? `${remainingBudget.toLocaleString()}円（残り）/ 合計 ${investmentBudget.toLocaleString()}円`
+      : `${investmentBudget.toLocaleString()}円`
+    : "未設定"
 
   const stockSummaries = stockContexts.map((ctx, idx) => {
     const s = ctx.stock

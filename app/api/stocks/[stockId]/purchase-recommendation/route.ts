@@ -22,6 +22,7 @@ import { calculateDeviationRate, calculateSMA, calculateRSI } from "@/lib/techni
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -193,6 +194,29 @@ export async function POST(
         })
       : null
 
+    // 残り予算を計算（総予算 - 現在保有中の株の取得コスト合計）
+    // 保有コスト方式: 売却すれば（利確・損切り問わず）その分が予算に戻ってくる
+    let remainingBudget: number | null = null
+    if (userId && userSettings?.investmentBudget) {
+      const userPortfolioStocks = await prisma.portfolioStock.findMany({
+        where: { userId },
+        select: {
+          transactions: {
+            select: { type: true, quantity: true, price: true, transactionDate: true },
+            orderBy: { transactionDate: "asc" },
+          },
+        },
+      })
+      let holdingsCost = 0
+      for (const ps of userPortfolioStocks) {
+        const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(ps.transactions)
+        if (quantity > 0) {
+          holdingsCost += quantity * averagePurchasePrice.toNumber()
+        }
+      }
+      remainingBudget = Math.max(0, userSettings.investmentBudget - holdingsCost)
+    }
+
     if (!stock) {
       return NextResponse.json(
         { error: "銘柄が見つかりません" },
@@ -309,7 +333,8 @@ export async function POST(
 【ユーザーの投資設定】
 - 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
 - リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
-- 投資予算: ${userSettings.investmentBudget ? `${userSettings.investmentBudget.toLocaleString()}円` : "未設定"}
+- 投資予算（合計）: ${userSettings.investmentBudget ? `${userSettings.investmentBudget.toLocaleString()}円` : "未設定"}
+- 投資予算（残り）: ${remainingBudget !== null ? `${remainingBudget.toLocaleString()}円` : userSettings.investmentBudget ? "未計算" : "未設定"}
 `
       : ""
 

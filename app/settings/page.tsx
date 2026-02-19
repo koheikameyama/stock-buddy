@@ -70,6 +70,8 @@ export default function SettingsPage() {
   })
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [showCustomBudget, setShowCustomBudget] = useState(false)
+  const [customBudgetText, setCustomBudgetText] = useState("")
 
   useEffect(() => {
     checkPushNotificationStatus()
@@ -89,12 +91,25 @@ export default function SettingsPage() {
             targetReturnRate: data.settings.targetReturnRate,
             stopLossRate: data.settings.stopLossRate,
           })
+          // プリセット以外の金額が設定されていればカスタム入力を表示
+          const budget = data.settings.investmentBudget
+          if (budget !== null && !BUDGET_OPTIONS.some(o => o.value === budget)) {
+            setShowCustomBudget(true)
+            setCustomBudgetText(String(Math.round(budget / 10000)))
+          }
         }
       }
     } catch (error) {
       console.error("Error fetching settings:", error)
     } finally {
       setSettingsLoading(false)
+    }
+  }
+
+  const handleCustomBudgetSave = () => {
+    const 万円 = parseInt(customBudgetText, 10)
+    if (!isNaN(万円) && 万円 > 0) {
+      saveSettings({ investmentBudget: 万円 * 10000 })
     }
   }
 
@@ -381,20 +396,23 @@ export default function SettingsPage() {
                       <span className="text-lg">💰</span>
                       <span>投資にまわせる資金</span>
                     </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {BUDGET_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => saveSettings({ investmentBudget: option.value })}
+                          onClick={() => {
+                            setShowCustomBudget(false)
+                            saveSettings({ investmentBudget: option.value })
+                          }}
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-center transition-all ${
-                            settings.investmentBudget === option.value
+                            settings.investmentBudget === option.value && !showCustomBudget
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300 bg-white"
                           } disabled:opacity-50`}
                         >
                           <div className={`font-bold text-sm ${
-                            settings.investmentBudget === option.value
+                            settings.investmentBudget === option.value && !showCustomBudget
                               ? "text-blue-600"
                               : "text-gray-900"
                           }`}>
@@ -404,10 +422,34 @@ export default function SettingsPage() {
                         </button>
                       ))}
                       <button
-                        onClick={() => saveSettings({ investmentBudget: null })}
+                        onClick={() => {
+                          setShowCustomBudget(true)
+                          setCustomBudgetText(
+                            settings.investmentBudget && !BUDGET_OPTIONS.some(o => o.value === settings.investmentBudget)
+                              ? String(Math.round(settings.investmentBudget / 10000))
+                              : ""
+                          )
+                        }}
                         disabled={savingSettings}
                         className={`p-3 rounded-lg border-2 text-center transition-all ${
-                          settings.investmentBudget === null
+                          showCustomBudget
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        } disabled:opacity-50`}
+                      >
+                        <div className={`font-bold text-sm ${showCustomBudget ? "text-blue-600" : "text-gray-900"}`}>
+                          その他
+                        </div>
+                        <div className="text-xs text-gray-500">金額を入力</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCustomBudget(false)
+                          saveSettings({ investmentBudget: null })
+                        }}
+                        disabled={savingSettings}
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                          settings.investmentBudget === null && !showCustomBudget
                             ? "border-gray-500 bg-gray-100"
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
@@ -416,6 +458,31 @@ export default function SettingsPage() {
                         <div className="text-xs text-gray-500">あとで決める</div>
                       </button>
                     </div>
+
+                    {/* カスタム金額入力欄 */}
+                    {showCustomBudget && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-1 bg-white border-2 border-blue-300 rounded-lg px-3 py-2 focus-within:border-blue-500 transition-colors">
+                          <input
+                            type="number"
+                            min="1"
+                            value={customBudgetText}
+                            onChange={(e) => setCustomBudgetText(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleCustomBudgetSave()}
+                            placeholder="例: 150"
+                            className="flex-1 outline-none text-sm font-semibold text-gray-900 bg-transparent min-w-0"
+                          />
+                          <span className="text-sm text-gray-500 shrink-0">万円</span>
+                        </div>
+                        <button
+                          onClick={handleCustomBudgetSave}
+                          disabled={savingSettings || !customBudgetText || parseInt(customBudgetText) <= 0}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                        >
+                          設定
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
