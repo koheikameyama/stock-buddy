@@ -193,3 +193,39 @@ export const SELL_TIMING = {
   STOP_LOSS_THRESHOLD: -15,             // 損失率(%)がこれ以下で損切り優先
   NEAR_AVERAGE_PRICE_THRESHOLD: 5,      // 平均購入価格から+5%以内は「平均価格に近い」とみなす（指値提案）
 } as const
+
+// セクタートレンド分析の閾値・重み
+export const SECTOR_TREND = {
+  UP_THRESHOLD: 20,           // compositeScore >= 20 → "up"
+  DOWN_THRESHOLD: -20,        // compositeScore <= -20 → "down"
+  US_INFLUENCE_WEIGHT: 0.7,   // US→JPの影響度係数
+  // 総合スコアの重み配分
+  NEWS_WEIGHT: 0.4,           // ニューススコアの重み
+  PRICE_WEIGHT: 0.4,          // 株価モメンタムの重み
+  VOLUME_WEIGHT: 0.2,         // 出来高スコアの重み
+  // スケーリング用キャップ
+  PRICE_CLAMP: 10,            // weekChangeRate のキャップ（±%）
+  VOLUME_CLAMP: 1,            // volumeRatio - 1.0 のキャップ（±）
+  // 強弱閾値
+  STRONG_UP_THRESHOLD: 40,    // 強い追い風の閾値
+  STRONG_DOWN_THRESHOLD: -40, // 強い逆風の閾値
+  // おすすめスコアリングへのボーナス/ペナルティ
+  STRONG_UP_BONUS: 15,        // compositeScore >= 40 → +15点
+  UP_BONUS: 10,               // compositeScore >= 20 → +10点
+  DOWN_PENALTY: -5,           // compositeScore <= -20 → -5点
+  STRONG_DOWN_PENALTY: -10,   // compositeScore <= -40 → -10点
+} as const
+
+// 10セクターの定義
+export const SECTORS = [
+  "半導体・電子部品",
+  "自動車",
+  "金融",
+  "医薬品",
+  "IT・サービス",
+  "エネルギー",
+  "通信",
+  "小売",
+  "不動産",
+  "素材",
+] as const
