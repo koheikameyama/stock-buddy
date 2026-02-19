@@ -150,7 +150,7 @@ function NewsListItem({ news }: { news: NewsItem }) {
 
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>{relativeTime}</span>
-            {news.sector && (
+            {news.sector && news.sector !== "null" && (
               <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
                 {news.sector}
               </span>

@@ -185,7 +185,7 @@ Determine the following 3 items:
             type: "object",
             properties: {
               is_stock_related: { type: "boolean" },
-              sector: { type: ["string", "null"] },
+              sector: { type: ["string", "null"], enum: ["半導体・電子部品", "自動車", "金融", "医薬品", "通信", "小売", "不動産", "エネルギー", "素材", "IT・サービス", null] },
               sentiment: {
                 type: ["string", "null"],
                 enum: ["positive", "neutral", "negative", null],
