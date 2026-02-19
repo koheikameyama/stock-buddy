@@ -2,7 +2,7 @@
 
 // store/useAppStore.ts
 import { create } from "zustand"
-import { CACHE_TTL } from "@/lib/constants"
+import { CACHE_TTL, STOCK_PRICE_BATCH_SIZE } from "@/lib/constants"
 import { isCacheValid, createCacheEntry } from "./cache-utils"
 import {
   CacheEntry,
@@ -115,20 +115,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
 
-    // 新規取得が必要なもの
+    // 新規取得が必要なもの（バッチ分割で並列リクエスト）
     if (tickersToFetch.length > 0) {
-      const response = await fetch(
-        `/api/stocks/prices?tickers=${tickersToFetch.join(",")}`
-      )
-      if (response.ok) {
-        const data = await response.json()
-        const newPrices = new Map(currentPrices)
-        for (const price of data.prices as StockPrice[]) {
-          newPrices.set(price.tickerCode, createCacheEntry(price))
-          result.set(price.tickerCode, price)
-        }
-        set({ stockPrices: newPrices })
+      const batches: string[][] = []
+      for (let i = 0; i < tickersToFetch.length; i += STOCK_PRICE_BATCH_SIZE) {
+        batches.push(tickersToFetch.slice(i, i + STOCK_PRICE_BATCH_SIZE))
       }
+
+      const responses = await Promise.allSettled(
+        batches.map((batch) =>
+          fetch(`/api/stocks/prices?tickers=${batch.join(",")}`)
+            .then((res) => (res.ok ? res.json() : null))
+        )
+      )
+
+      const newPrices = new Map(currentPrices)
+      for (const res of responses) {
+        if (res.status === "fulfilled" && res.value?.prices) {
+          for (const price of res.value.prices as StockPrice[]) {
+            newPrices.set(price.tickerCode, createCacheEntry(price))
+            result.set(price.tickerCode, price)
+          }
+        }
+      }
+      set({ stockPrices: newPrices })
     }
 
     return result
