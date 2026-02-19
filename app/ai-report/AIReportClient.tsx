@@ -227,7 +227,7 @@ export default function AIReportClient() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">AI精度レポート</h1>
           <p className="text-sm text-gray-500">
             {activeTab === "overview"
-              ? `${formatDate(latest.date)} 時点（直近7日間集計）`
+              ? `${formatDate(latest.date)} 時点（7日前の推奨を評価）`
               : "推薦精度の詳細分析"}
           </p>
         </div>

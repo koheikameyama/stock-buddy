@@ -32,7 +32,8 @@ from lib.constants import (
     OPENAI_MAX_TOKENS_INSIGHT,
     OPENAI_MAX_TOKENS_IMPROVEMENT,
     AI_CONCURRENCY_LIMIT,
-    REPORT_LOOKBACK_DAYS,
+    REPORT_EVALUATION_DELAY_DAYS,
+    REPORT_EVALUATION_WINDOW_DAYS,
     DAILY_SUCCESS_THRESHOLD,
     PURCHASE_BUY_SUCCESS_THRESHOLD,
     PURCHASE_STAY_SUCCESS_THRESHOLD,
@@ -363,10 +364,8 @@ def get_price_at_date(prices: dict, ticker: str, target_date, today) -> tuple[fl
 
 # ===== おすすめ銘柄 (UserDailyRecommendation) =====
 
-def get_daily_recommendations(conn, days_ago: int = 7) -> list[dict]:
+def get_daily_recommendations(conn, start_date: date, end_date: date) -> list[dict]:
     """おすすめ銘柄を取得（多角的分析用の追加情報含む）"""
-    target_date = datetime.now(timezone.utc) - timedelta(days=days_ago)
-
     with conn.cursor() as cur:
         cur.execute('''
             SELECT
@@ -383,9 +382,9 @@ def get_daily_recommendations(conn, days_ago: int = 7) -> list[dict]:
                 s."latestPrice"
             FROM "UserDailyRecommendation" r
             JOIN "Stock" s ON r."stockId" = s.id
-            WHERE r.date >= %s
+            WHERE r.date >= %s AND r.date <= %s
             ORDER BY r.date DESC
-        ''', (target_date,))
+        ''', (start_date, end_date))
 
         return [
             {
@@ -538,10 +537,8 @@ def analyze_daily_recommendations(data: list[dict], prices: dict) -> dict:
 
 # ===== 購入推奨 (PurchaseRecommendation) =====
 
-def get_purchase_recommendations(conn, days_ago: int = 7) -> list[dict]:
+def get_purchase_recommendations(conn, start_date: date, end_date: date) -> list[dict]:
     """購入推奨を取得"""
-    target_date = datetime.now(timezone.utc) - timedelta(days=days_ago)
-
     with conn.cursor() as cur:
         cur.execute('''
             SELECT
@@ -553,9 +550,9 @@ def get_purchase_recommendations(conn, days_ago: int = 7) -> list[dict]:
                 p.reason
             FROM "PurchaseRecommendation" p
             JOIN "Stock" s ON p."stockId" = s.id
-            WHERE p.date >= %s
+            WHERE p.date >= %s AND p.date <= %s
             ORDER BY p.date DESC
-        ''', (target_date,))
+        ''', (start_date, end_date))
 
         return [
             {
@@ -661,9 +658,12 @@ def analyze_purchase_recommendations(data: list[dict], prices: dict) -> dict:
 
 # ===== ポートフォリオ分析 (StockAnalysis) =====
 
-def get_stock_analyses(conn, days_ago: int = 7) -> list[dict]:
+def get_stock_analyses(conn, start_date: date, end_date: date) -> list[dict]:
     """ポートフォリオ分析を取得"""
-    target_date = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    # analyzedAtはtimestamp型なのでJST日付→UTC範囲に変換
+    jst = timezone(timedelta(hours=9))
+    start_utc = datetime.combine(start_date, datetime.min.time(), tzinfo=jst).astimezone(timezone.utc)
+    end_utc = datetime.combine(end_date + timedelta(days=1), datetime.min.time(), tzinfo=jst).astimezone(timezone.utc)
 
     with conn.cursor() as cur:
         cur.execute('''
@@ -677,9 +677,9 @@ def get_stock_analyses(conn, days_ago: int = 7) -> list[dict]:
                 a.advice
             FROM "StockAnalysis" a
             JOIN "Stock" s ON a."stockId" = s.id
-            WHERE a."analyzedAt" >= %s
+            WHERE a."analyzedAt" >= %s AND a."analyzedAt" < %s
             ORDER BY a."analyzedAt" DESC
-        ''', (target_date,))
+        ''', (start_utc, end_utc))
 
         return [
             {
@@ -897,15 +897,23 @@ def main():
     conn = psycopg2.connect(get_database_url())
 
     try:
-        # 1. 各データソースからデータ取得
-        print("\n1. Fetching data from database...")
-        daily_data = get_daily_recommendations(conn, days_ago=REPORT_LOOKBACK_DAYS)
+        # 1. 評価対象の日付範囲を計算
+        jst_offset = timezone(timedelta(hours=9))
+        today_jst = datetime.now(jst_offset).date()
+        # 推奨から EVALUATION_DELAY 日後に評価する
+        eval_end = today_jst - timedelta(days=REPORT_EVALUATION_DELAY_DAYS)
+        eval_start = eval_end - timedelta(days=REPORT_EVALUATION_WINDOW_DAYS - 1)
+
+        print(f"\n1. Fetching data from database...")
+        print(f"   Evaluation period: {eval_start} ~ {eval_end}")
+
+        daily_data = get_daily_recommendations(conn, eval_start, eval_end)
         print(f"   Daily recommendations: {len(daily_data)} records")
 
-        purchase_data = get_purchase_recommendations(conn, days_ago=REPORT_LOOKBACK_DAYS)
+        purchase_data = get_purchase_recommendations(conn, eval_start, eval_end)
         print(f"   Purchase recommendations: {len(purchase_data)} records")
 
-        analysis_data = get_stock_analyses(conn, days_ago=REPORT_LOOKBACK_DAYS)
+        analysis_data = get_stock_analyses(conn, eval_start, eval_end)
         print(f"   Stock analyses: {len(analysis_data)} records")
 
         # 2. ユニークな銘柄を抽出

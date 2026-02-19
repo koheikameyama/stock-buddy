@@ -59,8 +59,11 @@ RETENTION_DAYS = 30
 # 推薦結果評価の対象日数
 EVALUATION_DAYS = [1, 3, 7, 14]
 
-# 週次レポートの遡り日数
-REPORT_LOOKBACK_DAYS = 7
+# AI精度レポート: 推奨から何日後に評価するか
+REPORT_EVALUATION_DELAY_DAYS = 7
+
+# AI精度レポート: 1回のレポートで評価する日数（週次化時に7に変更）
+REPORT_EVALUATION_WINDOW_DAYS = 1
 
 # =============================================================================
 # 価格アラート
