@@ -13,6 +13,7 @@ import {
   buildWeekChangeContext,
   buildMarketContext,
   buildDeviationRateContext,
+  buildDelistingContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
@@ -175,6 +176,8 @@ export async function POST(
         fiftyTwoWeekHigh: true,
         fiftyTwoWeekLow: true,
         volatility: true,
+        isDelisted: true,
+        fetchFailCount: true,
       },
     })
 
@@ -286,6 +289,9 @@ export async function POST(
     // 財務指標のフォーマット
     const financialMetrics = buildFinancialMetrics(stock, currentPrice)
 
+    // 上場廃止コンテキスト
+    const delistingContext = buildDelistingContext(stock.isDelisted, stock.fetchFailCount)
+
     // ユーザー設定のコンテキスト
     const periodMap: Record<string, string> = {
       short: "短期（数週間〜数ヶ月）",
@@ -326,7 +332,7 @@ ${financialMetrics}
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${newsContext}
+${delistingContext}${weekChangeContext}${marketContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 ${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をそのまま使用してください。" : ""}
