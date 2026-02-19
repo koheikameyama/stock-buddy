@@ -152,9 +152,13 @@ async function main(): Promise<void> {
   console.log("セクタートレンド計算スクリプト")
   console.log("=".repeat(60))
 
-  const today = dayjs().tz(JST).startOf("day").utc().toDate()
-  const threeDaysAgo = dayjs().tz(JST).subtract(3, "day").startOf("day").utc().toDate()
-  const sevenDaysAgo = dayjs().tz(JST).subtract(7, "day").startOf("day").utc().toDate()
+  // JSTの日付をそのままUTC 00:00のDateとして作成（@db.Date用）
+  const jstToday = dayjs().tz(JST).startOf("day")
+  const today = new Date(Date.UTC(jstToday.year(), jstToday.month(), jstToday.date()))
+  const jst3d = dayjs().tz(JST).subtract(3, "day").startOf("day")
+  const threeDaysAgo = new Date(Date.UTC(jst3d.year(), jst3d.month(), jst3d.date()))
+  const jst7d = dayjs().tz(JST).subtract(7, "day").startOf("day")
+  const sevenDaysAgo = new Date(Date.UTC(jst7d.year(), jst7d.month(), jst7d.date()))
 
   console.log(`\n対象期間: ${dayjs(sevenDaysAgo).format("YYYY-MM-DD")} 〜 ${dayjs(today).format("YYYY-MM-DD")}`)
 

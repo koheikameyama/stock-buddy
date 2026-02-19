@@ -47,18 +47,12 @@ function formatScore(score: number): string {
   return `${score >= 0 ? "+" : ""}${score.toFixed(0)}`
 }
 
-/**
- * DBのdate型はJST日付がUTCとして保存されている（1日ズレ）ため、
- * 表示時にUTC日付をそのままJST日付として解釈する
- * 例: DB "2026-02-18T00:00:00Z" → 実際のJST日付は 2/19
- */
 function formatTrendDate(dateStr: string): { label: string; isStale: boolean } {
-  // DBのdate値をUTCのまま読み取り、+9hでJST日付を復元
-  const jstDate = dayjs.utc(dateStr).add(9, "hour")
+  const date = dayjs.utc(dateStr)
   const today = dayjs().tz("Asia/Tokyo").startOf("day")
-  const diffDays = today.diff(jstDate.startOf("day"), "day")
+  const diffDays = today.diff(date.startOf("day"), "day")
 
-  const label = `${jstDate.format("M/D")} 時点`
+  const label = `${date.format("M/D")} 時点`
   return { label, isStale: diffDays >= 2 }
 }
 

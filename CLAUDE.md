@@ -387,15 +387,23 @@ postgresql://kouheikameyama@localhost:5432/stock_buddy
 - ユーザーが「今日のおすすめ」と言ったらJSTの今日を期待する
 - 市場の営業日もJST基準
 
+### 日付操作ライブラリ
+
+**日付操作には必ず dayjs を使用してください。**
+
+- TypeScript: `dayjs` + `dayjs/plugin/utc` + `dayjs/plugin/timezone`
+- Python: `datetime` + `zoneinfo`
+- 生の `Date` コンストラクタやタイムゾーン手動計算は使わない
+
 ### 共通ユーティリティ
 
 ```typescript
 // lib/date-utils.ts
 import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 
-// 今日の日付（JST 00:00をUTCに変換）
+// 今日の日付（JST基準、UTC 00:00として保存）
 const today = getTodayForDB()
-// 例: JST 2024-06-10 00:00:00 → UTC 2024-06-09 15:00:00
+// 例: JST 2024-06-10 → 2024-06-10T00:00:00.000Z → DB: 2024-06-10
 
 // N日前の日付
 const sevenDaysAgo = getDaysAgoForDB(7)
@@ -407,6 +415,14 @@ from scripts.lib.date_utils import get_today_for_db, get_days_ago_for_db
 
 today = get_today_for_db()
 seven_days_ago = get_days_ago_for_db(7)
+```
+
+### 仕組み
+
+`@db.Date` カラムにJSTの日付を正しく保存するため、JST日付をそのまま UTC 00:00 の Date オブジェクトとして作成する。
+
+```
+JST 2/19 → new Date("2026-02-19T00:00:00Z") → PostgreSQL date型: 2026-02-19
 ```
 
 ### ✅ 良い例
@@ -440,6 +456,9 @@ const recentData = await prisma.purchaseRecommendation.findFirst({
 ### ❌ 悪い例
 
 ```typescript
+// JST→UTC変換してからtoDate() - date型で1日ズレる
+const today = dayjs().tz("Asia/Tokyo").startOf("day").utc().toDate()
+
 // UTC 00:00を使用 - JSTと9時間ずれる
 const today = dayjs.utc().startOf("day").toDate()
 
@@ -452,15 +471,20 @@ today.setHours(0, 0, 0, 0)
 
 以下のテーブルは `@db.Date` 型で日付を保存しており、JST基準で統一：
 
+- `SectorTrend.date` - セクタートレンド
 - `DailyFeaturedStock.date` - 今日の注目銘柄
 - `PurchaseRecommendation.date` - 購入判断
 - `UserDailyRecommendation.date` - あなたへのおすすめ
+- `DailyMarketMover.date` - 上昇/下落ランキング
+- `DailyAIReport.date` - AI精度レポート
+- `WeeklyAIReport.weekStart / weekEnd` - 週次レポート
 
 ### 注意事項
 
 - **タイムスタンプ（createdAt, updatedAt等）**: `new Date()` でOK（現在時刻なのでTZ関係なし）
-- **日付フィールド（date型）**: 必ず `getTodayForDB()` を使用
+- **日付フィールド（@db.Date型）**: 必ず `getTodayForDB()` を使用
 - **日付フォーマット表示**: `dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD")`
+- **スタンドアロンスクリプト**: `getTodayForDB` をインポートできない場合は `new Date(Date.UTC(year, month, date))` パターンを使用
 
 **重要: 日付を保存・検索する際は、必ず共通ユーティリティを使用してください。**
 
