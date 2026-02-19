@@ -240,6 +240,15 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                     </p>
                   </div>
                 </div>
+                {/* AI Analysis for Portfolio */}
+                {stock.shortTerm && (
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p className="text-xs sm:text-sm text-gray-700">
+                      <span className="font-semibold text-blue-700">💡 AI分析: </span>
+                      {stock.shortTerm}
+                    </p>
+                  </div>
+                )}
                 {/* Analysis Time for Portfolio */}
                 {analyzedAt && (() => {
                   const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
@@ -259,6 +268,15 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
                     <p className="text-sm text-gray-400">価格取得中...</p>
                   </div>
                 </div>
+                {/* AI Analysis for Portfolio */}
+                {stock.shortTerm && (
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p className="text-xs sm:text-sm text-gray-700">
+                      <span className="font-semibold text-blue-700">💡 AI分析: </span>
+                      {stock.shortTerm}
+                    </p>
+                  </div>
+                )}
                 {/* Analysis Time for Portfolio */}
                 {analyzedAt && (() => {
                   const { label, relative, colorClass } = formatAnalysisTime(analyzedAt)
@@ -272,16 +290,6 @@ export default function StockCard({ stock, price, recommendation, portfolioRecom
             )}
 
           </>
-        )}
-
-        {/* AI Analysis Reason for Portfolio */}
-        {isHolding && stock.shortTerm && (
-          <div className="bg-blue-50 rounded-lg p-3">
-            <p className="text-xs sm:text-sm text-gray-700">
-              <span className="font-semibold text-blue-700">💡 AI分析: </span>
-              {stock.shortTerm}
-            </p>
-          </div>
         )}
 
         {/* AI Analysis Reason for Watchlist */}
