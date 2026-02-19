@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import { FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
 import DelistedWarning from "@/app/components/DelistedWarning"
@@ -34,13 +34,13 @@ interface Signal {
 interface TrackedStockCardProps {
   trackedStock: TrackedStock
   isStale?: boolean
+  priceLoaded?: boolean
   onMoveToWatchlist: (stockId: string, tickerCode: string, name: string) => void
   onPurchase: (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => void
   onDelete?: (trackedStockId: string) => void
 }
 
-export default function TrackedStockCard({ trackedStock, isStale = false, onMoveToWatchlist, onPurchase, onDelete }: TrackedStockCardProps) {
-  const router = useRouter()
+export default function TrackedStockCard({ trackedStock, isStale = false, priceLoaded = false, onMoveToWatchlist, onPurchase, onDelete }: TrackedStockCardProps) {
   const { stock, currentPrice, changePercent } = trackedStock
   const [signal, setSignal] = useState<Signal | null>(null)
 
@@ -67,24 +67,12 @@ export default function TrackedStockCard({ trackedStock, isStale = false, onMove
 
   // staleまたは上場廃止の銘柄は詳細遷移・バッジを無効化
   const isDisabled = isStale || stock.isDelisted === true
-
-  const handleClick = () => {
-    if (isDisabled) return
-    router.push(`/stocks/${trackedStock.stockId}`)
-  }
+  // 価格未取得時もリンクを無効化（stale判定が終わるまで遷移させない）
+  const linkDisabled = isDisabled || !priceLoaded
 
   return (
     <div
-      onClick={handleClick}
-      className={`relative bg-white rounded-xl shadow-md transition-all p-4 sm:p-6 ${isDisabled ? "opacity-60" : "hover:shadow-lg cursor-pointer hover:bg-gray-50"}`}
-      role={isDisabled ? undefined : "button"}
-      tabIndex={isDisabled ? undefined : 0}
-      onKeyDown={isDisabled ? undefined : (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault()
-          handleClick()
-        }
-      }}
+      className={`relative bg-white rounded-xl shadow-md transition-all p-4 sm:p-6 ${isDisabled ? "opacity-60" : "hover:shadow-lg hover:bg-gray-50"}`}
     >
       {/* シグナルバッジ - 右上（無効化時は非表示） */}
       {signal && !isDisabled && (
@@ -164,7 +152,7 @@ export default function TrackedStockCard({ trackedStock, isStale = false, onMove
       </div>
 
       {/* Footer: Actions + Detail Link */}
-      <div className={CARD_FOOTER_STYLES.containerLarge} onClick={(e) => e.stopPropagation()}>
+      <div className={CARD_FOOTER_STYLES.containerLarge}>
         {/* Action Buttons */}
         <div className={CARD_FOOTER_STYLES.actionGroup}>
           {!isDisabled && (
@@ -194,12 +182,21 @@ export default function TrackedStockCard({ trackedStock, isStale = false, onMove
         </div>
 
         {/* Detail Link */}
-        <div className={isDisabled ? "flex items-center text-gray-300" : CARD_FOOTER_STYLES.detailLink}>
-          <span className={isDisabled ? "text-xs text-gray-300" : CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
-          <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </div>
+        {linkDisabled ? (
+          <div className="flex items-center text-gray-300">
+            <span className="text-xs text-gray-300">詳細を見る</span>
+            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        ) : (
+          <Link href={`/stocks/${trackedStock.stockId}`} className={CARD_FOOTER_STYLES.detailLink}>
+            <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
+            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        )}
       </div>
     </div>
   )

@@ -50,6 +50,7 @@ export default function MyStocksClient() {
   const [pricesLoaded, setPricesLoaded] = useState(false)
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
   const [trackedStaleTickers, setTrackedStaleTickers] = useState<Set<string>>(new Set())
+  const [trackedPricesLoaded, setTrackedPricesLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -169,8 +170,10 @@ export default function MyStocksClient() {
               : ts
           })
         )
+        setTrackedPricesLoaded(true)
       } catch (err) {
         console.error("Error fetching tracked prices:", err)
+        setTrackedPricesLoaded(true)
       }
     }
 
@@ -600,6 +603,7 @@ export default function MyStocksClient() {
                       key={ts.id}
                       trackedStock={ts}
                       isStale={trackedStaleTickers.has(ts.stock.tickerCode)}
+                      priceLoaded={trackedPricesLoaded}
                       onMoveToWatchlist={handleTrackedToWatchlist}
                       onPurchase={handleTrackedToPurchase}
                       onDelete={handleDeleteTrackedStock}

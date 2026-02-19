@@ -35,6 +35,7 @@ interface FeaturedStock {
 
 export default function FeaturedStocksByCategory() {
   const [personalRecommendations, setPersonalRecommendations] = useState<FeaturedStock[]>([])
+  const [pricesLoaded, setPricesLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -71,8 +72,10 @@ export default function FeaturedStocksByCategory() {
           }
         })
       )
+      setPricesLoaded(true)
     } catch (error) {
       console.error("Error fetching prices:", error)
+      setPricesLoaded(true)
     }
   }
 
@@ -143,6 +146,8 @@ export default function FeaturedStocksByCategory() {
 
   const renderStockCard = (stock: FeaturedStock) => {
     const isDisabled = stock.stock.isDelisted === true || stock.stock.isStale === true
+    // 価格未取得時もリンクを無効化（stale判定が終わるまで遷移させない）
+    const linkDisabled = isDisabled || !pricesLoaded
 
     return (
       <div
@@ -276,7 +281,7 @@ export default function FeaturedStocksByCategory() {
           )}
           {stock.isOwned && <div />}
 
-          {isDisabled ? (
+          {linkDisabled ? (
             <div className="flex items-center text-gray-300">
               <span className="text-xs text-gray-300">詳細を見る</span>
               <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import { PORTFOLIO_STATUS_CONFIG, PURCHASE_JUDGMENT_CONFIG, FETCH_FAIL_WARNING_THRESHOLD, INVESTMENT_THEME_CONFIG } from "@/lib/constants"
@@ -71,7 +71,6 @@ interface StockCardProps {
 
 
 export default function StockCard({ stock, price, priceLoaded = false, isStale = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick, onDelete }: StockCardProps) {
-  const router = useRouter()
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
   const quantity = stock.quantity || 0
@@ -101,24 +100,12 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
 
   // staleまたは上場廃止の銘柄は詳細遷移・バッジ・AI分析を無効化
   const isDisabled = isStale || stock.stock.isDelisted === true
-
-  const handleClick = () => {
-    if (isDisabled) return
-    router.push(`/my-stocks/${stock.id}`)
-  }
+  // 価格未取得時もリンクを無効化（stale判定が終わるまで遷移させない）
+  const linkDisabled = isDisabled || !priceLoaded
 
   return (
     <div
-      onClick={handleClick}
-      className={`relative bg-white rounded-xl shadow-md transition-all p-4 sm:p-6 ${isDisabled ? "opacity-60" : "hover:shadow-lg cursor-pointer hover:bg-gray-50"}`}
-      role={isDisabled ? undefined : "button"}
-      tabIndex={isDisabled ? undefined : 0}
-      onKeyDown={isDisabled ? undefined : (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault()
-          handleClick()
-        }
-      }}
+      className={`relative bg-white rounded-xl shadow-md transition-all p-4 sm:p-6 ${isDisabled ? "opacity-60" : "hover:shadow-lg hover:bg-gray-50"}`}
     >
       {/* AI推奨バッジ - 右上（無効化時は非表示） */}
       {aiJudgment && !isDisabled && (
@@ -350,10 +337,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
           <div className={CARD_FOOTER_STYLES.actionGroup}>
             {isHolding && !isDisabled && onAdditionalPurchase && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onAdditionalPurchase()
-                }}
+                onClick={() => onAdditionalPurchase()}
                 className={getActionButtonClass("additionalPurchase")}
               >
                 {ACTION_BUTTON_LABELS.additionalPurchase}
@@ -361,10 +345,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
             )}
             {isHolding && onSell && quantity > 0 && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSell()
-                }}
+                onClick={() => onSell()}
                 className={getActionButtonClass("sell")}
               >
                 {ACTION_BUTTON_LABELS.sell}
@@ -372,10 +353,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
             )}
             {isWatchlist && !isDisabled && onPurchase && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onPurchase()
-                }}
+                onClick={() => onPurchase()}
                 className={getActionButtonClass("purchase")}
               >
                 {ACTION_BUTTON_LABELS.purchase}
@@ -383,10 +361,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
             )}
             {isWatchlist && !isDisabled && onTrackClick && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onTrackClick()
-                }}
+                onClick={() => onTrackClick()}
                 className={getActionButtonClass("tracked")}
               >
                 -見送り
@@ -394,10 +369,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
             )}
             {isDisabled && onDelete && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete()
-                }}
+                onClick={() => onDelete()}
                 className="px-2 py-1 text-xs font-medium rounded transition-colors text-red-600 hover:bg-red-50"
               >
                 削除
@@ -406,22 +378,21 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
           </div>
 
           {/* Detail Link */}
-          <div className={isDisabled ? "flex items-center text-gray-300" : CARD_FOOTER_STYLES.detailLink}>
-            <span className={isDisabled ? "text-xs text-gray-300" : CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
-            <svg
-              className="w-4 h-4 ml-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </div>
+          {linkDisabled ? (
+            <div className="flex items-center text-gray-300">
+              <span className="text-xs text-gray-300">詳細を見る</span>
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          ) : (
+            <Link href={`/my-stocks/${stock.id}`} className={CARD_FOOTER_STYLES.detailLink}>
+              <span className={CARD_FOOTER_STYLES.detailLinkText}>詳細を見る</span>
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
         </div>
       </div>
     </div>
