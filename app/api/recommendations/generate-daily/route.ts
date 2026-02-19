@@ -23,6 +23,7 @@ import {
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { calculateDeviationRate } from "@/lib/technical-indicators"
 import { MA_DEVIATION } from "@/lib/constants"
+import { isSurgeStock, isDangerousStock, isOverheated } from "@/lib/stock-safety-rules"
 import {
   calculateStockScores,
   applySectorDiversification,
@@ -674,36 +675,27 @@ ${PROMPT_NEWS_CONSTRAINTS}
       )
       .slice(0, 5)
 
-    // AI後の強制補正: 危険な銘柄を除外
-    const correctedSelections = validSelections.filter((selection: { tickerCode: string }) => {
-      const ctx = stockContexts.find(c => c.stock.tickerCode === selection.tickerCode)
-      if (!ctx) return true
+    // AI後のログ警告: 危険な銘柄を検出してログに記録（除外はしない）
+    for (const selection of validSelections) {
+      const ctx = stockContexts.find((c: StockContext) => c.stock.tickerCode === selection.tickerCode)
+      if (!ctx) continue
 
       const s = ctx.stock
+      const volatility = s.volatility !== null ? Number(s.volatility) : null
 
-      // 急騰銘柄（週間+30%以上）を除外
-      if (ctx.weekChangeRate !== null && ctx.weekChangeRate >= 30) {
-        console.log(`  Post-AI correction: removed ${s.tickerCode} (surge: +${ctx.weekChangeRate.toFixed(0)}%)`)
-        return false
+      if (isSurgeStock(ctx.weekChangeRate)) {
+        console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is surge stock (week: +${ctx.weekChangeRate?.toFixed(0)}%)`)
       }
-
-      // 赤字かつ高ボラティリティ（>50%）を除外
-      if (s.isProfitable === false && s.volatility !== null && s.volatility > 50) {
-        console.log(`  Post-AI correction: removed ${s.tickerCode} (unprofitable + high volatility)`)
-        return false
+      if (isDangerousStock(s.isProfitable, volatility)) {
+        console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is dangerous (unprofitable + high volatility)`)
       }
-
-      // 移動平均乖離率+20%以上（過熱圏）を除外
-      if (ctx.deviationRate !== null && ctx.deviationRate >= MA_DEVIATION.UPPER_THRESHOLD) {
-        console.log(`  Post-AI correction: removed ${s.tickerCode} (deviation: +${ctx.deviationRate.toFixed(1)}%)`)
-        return false
+      if (isOverheated(ctx.deviationRate)) {
+        console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is overheated (deviation: +${ctx.deviationRate?.toFixed(1)}%)`)
       }
+    }
 
-      return true
-    })
-
-    console.log(`  AI selected ${validSelections.length} stocks, after corrections: ${correctedSelections.length} (marketSignal: ${result.marketSignal})`)
-    return correctedSelections
+    console.log(`  AI selected ${validSelections.length} stocks (marketSignal: ${result.marketSignal})`)
+    return validSelections
   } catch (error) {
     console.error("  AI selection error:", error)
     return null

@@ -23,6 +23,7 @@ import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { isSurgeStock, isDangerousStock, isOverheated } from "@/lib/stock-safety-rules"
 
 /**
  * GET /api/stocks/[stockId]/purchase-recommendation
@@ -556,17 +557,15 @@ ${PROMPT_NEWS_CONSTRAINTS}
     }
 
     // 急騰銘柄の強制補正: 週間+30%以上でbuyの場合はstayに変更
-    if (weekChangeRate !== null && weekChangeRate >= 30 && result.recommendation === "buy") {
+    if (isSurgeStock(weekChangeRate) && result.recommendation === "buy") {
       result.recommendation = "stay"
-      result.caution = `週間+${weekChangeRate.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`
+      result.caution = `週間+${weekChangeRate!.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`
     }
 
     // 危険銘柄の強制補正: 赤字 かつ 高ボラティリティでbuyの場合はstayに変更
     const volatility = stock.volatility ? Number(stock.volatility) : null
-    const isUnprofitable = stock.isProfitable === false
-    const isHighVolatility = volatility !== null && volatility > 50
 
-    if (isUnprofitable && isHighVolatility && result.recommendation === "buy") {
+    if (isDangerousStock(stock.isProfitable, volatility) && result.recommendation === "buy") {
       result.recommendation = "stay"
       result.caution = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、様子見を推奨します。${result.caution}`
     }
@@ -583,10 +582,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
     const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
 
     // ルール4: 上方乖離 (+20%以上) でbuyの場合はstayに変更
-    if (deviationRate !== null && deviationRate >= MA_DEVIATION.UPPER_THRESHOLD && result.recommendation === "buy") {
+    if (isOverheated(deviationRate) && result.recommendation === "buy") {
       result.recommendation = "stay"
       result.confidence = Math.max(0, result.confidence + MA_DEVIATION.CONFIDENCE_PENALTY)
-      result.caution = `25日移動平均線から+${deviationRate.toFixed(1)}%乖離しており過熱圏のため、様子見を推奨します。${result.caution}`
+      result.caution = `25日移動平均線から+${deviationRate!.toFixed(1)}%乖離しており過熱圏のため、様子見を推奨します。${result.caution}`
     }
 
     // ルール5: 下方乖離 (-20%以下) + 黒字 + 低ボラティリティ → confidenceボーナス
