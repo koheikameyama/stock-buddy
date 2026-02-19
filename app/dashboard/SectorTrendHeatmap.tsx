@@ -1,7 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dayjs from "dayjs"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
 import { SectorTrendSkeleton } from "./SectorTrendSkeleton"
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 interface SectorTrend {
   sector: string
@@ -41,8 +47,24 @@ function formatScore(score: number): string {
   return `${score >= 0 ? "+" : ""}${score.toFixed(0)}`
 }
 
+/**
+ * DBのdate型はJST日付がUTCとして保存されている（1日ズレ）ため、
+ * 表示時にUTC日付をそのままJST日付として解釈する
+ * 例: DB "2026-02-18T00:00:00Z" → 実際のJST日付は 2/19
+ */
+function formatTrendDate(dateStr: string): { label: string; isStale: boolean } {
+  // DBのdate値をUTCのまま読み取り、+9hでJST日付を復元
+  const jstDate = dayjs.utc(dateStr).add(9, "hour")
+  const today = dayjs().tz("Asia/Tokyo").startOf("day")
+  const diffDays = today.diff(jstDate.startOf("day"), "day")
+
+  const label = `${jstDate.format("M/D")} 時点`
+  return { label, isStale: diffDays >= 2 }
+}
+
 export function SectorTrendHeatmap() {
   const [trends, setTrends] = useState<SectorTrend[]>([])
+  const [trendDate, setTrendDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("3d")
 
@@ -55,7 +77,8 @@ export function SectorTrendHeatmap() {
       const response = await fetch("/api/sector-trends")
       if (response.ok) {
         const data = await response.json()
-        setTrends(data)
+        setTrends(data.trends)
+        setTrendDate(data.date)
       }
     } catch (error) {
       console.error("Error fetching sector trends:", error)
@@ -75,9 +98,23 @@ export function SectorTrendHeatmap() {
   return (
     <div className="mt-4 sm:mt-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm sm:text-base font-bold text-gray-900">
-          セクタートレンド
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm sm:text-base font-bold text-gray-900">
+            セクタートレンド
+          </h3>
+          {trendDate && (() => {
+            const { label, isStale } = formatTrendDate(trendDate)
+            return (
+              <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded ${
+                isStale
+                  ? "bg-red-100 text-red-600 font-semibold"
+                  : "text-gray-500"
+              }`}>
+                {label}
+              </span>
+            )
+          })()}
+        </div>
         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
           <button
             onClick={() => setTimeWindow("3d")}

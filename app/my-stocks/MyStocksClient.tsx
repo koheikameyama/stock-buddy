@@ -239,6 +239,7 @@ export default function MyStocksClient() {
       // 追跡銘柄リストから削除
       setTrackedStocks((prev) => prev.filter((ts) => ts.stockId !== stockId))
       setActiveTab("watchlist")
+      toast.success("気になるリストに追加しました")
     } catch (err) {
       console.error("Error adding to watchlist:", err)
       toast.error(err instanceof Error ? err.message : "追加に失敗しました")
@@ -266,6 +267,7 @@ export default function MyStocksClient() {
       const newStock = await response.json()
       setUserStocks((prev) => [...prev, newStock])
       setActiveTab("watchlist")
+      toast.success("気になるリストに追加しました")
     } catch (err) {
       console.error("Error adding to watchlist:", err)
       toast.error(err instanceof Error ? err.message : "追加に失敗しました")
@@ -353,6 +355,7 @@ export default function MyStocksClient() {
       setShowTrackingModal(false)
       setTrackingFromWatchlist(null)
       setActiveTab("tracked")
+      toast.success("追跡に追加しました")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "追跡に失敗しました")
     } finally {
@@ -796,6 +799,7 @@ export default function MyStocksClient() {
                     setUserStocks((prev) => prev.filter((s) => s.id !== trackingFromWatchlist.id))
                     setShowTrackingModal(false)
                     setTrackingFromWatchlist(null)
+                    toast.success("見送りました")
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : "削除に失敗しました")
                   } finally {

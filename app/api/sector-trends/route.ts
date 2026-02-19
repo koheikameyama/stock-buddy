@@ -12,6 +12,6 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const trends = await getAllSectorTrends()
-  return NextResponse.json(trends)
+  const { date, trends } = await getAllSectorTrends()
+  return NextResponse.json({ date, trends })
 }

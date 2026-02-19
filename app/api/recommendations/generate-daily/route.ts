@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
     const marketContext = buildMarketContext(marketData)
 
     // セクタートレンドを一括取得（全ユーザー共通）
-    const sectorTrends = await getAllSectorTrends()
+    const { trends: sectorTrends } = await getAllSectorTrends()
     const sectorTrendMap: Record<string, SectorTrendData> = {}
     for (const t of sectorTrends) {
       sectorTrendMap[t.sector] = t

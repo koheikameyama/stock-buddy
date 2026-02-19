@@ -43,14 +43,20 @@ export async function getSectorTrend(sector: string): Promise<SectorTrendData | 
 
 /**
  * 全セクターのトレンドを取得（ダッシュボード用）
+ * 最新の日付のデータを返す
  */
-export async function getAllSectorTrends(): Promise<SectorTrendData[]> {
-  const today = getTodayForDB()
+export async function getAllSectorTrends(): Promise<{ date: Date | null; trends: SectorTrendData[] }> {
+  const latest = await prisma.sectorTrend.findFirst({
+    orderBy: { date: "desc" },
+    select: { date: true },
+  })
+  if (!latest) return { date: null, trends: [] }
+
   const trends = await prisma.sectorTrend.findMany({
-    where: { date: today },
+    where: { date: latest.date },
     orderBy: { compositeScore: "desc" },
   })
-  return trends
+  return { date: latest.date, trends }
 }
 
 /**

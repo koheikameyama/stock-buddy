@@ -18,6 +18,7 @@ import TechnicalAnalysis from "@/app/components/TechnicalAnalysis"
 import EditTransactionDialog from "../EditTransactionDialog"
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog"
 import AddStockDialog from "../AddStockDialog"
+import { toast } from "sonner"
 import { useChatContext } from "@/app/contexts/ChatContext"
 import { useStockPrice } from "@/app/hooks/useStockPrice"
 
@@ -135,10 +136,11 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
         throw new Error(data.error || "削除に失敗しました")
       }
 
+      toast.success("削除しました")
       router.push("/my-stocks")
     } catch (err: any) {
       console.error(err)
-      alert(err.message || "削除に失敗しました")
+      toast.error(err.message || "削除に失敗しました")
     }
   }
 
@@ -157,10 +159,11 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
         throw new Error(data.error || "削除に失敗しました")
       }
 
+      toast.success("取引履歴を削除しました")
       router.refresh()
     } catch (err: any) {
       console.error(err)
-      alert(err.message || "削除に失敗しました")
+      toast.error(err.message || "削除に失敗しました")
     }
   }
 
@@ -600,9 +603,10 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                   setTrackingStock(true)
                   try {
                     await fetch(`/api/user-stocks/${stock.id}`, { method: "DELETE" })
+                    toast.success("見送りました")
                     router.push("/my-stocks")
                   } catch (err: any) {
-                    alert(err.message || "削除に失敗しました")
+                    toast.error(err.message || "削除に失敗しました")
                   } finally {
                     setTrackingStock(false)
                     setShowTrackingModal(false)
@@ -627,9 +631,10 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                       throw new Error(data.error || "追跡に失敗しました")
                     }
                     await fetch(`/api/user-stocks/${stock.id}`, { method: "DELETE" })
+                    toast.success("追跡に追加しました")
                     router.push("/my-stocks")
                   } catch (err: any) {
-                    alert(err.message || "追跡に失敗しました")
+                    toast.error(err.message || "追跡に失敗しました")
                   } finally {
                     setTrackingStock(false)
                     setShowTrackingModal(false)
@@ -702,9 +707,10 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
                     }
                     setCurrentTargetBuyPrice(priceValue)
                     setShowBuyAlertModal(false)
+                    toast.success("通知設定を保存しました")
                   } catch (err) {
                     console.error(err)
-                    alert("保存に失敗しました")
+                    toast.error("保存に失敗しました")
                   } finally {
                     setSavingTargetPrice(false)
                   }
