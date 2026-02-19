@@ -46,6 +46,7 @@ export default function MyStocksClient() {
   const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([])
   const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
   const [prices, setPrices] = useState<Record<string, StockPrice>>({})
+  const [pricesLoaded, setPricesLoaded] = useState(false)
   const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -114,6 +115,8 @@ export default function MyStocksClient() {
         setPrices((prev) => ({ ...prev, ...priceRecord }))
       } catch (err) {
         console.error("Error fetching prices:", err)
+      } finally {
+        setPricesLoaded(true)
       }
     }
 
@@ -608,6 +611,7 @@ export default function MyStocksClient() {
                       key={stock.id}
                       stock={stock}
                       price={prices[stock.stock.tickerCode]}
+                      priceLoaded={pricesLoaded}
                       recommendation={recommendations[stock.stockId]}
                       portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
                       analyzedAt={stock.type === "watchlist" ? recommendations[stock.stockId]?.analyzedAt : stock.analyzedAt}
