@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         returnAfter7Days: true,
         returnAfter14Days: true,
         benchmarkReturn7Days: true,
+        sectorTrendDirection: true,
       },
     })
 
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         byConfidence: [],
         bySector: [],
+        bySectorTrend: [],
         byPrediction: [],
         byTimeHorizon: [],
         benchmark: [],
@@ -144,6 +146,33 @@ export async function GET(request: NextRequest) {
           : null,
       }))
       .sort((a, b) => b.count - a.count)
+
+    // セクタートレンド別分析
+    const sectorTrendGroups: Record<string, { count: number; successes: number; totalReturn: number }> = {}
+
+    for (const o of outcomes) {
+      const direction = o.sectorTrendDirection || "unknown"
+      if (!sectorTrendGroups[direction]) {
+        sectorTrendGroups[direction] = { count: 0, successes: 0, totalReturn: 0 }
+      }
+
+      const ret7 = Number(o.returnAfter7Days)
+      sectorTrendGroups[direction].count++
+      sectorTrendGroups[direction].totalReturn += ret7
+
+      if (isSuccess(o.prediction, ret7)) {
+        sectorTrendGroups[direction].successes++
+      }
+    }
+
+    const directionLabels: Record<string, string> = { up: "追い風", down: "逆風", neutral: "中立", unknown: "不明" }
+    const bySectorTrend = Object.entries(sectorTrendGroups).map(([direction, data]) => ({
+      direction,
+      label: directionLabels[direction] || direction,
+      count: data.count,
+      successRate: Math.round((data.successes / data.count) * 100),
+      avgReturn: Math.round((data.totalReturn / data.count) * 100) / 100,
+    }))
 
     // 予測種類別分析
     const predictionGroups: Record<string, { count: number; successes: number; totalReturn: number }> = {}
@@ -245,6 +274,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       byConfidence,
       bySector,
+      bySectorTrend,
       byPrediction,
       byTimeHorizon,
       benchmark,

@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma"
+import { getSectorTrend } from "@/lib/sector-trend"
 
 export type OutcomeType = "daily" | "purchase" | "analysis"
 export type Prediction = "buy" | "stay" | "remove" | "up" | "down" | "neutral"
@@ -22,6 +23,8 @@ export interface OutcomeData {
   confidence?: number | null
   volatility?: number | null
   marketCap?: bigint | null
+  sectorTrendScore?: number | null
+  sectorTrendDirection?: string | null
 }
 
 /**
@@ -32,6 +35,21 @@ export async function insertRecommendationOutcome(
   data: OutcomeData
 ): Promise<string | null> {
   try {
+    // セクタートレンドの自動取得（呼び出し元が未指定の場合）
+    let trendScore = data.sectorTrendScore ?? null
+    let trendDirection = data.sectorTrendDirection ?? null
+    if (trendScore === null && data.sector) {
+      try {
+        const trend = await getSectorTrend(data.sector)
+        if (trend) {
+          trendScore = trend.compositeScore
+          trendDirection = trend.trendDirection
+        }
+      } catch {
+        // トレンド取得失敗はoutcome作成をブロックしない
+      }
+    }
+
     const outcome = await prisma.recommendationOutcome.upsert({
       where: {
         type_recommendationId: {
@@ -51,6 +69,8 @@ export async function insertRecommendationOutcome(
         confidence: data.confidence,
         volatility: data.volatility,
         marketCap: data.marketCap,
+        sectorTrendScore: trendScore,
+        sectorTrendDirection: trendDirection,
       },
       update: {
         stockId: data.stockId,
@@ -62,6 +82,8 @@ export async function insertRecommendationOutcome(
         confidence: data.confidence,
         volatility: data.volatility,
         marketCap: data.marketCap,
+        sectorTrendScore: trendScore,
+        sectorTrendDirection: trendDirection,
       },
     })
 

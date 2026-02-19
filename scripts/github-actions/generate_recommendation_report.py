@@ -179,7 +179,7 @@ IMPROVEMENT_SCHEMA = {
 }
 
 
-def generate_improvement_suggestion(client: OpenAI, category: str, failures: list[dict]) -> dict | None:
+def generate_improvement_suggestion(client: OpenAI, category: str, failures: list[dict], sector_trends: dict | None = None) -> dict | None:
     """失敗パターンから改善提案を生成（構造化出力）"""
     if not failures:
         return None
@@ -197,20 +197,37 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
                 details.append(f['pricePosition'])
             if f.get('volatility'):
                 details.append(f"ボラ{f['volatility']:.0f}%")
+            # セクタートレンド文脈を追加
+            if sector_trends and f['sector'] in sector_trends:
+                st = sector_trends[f['sector']]
+                trend_label = {"up": "追い風", "down": "逆風", "neutral": "中立"}.get(st['trendDirection'], "不明")
+                details.append(f"セクター{trend_label}(スコア{st['compositeScore']:+.0f})" if st['compositeScore'] is not None else f"セクター{trend_label}")
             failure_text += f"- {f['name']} ({', '.join(details)}): {f['performance']:+.1f}%\n"
 
     elif category == "purchase":
         failure_text = "外れた購入推奨:\n"
         for f in failures[:3]:
             rec_label = {"buy": "買い推奨", "stay": "様子見推奨", "remove": "見送り推奨"}.get(f["recommendation"], f["recommendation"])
-            failure_text += f"- {f['name']}: {rec_label}→{f['performance']:+.1f}%\n"
+            sector = f.get("sector", "その他")
+            trend_info = ""
+            if sector_trends and sector in sector_trends:
+                st = sector_trends[sector]
+                trend_label = {"up": "追い風", "down": "逆風", "neutral": "中立"}.get(st['trendDirection'], "不明")
+                trend_info = f"（セクター{trend_label}）"
+            failure_text += f"- {f['name']}{trend_info}: {rec_label}→{f['performance']:+.1f}%\n"
             failure_text += f"  判断理由: {f.get('reason', '不明')[:100]}\n"
 
     elif category == "analysis":
         failure_text = "外れた予測:\n"
         for f in failures[:3]:
             trend_label = {"up": "上昇予測", "down": "下落予測", "neutral": "横ばい予測"}.get(f["shortTermTrend"], f["shortTermTrend"])
-            failure_text += f"- {f['name']}: {trend_label}→{f['performance']:+.1f}%\n"
+            sector = f.get("sector", "その他")
+            trend_info = ""
+            if sector_trends and sector in sector_trends:
+                st = sector_trends[sector]
+                st_label = {"up": "追い風", "down": "逆風", "neutral": "中立"}.get(st['trendDirection'], "不明")
+                trend_info = f"（セクター{st_label}）"
+            failure_text += f"- {f['name']}{trend_info}: {trend_label}→{f['performance']:+.1f}%\n"
             failure_text += f"  アドバイス: {f.get('advice', '不明')[:100]}\n"
 
     else:
@@ -243,7 +260,7 @@ def generate_improvement_suggestion(client: OpenAI, category: str, failures: lis
         return None
 
 
-def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | None:
+def generate_ai_insights(daily: dict, purchase: dict, analysis: dict, sector_trends: dict | None = None) -> dict | None:
     """各カテゴリごとにAIインサイトを生成（並列処理）"""
     client = get_openai_client()
     if not client:
@@ -276,7 +293,7 @@ def generate_ai_insights(daily: dict, purchase: dict, analysis: dict) -> dict | 
         if task_type == "insight":
             return key, generate_single_insight(client, category, data)
         else:
-            return key, generate_improvement_suggestion(client, category, data)
+            return key, generate_improvement_suggestion(client, category, data, sector_trends)
 
     with ThreadPoolExecutor(max_workers=AI_CONCURRENCY_LIMIT) as executor:
         futures = [executor.submit(execute_task, task) for task in tasks]
@@ -888,6 +905,20 @@ def save_report_to_db(
     print("   Report saved to database")
 
 
+def get_sector_trends(conn) -> dict:
+    """最新のセクタートレンドを取得（セクター名 → {compositeScore, trendDirection}）"""
+    with conn.cursor() as cur:
+        cur.execute('''
+            SELECT sector, "compositeScore", "trendDirection"
+            FROM "SectorTrend"
+            WHERE date = (SELECT MAX(date) FROM "SectorTrend")
+        ''')
+        return {
+            row[0]: {"compositeScore": row[1], "trendDirection": row[2]}
+            for row in cur.fetchall()
+        }
+
+
 def main():
     print("=" * 60)
     print("Daily AI Analysis Performance Report")
@@ -963,9 +994,14 @@ def main():
         analysis_stats = analyze_stock_analyses(analysis_data, prices)
         print(f"   Analysis: {analysis_stats['count']} valid records")
 
-        # 5. AIインサイト生成
-        print("\n4. Generating AI insights...")
-        insights = generate_ai_insights(daily_stats, purchase_stats, analysis_stats)
+        # 5. セクタートレンド取得
+        print("\n4. Fetching sector trends...")
+        sector_trends = get_sector_trends(conn)
+        print(f"   Got trends for {len(sector_trends)} sectors")
+
+        # 6. AIインサイト生成
+        print("\n5. Generating AI insights...")
+        insights = generate_ai_insights(daily_stats, purchase_stats, analysis_stats, sector_trends)
         if insights:
             for key, value in insights.items():
                 if value:
@@ -983,8 +1019,8 @@ def main():
         else:
             print("   Skipped (no API key or error)")
 
-        # 6. DBに保存
-        print("\n5. Saving report to database...")
+        # 7. DBに保存
+        print("\n6. Saving report to database...")
         save_report_to_db(conn, daily_stats, purchase_stats, analysis_stats, insights)
 
         print("\n" + "=" * 60)

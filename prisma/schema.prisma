@@ -719,6 +719,8 @@ model RecommendationOutcome {
   confidence            Decimal? @db.Decimal(5, 2)
   volatility            Decimal? @db.Decimal(8, 2)
   marketCap             BigInt?
+  sectorTrendScore      Float?   // 推薦時点のセクタートレンド総合スコア
+  sectorTrendDirection  String?  // 推薦時点のトレンド方向: "up"|"down"|"neutral"
 
   // 時間経過ごとのリターン（%）- バッチで段階的に埋まる
   returnAfter1Day       Decimal? @db.Decimal(8, 2)
