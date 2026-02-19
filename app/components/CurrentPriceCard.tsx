@@ -34,14 +34,12 @@ export default function CurrentPriceCard({
 }: CurrentPriceCardProps) {
   return (
     <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-      {!(isStale && !price) && (
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-            {title}
-          </h2>
-          {actions && <div className="flex gap-2">{actions}</div>}
-        </div>
-      )}
+      <div className={`flex items-center justify-between mb-4 ${isStale && !price ? "hidden sm:flex" : ""}`}>
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+          {title}
+        </h2>
+        {actions && <div className="flex gap-2">{actions}</div>}
+      </div>
 
       <div className="space-y-4">
         {loading ? (
