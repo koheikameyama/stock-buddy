@@ -105,60 +105,10 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
   const [noData, setNoData] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // ジョブのポーリング
-  async function pollJob(jobId: string): Promise<void> {
-    const maxAttempts = 60 // 最大60回（約2分）
-    let attempts = 0
-
-    while (attempts < maxAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      const response = await fetch(`/api/analysis-jobs/${jobId}`)
-      if (!response.ok) {
-        throw new Error("ジョブの取得に失敗しました")
-      }
-
-      const job = await response.json()
-
-      if (job.status === "completed") {
-        // 完了したら購入判断データを再取得
-        await fetchRecommendation()
-        return
-      }
-
-      if (job.status === "failed") {
-        throw new Error(job.error || "分析に失敗しました")
-      }
-
-      attempts++
-    }
-
-    throw new Error("タイムアウト: 分析に時間がかかっています")
-  }
-
   async function fetchRecommendation() {
     setLoading(true)
     setError(null)
     try {
-      // まず処理中のジョブがあるかチェック
-      const jobsResponse = await fetch(
-        `/api/analysis-jobs?type=purchase-recommendation&targetId=${stockId}`
-      )
-      if (jobsResponse.ok) {
-        const jobsData = await jobsResponse.json()
-        if (jobsData.job) {
-          // 処理中のジョブがある場合はポーリング開始
-          setGenerating(true)
-          setLoading(false)
-          try {
-            await pollJob(jobsData.job.jobId)
-          } finally {
-            setGenerating(false)
-          }
-          return
-        }
-      }
-
       const response = await fetch(`/api/stocks/${stockId}/purchase-recommendation`)
 
       if (response.status === 404) {
@@ -185,25 +135,18 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
     setGenerating(true)
     setError(null)
     try {
-      // ジョブを作成
-      const response = await fetch("/api/analysis-jobs", {
+      const response = await fetch(`/api/stocks/${stockId}/purchase-recommendation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "purchase-recommendation",
-          targetId: stockId,
-        }),
       })
 
       if (!response.ok) {
         const errData = await response.json()
-        throw new Error(errData.error || "分析の開始に失敗しました")
+        throw new Error(errData.error || "分析の生成に失敗しました")
       }
 
-      const { jobId } = await response.json()
-
-      // ポーリングで結果を待つ
-      await pollJob(jobId)
+      const result = await response.json()
+      setData(result)
       setNoData(false)
     } catch (err) {
       console.error("Error generating purchase recommendation:", err)

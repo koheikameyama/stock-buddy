@@ -72,66 +72,10 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
   const [noData, setNoData] = useState(false)
   const [error, setError] = useState("")
 
-  // ポーリングロジック（共通化）
-  async function pollJob(jobId: string): Promise<void> {
-    const pollInterval = 1500 // 1.5秒間隔
-    const maxAttempts = 40 // 最大60秒
-    let attempts = 0
-
-    const poll = async (): Promise<void> => {
-      attempts++
-      const statusResponse = await fetch(`/api/analysis-jobs/${jobId}`)
-      if (!statusResponse.ok) {
-        throw new Error("ジョブの状態取得に失敗しました")
-      }
-
-      const job = await statusResponse.json()
-
-      if (job.status === "completed") {
-        setPortfolioAnalysis(job.result)
-        setNoData(false)
-        setGenerating(false)
-        return
-      }
-
-      if (job.status === "failed") {
-        throw new Error(job.error || "分析の生成に失敗しました")
-      }
-
-      if (attempts >= maxAttempts) {
-        throw new Error("分析がタイムアウトしました。しばらく待ってから再度お試しください。")
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, pollInterval))
-      return poll()
-    }
-
-    await poll()
-  }
-
   async function fetchData() {
     setLoading(true)
     setError("")
     try {
-      // 処理中のジョブがあるかチェック
-      const pendingJobRes = await fetch(`/api/analysis-jobs?type=portfolio-analysis&targetId=${stockId}`)
-      if (pendingJobRes.ok) {
-        const { job: pendingJob } = await pendingJobRes.json()
-        if (pendingJob) {
-          // 処理中のジョブがある場合、ポーリングを再開
-          setGenerating(true)
-          setLoading(false)
-          try {
-            await pollJob(pendingJob.jobId)
-          } catch (err) {
-            console.error("Error polling job:", err)
-            setError(err instanceof Error ? err.message : "分析の取得に失敗しました")
-            setGenerating(false)
-          }
-          return
-        }
-      }
-
       // 2つのAPIを並列で取得
       const [predictionRes, portfolioRes] = await Promise.all([
         fetch(`/api/stocks/${stockId}/analysis`),
@@ -174,30 +118,26 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
     setError("")
     try {
       // ポートフォリオ用かウォッチリスト用かで分岐
-      const analysisType = quantity ? "portfolio-analysis" : "purchase-recommendation"
+      const endpoint = quantity
+        ? `/api/stocks/${stockId}/portfolio-analysis`
+        : `/api/stocks/${stockId}/purchase-recommendation`
 
-      // ジョブを作成
-      const createResponse = await fetch("/api/analysis-jobs", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: analysisType,
-          targetId: stockId,
-        }),
       })
 
-      if (!createResponse.ok) {
-        const errData = await createResponse.json()
-        throw new Error(errData.error || "分析の開始に失敗しました")
+      if (!response.ok) {
+        const errData = await response.json()
+        throw new Error(errData.error || "分析の生成に失敗しました")
       }
 
-      const { jobId } = await createResponse.json()
-
-      // ポーリングで結果を取得
-      await pollJob(jobId)
+      // 結果を再取得して反映
+      await fetchData()
     } catch (err) {
       console.error("Error generating analysis:", err)
       setError(err instanceof Error ? err.message : "分析の生成に失敗しました")
+    } finally {
       setGenerating(false)
     }
   }
