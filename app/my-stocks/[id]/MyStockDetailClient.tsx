@@ -10,6 +10,7 @@ import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
 import RelatedNews from "@/app/components/RelatedNews"
 import StockDetailLayout from "@/app/components/StockDetailLayout"
+import DelistedWarning from "@/app/components/DelistedWarning"
 import CurrentPriceCard from "@/app/components/CurrentPriceCard"
 import DeleteButton from "@/app/components/DeleteButton"
 import Tabs from "@/app/components/Tabs"
@@ -65,6 +66,8 @@ interface Stock {
     eps?: number | null
     latestRevenue?: number | null
     latestNetIncome?: number | null
+    fetchFailCount?: number
+    isDelisted?: boolean
   }
 }
 
@@ -143,6 +146,12 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
       tickerCode={stock.stock.tickerCode}
       sector={stock.stock.sector}
     >
+      {/* Delisted Warning */}
+      <DelistedWarning
+        isDelisted={stock.stock.isDelisted ?? false}
+        fetchFailCount={stock.stock.fetchFailCount ?? 0}
+      />
+
       {/* Portfolio Stock Details */}
       {isPortfolio && (
         <>
@@ -178,22 +187,26 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             <div className="space-y-4">
               {/* Current Price */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">現在価格</span>
+                <span className="text-sm text-gray-600">
+                  {stock.stock.isDelisted ? "最終価格" : "現在価格"}
+                </span>
                 {loading ? (
                   <span className="text-sm text-gray-400">読み込み中...</span>
                 ) : price ? (
                   <div className="text-right">
-                    <p className="text-xl font-bold text-gray-900">
+                    <p className={`text-xl font-bold ${stock.stock.isDelisted ? "text-gray-400" : "text-gray-900"}`}>
                       ¥{price.currentPrice.toLocaleString()}
                     </p>
-                    <p
-                      className={`text-sm font-semibold ${
-                        price.change >= 0 ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {price.change >= 0 ? "+" : ""}
-                      {price.changePercent.toFixed(2)}%
-                    </p>
+                    {!stock.stock.isDelisted && (
+                      <p
+                        className={`text-sm font-semibold ${
+                          price.change >= 0 ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {price.change >= 0 ? "+" : ""}
+                        {price.changePercent.toFixed(2)}%
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <span className="text-sm text-gray-400">価格情報なし</span>
@@ -373,6 +386,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             loading={loading}
             fiftyTwoWeekHigh={stock.stock.fiftyTwoWeekHigh}
             fiftyTwoWeekLow={stock.stock.fiftyTwoWeekLow}
+            isDelisted={stock.stock.isDelisted ?? false}
             actions={
               <>
                 <button

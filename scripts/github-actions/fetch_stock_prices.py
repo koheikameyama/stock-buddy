@@ -27,6 +27,9 @@ CONFIG = {
     "DB_BATCH_SIZE": 100,        # DB更新のバッチサイズ
 }
 
+# 株価取得失敗の警告閾値（lib/constants.ts の FETCH_FAIL_WARNING_THRESHOLD と同じ値）
+FETCH_FAIL_WARNING_THRESHOLD = 3
+
 
 def get_database_url() -> str:
     """データベースURLを取得"""
@@ -285,7 +288,26 @@ def increment_fetch_fail_counts(conn, stock_ids: list[str]) -> int:
     return len(stock_ids)
 
 
-def delete_unused_failed_stocks(conn, min_fail_count: int = 3) -> list[dict]:
+def mark_delisted_stocks(conn) -> list[dict]:
+    """fetchFailCount >= FETCH_FAIL_WARNING_THRESHOLD の銘柄を isDelisted = true に設定"""
+    with conn.cursor() as cur:
+        cur.execute('''
+            UPDATE "Stock"
+            SET "isDelisted" = true
+            WHERE "fetchFailCount" >= %s
+              AND "isDelisted" = false
+            RETURNING id, "tickerCode", name, "fetchFailCount"
+        ''', (FETCH_FAIL_WARNING_THRESHOLD,))
+        rows = cur.fetchall()
+
+    conn.commit()
+    return [
+        {"id": r[0], "tickerCode": r[1], "name": r[2], "failCount": r[3]}
+        for r in rows
+    ]
+
+
+def delete_unused_failed_stocks(conn, min_fail_count: int = FETCH_FAIL_WARNING_THRESHOLD) -> list[dict]:
     """連続N回以上失敗 + ユーザー未使用の銘柄を削除"""
     with conn.cursor() as cur:
         # 削除対象を検索
@@ -427,11 +449,19 @@ def main():
         increment_fetch_fail_counts(conn, all_failed_ids)
         print(f"  - Incremented {len(all_failed_ids)} failed stocks")
 
+        # 連続失敗した銘柄を自動で上場廃止マーク
+        marked = mark_delisted_stocks(conn)
+        if marked:
+            print()
+            print(f"Marked {len(marked)} stocks as delisted ({FETCH_FAIL_WARNING_THRESHOLD}+ consecutive failures):")
+            for stock in marked:
+                print(f"  - {stock['tickerCode']} ({stock['name']}) - {stock['failCount']} failures")
+
         # 連続失敗 + ユーザー未使用の銘柄を削除
-        deleted = delete_unused_failed_stocks(conn, min_fail_count=3)
+        deleted = delete_unused_failed_stocks(conn)
         if deleted:
             print()
-            print(f"Deleted {len(deleted)} unused stocks with 3+ consecutive failures:")
+            print(f"Deleted {len(deleted)} unused stocks with {FETCH_FAIL_WARNING_THRESHOLD}+ consecutive failures:")
             for stock in deleted:
                 print(f"  - {stock['tickerCode']} ({stock['name']}) - {stock['failCount']} failures")
 

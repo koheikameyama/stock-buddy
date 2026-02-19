@@ -10,7 +10,7 @@
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { calculateRSI, calculateMACD, calculateDeviationRate } from "@/lib/technical-indicators"
-import { MA_DEVIATION } from "@/lib/constants"
+import { MA_DEVIATION, FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
 import { MarketIndexData } from "@/lib/market-index"
 
 // OHLCV データ型（oldest-first で渡す）
@@ -424,4 +424,36 @@ export function buildMarketContext(marketData: MarketIndexData | null): string {
   市場が弱い中で堅調な銘柄は評価できます。
   市場上昇時は追い風として言及できます。
 `
+}
+
+/**
+ * 上場廃止コンテキスト文字列を生成する
+ * @param isDelisted - 上場廃止フラグ
+ * @param fetchFailCount - 連続取得失敗回数
+ */
+export function buildDelistingContext(
+  isDelisted: boolean,
+  fetchFailCount: number
+): string {
+  if (isDelisted) {
+    return `
+【重要: 上場廃止銘柄】
+- この銘柄は上場廃止されています
+- 表示されている株価は上場廃止前の最終価格であり、現在の取引価格ではありません
+- 新規購入は不可能です。保有している場合は証券会社に確認してください
+- 「上場廃止の心配はない」「問題ない」などの誤った安心を与える回答は絶対にしないでください
+`
+  }
+
+  if (fetchFailCount >= FETCH_FAIL_WARNING_THRESHOLD) {
+    return `
+【警告: 上場廃止の可能性】
+- この銘柄は株価データの取得に${fetchFailCount}回連続で失敗しています
+- 上場廃止された可能性があります
+- 表示されている株価は最後に取得できた価格であり、最新ではない可能性があります
+- 新規購入は推奨しません
+`
+  }
+
+  return ""
 }

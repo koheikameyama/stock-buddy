@@ -13,6 +13,7 @@ import {
   buildWeekChangeContext,
   buildMarketContext,
   buildDeviationRateContext,
+  buildDelistingContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
@@ -302,6 +303,9 @@ export async function POST(
     const stock = portfolioStock.stock
     const financialMetrics = buildFinancialMetrics(stock, currentPrice)
 
+    // 上場廃止コンテキスト
+    const delistingContext = buildDelistingContext(stock.isDelisted, stock.fetchFailCount)
+
     // 日経平均の市場文脈を取得
     let marketData = null
     try {
@@ -522,6 +526,14 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.sellReason = null
       result.suggestedSellPercent = null
       result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`
+    }
+
+    // 上場廃止銘柄の強制補正
+    if (stock.isDelisted) {
+      statusType = "warning"
+      result.statusType = "warning"
+      result.recommendation = "sell"
+      result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`
     }
 
     // 売りタイミング判定（sell推奨時のみ）

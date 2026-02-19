@@ -97,10 +97,10 @@ export async function POST(request: NextRequest) {
         const profit = currentValue - totalCost
         const profitPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0
 
-        return `- ${ps.stock.name}（${ps.stock.tickerCode}）
+        return `- ${ps.stock.name}（${ps.stock.tickerCode}）${ps.stock.isDelisted ? " ⚠️上場廃止" : ps.stock.fetchFailCount >= 3 ? " ⚠️上場廃止の可能性" : ""}
   保有: ${quantity}株
   平均取得単価: ${averagePrice.toLocaleString()}円
-  現在価格: ${currentPrice.toLocaleString()}円
+  現在価格: ${currentPrice.toLocaleString()}円${ps.stock.isDelisted ? "（最終取得価格）" : ""}
   損益: ${profit >= 0 ? "+" : ""}${profit.toLocaleString()}円（${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%）`
       })
       .join("\n\n")
@@ -111,8 +111,8 @@ export async function POST(request: NextRequest) {
         const tickerKey = ws.stock.tickerCode.replace(".T", "")
         const currentPrice = priceMap.get(tickerKey) ?? 0
 
-        return `- ${ws.stock.name}（${ws.stock.tickerCode}）
-  現在価格: ${currentPrice.toLocaleString()}円`
+        return `- ${ws.stock.name}（${ws.stock.tickerCode}）${ws.stock.isDelisted ? " ⚠️上場廃止" : ws.stock.fetchFailCount >= 3 ? " ⚠️上場廃止の可能性" : ""}
+  現在価格: ${currentPrice.toLocaleString()}円${ws.stock.isDelisted ? "（最終取得価格）" : ""}`
       })
       .join("\n\n")
 
@@ -132,6 +132,8 @@ export async function POST(request: NextRequest) {
             freeCF: true,
             fiftyTwoWeekHigh: true,
             fiftyTwoWeekLow: true,
+            isDelisted: true,
+            fetchFailCount: true,
           },
         }),
         // 最新のAI分析
@@ -174,6 +176,11 @@ export async function POST(request: NextRequest) {
             評価損益額: number
             評価損益率: string
           }
+        }
+        上場廃止情報?: {
+          上場廃止済み: boolean
+          連続取得失敗回数: number
+          注意: string
         }
         リアルタイム情報: {
           現在価格: number
@@ -327,6 +334,21 @@ export async function POST(request: NextRequest) {
           平均取得単価: stockContext.averagePurchasePrice ?? 0,
           評価損益額: stockContext.profit ?? 0,
           評価損益率: `${(stockContext.profitPercent ?? 0).toFixed(2)}%`,
+        }
+      }
+
+      // 上場廃止情報
+      if (stockDetails?.isDelisted) {
+        stockData.上場廃止情報 = {
+          上場廃止済み: true,
+          連続取得失敗回数: stockDetails.fetchFailCount,
+          注意: "この銘柄は上場廃止されています。表示されている価格は上場廃止前の最終取得価格であり、現在の取引価格ではありません。新規購入は不可能です。",
+        }
+      } else if (stockDetails && stockDetails.fetchFailCount >= 3) {
+        stockData.上場廃止情報 = {
+          上場廃止済み: false,
+          連続取得失敗回数: stockDetails.fetchFailCount,
+          注意: "株価取得が連続失敗しており、上場廃止の可能性があります。表示されている価格は最新ではない可能性があります。",
         }
       }
 
@@ -522,7 +544,8 @@ ${
 7. ユーザーの投資スタイルに合わせたアドバイスをする
 8. 親しみやすく丁寧な「ですます調」で話す
 9. 回答は簡潔に（300字以内を目安）
-10. 具体的な数字を引用して説得力を持たせる（例: 「現在価格は52週安値から+15%の位置です」）`
+10. 具体的な数字を引用して説得力を持たせる（例: 「現在価格は52週安値から+15%の位置です」）
+11. **上場廃止情報がある場合は必ず言及する**: 上場廃止済みまたは上場廃止の可能性がある銘柄に対して、「上場廃止の心配はない」「問題ない」などの誤った安心を与えない。表示されている価格は最終取得価格であることを伝える`
 
     // OpenAI APIを呼び出し
     const openai = getOpenAIClient()

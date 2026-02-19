@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { UPDATE_SCHEDULES } from "@/lib/constants"
+import { UPDATE_SCHEDULES, FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
 import { CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import StockActionButtons from "@/app/components/StockActionButtons"
 import CopyableTicker from "@/app/components/CopyableTicker"
@@ -25,6 +25,8 @@ interface FeaturedStock {
     isProfitable: boolean | null
     volatility: number | null
     weekChangeRate: number | null
+    fetchFailCount?: number
+    isDelisted?: boolean
   }
 }
 
@@ -184,6 +186,17 @@ export default function FeaturedStocksByCategory() {
           <div className="mb-2 sm:mb-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200">
             <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">
               {stock.reason}
+            </p>
+          </div>
+        )}
+
+        {/* 上場廃止警告 */}
+        {(stock.stock.isDelisted || (stock.stock.fetchFailCount ?? 0) >= FETCH_FAIL_WARNING_THRESHOLD) && (
+          <div className="mb-2 sm:mb-3 p-2 rounded-lg bg-red-50 border border-red-200">
+            <p className="text-xs text-red-700">
+              {stock.stock.isDelisted
+                ? "この銘柄は上場廃止されています"
+                : "上場廃止の可能性があります"}
             </p>
           </div>
         )}

@@ -8,6 +8,7 @@ import StockChart from "@/app/components/StockChart"
 import PriceHistory from "@/app/components/PriceHistory"
 import RelatedNews from "@/app/components/RelatedNews"
 import StockDetailLayout from "@/app/components/StockDetailLayout"
+import DelistedWarning from "@/app/components/DelistedWarning"
 import CurrentPriceCard from "@/app/components/CurrentPriceCard"
 import StockActionButtons from "@/app/components/StockActionButtons"
 import DeleteButton from "@/app/components/DeleteButton"
@@ -39,6 +40,8 @@ interface StockData {
   latestNetIncome: number | null
   volatility: number | null
   weekChangeRate: number | null
+  fetchFailCount: number
+  isDelisted: boolean
 }
 
 interface RecommendationData {
@@ -216,12 +219,16 @@ export default function StockDetailClient({
       badgeClassName={badgeInfo.className}
       backHref="/dashboard"
     >
+      {/* Delisted Warning */}
+      <DelistedWarning isDelisted={stock.isDelisted} fetchFailCount={stock.fetchFailCount} />
+
       {/* Current Price Section */}
       <CurrentPriceCard
         price={price}
         loading={loading}
         fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
         fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
+        isDelisted={stock.isDelisted}
         actions={
           localIsTracked ? (
             // 追跡中のアクション
