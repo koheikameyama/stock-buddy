@@ -238,8 +238,6 @@ ${newsContext}${marketContext}${sectorTrendContext}
   "sellReason": "具体的なシグナルや指標名を挙げて売却理由を説明する（例：「RSI（売られすぎ・買われすぎの指標）が70超の買われすぎ水準で、レジスタンスラインに到達」）",
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
   "sellCondition": "どの指標がどの水準になったら売るかを具体的に記述（例：「RSIが再び70を超えたら追加売却、MACDがデッドクロスしたら全売却」）",
-  "statusType": "ステータス（good/neutral/warningのいずれか）",
-
   "shortTermTrend": "up" | "neutral" | "down",
   "shortTermPriceLow": 短期予測の下限価格（数値のみ）,
   "shortTermPriceHigh": 短期予測の上限価格（数値のみ）,
@@ -293,11 +291,9 @@ ${PROMPT_NEWS_CONSTRAINTS}
   - 75%: 大部分を利確、少量残して様子見
   - 100%: 全売却推奨
 - sellReason: テクニカル・ファンダメンタルに基づく具体的な売却理由を記載（指標名と数値を必ず含める）
-- 【重要】statusType と recommendation の整合性（必ず守ること）:
-  - recommendation が "sell" → statusType は必ず "warning" にし、sellReason に理由を記載
-  - recommendation が "buy" → statusType は "good" または "neutral"（"warning" にしない）
-  - suggestedSellPrice が現在価格に近い（±2%以内）場合 → recommendation は "sell" とし、statusType は "warning" にする
-  - statusType が "neutral" または "good" の場合 → sellReason と suggestedSellPercent は null にする
+- statusType はシステムが recommendation から自動決定するため、気にしなくてよい
+- recommendation が "sell" の場合は sellReason に理由を記載する
+- recommendation が "hold" または "buy" の場合は sellReason と suggestedSellPercent は null にする
 
 【損切り提案の指針】
 - 損失率が-15%以上かつ下落トレンドが続いている場合は、損切りを選択肢として提示
@@ -316,11 +312,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
   - 需給: 買い戻し、レジスタンスライン突破による買い加速
 - 例（下落）: 「市場全体で大型株への資金シフトが進んでおり、中小型株は売られやすい地合いです」
 - 例（上昇）: 「好決算を受けて買いが集中し、レジスタンスラインを突破しました」
-
-【ステータスの指針（3段階）】
-- good（買増検討）: 利益率 +5%以上、または上昇トレンド
-- neutral（様子見）: 利益率 -10%〜+5%、横ばい
-- warning（売却推奨）: 利益率 -10%以下、または下落トレンド・急落中
 
 【表現の指針】
 - 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、ダブルボトム（2回底を打って反転するパターン））
@@ -359,7 +350,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
             sellReason: { type: ["string", "null"] },
             suggestedStopLossPrice: { type: ["number", "null"] },
             sellCondition: { type: ["string", "null"] },
-            statusType: { type: "string", enum: ["good", "neutral", "warning"] },
             shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             shortTermPriceLow: { type: "number" },
             shortTermPriceHigh: { type: "number" },
@@ -378,7 +368,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
             "shortTerm", "mediumTerm", "longTerm",
             "suggestedSellPrice", "suggestedSellPercent", "sellReason",
             "suggestedStopLossPrice", "sellCondition",
-            "statusType",
             "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
             "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
             "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
@@ -393,8 +382,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
   const content = response.choices[0].message.content?.trim() || "{}"
   const result = JSON.parse(content)
 
-  let statusType = result.statusType as string
-
   // 乖離率・RSI計算（売りタイミング判定用）
   const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
   const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
@@ -408,8 +395,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.recommendation === "sell"
   ) {
     result.recommendation = "hold"
-    result.statusType = "neutral"
-    statusType = "neutral"
     result.sellReason = null
     result.suggestedSellPercent = null
     result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`
@@ -417,8 +402,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
 
   // 上場廃止銘柄の強制補正
   if (stock.isDelisted) {
-    statusType = "warning"
-    result.statusType = "warning"
     result.recommendation = "sell"
     result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`
   }
@@ -436,11 +419,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${result.shortTerm}`
   }
 
-  // statusType と recommendation の整合性補正
-  if (result.recommendation === "sell" && statusType !== "warning") {
-    statusType = "warning"
-    result.statusType = "warning"
-  }
+  // 売却目標が現在価格に近い場合はsellに補正
   if (
     result.recommendation === "hold" &&
     result.suggestedSellPrice &&
@@ -448,13 +427,12 @@ ${PROMPT_NEWS_CONSTRAINTS}
     Math.abs(result.suggestedSellPrice - currentPrice) / currentPrice < 0.02
   ) {
     result.recommendation = "sell"
-    statusType = "warning"
-    result.statusType = "warning"
   }
-  if (result.recommendation === "buy" && statusType === "warning") {
-    statusType = "neutral"
-    result.statusType = "neutral"
-  }
+
+  // statusType は recommendation から機械的に導出（AIに任せない）
+  const statusType = result.recommendation === "sell" ? "warning"
+    : result.recommendation === "buy" ? "good"
+    : "neutral"
 
   // 売りタイミング判定（sell推奨時のみ）
   let sellTiming: string | null = null
