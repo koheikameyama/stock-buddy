@@ -632,6 +632,10 @@ export default function MyStocksClient() {
                       soldStock={ss}
                       onAddToWatchlist={handleSoldToWatchlist}
                       onRepurchase={handleSoldToRepurchase}
+                      onTransactionUpdated={async () => {
+                        const updatedSoldStocks = await fetchSoldStocks().catch(() => [])
+                        setSoldStocks(updatedSoldStocks)
+                      }}
                     />
                   ))}
                 </div>
