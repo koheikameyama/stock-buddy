@@ -133,8 +133,16 @@ export default function StockAnalysisCard({
         throw new Error(errData.error || "分析の生成に失敗しました");
       }
 
-      // 結果を再取得して反映
-      await fetchData();
+      // 結果を反映
+      const data = await response.json();
+      setAnalysis(data);
+      setNoData(false);
+      onAnalysisDateLoaded?.(data.analyzedAt || data.lastAnalysis);
+
+      // シミュレーションでない場合のみ再取得（通常はPOSTで保存されているためGETで同期可能）
+      if (!isSimulation) {
+        await fetchData();
+      }
     } catch (err) {
       console.error("Error generating analysis:", err);
       setError(err instanceof Error ? err.message : "分析の生成に失敗しました");
@@ -730,29 +738,37 @@ export default function StockAnalysisCard({
               </div>
             </div>
           )}
-          {analysis.confidence !== null && (() => {
-            const pct = Math.round(analysis.confidence * 100)
-            const color = pct >= 75 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-400"
-            const label = pct >= 75 ? "高" : pct >= 50 ? "中" : "低"
-            return (
-              <div className="mt-1 pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-500">
-                    AI分析の信頼度（データの質・量に基づく）
-                  </span>
-                  <span className={`text-xs font-semibold ${pct >= 75 ? "text-green-600" : pct >= 50 ? "text-yellow-600" : "text-red-500"}`}>
-                    {label} {pct}%
-                  </span>
+          {analysis.confidence !== null &&
+            (() => {
+              const pct = Math.round(analysis.confidence * 100);
+              const color =
+                pct >= 75
+                  ? "bg-green-500"
+                  : pct >= 50
+                    ? "bg-yellow-500"
+                    : "bg-red-400";
+              const label = pct >= 75 ? "高" : pct >= 50 ? "中" : "低";
+              return (
+                <div className="mt-1 pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-500">
+                      AI分析の信頼度（データの質・量に基づく）
+                    </span>
+                    <span
+                      className={`text-xs font-semibold ${pct >= 75 ? "text-green-600" : pct >= 50 ? "text-yellow-600" : "text-red-500"}`}
+                    >
+                      {label} {pct}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`${color} h-2 rounded-full transition-all`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className={`${color} h-2 rounded-full transition-all`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })()}
+              );
+            })()}
         </div>
       )}
 
