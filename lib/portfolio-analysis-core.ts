@@ -350,6 +350,12 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - recommendation が "sell" の場合は sellReason に理由を記載する
 - recommendation が "hold" または "buy" の場合は sellReason と suggestedSellPercent は null にする
 
+【中長期トレンドを考慮した売却判断 - 重要】
+- recommendation を "sell" にする場合、短期テクニカル指標だけでなく、中期・長期の見通しも必ず考慮してください
+- 短期的にテクニカル指標が悪化していても、中期または長期の見通しが「上昇」（up）の場合は "hold" を検討してください
+- 全てのトレンド（短期・中期・長期）が「下落」（down）の場合のみ、売却判断を強化してください
+- 損失率が-15%を超えている場合は、中長期の見通しに関わらず損切りとしての "sell" を検討してください
+
 【損切り提案の指針】
 - 損失率が-15%以上かつ下落トレンドが続いている場合は、損切りを選択肢として提示
 - 損切りを提案する場合は感情的な言葉を使わず、根拠（テクニカル指標・損失率）を示す
@@ -476,13 +482,33 @@ ${PROMPT_NEWS_CONSTRAINTS}
   }
 
   // 売却目標が現在価格に近い場合はsellに補正
+  // ただし中期・長期が上昇見通しの場合は補正しない（短期要因だけで売らない）
   if (
     result.recommendation === "hold" &&
     result.suggestedSellPrice &&
     currentPrice &&
-    Math.abs(result.suggestedSellPrice - currentPrice) / currentPrice < 0.02
+    Math.abs(result.suggestedSellPrice - currentPrice) / currentPrice < SELL_TIMING.SELL_PRICE_PROXIMITY_THRESHOLD &&
+    result.midTermTrend !== "up" &&
+    result.longTermTrend !== "up"
   ) {
     result.recommendation = "sell"
+  }
+
+  // 中長期トレンドによる売り保護: 中期or長期が上昇見通しなら sell → hold
+  // ただし含み損が大きい場合は保護を無効化（損切り優先）
+  if (
+    result.recommendation === "sell" &&
+    (result.midTermTrend === "up" || result.longTermTrend === "up") &&
+    (profitPercent === null || profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+  ) {
+    const trendInfo = [
+      result.midTermTrend === "up" ? "中期: 上昇" : null,
+      result.longTermTrend === "up" ? "長期: 上昇" : null,
+    ].filter(Boolean).join("、")
+    result.recommendation = "hold"
+    result.sellReason = null
+    result.suggestedSellPercent = null
+    result.sellCondition = `${trendInfo}見通しのため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.sellCondition || ""}`
   }
 
   // statusType は recommendation から機械的に導出（AIに任せない）
