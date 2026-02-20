@@ -21,40 +21,27 @@ export async function GET() {
     }
 
     // 売却済み（quantity=0）のPortfolioStockを取得（Transactionを含む）
-    const [portfolioStocks, watchlistStocks] = await Promise.all([
-      prisma.portfolioStock.findMany({
-        where: { userId: user.id, quantity: 0 },
-        include: {
-          stock: {
-            select: {
-              id: true,
-              tickerCode: true,
-              name: true,
-              sector: true,
-              market: true,
-            },
-          },
-          transactions: {
-            orderBy: { transactionDate: "asc" },
+    const portfolioStocks = await prisma.portfolioStock.findMany({
+      where: { userId: user.id, quantity: 0 },
+      include: {
+        stock: {
+          select: {
+            id: true,
+            tickerCode: true,
+            name: true,
+            sector: true,
+            market: true,
           },
         },
-      }),
-      // ウォッチリストにある銘柄のstockIdを取得
-      prisma.watchlistStock.findMany({
-        where: { userId: user.id },
-        select: { stockId: true },
-      }),
-    ])
+        transactions: {
+          orderBy: { transactionDate: "asc" },
+        },
+      },
+    })
 
-    // ウォッチリストにある銘柄のIDセット
-    const watchlistStockIds = new Set(watchlistStocks.map((ws) => ws.stockId))
-
-    // 売却済み銘柄をフィルタリング（ウォッチリストにある銘柄は除外）
+    // 売却済み銘柄をマッピング（ウォッチリストの状態に関わらず全件表示）
     const soldStocks = portfolioStocks
       .map((ps) => {
-        // ウォッチリストにある場合は除外
-        if (watchlistStockIds.has(ps.stockId)) return null
-
         // 取引履歴から情報を計算
         const buyTransactions = ps.transactions.filter((t) => t.type === "buy")
         const sellTransactions = ps.transactions.filter((t) => t.type === "sell")
