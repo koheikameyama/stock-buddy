@@ -1,11 +1,23 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
+import { toast } from "sonner"
 import { formatAnalysisTime } from "@/lib/analysis-time"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import { PORTFOLIO_STATUS_CONFIG, PURCHASE_JUDGMENT_CONFIG, FETCH_FAIL_WARNING_THRESHOLD, INVESTMENT_THEME_CONFIG } from "@/lib/constants"
 import DelistedWarning from "@/app/components/DelistedWarning"
 import CopyableTicker from "@/app/components/CopyableTicker"
+import EditTransactionDialog from "./EditTransactionDialog"
+
+interface Transaction {
+  id: string
+  type: string
+  quantity: number
+  price: number
+  totalAmount: number
+  transactionDate: string
+}
 
 interface UserStock {
   id: string
@@ -22,6 +34,7 @@ interface UserStock {
   // おすすめ経由の情報（Watchlist only）
   investmentTheme?: string | null
   recommendationReason?: string | null
+  transactions?: Transaction[]
   stock: {
     id: string
     tickerCode: string
@@ -67,10 +80,14 @@ interface StockCardProps {
   onPurchase?: () => void
   onTrackClick?: () => void
   onDelete?: () => void
+  onTransactionUpdated?: () => void
 }
 
 
-export default function StockCard({ stock, price, priceLoaded = false, isStale = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick, onDelete }: StockCardProps) {
+export default function StockCard({ stock, price, priceLoaded = false, isStale = false, recommendation, portfolioRecommendation, analyzedAt, onAdditionalPurchase, onSell, onPurchase, onTrackClick, onDelete, onTransactionUpdated }: StockCardProps) {
+  const [showTransactions, setShowTransactions] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [openMenuTransactionId, setOpenMenuTransactionId] = useState<string | null>(null)
   const isHolding = stock.type === "portfolio"
   const isWatchlist = stock.type === "watchlist"
   const quantity = stock.quantity || 0
@@ -104,6 +121,7 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
   const linkDisabled = isDisabled || !priceLoaded
 
   return (
+    <>
     <div
       className={`relative bg-white rounded-xl shadow-md transition-all p-4 sm:p-6 ${isDisabled ? "opacity-60" : "hover:shadow-lg hover:bg-gray-50"}`}
     >
@@ -331,6 +349,120 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
           </div>
         ) : null)}
 
+        {/* Transaction History (expandable, portfolio only) */}
+        {isHolding && stock.transactions && stock.transactions.length > 0 && (
+          <div className="pt-3 border-t border-gray-100">
+            <button
+              onClick={() => setShowTransactions(!showTransactions)}
+              className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors w-full"
+            >
+              <svg
+                className={`w-4 h-4 transition-transform ${showTransactions ? "rotate-90" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              取引履歴 ({stock.transactions.length}件)
+            </button>
+
+            {showTransactions && (
+              <div className="mt-3 space-y-2">
+                {stock.transactions.map((transaction) => (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                          transaction.type === "buy"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-orange-100 text-orange-700"
+                        }`}
+                      >
+                        {transaction.type === "buy" ? "買" : "売"}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {new Date(transaction.transactionDate).toLocaleDateString("ja-JP")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {transaction.quantity}株 @ ¥{transaction.price.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          ¥{transaction.totalAmount.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="relative">
+                        <button
+                          onClick={() =>
+                            setOpenMenuTransactionId(
+                              openMenuTransactionId === transaction.id ? null : transaction.id
+                            )
+                          }
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          title="メニュー"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="5" r="1.5" />
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="12" cy="19" r="1.5" />
+                          </svg>
+                        </button>
+                        {openMenuTransactionId === transaction.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setOpenMenuTransactionId(null)}
+                            />
+                            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[100px]">
+                              <button
+                                onClick={() => {
+                                  setSelectedTransaction(transaction)
+                                  setOpenMenuTransactionId(null)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                編集
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  setOpenMenuTransactionId(null)
+                                  if (!confirm("この取引履歴を削除しますか？")) return
+                                  try {
+                                    const response = await fetch(`/api/transactions/${transaction.id}`, { method: "DELETE" })
+                                    if (!response.ok) {
+                                      const data = await response.json()
+                                      throw new Error(data.error || "削除に失敗しました")
+                                    }
+                                    toast.success("取引履歴を削除しました")
+                                    onTransactionUpdated?.()
+                                  } catch (err: any) {
+                                    toast.error(err.message || "削除に失敗しました")
+                                  }
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                              >
+                                削除
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Footer: Actions + Detail Link */}
         <div className={CARD_FOOTER_STYLES.container}>
           {/* Action Buttons */}
@@ -396,5 +528,20 @@ export default function StockCard({ stock, price, priceLoaded = false, isStale =
         </div>
       </div>
     </div>
+
+    {/* Edit Transaction Dialog */}
+    {selectedTransaction && (
+      <EditTransactionDialog
+        isOpen={true}
+        onClose={() => setSelectedTransaction(null)}
+        onSuccess={() => {
+          setSelectedTransaction(null)
+          onTransactionUpdated?.()
+        }}
+        transaction={selectedTransaction}
+        stockName={stock.stock.name}
+      />
+    )}
+    </>
   )
 }

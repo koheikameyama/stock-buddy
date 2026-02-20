@@ -20,6 +20,14 @@ export interface UserStock {
   recommendation?: "buy" | "sell" | "hold" | null
   analyzedAt?: string | null
   statusType?: string | null
+  transactions?: {
+    id: string
+    type: string
+    quantity: number
+    price: number
+    totalAmount: number
+    transactionDate: string
+  }[]
   stock: {
     id: string
     tickerCode: string

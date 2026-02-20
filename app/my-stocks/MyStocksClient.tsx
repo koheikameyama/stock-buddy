@@ -707,6 +707,7 @@ export default function MyStocksClient() {
                       onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
                       onTrackClick={stock.type === "watchlist" ? () => handleTrackClickFromWatchlist(stock) : undefined}
                       onDelete={() => handleDeleteUserStock(stock)}
+                      onTransactionUpdated={() => fetchUserStocks()}
                     />
                   ))}
                 </div>
