@@ -52,8 +52,11 @@ export class AnalysisError extends Error {
 
 export interface PortfolioAnalysisResult {
   shortTerm: string;
+  shortTermText: string;
   mediumTerm: string;
+  midTermText: string;
   longTerm: string;
+  longTermText: string;
   statusType: string;
   marketSignal: string | null;
   suggestedSellPrice: number | null;
@@ -797,8 +800,11 @@ export async function executePortfolioAnalysis(
 
   return {
     shortTerm: result.shortTerm,
+    shortTermText: result.shortTerm,
     mediumTerm: result.mediumTerm,
+    midTermText: result.mediumTerm,
     longTerm: result.longTerm,
+    longTermText: result.longTerm,
     statusType,
     marketSignal: result.marketSignal || null,
     suggestedSellPrice: result.suggestedSellPrice || null,
@@ -1078,8 +1084,11 @@ export async function executeSimulatedPortfolioAnalysis(
 
   return {
     shortTerm: result.shortTerm,
+    shortTermText: result.shortTerm,
     mediumTerm: result.mediumTerm,
+    midTermText: result.mediumTerm,
     longTerm: result.longTerm,
+    longTermText: result.longTerm,
     statusType,
     marketSignal: result.marketSignal || null,
     suggestedSellPrice: result.suggestedSellPrice || null,

@@ -536,48 +536,64 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
           />
 
           {/* AI Purchase Recommendation Section */}
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => setIsSimulating(true)}
+              className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-colors"
+            >
+              購入後分析シミュレーション
+            </button>
+          </div>
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                <span className="text-blue-500">🤖</span>
-                {isSimulating
-                  ? "AIポートフォリオ分析シミュレーション"
-                  : "AI購入判断"}
-              </h2>
-              {!isSimulating && (
-                <button
-                  onClick={() => setIsSimulating(true)}
-                  className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-colors"
-                >
-                  🧪 100株保有時の影響を分析
-                </button>
-              )}
-              {isSimulating && (
+            <PurchaseRecommendation
+              stockId={stock.stockId}
+              onAnalysisDateLoaded={setAnalysisDate}
+            />
+          </section>
+
+          {/* Simulation Result Modal */}
+          {isSimulating && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col relative overflow-hidden">
+                {/* Fixed Close Button */}
                 <button
                   onClick={() => setIsSimulating(false)}
-                  className="text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-colors"
+                  className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors z-20 bg-white/80 rounded-full p-1 shadow-sm"
                 >
-                  ✕ シミュレーションを終了
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
                 </button>
-              )}
+
+                {/* Scrollable Content */}
+                <div className="overflow-y-auto p-6 pt-12">
+                  <div className="text-left">
+                    <StockAnalysisCard
+                      stockId={stock.stockId}
+                      isSimulation={true}
+                      autoGenerate={true}
+                      onBuyAlertClick={(limitPrice) => {
+                        setCurrentTargetBuyPrice(limitPrice);
+                        setShowBuyAlertModal(true);
+                        setIsSimulating(false); // モーダルを閉じて通知設定を開く
+                      }}
+                      currentTargetBuyPrice={currentTargetBuyPrice}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            {isSimulating ? (
-              <StockAnalysisCard
-                stockId={stock.stockId}
-                isSimulation={true}
-                onBuyAlertClick={(limitPrice) => {
-                  setCurrentTargetBuyPrice(limitPrice);
-                  setShowBuyAlertModal(true);
-                }}
-                currentTargetBuyPrice={currentTargetBuyPrice}
-              />
-            ) : (
-              <PurchaseRecommendation
-                stockId={stock.stockId}
-                onAnalysisDateLoaded={setAnalysisDate}
-              />
-            )}
-          </section>
+          )}
 
           {/* Tabbed Content Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">

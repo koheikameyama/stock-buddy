@@ -66,3 +66,9 @@ export async function POST(
     );
   }
 }
+export async function GET() {
+  return NextResponse.json(
+    { error: "Method not implemented" },
+    { status: 404 },
+  );
+}
