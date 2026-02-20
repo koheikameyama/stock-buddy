@@ -14,6 +14,8 @@ import {
   buildMarketContext,
   buildDeviationRateContext,
   buildDelistingContext,
+  buildVolumeAnalysisContext,
+  buildRelativeStrengthContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context";
@@ -180,6 +182,9 @@ export async function executePurchaseRecommendation(
   // 移動平均乖離率
   const deviationRateContext = buildDeviationRateContext(prices);
 
+  // 出来高分析
+  const volumeAnalysisContext = buildVolumeAnalysisContext(prices);
+
   // 関連ニュースを取得
   const tickerCode = stock.tickerCode.replace(".T", "");
   const news = await getRelatedNews({
@@ -246,12 +251,21 @@ export async function executePurchaseRecommendation(
 
   // セクタートレンド
   let sectorTrendContext = "";
+  let sectorAvgWeekChangeRate: number | null = null;
   if (stock.sector) {
     const sectorTrend = await getSectorTrend(stock.sector);
     if (sectorTrend) {
       sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`;
+      sectorAvgWeekChangeRate = sectorTrend.avgWeekChangeRate ?? null;
     }
   }
+
+  // 相対強度分析
+  const relativeStrengthContext = buildRelativeStrengthContext(
+    weekChangeRate,
+    marketData?.weekChangeRate ?? null,
+    sectorAvgWeekChangeRate,
+  );
 
   // 財務指標のフォーマット
   const financialMetrics = buildFinancialMetrics(stock, currentPrice);
@@ -302,7 +316,7 @@ ${financialMetrics}
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
-${delistingContext}${weekChangeContext}${marketContext}${sectorTrendContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${newsContext}
+${delistingContext}${weekChangeContext}${marketContext}${sectorTrendContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 ${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をそのまま使用してください。" : ""}
@@ -393,49 +407,36 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - テクニカルが良ければ買い推奨は出せますが、財務リスクは必ず伝えてください
 
 【テクニカル指標の重視】
-- RSI・MACDなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
+- RSI・MACD・ローソク足パターンなどのテクニカル指標が提供されている場合は、必ず判断根拠として活用する
 - 複数の指標が同じ方向を示している場合（例: RSI売られすぎ + MACD上昇転換）は信頼度を高める
 - 指標間で矛盾がある場合（例: RSI買われすぎ だが MACD上昇中）は慎重な判断とし、その旨をcautionで言及する
 
-【過去の価格動向とボラティリティの考慮】
-- 直近の価格変動幅（ボラティリティ）が大きい銘柄は、リスクが高いことをconcernsで必ず言及する
-- 急騰・急落した銘柄は、反動リスクがあることを伝える
-- 過去30日の値動きパターン（上昇トレンド/下落トレンド/横ばい）を判断に反映する
+【相対強度・出来高を考慮した性質判断 - 最重要】
+■ 相対強度（銘柄 vs 市場/セクター）で動きを分析してください:
+- 銘柄が市場をアンダーパフォーム（例: 市場-1%、銘柄-5%）している場合、銘柄固有の弱さが強く、安値での「拾い買い」は極めて慎重に判断してください（"stay"推奨）。
+
+■ 出来高分析で売り圧力の質を判定してください:
+- 分配売り（下落日出来高 > 上昇日出来高の1.5倍以上）: 本物の売り圧力があり、下落は継続しやすく「落ちるナイフ」の状態です。絶対に "buy" を出さないでください。
+- 出来高を伴わない調整（下落日出来高 < 上昇日出来高の0.7倍以下）: 売り圧力が弱く、押し目買いの検討が可能です。
 
 【モメンタム（トレンドフォロー）判断 - 重要】
 ■ 下落トレンドへの対応:
-- 直近で強い下落の兆候がある銘柄は"buy"ではなく"stay"を推奨する
-- 特に短期投資の場合、下落中の銘柄は「落ちるナイフ」であり買いは危険
-- 週間変化率が-7%以下の銘柄は短期投資では"stay"推奨
-- 週間変化率が-10%以下の銘柄は中期投資でも"stay"推奨
+- 直近で強い下落（大陰線、連続下落）がある銘柄は、どれだけファンダメンタルが良くても "buy" ではなく "stay" を推奨する
+- 特に短期投資の場合、下落中の銘柄へのエントリーは「落ちるナイフ」を掴むリスクがあるため厳禁
+- 週間変化率が-7%以下の銘柄は、短期的には下げ止まりを確認するまで "stay" 推奨
 - 下落銘柄にはcautionで「下落トレンド中のリスク」について必ず言及する
 
 ■ 上昇トレンドへの対応:
 - 直近で強い上昇の兆候がある銘柄はモメンタムが強く、買いの好機である
-- 短期投資の場合、上昇中の銘柄に乗ることは有効な戦略（モメンタム投資）
-- ただし中長期投資では、週間+30%以上の急騰は天井掴みのリスクがある
-- 急騰銘柄にはcautionで「急騰後の反落リスク」について言及する
-- RSIが70以上（買われすぎ）の場合でも、モメンタムが続く可能性は考慮する
-
-【株価変動時の原因分析】
-- 週間変化率がマイナスの場合、reasonで下落の原因を以下の観点から推測し、自然な文章で説明する：
-  - 地合い: 市場全体の資金の流れ（大型株への集中、セクターローテーションなど）
-  - 材料: 銘柄固有のニュースや業績予想の変化
-  - 需給: 利益確定売りやサポートラインの割り込み
-- 週間変化率が+10%以上の場合、reasonで上昇の原因を以下の観点から推測し、自然な文章で説明する：
-  - 地合い: 市場全体のリスクオン、セクター物色
-  - 材料: 好決算、新製品発表、提携・買収など
-  - 需給: 買い戻し、レジスタンスライン突破による買い加速
-- 例（下落）: 「市場全体で大型株への資金シフトが進んでおり、中小型株は売られやすい地合いです」
-- 例（上昇）: 「好決算を受けて買いが集中し、レジスタンスラインを突破しました」
+- ただし週間+30%以上の急騰は天井掴みのリスクがあるため "stay" とし、反落を待つアドバイスをすること
 
 【"avoid"（見送り推奨）について】
 - "avoid"は購入を見送り、今後の保有候補からも外すことを検討するほど「かなり強いマイナス条件」が揃った場合の判断です。
 - 通常の下落トレンドや一時的な悪材料であれば、"avoid"ではなく"stay"（様子見）としてください。
 - 以下の条件が複合的に揃い、当面は回復の見込みが極めて低い場合のみ使用してください:
   * 赤字が継続し、業績改善の兆しが全くない
-  * 長期的な下落トレンドが継続し、テクニカル指標がすべて強いネガティブを示している
-  * 致命的な悪材料（上場廃止リスク、大規模な不正など）が出ている
+  * 長期的な下落トレンドが継続し、テクニカル指標がすべて強いネガティブ（強い下落シグナル）を示している
+  * 致命的な悪材料（上場廃止リスク、不祥事など）が出ている
 - "avoid"を選ぶ場合は、confidence を 0.8 以上に設定してください
 - 少しでも迷う場合や「今は買い時ではないだけ」の場合は、必ず "stay" を選んでください
 `;
