@@ -51,12 +51,12 @@ export default function AdditionalPurchaseDialog({
   // Reset form when dialog opens/closes or type changes
   useEffect(() => {
     if (isOpen) {
-      setQuantity("")
-      setPrice("")
+      setQuantity("100")
+      setPrice(stock?.stock.currentPrice?.toString() ?? "")
       setTransactionDate(new Date().toISOString().split("T")[0])
       setError(null)
     }
-  }, [isOpen, transactionType])
+  }, [isOpen, transactionType, stock])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

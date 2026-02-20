@@ -117,8 +117,8 @@ export default function AddStockDialog({
         setSelectedStock(null)
       }
       // 共通のリセット
-      setQuantity("")
-      setAveragePrice("")
+      setQuantity("100")
+      setAveragePrice(initialStock?.latestPrice?.toString() ?? "")
       setPurchaseDate(new Date().toISOString().split("T")[0])
       setSearchResults([])
       setShowResults(false)
@@ -136,6 +136,10 @@ export default function AddStockDialog({
     setSearchResults([])
     // 選択状態を設定
     setSelectedStock(stock)
+    // 現在価格をデフォルト値として設定
+    if (stock.latestPrice) {
+      setAveragePrice(stock.latestPrice.toString())
+    }
     // 最後にsearchQueryを更新（useEffectをトリガーするが、selectedStockがあるのでスキップされる）
     setSearchQuery(`${stock.tickerCode} - ${stock.name}`)
   }
