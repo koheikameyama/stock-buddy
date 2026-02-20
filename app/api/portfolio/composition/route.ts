@@ -59,7 +59,12 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    if (user.portfolioStocks.length === 0) {
+    // 保有中の銘柄のみフィルタ
+    const holdingStocks = user.portfolioStocks.filter((ps) =>
+      calculatePortfolioFromTransactions(ps.transactions).quantity > 0
+    )
+
+    if (holdingStocks.length === 0) {
       return NextResponse.json({
         byStock: [],
         bySector: [],
@@ -68,8 +73,8 @@ export async function GET() {
       })
     }
 
-    // 現在の株価を取得
-    const tickerCodes = user.portfolioStocks.map((ps) => ps.stock.tickerCode)
+    // 現在の株価を取得（保有中の銘柄のみ）
+    const tickerCodes = holdingStocks.map((ps) => ps.stock.tickerCode)
     const { prices } = await fetchStockPrices(tickerCodes)
     const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
 
@@ -85,12 +90,10 @@ export async function GET() {
 
     let totalValue = 0
 
-    for (const ps of user.portfolioStocks) {
+    for (const ps of holdingStocks) {
       const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
         ps.transactions
       )
-
-      if (quantity <= 0) continue
 
       const currentPrice = priceMap.get(ps.stock.tickerCode)
       if (currentPrice == null) continue

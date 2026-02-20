@@ -511,7 +511,9 @@ export async function getPortfolioOverallAnalysis(userId: string): Promise<Overa
     return { hasAnalysis: false, reason: "not_enough_stocks" }
   }
 
-  const portfolioCount = user.portfolioStocks.length
+  const portfolioCount = user.portfolioStocks.filter((ps) =>
+    calculatePortfolioFromTransactions(ps.transactions).quantity > 0
+  ).length
   const watchlistCount = user.watchlistStocks.length
   const totalCount = portfolioCount + watchlistCount
 
@@ -592,7 +594,9 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
     return { hasAnalysis: false, reason: "not_enough_stocks" }
   }
 
-  const portfolioCount = user.portfolioStocks.length
+  const portfolioCount = user.portfolioStocks.filter((ps) =>
+    calculatePortfolioFromTransactions(ps.transactions).quantity > 0
+  ).length
   const watchlistCount = user.watchlistStocks.length
   const totalCount = portfolioCount + watchlistCount
 

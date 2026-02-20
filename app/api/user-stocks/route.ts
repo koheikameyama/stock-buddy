@@ -386,8 +386,15 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      // portfolio の場合
-      const portfolioCount = await prisma.portfolioStock.count({ where: { userId } })
+      // portfolio の場合（保有中の銘柄のみカウント）
+      const allPortfolioStocks = await prisma.portfolioStock.findMany({
+        where: { userId },
+        select: { transactions: { select: { type: true, quantity: true } } },
+      })
+      const portfolioCount = allPortfolioStocks.filter((ps) => {
+        const qty = ps.transactions.reduce((sum, t) => sum + (t.type === "buy" ? t.quantity : -t.quantity), 0)
+        return qty > 0
+      }).length
       // ウォッチリストからポートフォリオへの移行の場合は新規追加ではないのでチェック不要
       if (!existingWatchlist && portfolioCount >= MAX_PORTFOLIO_STOCKS) {
         return NextResponse.json(
