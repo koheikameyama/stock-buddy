@@ -614,9 +614,9 @@ export async function executePortfolioAnalysis(
     result.recommendation = "hold";
     result.sellReason = null;
     result.suggestedSellPercent = null;
-    result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`;
-    result.shortTerm = `【様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、この水準での売却は避けることを推奨します（反発の可能性が高い）。AIの分析: ${result.shortTerm}`;
-    result.advice = `移動平均線から${Math.abs(deviationRate).toFixed(1)}%の売られすぎ水準。大底での売却リスクが高いため、自律反発を待ちましょう。`;
+    result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%の下方乖離で「売られすぎ」の状態です。AIは売却を検討しましたが、大底で売るリスクを避けるため、自律反発を待つ様子見（リバウンド待ち）を推奨します。`;
+    result.shortTerm = `【一旦様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、今すぐの売却は避け、数日中の反発を待つことを推奨します。AIの当初分析: ${result.shortTerm}`;
+    result.advice = `異常な「売られすぎ」によるパニック状態です。大底での売却を避けるため、自律反発を待つ様子見を優先しましょう。`;
   }
 
   // 上場廃止銘柄の強制補正
@@ -660,9 +660,9 @@ export async function executePortfolioAnalysis(
     result.recommendation = "hold";
     result.sellReason = null;
     result.suggestedSellPercent = null;
-    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.sellCondition || ""}`;
-    result.shortTerm = `【様子見を推奨】${trendInfo}のトレンドが上昇見通しのため、短期の売りシグナルで手放すのは見送りを推奨します。AIの短期分析: ${result.shortTerm}`;
-    result.advice = `${trendInfo}のトレンドは上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を待つ方針を推奨します。`;
+    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。上昇トレンドが継続しているか様子を見ましょう。`;
+    result.shortTerm = `【一旦様子見を推奨】${trendInfo}のトレンドは引き続き上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を優先して一旦ホールドを推奨します。AIの短期分析: ${result.shortTerm}`;
+    result.advice = `${trendInfo}のトレンドは依然として良好です。短期的な変動に惑わされず、中長期での回復を待つ方針を優先しましょう。`;
   }
 
   // 相対強度による売り保護
@@ -685,7 +685,7 @@ export async function executePortfolioAnalysis(
     }
   }
 
-  // statusType
+  // statusType（recommendationに基づいて最終決定）
   const statusType =
     result.recommendation === "sell"
       ? "warning"
