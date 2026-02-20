@@ -60,9 +60,7 @@ export async function GET() {
     }
 
     // 保有中の銘柄のみフィルタ
-    const holdingStocks = user.portfolioStocks.filter((ps) =>
-      calculatePortfolioFromTransactions(ps.transactions).quantity > 0
-    )
+    const holdingStocks = user.portfolioStocks.filter((ps) => ps.quantity > 0)
 
     if (holdingStocks.length === 0) {
       return NextResponse.json({

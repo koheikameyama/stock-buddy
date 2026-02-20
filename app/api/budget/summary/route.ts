@@ -31,7 +31,7 @@ export async function GET() {
       select: { investmentBudget: true },
     }),
     prisma.portfolioStock.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, quantity: { gt: 0 } },
       select: {
         transactions: {
           select: { type: true, quantity: true, price: true, transactionDate: true },
@@ -45,9 +45,7 @@ export async function GET() {
   let holdingsCost = 0
   for (const ps of portfolioStocks) {
     const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(ps.transactions)
-    if (quantity > 0) {
-      holdingsCost += quantity * averagePurchasePrice.toNumber()
-    }
+    holdingsCost += quantity * averagePurchasePrice.toNumber()
   }
 
   const totalBudget = userSettings?.investmentBudget ?? null

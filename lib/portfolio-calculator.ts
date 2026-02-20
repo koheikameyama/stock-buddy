@@ -1,4 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/library"
+import { prisma } from "@/lib/prisma"
 
 interface TransactionInput {
   type: string // "buy" | "sell"
@@ -56,4 +57,23 @@ export function calculatePortfolioFromTransactions(
     quantity: Math.max(0, totalQuantity),
     averagePurchasePrice,
   }
+}
+
+/**
+ * PortfolioStock の quantity カラムを Transaction から再計算して同期
+ * Transaction の作成/更新/削除後に呼ぶ
+ */
+export async function syncPortfolioStockQuantity(portfolioStockId: string): Promise<number> {
+  const transactions = await prisma.transaction.findMany({
+    where: { portfolioStockId },
+    select: { type: true, quantity: true },
+  })
+  const quantity = Math.max(0, transactions.reduce((sum, t) =>
+    sum + (t.type === "buy" ? t.quantity : -t.quantity), 0
+  ))
+  await prisma.portfolioStock.update({
+    where: { id: portfolioStockId },
+    data: { quantity },
+  })
+  return quantity
 }

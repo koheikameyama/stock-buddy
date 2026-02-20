@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
+import { syncPortfolioStockQuantity } from "@/lib/portfolio-calculator"
 
 interface UpdateTransactionRequest {
   quantity?: number
@@ -94,6 +95,11 @@ export async function PATCH(
       data: updateData,
     })
 
+    // PortfolioStock の quantity を同期
+    if (transaction.portfolioStockId) {
+      await syncPortfolioStockQuantity(transaction.portfolioStockId)
+    }
+
     return NextResponse.json({
       id: updatedTransaction.id,
       type: updatedTransaction.type,
@@ -154,7 +160,7 @@ export async function DELETE(
       where: { id },
     })
 
-    // Transactionがなくなったらポートフォリオも削除
+    // Transactionがなくなったらポートフォリオも削除、残りがあればquantity同期
     if (portfolioStockId) {
       const remainingTransactions = await prisma.transaction.count({
         where: { portfolioStockId },
@@ -164,6 +170,8 @@ export async function DELETE(
         await prisma.portfolioStock.delete({
           where: { id: portfolioStockId },
         })
+      } else {
+        await syncPortfolioStockQuantity(portfolioStockId)
       }
     }
 

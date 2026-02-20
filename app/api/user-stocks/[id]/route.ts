@@ -101,6 +101,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
         data: {
           userId,
           stockId: watchlistStock.stockId,
+          quantity, // 初回購入数量を設定
         },
         include: {
           stock: {

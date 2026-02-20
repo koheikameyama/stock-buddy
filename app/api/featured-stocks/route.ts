@@ -31,21 +31,17 @@ export async function GET() {
         select: { id: true, stockId: true },
       }),
       prisma.portfolioStock.findMany({
-        where: { userId },
-        select: { id: true, stockId: true, transactions: { select: { type: true, quantity: true } } },
+        where: { userId, quantity: { gt: 0 } },
+        select: { id: true, stockId: true },
       }),
       prisma.trackedStock.findMany({
         where: { userId },
         select: { id: true, stockId: true },
       }),
     ])
-    // 保有中 = ポートフォリオにあり、かつ保有数 > 0 の銘柄
-    const activePortfolio = portfolio.filter((p) => {
-      const qty = p.transactions.reduce((sum, t) => sum + (t.type === "buy" ? t.quantity : -t.quantity), 0)
-      return qty > 0
-    })
-    const portfolioStockIds = activePortfolio.map((s) => s.stockId)
-    const portfolioMap = new Map(activePortfolio.map((s) => [s.stockId, s.id]))
+    // 保有中 = ポートフォリオにあり、かつ保有数 > 0 の銘柄（DBクエリで絞り込み済み）
+    const portfolioStockIds = portfolio.map((s) => s.stockId)
+    const portfolioMap = new Map(portfolio.map((s) => [s.stockId, s.id]))
     // ウォッチリスト = 気になる銘柄
     const watchlistStockIds = watchlist.map((s) => s.stockId)
     const watchlistMap = new Map(watchlist.map((s) => [s.stockId, s.id]))

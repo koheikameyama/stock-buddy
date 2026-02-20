@@ -20,10 +20,10 @@ export async function GET() {
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 })
     }
 
-    // ユーザーの全PortfolioStockを取得（Transactionを含む）
+    // 売却済み（quantity=0）のPortfolioStockを取得（Transactionを含む）
     const [portfolioStocks, watchlistStocks] = await Promise.all([
       prisma.portfolioStock.findMany({
-        where: { userId: user.id },
+        where: { userId: user.id, quantity: 0 },
         include: {
           stock: {
             select: {
@@ -52,11 +52,6 @@ export async function GET() {
     // 売却済み銘柄をフィルタリング（ウォッチリストにある銘柄は除外）
     const soldStocks = portfolioStocks
       .map((ps) => {
-        const { quantity } = calculatePortfolioFromTransactions(ps.transactions)
-
-        // 保有数が0の場合のみ対象
-        if (quantity !== 0) return null
-
         // ウォッチリストにある場合は除外
         if (watchlistStockIds.has(ps.stockId)) return null
 

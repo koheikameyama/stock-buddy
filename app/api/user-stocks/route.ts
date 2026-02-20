@@ -3,7 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { searchAndAddStock } from "@/lib/stock-fetcher"
 import { Decimal } from "@prisma/client/runtime/library"
-import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
+import { calculatePortfolioFromTransactions, syncPortfolioStockQuantity } from "@/lib/portfolio-calculator"
 import { MAX_WATCHLIST_STOCKS, MAX_PORTFOLIO_STOCKS } from "@/lib/constants"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { executePurchaseRecommendation } from "@/lib/purchase-recommendation-core"
@@ -387,14 +387,9 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // portfolio の場合（保有中の銘柄のみカウント）
-      const allPortfolioStocks = await prisma.portfolioStock.findMany({
-        where: { userId },
-        select: { transactions: { select: { type: true, quantity: true } } },
+      const portfolioCount = await prisma.portfolioStock.count({
+        where: { userId, quantity: { gt: 0 } },
       })
-      const portfolioCount = allPortfolioStocks.filter((ps) => {
-        const qty = ps.transactions.reduce((sum, t) => sum + (t.type === "buy" ? t.quantity : -t.quantity), 0)
-        return qty > 0
-      }).length
       // ウォッチリストからポートフォリオへの移行の場合は新規追加ではないのでチェック不要
       if (!existingWatchlist && portfolioCount >= MAX_PORTFOLIO_STOCKS) {
         return NextResponse.json(
@@ -540,6 +535,9 @@ export async function POST(request: NextRequest) {
           },
         })
 
+        // PortfolioStock の quantity を同期
+        await syncPortfolioStockQuantity(existingPortfolio.id)
+
         // 更新されたPortfolioStockを取得
         const portfolioStock = await prisma.portfolioStock.findUnique({
           where: { id: existingPortfolio.id },
@@ -575,6 +573,7 @@ export async function POST(request: NextRequest) {
             data: {
               userId,
               stockId: stock.id,
+              quantity, // 初回購入数量を設定
             },
             include: {
               stock: {
