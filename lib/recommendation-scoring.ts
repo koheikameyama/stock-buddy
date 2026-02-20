@@ -4,7 +4,7 @@
  * Pythonスクリプト (generate_personal_recommendations.py) から移植
  */
 
-import { MA_DEVIATION } from "@/lib/constants"
+import { MA_DEVIATION, MOMENTUM } from "@/lib/constants"
 import { getSectorScoreBonus, type SectorTrendData } from "@/lib/sector-trend"
 
 // 設定
@@ -153,9 +153,12 @@ export function calculateStockScores(
   const penalty = RISK_PENALTY[risk || "medium"] || -20
   const scoredStocks: ScoredStock[] = []
 
+  const isShortTerm = period === "short"
+
   for (const stock of stocks) {
-    // 異常な急騰（週間+50%超）は除外
-    if (stock.weekChangeRate !== null && stock.weekChangeRate > 50) {
+    // 異常な急騰（週間+50%超）は除外（短期投資は+80%超のみ除外）
+    const extremeSurgeLimit = isShortTerm ? 80 : 50
+    if (stock.weekChangeRate !== null && stock.weekChangeRate > extremeSurgeLimit) {
       continue
     }
 
@@ -182,14 +185,34 @@ export function calculateStockScores(
       scoreBreakdown["riskPenalty"] = penalty
     }
 
-    // 急騰銘柄へのペナルティ
+    // 急騰銘柄へのペナルティ（投資期間別）
     if (stock.weekChangeRate !== null) {
-      if (stock.weekChangeRate >= 30) {
+      if (isShortTerm) {
+        // 短期投資: 急騰ペナルティなし（モメンタム重視）
+      } else if (stock.weekChangeRate >= 30) {
         totalScore -= 20
         scoreBreakdown["surgePenalty"] = -20
       } else if (stock.weekChangeRate >= 20) {
         totalScore -= 10
         scoreBreakdown["surgePenalty"] = -10
+      }
+    }
+
+    // 下落トレンドへのペナルティ（投資期間別）
+    if (stock.weekChangeRate !== null) {
+      const declineThreshold = isShortTerm
+        ? MOMENTUM.SHORT_TERM_DECLINE_THRESHOLD
+        : period === "long"
+          ? MOMENTUM.LONG_TERM_DECLINE_THRESHOLD
+          : MOMENTUM.MEDIUM_TERM_DECLINE_THRESHOLD
+
+      if (stock.weekChangeRate <= declineThreshold) {
+        totalScore += MOMENTUM.STRONG_DECLINE_SCORE_PENALTY
+        scoreBreakdown["declinePenalty"] = MOMENTUM.STRONG_DECLINE_SCORE_PENALTY
+      } else if (stock.weekChangeRate <= declineThreshold + 3) {
+        // 閾値付近（閾値+3%まで）は軽めのペナルティ
+        totalScore += MOMENTUM.DECLINE_SCORE_PENALTY
+        scoreBreakdown["declinePenalty"] = MOMENTUM.DECLINE_SCORE_PENALTY
       }
     }
 
@@ -201,7 +224,8 @@ export function calculateStockScores(
 
     // 移動平均乖離率によるペナルティ/ボーナス
     if (stock.maDeviationRate !== null) {
-      if (stock.maDeviationRate >= MA_DEVIATION.UPPER_THRESHOLD) {
+      if (stock.maDeviationRate >= MA_DEVIATION.UPPER_THRESHOLD && !isShortTerm) {
+        // 短期投資は過熱圏ペナルティをスキップ（モメンタム重視）
         totalScore += MA_DEVIATION.SCORE_PENALTY
         scoreBreakdown["maDeviationPenalty"] = MA_DEVIATION.SCORE_PENALTY
       } else if (

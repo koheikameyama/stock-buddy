@@ -192,6 +192,26 @@ export const MA_DEVIATION = {
   RSI_OVERBOUGHT_THRESHOLD: 70,  // RSIがこれを超えたら押し目買い推奨
 } as const
 
+// モメンタム（トレンドフォロー）の閾値
+export const MOMENTUM = {
+  // 下落トレンド検出（週間変化率 %）: これ以下で buy → stay
+  SHORT_TERM_DECLINE_THRESHOLD: -7,   // 短期投資: -7% で下落判定
+  MEDIUM_TERM_DECLINE_THRESHOLD: -10, // 中期投資: -10% で下落判定
+  LONG_TERM_DECLINE_THRESHOLD: -15,   // 長期投資: -15% で下落判定
+  DEFAULT_DECLINE_THRESHOLD: -10,     // 投資期間未設定時のデフォルト
+  DECLINE_CONFIDENCE_PENALTY: -0.1,   // 下落トレンド時のconfidenceペナルティ
+  // 急騰銘柄ルールの投資期間別閾値（週間変化率 %）: これ以上で buy → stay
+  SHORT_TERM_SURGE_THRESHOLD: null,   // 短期投資: 制限なし（モメンタム重視）
+  MEDIUM_TERM_SURGE_THRESHOLD: 40,    // 中期投資: +40% 以上でブロック
+  LONG_TERM_SURGE_THRESHOLD: 30,      // 長期投資: +30% 以上でブロック（現行維持）
+  DEFAULT_SURGE_THRESHOLD: 30,        // 投資期間未設定時のデフォルト
+  // 過熱圏ルール: 短期投資は無効化
+  SHORT_TERM_SKIP_OVERHEAT: true,     // 短期投資: 過熱圏ルールをスキップ
+  // おすすめスコアリング用ペナルティ
+  DECLINE_SCORE_PENALTY: -15,         // 下落銘柄のスコアペナルティ
+  STRONG_DECLINE_SCORE_PENALTY: -25,  // 強い下落銘柄のスコアペナルティ
+} as const
+
 // 売りタイミング判断の閾値
 export const SELL_TIMING = {
   DEVIATION_LOWER_THRESHOLD: -5,        // 乖離率がこれ未満で戻り売り推奨

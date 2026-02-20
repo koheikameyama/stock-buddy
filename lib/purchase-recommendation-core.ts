@@ -14,13 +14,13 @@ import {
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
-import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
+import { MA_DEVIATION, SELL_TIMING, MOMENTUM } from "@/lib/constants"
 import { calculateDeviationRate, calculateSMA, calculateRSI } from "@/lib/technical-indicators"
 import { getTodayForDB } from "@/lib/date-utils"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { isSurgeStock, isDangerousStock, isOverheated } from "@/lib/stock-safety-rules"
+import { isSurgeStock, isDangerousStock, isOverheated, isInDecline } from "@/lib/stock-safety-rules"
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 import { AnalysisError } from "@/lib/portfolio-analysis-core"
 
@@ -369,12 +369,20 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - 急騰・急落した銘柄は、反動リスクがあることを伝える
 - 過去30日の値動きパターン（上昇トレンド/下落トレンド/横ばい）を判断に反映する
 
-【急騰銘柄への対応 - 重要】
-- 週間変化率が+20%以上の銘柄は「上がりきった銘柄」の可能性が高い
-- 週間変化率が+30%以上の銘柄は、原則として"buy"ではなく"stay"を推奨する
-- 「今から買っても遅い」「すでに上昇している」という観点を必ず考慮する
-- cautionで「急騰後の反落リスク」について必ず言及する
-- RSIが70以上（買われすぎ）の場合は、特に慎重な判断をする
+【モメンタム（トレンドフォロー）判断 - 重要】
+■ 下落トレンドへの対応:
+- 直近で強い下落の兆候がある銘柄は"buy"ではなく"stay"を推奨する
+- 特に短期投資の場合、下落中の銘柄は「落ちるナイフ」であり買いは危険
+- 週間変化率が-7%以下の銘柄は短期投資では"stay"推奨
+- 週間変化率が-10%以下の銘柄は中期投資でも"stay"推奨
+- 下落銘柄にはcautionで「下落トレンド中のリスク」について必ず言及する
+
+■ 上昇トレンドへの対応:
+- 直近で強い上昇の兆候がある銘柄はモメンタムが強く、買いの好機である
+- 短期投資の場合、上昇中の銘柄に乗ることは有効な戦略（モメンタム投資）
+- ただし中長期投資では、週間+30%以上の急騰は天井掴みのリスクがある
+- 急騰銘柄にはcautionで「急騰後の反落リスク」について言及する
+- RSIが70以上（買われすぎ）の場合でも、モメンタムが続く可能性は考慮する
 
 【株価変動時の原因分析】
 - 週間変化率がマイナスの場合、reasonで下落の原因を以下の観点から推測し、自然な文章で説明する：
@@ -472,8 +480,18 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.recommendation = "stay"
   }
 
-  // 急騰銘柄の強制補正
-  if (isSurgeStock(weekChangeRate) && result.recommendation === "buy") {
+  const investmentPeriod = userSettings?.investmentPeriod ?? null
+
+  // 下落トレンドの強制補正（投資期間別）
+  if (isInDecline(weekChangeRate, investmentPeriod) && result.recommendation === "buy") {
+    result.recommendation = "stay"
+    result.confidence = Math.max(0, result.confidence + MOMENTUM.DECLINE_CONFIDENCE_PENALTY)
+    result.caution = `週間${weekChangeRate!.toFixed(0)}%の下落トレンドのため、様子見を推奨します。${result.caution}`
+    result.buyCondition = result.buyCondition || "下落トレンドが落ち着いてから検討してください"
+  }
+
+  // 急騰銘柄の強制補正（投資期間別：短期は制限なし）
+  if (isSurgeStock(weekChangeRate, investmentPeriod) && result.recommendation === "buy") {
     result.recommendation = "stay"
     result.caution = `週間+${weekChangeRate!.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`
   }
@@ -492,11 +510,11 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.buyCondition = result.buyCondition || "市場が落ち着いてから検討してください"
   }
 
-  // 移動平均乖離率による補正
+  // 移動平均乖離率による補正（短期投資は過熱圏ルールをスキップ）
   const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
   const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
 
-  if (isOverheated(deviationRate) && result.recommendation === "buy") {
+  if (isOverheated(deviationRate, investmentPeriod) && result.recommendation === "buy") {
     result.recommendation = "stay"
     result.confidence = Math.max(0, result.confidence + MA_DEVIATION.CONFIDENCE_PENALTY)
     result.caution = `25日移動平均線から+${deviationRate!.toFixed(1)}%乖離しており過熱圏のため、様子見を推奨します。${result.caution}`

@@ -24,7 +24,7 @@ import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { getAllSectorTrends, formatAllSectorTrendsForPrompt, type SectorTrendData } from "@/lib/sector-trend"
 import { calculateDeviationRate } from "@/lib/technical-indicators"
 import { MA_DEVIATION } from "@/lib/constants"
-import { isSurgeStock, isDangerousStock, isOverheated } from "@/lib/stock-safety-rules"
+import { isSurgeStock, isDangerousStock, isOverheated, isInDecline } from "@/lib/stock-safety-rules"
 import {
   calculateStockScores,
   applySectorDiversification,
@@ -582,14 +582,20 @@ ${stockSummaries}
 ${newsContext}
 ${PROMPT_MARKET_SIGNAL_DEFINITION}
 
-【評価基準（購入判断と同等の基準で厳選してください）】
+【評価基準（モメンタム重視で厳選してください）】
 - AI予測データがある銘柄は、その予測を重要な根拠として活用してください
 - 予測が「下落」の銘柄は選ばないでください（明確な反発根拠がない限り）
-- 移動平均乖離率が過熱圏（+20%以上）の銘柄は避けてください
-- 急騰銘柄（週間+30%以上）は選ばないでください
 - 赤字かつ高ボラティリティ（50%超）の銘柄は選ばないでください
 - 複数のテクニカル指標が同じ方向を示している場合は信頼度が高いと判断してください
 - 指標間で矛盾がある場合は慎重な判断をしてください
+
+■ モメンタム（トレンドフォロー）重視:
+- 直近で強い下落トレンドの銘柄は選ばないでください（落ちるナイフを掴まない）
+- 特に短期投資では、週間変化率がマイナスの銘柄は慎重に判断してください
+- 上昇トレンドの銘柄はモメンタムが強く、積極的に選んでください
+${investmentPeriod === "short" ? `- 【短期投資向け】上昇中の銘柄に乗ることが重要です。急騰銘柄でもモメンタムが続く限り有効です
+- 【短期投資向け】移動平均乖離率が高くても上昇モメンタムが強ければ選んでOKです` : `- 移動平均乖離率が過熱圏（+20%以上）の銘柄は避けてください
+- 急騰銘柄（週間+30%以上）は天井掴みのリスクがあるため選ばないでください`}
 
 【株価変動時の原因分析】
 - 週間変化率がマイナスの銘柄を選ぶ場合、下落の原因（地合い/材料/需給）をreasonで推測してください
@@ -614,7 +620,6 @@ ${PROMPT_MARKET_SIGNAL_DEFINITION}
 
 【制約】
 ${PROMPT_NEWS_CONSTRAINTS}
-- 急騰銘柄（週間+20%以上）は「上がりきった可能性」を考慮してください
 - 赤字企業は「業績リスク」を理由で必ず言及してください
 - 提供されたニュース情報がある場合は、判断の根拠として活用してください
 - ニュースにない情報は推測や創作をしないでください
@@ -701,13 +706,16 @@ ${PROMPT_NEWS_CONSTRAINTS}
       const s = ctx.stock
       const volatility = s.volatility !== null ? Number(s.volatility) : null
 
-      if (isSurgeStock(ctx.weekChangeRate)) {
+      if (isInDecline(ctx.weekChangeRate, investmentPeriod)) {
+        console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is in decline (week: ${ctx.weekChangeRate?.toFixed(0)}%)`)
+      }
+      if (isSurgeStock(ctx.weekChangeRate, investmentPeriod)) {
         console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is surge stock (week: +${ctx.weekChangeRate?.toFixed(0)}%)`)
       }
       if (isDangerousStock(s.isProfitable, volatility)) {
         console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is dangerous (unprofitable + high volatility)`)
       }
-      if (isOverheated(ctx.deviationRate)) {
+      if (isOverheated(ctx.deviationRate, investmentPeriod)) {
         console.warn(`  ⚠️ Safety warning: ${s.tickerCode} is overheated (deviation: +${ctx.deviationRate?.toFixed(1)}%)`)
       }
     }
