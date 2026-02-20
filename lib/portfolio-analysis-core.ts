@@ -17,7 +17,7 @@ import {
 import { getNikkei225Data } from "@/lib/market-index"
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 import { calculateDeviationRate, calculateRSI, calculateSMA } from "@/lib/technical-indicators"
-import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
+import { MA_DEVIATION, SELL_TIMING, PORTFOLIO_ANALYSIS } from "@/lib/constants"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
@@ -94,6 +94,15 @@ export async function executePortfolioAnalysis(
   }
 
   const averagePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0
+
+  // 直近の買い取引日から経過日数を計算（購入直後の売り抑制用）
+  const latestBuyDate = portfolioStock.transactions
+    .filter(tx => tx.type === "buy")
+    .map(tx => tx.transactionDate)
+    .sort((a, b) => b.getTime() - a.getTime())[0]
+  const daysSincePurchase = latestBuyDate
+    ? dayjs().tz("Asia/Tokyo").diff(dayjs(latestBuyDate).tz("Asia/Tokyo"), "day")
+    : null
 
   // staleチェック: 株価データが古すぎる銘柄は分析スキップ
   const { prices: realtimePrices, staleTickers: staleCheck } = await fetchStockPrices([portfolioStock.stock.tickerCode])
@@ -391,6 +400,22 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.statusType = "warning"
     result.recommendation = "sell"
     result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`
+  }
+
+  // 購入直後の売り抑制: 3日以内の購入はsell→holdに補正（大幅損失時は除外）
+  if (
+    daysSincePurchase !== null &&
+    daysSincePurchase <= PORTFOLIO_ANALYSIS.RECENT_PURCHASE_DAYS &&
+    result.recommendation === "sell" &&
+    !stock.isDelisted &&
+    (profitPercent === null || profitPercent > PORTFOLIO_ANALYSIS.FORCE_SELL_LOSS_THRESHOLD)
+  ) {
+    result.recommendation = "hold"
+    result.statusType = "neutral"
+    statusType = "neutral"
+    result.sellReason = null
+    result.suggestedSellPercent = null
+    result.shortTerm = `購入から${daysSincePurchase}日目のため、売却判断は時期尚早です。${result.shortTerm}`
   }
 
   // statusType と recommendation の整合性補正
