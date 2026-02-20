@@ -137,12 +137,30 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const newPrices = new Map(currentPrices);
       const newStaleTickers = new Set(get().staleTickers);
+
       for (const res of responses) {
         if (res.status === "fulfilled" && res.value) {
           if (res.value.prices) {
             for (const price of res.value.prices as StockPrice[]) {
-              newPrices.set(price.tickerCode, createCacheEntry(price));
+              // API返却コード（.T付き等）でキャッシュを更新
+              const cacheEntry = createCacheEntry(price);
+              newPrices.set(price.tickerCode, cacheEntry);
               result.set(price.tickerCode, price);
+
+              // 重要: 元のリクエストされたコード（.Tなし等）にもマッピングする
+              // これにより DB のコードでアクセスしているフロントエンドが正しくデータを取得できる
+              for (const originalTicker of tickersToFetch) {
+                // 正規化して一致する場合、またはサフィックス抜きで一致する場合
+                if (
+                  price.tickerCode === originalTicker ||
+                  price.tickerCode.replace(/\.T$/i, "") ===
+                    originalTicker.replace(/\.T$/i, "")
+                ) {
+                  result.set(originalTicker, price);
+                  // キャッシュも元のコードで保持（重複するがフロントエンドの利便性のため）
+                  newPrices.set(originalTicker, cacheEntry);
+                }
+              }
             }
           }
           if (res.value.staleTickers) {

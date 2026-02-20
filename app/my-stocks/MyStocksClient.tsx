@@ -1,34 +1,43 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-import StockCard from "./StockCard"
-import TrackedStockCard from "./TrackedStockCard"
-import SoldStockCard from "./SoldStockCard"
-import AddStockDialog from "./AddStockDialog"
-import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog"
-import { UPDATE_SCHEDULES, MAX_PORTFOLIO_STOCKS, MAX_WATCHLIST_STOCKS } from "@/lib/constants"
-import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
-import { useAppStore } from "@/store/useAppStore"
-import type { UserStock, TrackedStock, SoldStock, StockPrice } from "@/store/types"
-import { MyStocksSkeleton } from "@/components/skeletons/my-stocks-skeleton"
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import StockCard from "./StockCard";
+import TrackedStockCard from "./TrackedStockCard";
+import SoldStockCard from "./SoldStockCard";
+import AddStockDialog from "./AddStockDialog";
+import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog";
+import {
+  UPDATE_SCHEDULES,
+  MAX_PORTFOLIO_STOCKS,
+  MAX_WATCHLIST_STOCKS,
+} from "@/lib/constants";
+import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen";
+import { useAppStore } from "@/store/useAppStore";
+import type {
+  UserStock,
+  TrackedStock,
+  SoldStock,
+  StockPrice,
+} from "@/store/types";
+import { MyStocksSkeleton } from "@/components/skeletons/my-stocks-skeleton";
 
 interface PurchaseRecommendation {
-  recommendation: "buy" | "stay" | "avoid"
-  confidence: number
-  reason: string
-  caution: string
-  analyzedAt?: string
-  buyTiming?: "market" | "dip" | null
-  sellTiming?: "market" | "rebound" | null
+  recommendation: "buy" | "stay" | "avoid";
+  confidence: number;
+  reason: string;
+  caution: string;
+  analyzedAt?: string;
+  buyTiming?: "market" | "dip" | null;
+  sellTiming?: "market" | "rebound" | null;
 }
 
-type TabType = "portfolio" | "watchlist" | "tracked" | "sold"
+type TabType = "portfolio" | "watchlist" | "tracked" | "sold";
 
 export default function MyStocksClient() {
-  const router = useRouter()
-  useMarkPageSeen("my-stocks")
+  const router = useRouter();
+  useMarkPageSeen("my-stocks");
 
   // ストアから取得
   const {
@@ -40,38 +49,44 @@ export default function MyStocksClient() {
     updateUserStock,
     removeTrackedStock,
     invalidatePortfolioSummary,
-  } = useAppStore()
+  } = useAppStore();
 
   // ローカル状態
-  const [userStocks, setUserStocks] = useState<UserStock[]>([])
-  const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([])
-  const [soldStocks, setSoldStocks] = useState<SoldStock[]>([])
-  const [prices, setPrices] = useState<Record<string, StockPrice>>({})
-  const [pricesLoaded, setPricesLoaded] = useState(false)
-  const [recommendations, setRecommendations] = useState<Record<string, PurchaseRecommendation>>({})
-  const [trackedStaleTickers, setTrackedStaleTickers] = useState<Set<string>>(new Set())
-  const [trackedPricesLoaded, setTrackedPricesLoaded] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showTransactionDialog, setShowTransactionDialog] = useState(false)
-  const [selectedStock, setSelectedStock] = useState<UserStock | null>(null)
-  const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
-  const [activeTab, setActiveTab] = useState<TabType>("portfolio")
+  const [userStocks, setUserStocks] = useState<UserStock[]>([]);
+  const [trackedStocks, setTrackedStocks] = useState<TrackedStock[]>([]);
+  const [soldStocks, setSoldStocks] = useState<SoldStock[]>([]);
+  const [prices, setPrices] = useState<Record<string, StockPrice>>({});
+  const [pricesLoaded, setPricesLoaded] = useState(false);
+  const [recommendations, setRecommendations] = useState<
+    Record<string, PurchaseRecommendation>
+  >({});
+  const [trackedStaleTickers, setTrackedStaleTickers] = useState<Set<string>>(
+    new Set(),
+  );
+  const [trackedPricesLoaded, setTrackedPricesLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showTransactionDialog, setShowTransactionDialog] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<UserStock | null>(null);
+  const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy");
+  const [activeTab, setActiveTab] = useState<TabType>("portfolio");
   // ウォッチリストからの購入用
-  const [purchaseFromWatchlist, setPurchaseFromWatchlist] = useState<UserStock | null>(null)
+  const [purchaseFromWatchlist, setPurchaseFromWatchlist] =
+    useState<UserStock | null>(null);
   // ウォッチリストからの追跡確認モーダル用
-  const [showTrackingModal, setShowTrackingModal] = useState(false)
-  const [trackingFromWatchlist, setTrackingFromWatchlist] = useState<UserStock | null>(null)
-  const [trackingInProgress, setTrackingInProgress] = useState(false)
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [trackingFromWatchlist, setTrackingFromWatchlist] =
+    useState<UserStock | null>(null);
+  const [trackingInProgress, setTrackingInProgress] = useState(false);
   // 追跡・過去の保有銘柄からの移動用
   const [stockToMove, setStockToMove] = useState<{
-    stockId: string
-    tickerCode: string
-    name: string
-    market?: string
-    sector?: string | null
-  } | null>(null)
+    stockId: string;
+    tickerCode: string;
+    name: string;
+    market?: string;
+    sector?: string | null;
+  } | null>(null);
   // Fetch all data on initial load
   useEffect(() => {
     async function fetchData() {
@@ -80,85 +95,96 @@ export default function MyStocksClient() {
           fetchUserStocks(),
           fetchTrackedStocks().catch(() => []),
           fetchSoldStocks().catch(() => []),
-        ])
+        ]);
 
-        setUserStocks(stocksData)
-        setTrackedStocks(trackedData)
-        setSoldStocks(soldData)
+        setUserStocks(stocksData);
+        setTrackedStocks(trackedData);
+        setSoldStocks(soldData);
       } catch (err) {
-        console.error("Error fetching data:", err)
-        setError("銘柄の取得に失敗しました")
+        console.error("Error fetching data:", err);
+        setError("銘柄の取得に失敗しました");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    fetchData()
-  }, [fetchUserStocks, fetchTrackedStocks, fetchSoldStocks])
+    fetchData();
+  }, [fetchUserStocks, fetchTrackedStocks, fetchSoldStocks]);
 
   // Fetch stock prices for active tab only
   useEffect(() => {
     async function fetchPricesFromStore() {
-      let tickerCodes: string[] = []
+      let tickerCodes: string[] = [];
 
       if (activeTab === "portfolio") {
         tickerCodes = userStocks
           .filter((s) => s.type === "portfolio" && (s.quantity ?? 0) > 0)
-          .map((s) => s.stock.tickerCode)
+          .map((s) => s.stock.tickerCode);
       } else if (activeTab === "watchlist") {
         tickerCodes = userStocks
           .filter((s) => s.type === "watchlist")
-          .map((s) => s.stock.tickerCode)
+          .map((s) => s.stock.tickerCode);
       }
 
-      if (tickerCodes.length === 0) return
+      if (tickerCodes.length === 0) return;
 
       try {
-        const priceMap = await fetchStockPrices(tickerCodes)
-        const priceRecord: Record<string, StockPrice> = {}
+        const priceMap = await fetchStockPrices(tickerCodes);
+        const priceRecord: Record<string, StockPrice> = {};
         priceMap.forEach((price, ticker) => {
-          priceRecord[ticker] = price
-        })
-        setPrices((prev) => ({ ...prev, ...priceRecord }))
+          priceRecord[ticker] = price;
+        });
+        setPrices((prev) => ({ ...prev, ...priceRecord }));
       } catch (err) {
-        console.error("Error fetching prices:", err)
+        console.error("Error fetching prices:", err);
       } finally {
-        setPricesLoaded(true)
+        setPricesLoaded(true);
       }
     }
 
-    if (userStocks.length > 0 && (activeTab === "portfolio" || activeTab === "watchlist")) {
-      setPricesLoaded(false)
-      fetchPricesFromStore()
-      const interval = setInterval(fetchPricesFromStore, 5 * 60 * 1000)
-      return () => clearInterval(interval)
+    if (
+      userStocks.length > 0 &&
+      (activeTab === "portfolio" || activeTab === "watchlist")
+    ) {
+      setPricesLoaded(false);
+      fetchPricesFromStore();
+      const interval = setInterval(fetchPricesFromStore, 5 * 60 * 1000);
+      return () => clearInterval(interval);
     }
-  }, [userStocks, activeTab, fetchStockPrices])
+  }, [userStocks, activeTab, fetchStockPrices]);
 
   // Fetch stock prices for tracked stocks (only when tracked tab is active)
   useEffect(() => {
     async function fetchTrackedPrices() {
-      const tickerCodes = trackedStocks.map((s) => s.stock.tickerCode)
-      if (tickerCodes.length === 0) return
+      const tickerCodes = trackedStocks.map((s) => s.stock.tickerCode);
+      if (tickerCodes.length === 0) return;
 
       try {
-        const response = await fetch(`/api/stocks/prices?tickers=${tickerCodes.join(",")}`)
-        if (!response.ok) return
+        const response = await fetch(
+          `/api/stocks/prices?tickers=${tickerCodes.join(",")}`,
+        );
+        if (!response.ok) return;
 
-        const data = await response.json()
-        const priceMap = new Map<string, StockPrice>(
-          data.prices?.map((p: StockPrice) => [p.tickerCode, p]) || []
-        )
+        const data = await response.json();
+        const priceMap = new Map<string, StockPrice>();
+        if (data.prices) {
+          for (const price of data.prices as StockPrice[]) {
+            priceMap.set(price.tickerCode, price);
+            // .Tあり/なしの両方の可能性を考慮してマッピング
+            const normalized = price.tickerCode.replace(/\.T$/i, "");
+            priceMap.set(normalized, price);
+          }
+        }
 
         // staleティッカーを記録
         if (data.staleTickers?.length > 0) {
-          setTrackedStaleTickers(new Set(data.staleTickers as string[]))
+          setTrackedStaleTickers(new Set(data.staleTickers as string[]));
         }
 
         // 追跡銘柄の株価を更新
         setTrackedStocks((prev) =>
           prev.map((ts) => {
-            const priceData = priceMap.get(ts.stock.tickerCode)
+            const priceData = priceMap.get(ts.stock.tickerCode);
             return priceData
               ? {
                   ...ts,
@@ -167,27 +193,27 @@ export default function MyStocksClient() {
                   changePercent: priceData.changePercent,
                   marketTime: priceData.marketTime,
                 }
-              : ts
-          })
-        )
-        setTrackedPricesLoaded(true)
+              : ts;
+          }),
+        );
+        setTrackedPricesLoaded(true);
       } catch (err) {
-        console.error("Error fetching tracked prices:", err)
-        setTrackedPricesLoaded(true)
+        console.error("Error fetching tracked prices:", err);
+        setTrackedPricesLoaded(true);
       }
     }
 
     if (activeTab === "tracked" && trackedStocks.length > 0) {
-      fetchTrackedPrices()
+      fetchTrackedPrices();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, trackedStocks.length])
+  }, [activeTab, trackedStocks.length]);
 
   // Fetch purchase recommendations for watchlist stocks
   useEffect(() => {
     async function fetchRecommendations() {
-      const watchlistStocks = userStocks.filter((s) => s.type === "watchlist")
-      if (watchlistStocks.length === 0) return
+      const watchlistStocks = userStocks.filter((s) => s.type === "watchlist");
+      if (watchlistStocks.length === 0) return;
 
       try {
         // Fetch recommendations for each watchlist stock
@@ -195,11 +221,11 @@ export default function MyStocksClient() {
           watchlistStocks.map((stock) =>
             fetch(`/api/stocks/${stock.stockId}/purchase-recommendation`)
               .then((res) => (res.ok ? res.json() : null))
-              .then((data) => ({ stockId: stock.stockId, data }))
-          )
-        )
+              .then((data) => ({ stockId: stock.stockId, data })),
+          ),
+        );
 
-        const recommendationMap: Record<string, PurchaseRecommendation> = {}
+        const recommendationMap: Record<string, PurchaseRecommendation> = {};
         results.forEach((result) => {
           if (result.status === "fulfilled" && result.value.data) {
             recommendationMap[result.value.stockId] = {
@@ -210,174 +236,206 @@ export default function MyStocksClient() {
               analyzedAt: result.value.data.analyzedAt,
               buyTiming: result.value.data.buyTiming,
               sellTiming: result.value.data.sellTiming,
-            }
+            };
           }
-        })
-        setRecommendations(recommendationMap)
+        });
+        setRecommendations(recommendationMap);
       } catch (err) {
-        console.error("Error fetching recommendations:", err)
+        console.error("Error fetching recommendations:", err);
       }
     }
 
     if (userStocks.length > 0) {
-      fetchRecommendations()
+      fetchRecommendations();
     }
-  }, [userStocks])
-
+  }, [userStocks]);
 
   // 追跡銘柄をウォッチリストに追加
-  const handleTrackedToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
+  const handleTrackedToWatchlist = async (
+    stockId: string,
+    tickerCode: string,
+    name: string,
+  ) => {
     try {
       const response = await fetch("/api/user-stocks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tickerCode, type: "watchlist" }),
-      })
+      });
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to add to watchlist")
+        const data = await response.json();
+        throw new Error(data.error || "Failed to add to watchlist");
       }
-      const newStock = await response.json()
-      setUserStocks((prev) => [...prev, newStock])
+      const newStock = await response.json();
+      setUserStocks((prev) => [...prev, newStock]);
       // 追跡銘柄リストから削除
-      setTrackedStocks((prev) => prev.filter((ts) => ts.stockId !== stockId))
-      setActiveTab("watchlist")
-      toast.success("気になるリストに追加しました")
+      setTrackedStocks((prev) => prev.filter((ts) => ts.stockId !== stockId));
+      setActiveTab("watchlist");
+      toast.success("気になるリストに追加しました");
     } catch (err) {
-      console.error("Error adding to watchlist:", err)
-      toast.error(err instanceof Error ? err.message : "追加に失敗しました")
+      console.error("Error adding to watchlist:", err);
+      toast.error(err instanceof Error ? err.message : "追加に失敗しました");
     }
-  }
+  };
 
   // 追跡銘柄をポートフォリオに追加（AddStockDialogを開く）
-  const handleTrackedToPurchase = (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => {
-    setStockToMove({ stockId, tickerCode, name, market, sector })
-    setShowAddDialog(true)
-  }
+  const handleTrackedToPurchase = (
+    stockId: string,
+    tickerCode: string,
+    name: string,
+    market: string,
+    sector: string | null,
+  ) => {
+    setStockToMove({ stockId, tickerCode, name, market, sector });
+    setShowAddDialog(true);
+  };
 
   // 過去の保有銘柄をウォッチリストに追加
-  const handleSoldToWatchlist = async (stockId: string, tickerCode: string, name: string) => {
+  const handleSoldToWatchlist = async (
+    stockId: string,
+    tickerCode: string,
+    name: string,
+  ) => {
     try {
       const response = await fetch("/api/user-stocks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tickerCode, type: "watchlist" }),
-      })
+      });
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to add to watchlist")
+        const data = await response.json();
+        throw new Error(data.error || "Failed to add to watchlist");
       }
-      const newStock = await response.json()
-      setUserStocks((prev) => [...prev, newStock])
-      setActiveTab("watchlist")
-      toast.success("気になるリストに追加しました")
+      const newStock = await response.json();
+      setUserStocks((prev) => [...prev, newStock]);
+      setActiveTab("watchlist");
+      toast.success("気になるリストに追加しました");
     } catch (err) {
-      console.error("Error adding to watchlist:", err)
-      toast.error(err instanceof Error ? err.message : "追加に失敗しました")
+      console.error("Error adding to watchlist:", err);
+      toast.error(err instanceof Error ? err.message : "追加に失敗しました");
     }
-  }
+  };
 
   // 過去の保有銘柄を再購入（AddStockDialogを開く）
-  const handleSoldToRepurchase = (stockId: string, tickerCode: string, name: string, market: string, sector: string | null) => {
-    setStockToMove({ stockId, tickerCode, name, market, sector })
-    setShowAddDialog(true)
-  }
+  const handleSoldToRepurchase = (
+    stockId: string,
+    tickerCode: string,
+    name: string,
+    market: string,
+    sector: string | null,
+  ) => {
+    setStockToMove({ stockId, tickerCode, name, market, sector });
+    setShowAddDialog(true);
+  };
 
   // ユーザー銘柄（ポートフォリオ・ウォッチリスト）を削除
   const handleDeleteUserStock = async (stock: UserStock) => {
-    if (!confirm(`${stock.stock.name}を削除しますか？`)) return
+    if (!confirm(`${stock.stock.name}を削除しますか？`)) return;
     try {
-      const response = await fetch(`/api/user-stocks/${stock.id}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("削除に失敗しました")
-      setUserStocks((prev) => prev.filter((s) => s.id !== stock.id))
-      toast.success(`${stock.stock.name}を削除しました`)
+      const response = await fetch(`/api/user-stocks/${stock.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("削除に失敗しました");
+      setUserStocks((prev) => prev.filter((s) => s.id !== stock.id));
+      toast.success(`${stock.stock.name}を削除しました`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "削除に失敗しました")
+      toast.error(err instanceof Error ? err.message : "削除に失敗しました");
     }
-  }
+  };
 
   // 追跡銘柄を削除
   const handleDeleteTrackedStock = async (trackedStockId: string) => {
-    const ts = trackedStocks.find((t) => t.id === trackedStockId)
-    if (!confirm(`${ts?.stock.name ?? "この銘柄"}を削除しますか？`)) return
+    const ts = trackedStocks.find((t) => t.id === trackedStockId);
+    if (!confirm(`${ts?.stock.name ?? "この銘柄"}を削除しますか？`)) return;
     try {
-      const response = await fetch(`/api/tracked-stocks/${trackedStockId}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("削除に失敗しました")
-      setTrackedStocks((prev) => prev.filter((t) => t.id !== trackedStockId))
-      removeTrackedStock(trackedStockId)
-      toast.success("追跡銘柄を削除しました")
+      const response = await fetch(`/api/tracked-stocks/${trackedStockId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("削除に失敗しました");
+      setTrackedStocks((prev) => prev.filter((t) => t.id !== trackedStockId));
+      removeTrackedStock(trackedStockId);
+      toast.success("追跡銘柄を削除しました");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "削除に失敗しました")
+      toast.error(err instanceof Error ? err.message : "削除に失敗しました");
     }
-  }
+  };
 
   const handleAddStock = () => {
-    setShowAddDialog(true)
-  }
+    setShowAddDialog(true);
+  };
 
   const handleAdditionalPurchase = (stock: UserStock) => {
-    setSelectedStock(stock)
-    setTransactionType("buy")
-    setShowTransactionDialog(true)
-  }
+    setSelectedStock(stock);
+    setTransactionType("buy");
+    setShowTransactionDialog(true);
+  };
 
   const handleSell = (stock: UserStock) => {
-    setSelectedStock(stock)
-    setTransactionType("sell")
-    setShowTransactionDialog(true)
-  }
+    setSelectedStock(stock);
+    setTransactionType("sell");
+    setShowTransactionDialog(true);
+  };
 
   const handlePurchaseFromWatchlist = (stock: UserStock) => {
-    setPurchaseFromWatchlist(stock)
-    setShowAddDialog(true)
-  }
+    setPurchaseFromWatchlist(stock);
+    setShowAddDialog(true);
+  };
 
   const handleTrackClickFromWatchlist = (stock: UserStock) => {
-    setTrackingFromWatchlist(stock)
-    setShowTrackingModal(true)
-  }
+    setTrackingFromWatchlist(stock);
+    setShowTrackingModal(true);
+  };
 
   const handleConfirmTracking = async () => {
-    if (!trackingFromWatchlist) return
-    setTrackingInProgress(true)
+    if (!trackingFromWatchlist) return;
+    setTrackingInProgress(true);
     try {
       const response = await fetch("/api/tracked-stocks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tickerCode: trackingFromWatchlist.stock.tickerCode }),
-      })
+        body: JSON.stringify({
+          tickerCode: trackingFromWatchlist.stock.tickerCode,
+        }),
+      });
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "追跡に失敗しました")
+        const data = await response.json();
+        throw new Error(data.error || "追跡に失敗しました");
       }
-      const newTracked = await response.json()
+      const newTracked = await response.json();
       // ウォッチリストから削除
-      await fetch(`/api/user-stocks/${trackingFromWatchlist.id}`, { method: "DELETE" })
-      setUserStocks((prev) => prev.filter((s) => s.id !== trackingFromWatchlist.id))
-      setTrackedStocks((prev) => [...prev, newTracked as unknown as TrackedStock])
-      setShowTrackingModal(false)
-      setTrackingFromWatchlist(null)
-      setActiveTab("tracked")
-      toast.success("追跡に追加しました")
+      await fetch(`/api/user-stocks/${trackingFromWatchlist.id}`, {
+        method: "DELETE",
+      });
+      setUserStocks((prev) =>
+        prev.filter((s) => s.id !== trackingFromWatchlist.id),
+      );
+      setTrackedStocks((prev) => [
+        ...prev,
+        newTracked as unknown as TrackedStock,
+      ]);
+      setShowTrackingModal(false);
+      setTrackingFromWatchlist(null);
+      setActiveTab("tracked");
+      toast.success("追跡に追加しました");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "追跡に失敗しました")
+      toast.error(err instanceof Error ? err.message : "追跡に失敗しました");
     } finally {
-      setTrackingInProgress(false)
+      setTrackingInProgress(false);
     }
-  }
+  };
 
   const handleStockAdded = (newStock: UserStock) => {
-    setUserStocks((prev) => [...prev, newStock])
-    setShowAddDialog(false)
-  }
+    setUserStocks((prev) => [...prev, newStock]);
+    setShowAddDialog(false);
+  };
 
   const handleTransactionSuccess = (updatedStock: UserStock) => {
     setUserStocks((prev) =>
-      prev.map((s) => (s.id === updatedStock.id ? updatedStock : s))
-    )
-    setShowTransactionDialog(false)
-    setSelectedStock(null)
-  }
+      prev.map((s) => (s.id === updatedStock.id ? updatedStock : s)),
+    );
+    setShowTransactionDialog(false);
+    setSelectedStock(null);
+  };
 
   // Filter stocks by type
   // quantity > 0 のものだけを保有中として表示（0株は「過去の保有」に表示される）
@@ -386,76 +444,119 @@ export default function MyStocksClient() {
   // 2. 売り推奨同士は損益率の悪い順
   // 3. それ以外は保有金額の大きい順
   const portfolioStocks = useMemo(() => {
-    const filtered = userStocks.filter((s) => s.type === "portfolio" && (s.quantity ?? 0) > 0)
+    const filtered = userStocks.filter(
+      (s) => s.type === "portfolio" && (s.quantity ?? 0) > 0,
+    );
     return filtered.sort((a, b) => {
-      const isSellA = a.recommendation === "sell"
-      const isSellB = b.recommendation === "sell"
+      const isSellA = a.recommendation === "sell";
+      const isSellB = b.recommendation === "sell";
 
       // 売り推奨を上に
-      if (isSellA && !isSellB) return -1
-      if (!isSellA && isSellB) return 1
+      if (isSellA && !isSellB) return -1;
+      if (!isSellA && isSellB) return 1;
 
       // 損益率を計算（現在価格がない場合は0）
-      const priceA = prices[a.stock.tickerCode]?.currentPrice ?? a.averagePurchasePrice ?? 0
-      const priceB = prices[b.stock.tickerCode]?.currentPrice ?? b.averagePurchasePrice ?? 0
-      const profitRateA = a.averagePurchasePrice ? (priceA - a.averagePurchasePrice) / a.averagePurchasePrice : 0
-      const profitRateB = b.averagePurchasePrice ? (priceB - b.averagePurchasePrice) / b.averagePurchasePrice : 0
+      const priceA =
+        prices[a.stock.tickerCode]?.currentPrice ?? a.averagePurchasePrice ?? 0;
+      const priceB =
+        prices[b.stock.tickerCode]?.currentPrice ?? b.averagePurchasePrice ?? 0;
+      const profitRateA = a.averagePurchasePrice
+        ? (priceA - a.averagePurchasePrice) / a.averagePurchasePrice
+        : 0;
+      const profitRateB = b.averagePurchasePrice
+        ? (priceB - b.averagePurchasePrice) / b.averagePurchasePrice
+        : 0;
 
       // 両方売り推奨の場合は損益率の悪い順（損失が大きい方が上）
       if (isSellA && isSellB) {
-        return profitRateA - profitRateB
+        return profitRateA - profitRateB;
       }
 
       // それ以外は保有金額の大きい順
-      const holdingA = (a.quantity ?? 0) * priceA
-      const holdingB = (b.quantity ?? 0) * priceB
-      return holdingB - holdingA
-    })
-  }, [userStocks, prices])
+      const holdingA = (a.quantity ?? 0) * priceA;
+      const holdingB = (b.quantity ?? 0) * priceB;
+      return holdingB - holdingA;
+    });
+  }, [userStocks, prices]);
 
   // ウォッチリストを買い推奨順に並び替え
   // 1. 買い推奨の銘柄を上に
   // 2. 買い推奨同士はconfidence（スコア）の高い順
   // 3. それ以外は追加日時の新しい順
   const watchlistStocks = useMemo(() => {
-    const filtered = userStocks.filter((s) => s.type === "watchlist")
+    const filtered = userStocks.filter((s) => s.type === "watchlist");
     return filtered.sort((a, b) => {
-      const recA = recommendations[a.stockId]
-      const recB = recommendations[b.stockId]
+      const recA = recommendations[a.stockId];
+      const recB = recommendations[b.stockId];
 
-      const isBuyA = recA?.recommendation === "buy"
-      const isBuyB = recB?.recommendation === "buy"
+      const isBuyA = recA?.recommendation === "buy";
+      const isBuyB = recB?.recommendation === "buy";
 
       // 買い推奨を上に
-      if (isBuyA && !isBuyB) return -1
-      if (!isBuyA && isBuyB) return 1
+      if (isBuyA && !isBuyB) return -1;
+      if (!isBuyA && isBuyB) return 1;
 
       // 両方買い推奨の場合はconfidenceで並べる
       if (isBuyA && isBuyB) {
-        return (recB?.confidence ?? 0) - (recA?.confidence ?? 0)
+        return (recB?.confidence ?? 0) - (recA?.confidence ?? 0);
       }
 
       // それ以外は追加日時の新しい順
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    })
-  }, [userStocks, recommendations])
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [userStocks, recommendations]);
 
-  const displayStocks = activeTab === "portfolio" ? portfolioStocks : watchlistStocks
+  const displayStocks =
+    activeTab === "portfolio" ? portfolioStocks : watchlistStocks;
 
   if (loading) {
-    return <MyStocksSkeleton />
+    return <MyStocksSkeleton />;
   }
 
   return (
     <>
       {/* 戻るボタン */}
-        <div className="mb-4 sm:mb-6">
+      <div className="mb-4 sm:mb-6">
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          <span className="text-sm sm:text-base font-semibold">
+            ダッシュボードに戻る
+          </span>
+        </button>
+      </div>
+
+      {/* Page Header */}
+      <div className="mb-4 sm:mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
+              マイ銘柄
+            </h1>
+            <p className="text-xs sm:text-base text-gray-600 mt-1">
+              気になる銘柄と保有銘柄を一覧管理
+            </p>
+          </div>
           <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            onClick={() => router.push("/portfolio-analysis")}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-blue-300 transition-all shadow-sm"
           >
             <svg
-              className="w-5 h-5"
+              className="w-4 h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -464,312 +565,355 @@ export default function MyStocksClient() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M15 19l-7-7 7-7"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            <span className="text-sm sm:text-base font-semibold">ダッシュボードに戻る</span>
+            <span>総評</span>
           </button>
         </div>
+      </div>
 
-        {/* Page Header */}
-        <div className="mb-4 sm:mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
-                マイ銘柄
-              </h1>
-              <p className="text-xs sm:text-base text-gray-600 mt-1">
-                気になる銘柄と保有銘柄を一覧管理
-              </p>
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 sm:mb-6 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <div className="relative mb-6">
+        <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-200 -mx-3 px-3 sm:mx-0 sm:px-0">
+          <button
+            onClick={() => setActiveTab("portfolio")}
+            className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+              activeTab === "portfolio"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            保有中 ({portfolioStocks.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("watchlist")}
+            className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+              activeTab === "watchlist"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            気になる ({watchlistStocks.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("tracked")}
+            className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+              activeTab === "tracked"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            追跡 ({trackedStocks.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("sold")}
+            className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+              activeTab === "sold"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            過去の保有 ({soldStocks.length})
+          </button>
+        </div>
+        {/* スクロール可能インジケーター（スマホのみ） */}
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-blue-50 to-transparent pointer-events-none sm:hidden" />
+      </div>
+
+      {/* Stock List Section */}
+      <section>
+        {activeTab === "tracked" ? (
+          // 追跡銘柄タブ
+          <>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  AI分析なしで株価を追跡
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddDialog(true)}
+                className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                追跡銘柄を追加
+              </button>
             </div>
-            <button
-              onClick={() => router.push('/portfolio-analysis')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:border-blue-300 transition-all shadow-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <span>総評</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mb-4 sm:mb-6 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
-        {/* Tab Navigation */}
-        <div className="relative mb-6">
-          <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-200 -mx-3 px-3 sm:mx-0 sm:px-0">
-            <button
-              onClick={() => setActiveTab("portfolio")}
-              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
-                activeTab === "portfolio"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              保有中 ({portfolioStocks.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("watchlist")}
-              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
-                activeTab === "watchlist"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              気になる ({watchlistStocks.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("tracked")}
-              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
-                activeTab === "tracked"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              追跡 ({trackedStocks.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("sold")}
-              className={`flex-shrink-0 px-3 sm:px-6 py-3 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
-                activeTab === "sold"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              過去の保有 ({soldStocks.length})
-            </button>
-          </div>
-          {/* スクロール可能インジケーター（スマホのみ） */}
-          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-blue-50 to-transparent pointer-events-none sm:hidden" />
-        </div>
-
-        {/* Stock List Section */}
-        <section>
-          {activeTab === "tracked" ? (
-            // 追跡銘柄タブ
-            <>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    AI分析なしで株価を追跡
-                  </p>
-                </div>
+            {trackedStocks.length === 0 ? (
+              <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                  追跡中の銘柄はありません
+                </h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+                  AI分析なしで株価だけ追いたい銘柄を追加しましょう
+                </p>
                 <button
                   onClick={() => setShowAddDialog(true)}
-                  className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
                 >
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  追跡銘柄を追加
+                  銘柄を追加する
                 </button>
               </div>
-              {trackedStocks.length === 0 ? (
-                <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                    追跡中の銘柄はありません
-                  </h3>
-                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-                    AI分析なしで株価だけ追いたい銘柄を追加しましょう
-                  </p>
-                  <button
-                    onClick={() => setShowAddDialog(true)}
-                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
-                  >
-                    銘柄を追加する
-                  </button>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:gap-6">
-                  {trackedStocks.map((ts) => (
-                    <TrackedStockCard
-                      key={ts.id}
-                      trackedStock={ts}
-                      isStale={trackedStaleTickers.has(ts.stock.tickerCode)}
-                      priceLoaded={trackedPricesLoaded}
-                      onMoveToWatchlist={handleTrackedToWatchlist}
-                      onPurchase={handleTrackedToPurchase}
-                      onDelete={handleDeleteTrackedStock}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          ) : activeTab === "sold" ? (
-            // 保有してた銘柄タブ
-            <>
-              {soldStocks.length === 0 ? (
-                <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                    保有してた銘柄はありません
-                  </h3>
-                  <p className="text-sm sm:text-base text-gray-600">
-                    全株売却した銘柄がここに表示されます
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:gap-6">
-                  {soldStocks.map((ss) => (
-                    <SoldStockCard
-                      key={ss.id}
-                      soldStock={ss}
-                      onAddToWatchlist={handleSoldToWatchlist}
-                      onRepurchase={handleSoldToRepurchase}
-                      onTransactionUpdated={async () => {
-                        const updatedSoldStocks = await fetchSoldStocks().catch(() => [])
-                        setSoldStocks(updatedSoldStocks)
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            // 保有銘柄・気になる銘柄タブ
-            <>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    現在 {displayStocks.length} 銘柄
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    AI分析更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
-                  </p>
-                </div>
+            ) : (
+              <div className="grid gap-3 sm:gap-6">
+                {trackedStocks.map((ts) => (
+                  <TrackedStockCard
+                    key={ts.id}
+                    trackedStock={ts}
+                    isStale={trackedStaleTickers.has(ts.stock.tickerCode)}
+                    priceLoaded={trackedPricesLoaded}
+                    onMoveToWatchlist={handleTrackedToWatchlist}
+                    onPurchase={handleTrackedToPurchase}
+                    onDelete={handleDeleteTrackedStock}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : activeTab === "sold" ? (
+          // 保有してた銘柄タブ
+          <>
+            {soldStocks.length === 0 ? (
+              <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                  保有してた銘柄はありません
+                </h3>
+                <p className="text-sm sm:text-base text-gray-600">
+                  全株売却した銘柄がここに表示されます
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:gap-6">
+                {soldStocks.map((ss) => (
+                  <SoldStockCard
+                    key={ss.id}
+                    soldStock={ss}
+                    onAddToWatchlist={handleSoldToWatchlist}
+                    onRepurchase={handleSoldToRepurchase}
+                    onTransactionUpdated={async () => {
+                      const updatedSoldStocks = await fetchSoldStocks().catch(
+                        () => [],
+                      );
+                      setSoldStocks(updatedSoldStocks);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          // 保有銘柄・気になる銘柄タブ
+          <>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  現在 {displayStocks.length} 銘柄
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  AI分析更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
+                </p>
+              </div>
+              <button
+                onClick={handleAddStock}
+                disabled={
+                  displayStocks.length >=
+                  (activeTab === "portfolio"
+                    ? MAX_PORTFOLIO_STOCKS
+                    : MAX_WATCHLIST_STOCKS)
+                }
+                className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                {activeTab === "portfolio"
+                  ? "保有銘柄を追加"
+                  : "気になる銘柄を追加"}
+              </button>
+            </div>
+
+            {displayStocks.length === 0 ? (
+              <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                  {activeTab === "portfolio"
+                    ? "保有銘柄がありません"
+                    : "気になる銘柄がありません"}
+                </h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+                  銘柄を追加して投資を始めましょう
+                </p>
                 <button
                   onClick={handleAddStock}
-                  disabled={displayStocks.length >= (activeTab === "portfolio" ? MAX_PORTFOLIO_STOCKS : MAX_WATCHLIST_STOCKS)}
-                  className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
                 >
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  {activeTab === "portfolio" ? "保有銘柄を追加" : "気になる銘柄を追加"}
+                  銘柄を追加する
                 </button>
               </div>
-
-              {displayStocks.length === 0 ? (
-                <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                    {activeTab === "portfolio" ? "保有銘柄がありません" : "気になる銘柄がありません"}
-                  </h3>
-                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-                    銘柄を追加して投資を始めましょう
-                  </p>
-                  <button
-                    onClick={handleAddStock}
-                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
-                  >
-                    銘柄を追加する
-                  </button>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:gap-6">
-                  {displayStocks.map((stock) => (
-                    <StockCard
-                      key={stock.id}
-                      stock={stock}
-                      price={prices[stock.stock.tickerCode]}
-                      priceLoaded={pricesLoaded}
-                      isStale={staleTickers.has(stock.stock.tickerCode)}
-                      recommendation={recommendations[stock.stockId]}
-                      portfolioRecommendation={stock.type === "portfolio" ? stock.recommendation : undefined}
-                      analyzedAt={stock.type === "watchlist" ? recommendations[stock.stockId]?.analyzedAt : stock.analyzedAt}
-                      onAdditionalPurchase={stock.type === "portfolio" ? () => handleAdditionalPurchase(stock) : undefined}
-                      onSell={stock.type === "portfolio" ? () => handleSell(stock) : undefined}
-                      onPurchase={stock.type === "watchlist" ? () => handlePurchaseFromWatchlist(stock) : undefined}
-                      onTrackClick={stock.type === "watchlist" ? () => handleTrackClickFromWatchlist(stock) : undefined}
-                      onDelete={() => handleDeleteUserStock(stock)}
-                      onTransactionUpdated={() => fetchUserStocks()}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </section>
+            ) : (
+              <div className="grid gap-3 sm:gap-6">
+                {displayStocks.map((stock) => (
+                  <StockCard
+                    key={stock.id}
+                    stock={stock}
+                    price={prices[stock.stock.tickerCode]}
+                    priceLoaded={pricesLoaded}
+                    isStale={staleTickers.has(stock.stock.tickerCode)}
+                    recommendation={recommendations[stock.stockId]}
+                    portfolioRecommendation={
+                      stock.type === "portfolio"
+                        ? stock.recommendation
+                        : undefined
+                    }
+                    analyzedAt={
+                      stock.type === "watchlist"
+                        ? recommendations[stock.stockId]?.analyzedAt
+                        : stock.analyzedAt
+                    }
+                    onAdditionalPurchase={
+                      stock.type === "portfolio"
+                        ? () => handleAdditionalPurchase(stock)
+                        : undefined
+                    }
+                    onSell={
+                      stock.type === "portfolio"
+                        ? () => handleSell(stock)
+                        : undefined
+                    }
+                    onPurchase={
+                      stock.type === "watchlist"
+                        ? () => handlePurchaseFromWatchlist(stock)
+                        : undefined
+                    }
+                    onTrackClick={
+                      stock.type === "watchlist"
+                        ? () => handleTrackClickFromWatchlist(stock)
+                        : undefined
+                    }
+                    onDelete={() => handleDeleteUserStock(stock)}
+                    onTransactionUpdated={() => fetchUserStocks()}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       {/* Dialogs */}
       <AddStockDialog
         isOpen={showAddDialog}
         onClose={() => {
-          setShowAddDialog(false)
-          setPurchaseFromWatchlist(null)
-          setStockToMove(null)
+          setShowAddDialog(false);
+          setPurchaseFromWatchlist(null);
+          setStockToMove(null);
         }}
         onSuccess={(newStock) => {
           // 追跡タブからの直接追加の場合
-          if (activeTab === "tracked" && !purchaseFromWatchlist && !stockToMove) {
-            setTrackedStocks((prev) => [...prev, newStock as unknown as TrackedStock])
+          if (
+            activeTab === "tracked" &&
+            !purchaseFromWatchlist &&
+            !stockToMove
+          ) {
+            setTrackedStocks((prev) => [
+              ...prev,
+              newStock as unknown as TrackedStock,
+            ]);
           } else {
-            handleStockAdded(newStock)
+            handleStockAdded(newStock);
           }
-          setPurchaseFromWatchlist(null)
+          setPurchaseFromWatchlist(null);
           // 追跡銘柄からの移動の場合、追跡銘柄リストを更新
           if (stockToMove) {
-            setTrackedStocks((prev) => prev.filter((ts) => ts.stockId !== stockToMove.stockId))
-            setStockToMove(null)
-            setActiveTab("portfolio")
+            setTrackedStocks((prev) =>
+              prev.filter((ts) => ts.stockId !== stockToMove.stockId),
+            );
+            setStockToMove(null);
+            setActiveTab("portfolio");
           }
         }}
-        defaultType={(purchaseFromWatchlist || stockToMove) ? "portfolio" : activeTab === "tracked" ? "tracked" : activeTab === "sold" ? "portfolio" : activeTab}
-        initialStock={purchaseFromWatchlist ? {
-          id: purchaseFromWatchlist.stock.id,
-          tickerCode: purchaseFromWatchlist.stock.tickerCode,
-          name: purchaseFromWatchlist.stock.name,
-          market: purchaseFromWatchlist.stock.market,
-          sector: purchaseFromWatchlist.stock.sector,
-          latestPrice: prices[purchaseFromWatchlist.stock.tickerCode]?.currentPrice ?? purchaseFromWatchlist.stock.currentPrice,
-        } : stockToMove ? {
-          id: stockToMove.stockId,
-          tickerCode: stockToMove.tickerCode,
-          name: stockToMove.name,
-          market: stockToMove.market || "プライム",
-          sector: stockToMove.sector || null,
-          latestPrice: null,
-        } : null}
+        defaultType={
+          purchaseFromWatchlist || stockToMove
+            ? "portfolio"
+            : activeTab === "tracked"
+              ? "tracked"
+              : activeTab === "sold"
+                ? "portfolio"
+                : activeTab
+        }
+        initialStock={
+          purchaseFromWatchlist
+            ? {
+                id: purchaseFromWatchlist.stock.id,
+                tickerCode: purchaseFromWatchlist.stock.tickerCode,
+                name: purchaseFromWatchlist.stock.name,
+                market: purchaseFromWatchlist.stock.market,
+                sector: purchaseFromWatchlist.stock.sector,
+                latestPrice:
+                  prices[purchaseFromWatchlist.stock.tickerCode]
+                    ?.currentPrice ?? purchaseFromWatchlist.stock.currentPrice,
+              }
+            : stockToMove
+              ? {
+                  id: stockToMove.stockId,
+                  tickerCode: stockToMove.tickerCode,
+                  name: stockToMove.name,
+                  market: stockToMove.market || "プライム",
+                  sector: stockToMove.sector || null,
+                  latestPrice: null,
+                }
+              : null
+        }
       />
 
       <AdditionalPurchaseDialog
         isOpen={showTransactionDialog}
         onClose={() => {
-          setShowTransactionDialog(false)
-          setSelectedStock(null)
+          setShowTransactionDialog(false);
+          setSelectedStock(null);
         }}
-        stock={selectedStock ? {
-          ...selectedStock,
-          stock: {
-            ...selectedStock.stock,
-            currentPrice: prices[selectedStock.stock.tickerCode]?.currentPrice ?? selectedStock.stock.currentPrice,
-          },
-        } : null}
+        stock={
+          selectedStock
+            ? {
+                ...selectedStock,
+                stock: {
+                  ...selectedStock.stock,
+                  currentPrice:
+                    prices[selectedStock.stock.tickerCode]?.currentPrice ??
+                    selectedStock.stock.currentPrice,
+                },
+              }
+            : null
+        }
         onSuccess={handleTransactionSuccess}
         transactionType={transactionType}
       />
@@ -779,21 +923,35 @@ export default function MyStocksClient() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-bold text-gray-900">この銘柄を追跡しますか？</h3>
+              <h3 className="text-lg font-bold text-gray-900">
+                この銘柄を追跡しますか？
+              </h3>
               <button
                 onClick={() => {
-                  setShowTrackingModal(false)
-                  setTrackingFromWatchlist(null)
+                  setShowTrackingModal(false);
+                  setTrackingFromWatchlist(null);
                 }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
             <p className="text-sm text-gray-600 mb-2">
-              <span className="font-semibold">{trackingFromWatchlist.stock.name}</span>
+              <span className="font-semibold">
+                {trackingFromWatchlist.stock.name}
+              </span>
             </p>
             <p className="text-sm text-gray-500 mb-6">
               追跡すると、AI分析なしで株価だけを追いかけられます。気になるリストからは移動されます。
@@ -801,18 +959,25 @@ export default function MyStocksClient() {
             <div className="flex gap-2">
               <button
                 onClick={async () => {
-                  if (!trackingFromWatchlist) return
-                  setTrackingInProgress(true)
+                  if (!trackingFromWatchlist) return;
+                  setTrackingInProgress(true);
                   try {
-                    await fetch(`/api/user-stocks/${trackingFromWatchlist.id}`, { method: "DELETE" })
-                    setUserStocks((prev) => prev.filter((s) => s.id !== trackingFromWatchlist.id))
-                    setShowTrackingModal(false)
-                    setTrackingFromWatchlist(null)
-                    toast.success("見送りました")
+                    await fetch(
+                      `/api/user-stocks/${trackingFromWatchlist.id}`,
+                      { method: "DELETE" },
+                    );
+                    setUserStocks((prev) =>
+                      prev.filter((s) => s.id !== trackingFromWatchlist.id),
+                    );
+                    setShowTrackingModal(false);
+                    setTrackingFromWatchlist(null);
+                    toast.success("見送りました");
                   } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "削除に失敗しました")
+                    toast.error(
+                      err instanceof Error ? err.message : "削除に失敗しました",
+                    );
                   } finally {
-                    setTrackingInProgress(false)
+                    setTrackingInProgress(false);
                   }
                 }}
                 disabled={trackingInProgress}
@@ -832,5 +997,5 @@ export default function MyStocksClient() {
         </div>
       )}
     </>
-  )
+  );
 }
