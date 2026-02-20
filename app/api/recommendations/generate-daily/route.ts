@@ -3,7 +3,7 @@ import pLimit from "p-limit"
 import { prisma } from "@/lib/prisma"
 import { verifyCronAuth } from "@/lib/cron-auth"
 import { getOpenAIClient } from "@/lib/openai"
-import { getTodayForDB } from "@/lib/date-utils"
+import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
 import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { getNikkei225Data } from "@/lib/market-index"
 
@@ -112,11 +112,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`Found ${users.length} users with settings`)
 
-    const staleThreshold = new Date(Date.now() - STALE_DATA_DAYS * 24 * 60 * 60 * 1000)
+    const staleThreshold = getDaysAgoForDB(STALE_DATA_DAYS)
     const allStocks = await prisma.stock.findMany({
       where: {
         isDelisted: false,
-        priceUpdatedAt: { not: null, gte: staleThreshold },
+        latestPriceDate: { not: null, gte: staleThreshold },
         latestPrice: { not: null },
       },
       select: {

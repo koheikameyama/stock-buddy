@@ -206,6 +206,7 @@ def _compute_price_data(hist) -> dict | None:
 
     return {
         "latestPrice": latest_price,
+        "latestPriceDate": latest_date.date(),  # yfinance株価データの実際の日付
         "latestVolume": volume,
         "dailyChangeRate": clamp_rate(round(daily_change_rate, 2)),
         "weekChangeRate": clamp_rate(round(change_rate, 2)),
@@ -225,6 +226,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
         data = [
             (
                 u["latestPrice"],
+                u["latestPriceDate"],
                 u["latestVolume"],
                 u["dailyChangeRate"],
                 u["weekChangeRate"],
@@ -241,6 +243,7 @@ def update_stock_prices(conn, updates: list[dict]) -> int:
             '''
             UPDATE "Stock"
             SET "latestPrice" = %s,
+                "latestPriceDate" = %s,
                 "latestVolume" = %s,
                 "dailyChangeRate" = %s,
                 "weekChangeRate" = %s,

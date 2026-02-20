@@ -127,6 +127,7 @@ model Stock {
   volatility        Decimal?           @db.Decimal(8, 2)  // 30日間ボラティリティ（%）
   volumeRatio       Decimal?           @db.Decimal(8, 2)  // 出来高比率（直近3日/4-30日前）
   maDeviationRate   Decimal?           @db.Decimal(8, 2)  // 25日移動平均乖離率（%）
+  latestPriceDate   DateTime?          @db.Date   // yfinance株価データの実際の日付
   priceUpdatedAt    DateTime?          // 株価更新日時
 
   // 財務データの最終更新日時
