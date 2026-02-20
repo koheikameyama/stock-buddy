@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import FinancialMetrics from "@/app/components/FinancialMetrics"
 import EarningsInfo from "@/app/components/EarningsInfo"
@@ -16,6 +16,7 @@ import AddStockDialog from "@/app/my-stocks/AddStockDialog"
 import Tabs from "@/app/components/Tabs"
 import TechnicalAnalysis from "@/app/components/TechnicalAnalysis"
 import { useStockPrice } from "@/app/hooks/useStockPrice"
+import { useChatContext } from "@/app/contexts/ChatContext"
 
 interface StockData {
   id: string
@@ -104,6 +105,7 @@ export default function StockDetailClient({
   soldStockInfo,
 }: Props) {
   const router = useRouter()
+  const { setStockContext } = useChatContext()
   const { price, loading, isStale } = useStockPrice(stock.tickerCode)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [movingToWatchlist, setMovingToWatchlist] = useState(false)
@@ -111,6 +113,21 @@ export default function StockDetailClient({
   const [localTrackedStockId, setLocalTrackedStockId] = useState(trackedStockId)
 
   const currentPrice = price?.currentPrice || stock.currentPrice || 0
+
+  useEffect(() => {
+    setStockContext({
+      stockId: stock.id,
+      tickerCode: stock.tickerCode,
+      name: stock.name,
+      sector: stock.sector,
+      currentPrice: currentPrice,
+      type: isInWatchlist ? "watchlist" : "view",
+    })
+
+    return () => {
+      setStockContext(null)
+    }
+  }, [stock, currentPrice, isInWatchlist, setStockContext])
 
   const dateLabel = recommendation?.date
     ? new Date(recommendation.date).toLocaleDateString("ja-JP", {

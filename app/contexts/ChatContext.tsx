@@ -8,7 +8,7 @@ interface StockContext {
   name: string
   sector: string | null
   currentPrice: number | null
-  type: "portfolio" | "watchlist"
+  type: "portfolio" | "watchlist" | "view"
   quantity?: number
   averagePurchasePrice?: number
   profit?: number
