@@ -26,7 +26,12 @@ import {
   calculateRSI,
   calculateSMA,
 } from "@/lib/technical-indicators";
-import { MA_DEVIATION, SELL_TIMING, RELATIVE_STRENGTH } from "@/lib/constants";
+import {
+  MA_DEVIATION,
+  SELL_TIMING,
+  RELATIVE_STRENGTH,
+  PORTFOLIO_ANALYSIS,
+} from "@/lib/constants";
 import { getDaysAgoForDB } from "@/lib/date-utils";
 import { isSurgeStock, isDangerousStock } from "@/lib/stock-safety-rules";
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils";
@@ -456,15 +461,15 @@ export async function executePortfolioAnalysis(
         : null;
       const daysAgoText =
         daysSinceRec !== null ? `${daysSinceRec}日前` : "直近";
-      purchaseRecContext = `\n【直近の購入判断 - 重要】
-- 判定: ${purchaseRecLabel[recentPurchaseRec.recommendation] || recentPurchaseRec.recommendation}
+      purchaseRecContext = `\n【直近の購入判断との整合性 - 最重要】
+- あなたの数日前の判定: ${purchaseRecLabel[recentPurchaseRec.recommendation] || recentPurchaseRec.recommendation}
 - 判定日: ${daysAgoText}
-- 理由: ${recentPurchaseRec.reason}
-- ※ この銘柄は購入から7日以内です。以下のルールを厳守してください:
-  - 購入判断が「買い推奨」だった場合、明確な悪材料（決算ミス、不祥事等）がない限り recommendation は "sell" にしないでください
-  - 含み損が-15%未満の場合は "sell" にしないでください
-  - 購入直後の小幅な下落は正常な値動きです。shortTermで「購入判断の根拠は引き続き有効」であることを伝えてください
-  - cautionが必要な場合は recommendation を "hold" にしつつ、shortTermで注意点を述べてください
+- 当時の理由: ${recentPurchaseRec.reason}
+- ※ この銘柄は購入から7日以内です。以下の誠実な対応を徹底してください:
+  1. 判断の変更に対する責任: もし今回 "sell"（売却）と判断する場合、数日前の自らの「買い推奨」がなぜ誤りだったのか、あるいは何が決定的に変わったのかを reconciliationMessage に誠実に記載してください。
+  2. 狼狽売りの防止: 単なる数%の価格変動や、想定内の調整を理由に "sell" に変えてはいけません。
+  3. 重大な変化の明示: 決算ミス、不祥事、地合いの劇的な悪化など、前提が崩れた場合のみ isCriticalChange を true にした上で、勇気を持って売却を提案してください。
+  4. 根拠の維持: 状況が変わっていないなら、含み損が出ていても「購入時のストーリーは崩れていない」ことを伝え、自信を持って "hold" を継続してください。
 `;
     }
   }
@@ -559,6 +564,16 @@ export async function executePortfolioAnalysis(
             longTermPriceLow: { type: "number" },
             longTermPriceHigh: { type: "number" },
             recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+            isCriticalChange: {
+              type: "boolean",
+              description:
+                "購入直後の売却判定において、前提を覆すほどの重大な変化（決算ミス、不祥事、地合いの劇変等）があるか",
+            },
+            reconciliationMessage: {
+              type: ["string", "null"],
+              description:
+                "前回（購入時）の判断と今回の判断が異なる場合の誠実な釈明や理由の説明",
+            },
             advice: { type: "string" },
             confidence: { type: "number" },
           },
@@ -582,6 +597,8 @@ export async function executePortfolioAnalysis(
             "longTermPriceLow",
             "longTermPriceHigh",
             "recommendation",
+            "isCriticalChange",
+            "reconciliationMessage",
             "advice",
             "confidence",
           ],
@@ -645,9 +662,10 @@ export async function executePortfolioAnalysis(
     result.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${result.shortTerm}`;
   }
 
-  // 中長期トレンドによる売り保護
+  // 中長期トレンドによる売り保護（重大な変化がない場合のみ）
   if (
     result.recommendation === "sell" &&
+    !result.isCriticalChange &&
     (result.midTermTrend === "up" || result.longTermTrend === "up") &&
     (profitPercent === null ||
       profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
@@ -660,9 +678,25 @@ export async function executePortfolioAnalysis(
     result.recommendation = "hold";
     result.sellReason = null;
     result.suggestedSellPercent = null;
-    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。上昇トレンドが継続しているか様子を見ましょう。`;
-    result.shortTerm = `【一旦様子見を推奨】${trendInfo}のトレンドは引き続き上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を優先して一旦ホールドを推奨します。AIの短期分析: ${result.shortTerm}`;
+    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.reconciliationMessage ? `（補足: ${result.reconciliationMessage}）` : ""}`;
+    result.shortTerm = `【一旦様子見を推奨】${trendInfo}のトレンドは引き続き上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を優先して一旦ホールドを推奨します。${result.reconciliationMessage ? `分析の変化: ${result.reconciliationMessage}` : ""}`;
     result.advice = `${trendInfo}のトレンドは依然として良好です。短期的な変動に惑わされず、中長期での回復を待つ方針を優先しましょう。`;
+  }
+
+  // 購入直後の保護（重大な変化がない場合のみ）
+  if (
+    isRecentlyPurchased &&
+    result.recommendation === "sell" &&
+    !result.isCriticalChange &&
+    profitPercent !== null &&
+    profitPercent > PORTFOLIO_ANALYSIS.FORCE_SELL_LOSS_THRESHOLD
+  ) {
+    result.recommendation = "hold";
+    result.sellReason = null;
+    result.suggestedSellPercent = null;
+    result.sellCondition = `購入から日が浅く、重大な状況変化も確認できないため、目先の値動きによる売却は見送りました。${result.reconciliationMessage || ""}`;
+    result.shortTerm = `【購入直後のため様子見】直近で買い推奨したばかりであり、現時点で前提を覆すほどの悪材料はありません。一時的な調整と判断しホールドを推奨します。AIの当初分析: ${result.shortTerm}`;
+    result.advice = `購入直後の小幅な変動です。当初の投資ストーリーに変更がない限り、目先の動きで売却せず、しばらく様子を見るのが健全です。`;
   }
 
   // 相対強度による売り保護
