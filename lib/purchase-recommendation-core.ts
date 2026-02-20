@@ -1,7 +1,10 @@
-import { prisma } from "@/lib/prisma"
-import { getOpenAIClient } from "@/lib/openai"
-import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
-import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { prisma } from "@/lib/prisma";
+import { getOpenAIClient } from "@/lib/openai";
+import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag";
+import {
+  fetchHistoricalPrices,
+  fetchStockPrices,
+} from "@/lib/stock-price-fetcher";
 import {
   buildFinancialMetrics,
   buildCandlestickContext,
@@ -13,52 +16,61 @@ import {
   buildDelistingContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
-} from "@/lib/stock-analysis-context"
-import { MA_DEVIATION, SELL_TIMING, MOMENTUM } from "@/lib/constants"
-import { calculateDeviationRate, calculateSMA, calculateRSI } from "@/lib/technical-indicators"
-import { getTodayForDB } from "@/lib/date-utils"
-import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
-import { getNikkei225Data, MarketIndexData } from "@/lib/market-index"
-import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { isSurgeStock, isDangerousStock, isOverheated, isInDecline } from "@/lib/stock-safety-rules"
-import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
-import { AnalysisError } from "@/lib/portfolio-analysis-core"
+} from "@/lib/stock-analysis-context";
+import { MA_DEVIATION, SELL_TIMING, MOMENTUM } from "@/lib/constants";
+import {
+  calculateDeviationRate,
+  calculateSMA,
+  calculateRSI,
+} from "@/lib/technical-indicators";
+import { getTodayForDB } from "@/lib/date-utils";
+import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils";
+import { getNikkei225Data, MarketIndexData } from "@/lib/market-index";
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
+import {
+  isSurgeStock,
+  isDangerousStock,
+  isOverheated,
+  isInDecline,
+} from "@/lib/stock-safety-rules";
+import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend";
+import { AnalysisError } from "@/lib/portfolio-analysis-core";
 
 export interface PurchaseRecommendationResult {
-  stockId: string
-  stockName: string
-  tickerCode: string
-  currentPrice: number
-  marketSignal: string | null
-  shortTermTrend: string | null
-  shortTermPriceLow: number | null
-  shortTermPriceHigh: number | null
-  shortTermText: string | null
-  midTermTrend: string | null
-  midTermPriceLow: number | null
-  midTermPriceHigh: number | null
-  midTermText: string | null
-  longTermTrend: string | null
-  longTermPriceLow: number | null
-  longTermPriceHigh: number | null
-  longTermText: string | null
-  advice: string | null
-  recommendation: string
-  confidence: number
-  reason: string
-  caution: string
-  positives: string | null
-  concerns: string | null
-  suitableFor: string | null
-  buyCondition: string | null
-  buyTiming: string | null
-  dipTargetPrice: number | null
-  userFitScore: number | null
-  budgetFit: boolean | null
-  periodFit: boolean | null
-  riskFit: boolean | null
-  personalizedReason: string | null
-  analyzedAt: string
+  stockId: string;
+  stockName: string;
+  tickerCode: string;
+  currentPrice: number;
+  marketSignal: string | null;
+  shortTermTrend: string | null;
+  shortTermPriceLow: number | null;
+  shortTermPriceHigh: number | null;
+  shortTermText: string | null;
+  midTermTrend: string | null;
+  midTermPriceLow: number | null;
+  midTermPriceHigh: number | null;
+  midTermText: string | null;
+  longTermTrend: string | null;
+  longTermPriceLow: number | null;
+  longTermPriceHigh: number | null;
+  longTermText: string | null;
+  advice: string | null;
+  recommendation: string;
+  confidence: number;
+  reason: string;
+  caution: string;
+  positives: string | null;
+  concerns: string | null;
+  suitableFor: string | null;
+  buyCondition: string | null;
+  buyTiming: string | null;
+  dipTargetPrice: number | null;
+  userFitScore: number | null;
+  budgetFit: boolean | null;
+  periodFit: boolean | null;
+  riskFit: boolean | null;
+  personalizedReason: string | null;
+  analyzedAt: string;
 }
 
 /**
@@ -67,7 +79,7 @@ export interface PurchaseRecommendationResult {
  */
 export async function executePurchaseRecommendation(
   userId: string | null,
-  stockId: string
+  stockId: string,
 ): Promise<PurchaseRecommendationResult> {
   // 銘柄情報を取得（財務指標も含む）
   const stock = await prisma.stock.findUnique({
@@ -92,10 +104,10 @@ export async function executePurchaseRecommendation(
       isDelisted: true,
       fetchFailCount: true,
     },
-  })
+  });
 
   if (!stock) {
-    throw new AnalysisError("銘柄が見つかりません", "NOT_FOUND")
+    throw new AnalysisError("銘柄が見つかりません", "NOT_FOUND");
   }
 
   // ユーザー設定を取得
@@ -108,76 +120,87 @@ export async function executePurchaseRecommendation(
           investmentBudget: true,
         },
       })
-    : null
+    : null;
 
   // 残り予算を計算
-  let remainingBudget: number | null = null
+  let remainingBudget: number | null = null;
   if (userId && userSettings?.investmentBudget) {
     const userPortfolioStocks = await prisma.portfolioStock.findMany({
       where: { userId },
       select: {
         transactions: {
-          select: { type: true, quantity: true, price: true, transactionDate: true },
+          select: {
+            type: true,
+            quantity: true,
+            price: true,
+            transactionDate: true,
+          },
           orderBy: { transactionDate: "asc" },
         },
       },
-    })
-    let holdingsCost = 0
+    });
+    let holdingsCost = 0;
     for (const ps of userPortfolioStocks) {
-      const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(ps.transactions)
+      const { quantity, averagePurchasePrice } =
+        calculatePortfolioFromTransactions(ps.transactions);
       if (quantity > 0) {
-        holdingsCost += quantity * averagePurchasePrice.toNumber()
+        holdingsCost += quantity * averagePurchasePrice.toNumber();
       }
     }
-    remainingBudget = Math.max(0, userSettings.investmentBudget - holdingsCost)
+    remainingBudget = Math.max(0, userSettings.investmentBudget - holdingsCost);
   }
 
   // staleチェック兼リアルタイム株価取得
-  const { prices: realtimePrices, staleTickers: staleCheck } = await fetchStockPrices([stock.tickerCode])
+  const { prices: realtimePrices, staleTickers: staleCheck } =
+    await fetchStockPrices([stock.tickerCode]);
   if (staleCheck.includes(stock.tickerCode)) {
-    throw new AnalysisError("最新の株価が取得できないため分析がおこなえません", "STALE_DATA")
+    throw new AnalysisError(
+      "最新の株価が取得できないため分析がおこなえません",
+      "STALE_DATA",
+    );
   }
 
   // 直近30日の価格データを取得
-  const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m")
-  const prices = historicalPrices.slice(-30) // oldest-first
+  const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m");
+  const prices = historicalPrices.slice(-30); // oldest-first
 
   if (prices.length === 0) {
-    throw new AnalysisError("価格データがありません", "NO_PRICE_DATA")
+    throw new AnalysisError("価格データがありません", "NO_PRICE_DATA");
   }
 
   // ローソク足パターン分析
-  const patternContext = buildCandlestickContext(prices)
+  const patternContext = buildCandlestickContext(prices);
 
   // テクニカル指標の計算（RSI/MACD）
-  const technicalContext = buildTechnicalContext(prices)
+  const technicalContext = buildTechnicalContext(prices);
 
   // チャートパターン（複数足フォーメーション）の検出
-  const chartPatternContext = buildChartPatternContext(prices)
+  const chartPatternContext = buildChartPatternContext(prices);
 
   // 移動平均乖離率
-  const deviationRateContext = buildDeviationRateContext(prices)
+  const deviationRateContext = buildDeviationRateContext(prices);
 
   // 関連ニュースを取得
-  const tickerCode = stock.tickerCode.replace(".T", "")
+  const tickerCode = stock.tickerCode.replace(".T", "");
   const news = await getRelatedNews({
     tickerCodes: [tickerCode],
     sectors: stock.sector ? [stock.sector] : [],
     limit: 5,
     daysAgo: 7,
-  })
-  const newsContext = news.length > 0
-    ? `\n【最新のニュース情報】\n${formatNewsForPrompt(news)}`
-    : ""
+  });
+  const newsContext =
+    news.length > 0
+      ? `\n【最新のニュース情報】\n${formatNewsForPrompt(news)}`
+      : "";
 
   // 既存の予測データを取得（StockAnalysisから）
   const analysis = await prisma.stockAnalysis.findFirst({
     where: { stockId },
     orderBy: { analyzedAt: "desc" },
-  })
+  });
 
   const trendLabel = (trend: string) =>
-    trend === "up" ? "上昇" : trend === "down" ? "下落" : "横ばい"
+    trend === "up" ? "上昇" : trend === "down" ? "下落" : "横ばい";
 
   const predictionContext = analysis
     ? `
@@ -200,50 +223,56 @@ export async function executePurchaseRecommendation(
 ■ アドバイス: ${analysis.advice || "なし"}
 ■ 信頼度: ${(analysis.confidence * 100).toFixed(0)}%
 `
-    : ""
+    : "";
 
   // 市場全体の状況を取得
-  let marketData: MarketIndexData | null = null
+  let marketData: MarketIndexData | null = null;
   try {
-    marketData = await getNikkei225Data()
+    marketData = await getNikkei225Data();
   } catch (error) {
-    console.error("市場データ取得失敗（フォールバック）:", error)
+    console.error("市場データ取得失敗（フォールバック）:", error);
   }
 
-  const currentPrice = realtimePrices[0]?.currentPrice ?? (prices[0] ? Number(prices[0].close) : 0)
+  const currentPrice =
+    realtimePrices[0]?.currentPrice ??
+    (prices[0] ? Number(prices[0].close) : 0);
 
   // 週間変化率を計算
-  const { text: weekChangeContext, rate: weekChangeRate } = buildWeekChangeContext(prices, "watchlist")
+  const { text: weekChangeContext, rate: weekChangeRate } =
+    buildWeekChangeContext(prices, "watchlist");
 
   // 市場全体の状況コンテキスト
-  const marketContext = buildMarketContext(marketData)
+  const marketContext = buildMarketContext(marketData);
 
   // セクタートレンド
-  let sectorTrendContext = ""
+  let sectorTrendContext = "";
   if (stock.sector) {
-    const sectorTrend = await getSectorTrend(stock.sector)
+    const sectorTrend = await getSectorTrend(stock.sector);
     if (sectorTrend) {
-      sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`
+      sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`;
     }
   }
 
   // 財務指標のフォーマット
-  const financialMetrics = buildFinancialMetrics(stock, currentPrice)
+  const financialMetrics = buildFinancialMetrics(stock, currentPrice);
 
   // 上場廃止コンテキスト
-  const delistingContext = buildDelistingContext(stock.isDelisted, stock.fetchFailCount)
+  const delistingContext = buildDelistingContext(
+    stock.isDelisted,
+    stock.fetchFailCount,
+  );
 
   // ユーザー設定のコンテキスト
   const periodMap: Record<string, string> = {
     short: "短期（数週間〜数ヶ月）",
     medium: "中期（半年〜1年）",
     long: "長期（数年以上）",
-  }
+  };
   const riskMap: Record<string, string> = {
     low: "低リスク（安定重視）",
     medium: "中リスク（バランス）",
     high: "高リスク（積極的）",
-  }
+  };
 
   const userContext = userSettings
     ? `
@@ -253,9 +282,9 @@ export async function executePurchaseRecommendation(
 - 投資予算（合計）: ${userSettings.investmentBudget ? `${userSettings.investmentBudget.toLocaleString()}円` : "未設定"}
 - 投資予算（残り）: ${remainingBudget !== null ? `${remainingBudget.toLocaleString()}円` : userSettings.investmentBudget ? "未計算" : "未設定"}
 `
-    : ""
+    : "";
 
-  const hasPrediction = analysis !== null
+  const hasPrediction = analysis !== null;
 
   const prompt = `あなたは投資を学びたい人向けのAIコーチです。
 以下の銘柄について、詳細な購入判断をしてください。
@@ -321,17 +350,21 @@ ${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をその�
 ${PROMPT_MARKET_SIGNAL_DEFINITION}
 
 【価格帯予測の指針】
-${hasPrediction ? `
+${
+  hasPrediction
+    ? `
 - 【重要】AI予測データが提供されている場合は、その値をそのまま使用してください
 - 価格帯（priceLow/priceHigh）は提供された値を変更しないでください
 - トレンド（shortTermTrend等）も提供された値に従ってください
 - 購入判断（recommendation）は、この予測を根拠として導出してください
-- 予測が「上昇」なら買い検討、「下落」なら様子見、という整合性を保ってください` : `
+- 予測が「上昇」なら買い検討、「下落」なら様子見、という整合性を保ってください`
+    : `
 - 予測は提供されたテクニカル指標・チャートパターン・ファンダメンタルを根拠として算出する
 - 現在価格を起点に、直近ボラティリティ・トレンドを反映した現実的な価格帯にすること
 - shortTermPriceLow/High: 直近のボラティリティと今週のトレンドを基準（現在価格±5〜15%を目安）
 - midTermPriceLow/High: 中期トレンド・ファンダメンタルを基準（現在価格±10〜25%を目安）
-- longTermPriceLow/High: 事業展望・長期トレンドを基準（現在価格±15〜35%を目安）`}
+- longTermPriceLow/High: 事業展望・長期トレンドを基準（現在価格±15〜35%を目安）`
+}
 - 予測レンジが recommendation と整合すること（例: buyならshortTermが上昇傾向）
 - advice は価格帯予測の数値を踏まえた具体的なコメントにする（例:「今週は○○〜○○円で推移する見込みで...」）
 
@@ -397,17 +430,18 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - 例（上昇）: 「好決算を受けて買いが集中し、レジスタンスラインを突破しました」
 
 【"avoid"（見送り推奨）について】
-- "avoid"は購入を見送り、ウォッチリストから外すことを検討する判断です
-- 以下の条件が複数揃い、回復の見込みが極めて低い場合のみ使用してください:
-  * 赤字が継続し、業績改善の兆しがない
-  * 下落トレンドが継続している（テクニカル指標がすべてネガティブ）
-  * 悪材料が出ており、株価下落が続く見込み
+- "avoid"は購入を見送り、今後の保有候補からも外すことを検討するほど「かなり強いマイナス条件」が揃った場合の判断です。
+- 通常の下落トレンドや一時的な悪材料であれば、"avoid"ではなく"stay"（様子見）としてください。
+- 以下の条件が複合的に揃い、当面は回復の見込みが極めて低い場合のみ使用してください:
+  * 赤字が継続し、業績改善の兆しが全くない
+  * 長期的な下落トレンドが継続し、テクニカル指標がすべて強いネガティブを示している
+  * 致命的な悪材料（上場廃止リスク、大規模な不正など）が出ている
 - "avoid"を選ぶ場合は、confidence を 0.8 以上に設定してください
-- 迷う場合は "stay" を選んでください。"avoid" は確信がある場合のみ使用
-`
+- 少しでも迷う場合や「今は買い時ではないだけ」の場合は、必ず "stay" を選んでください
+`;
 
   // OpenAI API呼び出し（Structured Outputs使用）
-  const openai = getOpenAIClient()
+  const openai = getOpenAIClient();
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
@@ -427,7 +461,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
         schema: {
           type: "object",
           properties: {
-            marketSignal: { type: "string", enum: ["bullish", "neutral", "bearish"] },
+            marketSignal: {
+              type: "string",
+              enum: ["bullish", "neutral", "bearish"],
+            },
             shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             shortTermPriceLow: { type: "number" },
             shortTermPriceHigh: { type: "number" },
@@ -457,78 +494,142 @@ ${PROMPT_NEWS_CONSTRAINTS}
           },
           required: [
             "marketSignal",
-            "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh", "shortTermText",
-            "midTermTrend", "midTermPriceLow", "midTermPriceHigh", "midTermText",
-            "longTermTrend", "longTermPriceLow", "longTermPriceHigh", "longTermText",
+            "shortTermTrend",
+            "shortTermPriceLow",
+            "shortTermPriceHigh",
+            "shortTermText",
+            "midTermTrend",
+            "midTermPriceLow",
+            "midTermPriceHigh",
+            "midTermText",
+            "longTermTrend",
+            "longTermPriceLow",
+            "longTermPriceHigh",
+            "longTermText",
             "advice",
-            "recommendation", "confidence", "reason", "caution",
-            "positives", "concerns", "suitableFor",
+            "recommendation",
+            "confidence",
+            "reason",
+            "caution",
+            "positives",
+            "concerns",
+            "suitableFor",
             "buyCondition",
-            "userFitScore", "budgetFit", "periodFit", "riskFit", "personalizedReason"
+            "userFitScore",
+            "budgetFit",
+            "periodFit",
+            "riskFit",
+            "personalizedReason",
           ],
           additionalProperties: false,
         },
       },
     },
-  })
+  });
 
-  const content = response.choices[0].message.content?.trim() || "{}"
-  const result = JSON.parse(content)
+  const content = response.choices[0].message.content?.trim() || "{}";
+  const result = JSON.parse(content);
 
   // "avoid" は confidence >= 0.8 の場合のみ許可
   if (result.recommendation === "avoid" && result.confidence < 0.8) {
-    result.recommendation = "stay"
+    result.recommendation = "stay";
   }
 
-  const investmentPeriod = userSettings?.investmentPeriod ?? null
+  const investmentPeriod = userSettings?.investmentPeriod ?? null;
+
+  // 今日のおすすめ銘柄かどうかを確認
+  const isRecommendedToday = await prisma.userDailyRecommendation.findFirst({
+    where: {
+      userId: userId || undefined,
+      stockId: stockId,
+      date: getTodayForDB(),
+    },
+  });
+
+  // おすすめ銘柄の場合は、モメンタムやボラティリティの強制ストップ（stay化）をスキップする
+  // （AIがおすすめと判断したのに「気になる」に入れたら即「見送り」になるのを防ぐため）
+  const skipSafetyRules = !!isRecommendedToday;
 
   // 下落トレンドの強制補正（投資期間別）
-  if (isInDecline(weekChangeRate, investmentPeriod) && result.recommendation === "buy") {
-    result.recommendation = "stay"
-    result.confidence = Math.max(0, result.confidence + MOMENTUM.DECLINE_CONFIDENCE_PENALTY)
-    result.caution = `週間${weekChangeRate!.toFixed(0)}%の下落トレンドのため、様子見を推奨します。${result.caution}`
-    result.buyCondition = result.buyCondition || "下落トレンドが落ち着いてから検討してください"
+  if (
+    !skipSafetyRules &&
+    isInDecline(weekChangeRate, investmentPeriod) &&
+    result.recommendation === "buy"
+  ) {
+    result.recommendation = "stay";
+    result.confidence = Math.max(
+      0,
+      result.confidence + MOMENTUM.DECLINE_CONFIDENCE_PENALTY,
+    );
+    result.caution = `週間${weekChangeRate!.toFixed(0)}%の下落トレンドのため、様子見を推奨します。${result.caution}`;
+    result.buyCondition =
+      result.buyCondition || "下落トレンドが落ち着いてから検討してください";
   }
 
   // 急騰銘柄の強制補正（投資期間別：短期は制限なし）
-  if (isSurgeStock(weekChangeRate, investmentPeriod) && result.recommendation === "buy") {
-    result.recommendation = "stay"
-    result.caution = `週間+${weekChangeRate!.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`
+  if (
+    !skipSafetyRules &&
+    isSurgeStock(weekChangeRate, investmentPeriod) &&
+    result.recommendation === "buy"
+  ) {
+    result.recommendation = "stay";
+    result.caution = `週間+${weekChangeRate!.toFixed(0)}%の急騰銘柄のため、様子見を推奨します。${result.caution}`;
   }
 
   // 危険銘柄の強制補正
-  const volatility = stock.volatility ? Number(stock.volatility) : null
-  if (isDangerousStock(stock.isProfitable, volatility) && result.recommendation === "buy") {
-    result.recommendation = "stay"
-    result.caution = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、様子見を推奨します。${result.caution}`
+  const volatility = stock.volatility ? Number(stock.volatility) : null;
+  if (
+    !skipSafetyRules &&
+    isDangerousStock(stock.isProfitable, volatility) &&
+    result.recommendation === "buy"
+  ) {
+    result.recommendation = "stay";
+    result.caution = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、様子見を推奨します。${result.caution}`;
   }
 
   // 市場急落時の強制補正
   if (marketData?.isMarketCrash && result.recommendation === "buy") {
-    result.recommendation = "stay"
-    result.reason = `市場全体が急落しているため、様子見をおすすめします。${result.reason}`
-    result.buyCondition = result.buyCondition || "市場が落ち着いてから検討してください"
+    result.recommendation = "stay";
+    result.reason = `市場全体が急落しているため、様子見をおすすめします。${result.reason}`;
+    result.buyCondition =
+      result.buyCondition || "市場が落ち着いてから検討してください";
   }
 
   // 移動平均乖離率による補正（短期投資は過熱圏ルールをスキップ）
-  const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
-  const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
+  const pricesNewestFirst = [...prices]
+    .reverse()
+    .map((p) => ({ close: p.close }));
+  const deviationRate = calculateDeviationRate(
+    pricesNewestFirst,
+    MA_DEVIATION.PERIOD,
+  );
 
-  if (isOverheated(deviationRate, investmentPeriod) && result.recommendation === "buy") {
-    result.recommendation = "stay"
-    result.confidence = Math.max(0, result.confidence + MA_DEVIATION.CONFIDENCE_PENALTY)
-    result.caution = `25日移動平均線から+${deviationRate!.toFixed(1)}%乖離しており過熱圏のため、様子見を推奨します。${result.caution}`
+  if (
+    !skipSafetyRules &&
+    isOverheated(deviationRate, investmentPeriod) &&
+    result.recommendation === "buy"
+  ) {
+    result.recommendation = "stay";
+    result.confidence = Math.max(
+      0,
+      result.confidence + MA_DEVIATION.CONFIDENCE_PENALTY,
+    );
+    result.caution = `25日移動平均線から+${deviationRate!.toFixed(1)}%乖離しており過熱圏のため、様子見を推奨します。${result.caution}`;
   }
 
   // 下方乖離ボーナス
-  const isLowVolatility = volatility !== null && volatility <= MA_DEVIATION.LOW_VOLATILITY_THRESHOLD
+  const isLowVolatility =
+    volatility !== null && volatility <= MA_DEVIATION.LOW_VOLATILITY_THRESHOLD;
   if (
     deviationRate !== null &&
     deviationRate <= MA_DEVIATION.LOWER_THRESHOLD &&
     stock.isProfitable === true &&
     isLowVolatility
   ) {
-    result.confidence = Math.min(1.0, result.confidence + MA_DEVIATION.CONFIDENCE_BONUS)
+    result.confidence = Math.min(
+      1.0,
+      result.confidence + MA_DEVIATION.CONFIDENCE_BONUS,
+    );
   }
 
   // パニック売り防止（avoid→stay）
@@ -537,50 +638,54 @@ ${PROMPT_NEWS_CONSTRAINTS}
     deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
     result.recommendation === "avoid"
   ) {
-    result.recommendation = "stay"
-    result.caution = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており売られすぎです。大底で見送るのはもったいないため、様子見を推奨します。${result.caution}`
+    result.recommendation = "stay";
+    result.caution = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており売られすぎです。大底で見送るのはもったいないため、様子見を推奨します。${result.caution}`;
   }
 
   // 購入タイミング判断
-  let buyTiming: string | null = null
-  let dipTargetPrice: number | null = null
+  let buyTiming: string | null = null;
+  let dipTargetPrice: number | null = null;
 
   if (result.recommendation === "buy") {
-    const rsi = calculateRSI(pricesNewestFirst, 14)
-    const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD)
+    const rsi = calculateRSI(pricesNewestFirst, 14);
+    const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
 
-    const isHighDeviation = deviationRate !== null && deviationRate > MA_DEVIATION.DIP_BUY_THRESHOLD
-    const isOverboughtRSI = rsi !== null && rsi > MA_DEVIATION.RSI_OVERBOUGHT_THRESHOLD
+    const isHighDeviation =
+      deviationRate !== null && deviationRate > MA_DEVIATION.DIP_BUY_THRESHOLD;
+    const isOverboughtRSI =
+      rsi !== null && rsi > MA_DEVIATION.RSI_OVERBOUGHT_THRESHOLD;
 
     if (isHighDeviation || isOverboughtRSI) {
-      buyTiming = "dip"
-      dipTargetPrice = sma25
+      buyTiming = "dip";
+      dipTargetPrice = sma25;
     } else {
-      buyTiming = "market"
+      buyTiming = "market";
     }
   }
 
   // 売りタイミング判定（avoid推奨時のみ）
-  let sellTiming: string | null = null
-  let sellTargetPrice: number | null = null
+  let sellTiming: string | null = null;
+  let sellTargetPrice: number | null = null;
 
   if (result.recommendation === "avoid") {
-    const rsi = calculateRSI(pricesNewestFirst, 14)
-    const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD)
+    const rsi = calculateRSI(pricesNewestFirst, 14);
+    const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
 
-    const isDeviationOk = deviationRate === null || deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD
-    const isRsiOk = rsi === null || rsi >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD
+    const isDeviationOk =
+      deviationRate === null ||
+      deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD;
+    const isRsiOk = rsi === null || rsi >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD;
 
     if (isDeviationOk && isRsiOk) {
-      sellTiming = "market"
+      sellTiming = "market";
     } else {
-      sellTiming = "rebound"
-      sellTargetPrice = sma25
+      sellTiming = "rebound";
+      sellTargetPrice = sma25;
     }
   }
 
   // データベースに保存
-  const today = getTodayForDB()
+  const today = getTodayForDB();
 
   const savedRecommendation = await prisma.purchaseRecommendation.upsert({
     where: {
@@ -598,7 +703,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       positives: result.positives || null,
       concerns: result.concerns || null,
       suitableFor: result.suitableFor || null,
-      buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
+      buyCondition:
+        result.recommendation === "stay" ? result.buyCondition || null : null,
       buyTiming: buyTiming,
       dipTargetPrice: dipTargetPrice,
       sellTiming: sellTiming,
@@ -621,7 +727,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       positives: result.positives || null,
       concerns: result.concerns || null,
       suitableFor: result.suitableFor || null,
-      buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
+      buyCondition:
+        result.recommendation === "stay" ? result.buyCondition || null : null,
       buyTiming: buyTiming,
       dipTargetPrice: dipTargetPrice,
       sellTiming: sellTiming,
@@ -632,10 +739,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
       riskFit: result.riskFit ?? null,
       personalizedReason: result.personalizedReason || null,
     },
-  })
+  });
 
   // StockAnalysisに価格帯予測を保存
-  const now = new Date()
+  const now = new Date();
   await prisma.stockAnalysis.create({
     data: {
       stockId,
@@ -651,21 +758,26 @@ ${PROMPT_NEWS_CONSTRAINTS}
       longTermPriceLow: result.longTermPriceLow || currentPrice || 0,
       longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
       longTermText: result.longTermText || "",
-      recommendation: result.recommendation === "buy" ? "buy" : result.recommendation === "avoid" ? "sell" : "hold",
+      recommendation:
+        result.recommendation === "buy"
+          ? "buy"
+          : result.recommendation === "avoid"
+            ? "sell"
+            : "hold",
       advice: result.advice || result.reason || "",
       confidence: result.confidence || 0.7,
       limitPrice: null,
       stopLossPrice: null,
       analyzedAt: now,
     },
-  })
+  });
 
   // Outcome追跡
   const predictionMap: Record<string, Prediction> = {
     buy: "buy",
     stay: "stay",
     avoid: "remove",
-  }
+  };
 
   await insertRecommendationOutcome({
     type: "purchase",
@@ -678,8 +790,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
     prediction: predictionMap[result.recommendation] || "stay",
     confidence: result.confidence,
     volatility: volatility,
-    marketCap: stock.marketCap ? BigInt(Number(stock.marketCap) * 100_000_000) : null,
-  })
+    marketCap: stock.marketCap
+      ? BigInt(Number(stock.marketCap) * 100_000_000)
+      : null,
+  });
 
   return {
     stockId: stock.id,
@@ -707,7 +821,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
     positives: result.positives || null,
     concerns: result.concerns || null,
     suitableFor: result.suitableFor || null,
-    buyCondition: result.recommendation === "stay" ? (result.buyCondition || null) : null,
+    buyCondition:
+      result.recommendation === "stay" ? result.buyCondition || null : null,
     buyTiming: buyTiming,
     dipTargetPrice: dipTargetPrice,
     userFitScore: result.userFitScore ?? null,
@@ -716,5 +831,5 @@ ${PROMPT_NEWS_CONSTRAINTS}
     riskFit: result.riskFit ?? null,
     personalizedReason: result.personalizedReason || null,
     analyzedAt: today.toISOString(),
-  }
+  };
 }
