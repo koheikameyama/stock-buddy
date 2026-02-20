@@ -1,48 +1,56 @@
-import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai"
-import { openai } from "@ai-sdk/openai"
-import { auth } from "@/auth"
-import { prisma } from "@/lib/prisma"
-import { createChatTools } from "@/lib/chat-tools"
-import { buildChatSystemPrompt, type StockPreloadedData } from "@/lib/chat-system-prompt"
-import { CHAT_CONFIG } from "@/lib/constants"
-import { getRelatedNews, type RelatedNews } from "@/lib/news-rag"
-import { getDaysAgoForDB } from "@/lib/date-utils"
+import {
+  streamText,
+  convertToModelMessages,
+  stepCountIs,
+  type UIMessage,
+} from "ai";
+import { openai } from "@ai-sdk/openai";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { createChatTools } from "@/lib/chat-tools";
+import {
+  buildChatSystemPrompt,
+  type StockPreloadedData,
+} from "@/lib/chat-system-prompt";
+import { CHAT_CONFIG } from "@/lib/constants";
+import { getRelatedNews, type RelatedNews } from "@/lib/news-rag";
+import { getDaysAgoForDB } from "@/lib/date-utils";
 
 interface StockContext {
-  stockId: string
-  tickerCode: string
-  name: string
-  sector: string | null
-  currentPrice: number | null
-  type: "portfolio" | "watchlist" | "view"
-  quantity?: number
-  averagePurchasePrice?: number
-  profit?: number
-  profitPercent?: number
+  stockId: string;
+  tickerCode: string;
+  name: string;
+  sector: string | null;
+  currentPrice: number | null;
+  type: "portfolio" | "watchlist" | "view";
+  quantity?: number;
+  averagePurchasePrice?: number;
+  profit?: number;
+  profitPercent?: number;
 }
 
 export async function POST(request: Request) {
-  const session = await auth()
+  const session = await auth();
 
   if (!session?.user?.id) {
-    return new Response("Unauthorized", { status: 401 })
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const { messages, stockContext } = (await request.json()) as {
-    messages: UIMessage[]
-    stockContext?: StockContext
-  }
+    messages: UIMessage[];
+    stockContext?: StockContext;
+  };
 
   // 軽量な静的コンテキスト取得
   const userSettings = await prisma.userSettings.findUnique({
     where: { userId: session.user.id },
-  })
+  });
 
   // 個別銘柄ページではすべての銘柄情報を事前取得
-  let preloadedData: StockPreloadedData | undefined
+  let preloadedData: StockPreloadedData | undefined;
   if (stockContext) {
     try {
-      const tickerCode = stockContext.tickerCode.replace(".T", "")
+      const tickerCode = stockContext.tickerCode.replace(".T", "");
 
       const [stockData, analysisData, newsData, portfolioData, purchaseData] =
         await Promise.all([
@@ -109,7 +117,7 @@ export async function POST(request: Request) {
                 orderBy: { date: "desc" },
               })
             : Promise.resolve(null),
-        ])
+        ]);
 
       preloadedData = {
         financials: stockData
@@ -166,14 +174,14 @@ export async function POST(request: Request) {
               analyzedAt: analysisData.analyzedAt,
               daysAgo: Math.floor(
                 (Date.now() - analysisData.analyzedAt.getTime()) /
-                  (1000 * 60 * 60 * 24)
+                  (1000 * 60 * 60 * 24),
               ),
             }
           : null,
         news: newsData.map((n: RelatedNews) => ({
           title: n.title,
           content: n.content.substring(0, 300),
-          url: n.url,
+          url: n.url || "",
           sentiment: n.sentiment,
           publishedAt: n.publishedAt,
         })),
@@ -197,15 +205,25 @@ export async function POST(request: Request) {
               recommendation: purchaseData.recommendation,
               confidence: purchaseData.confidence,
               reason: purchaseData.reason,
-              positives: purchaseData.positives,
-              concerns: purchaseData.concerns,
+              positives: purchaseData.positives
+                ? purchaseData.positives
+                    .split("\n")
+                    .map((p) => p.replace(/^[・\-\*]\s*/, "").trim())
+                    .filter(Boolean)
+                : null,
+              concerns: purchaseData.concerns
+                ? purchaseData.concerns
+                    .split("\n")
+                    .map((c) => c.replace(/^[・\-\*]\s*/, "").trim())
+                    .filter(Boolean)
+                : null,
               buyCondition: purchaseData.buyCondition,
               personalizedReason: purchaseData.personalizedReason,
               marketSignal: purchaseData.marketSignal,
               date: purchaseData.date,
             }
           : null,
-      }
+      };
     } catch {
       // 事前取得失敗してもチャットは続行（ツールで補完）
     }
@@ -214,12 +232,12 @@ export async function POST(request: Request) {
   const systemPrompt = await buildChatSystemPrompt(
     userSettings,
     stockContext,
-    preloadedData
-  )
+    preloadedData,
+  );
 
-  const tools = createChatTools(session.user.id, stockContext)
+  const tools = createChatTools(session.user.id, stockContext);
 
-  const modelMessages = await convertToModelMessages(messages)
+  const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
     model: openai(CHAT_CONFIG.MODEL),
@@ -229,7 +247,7 @@ export async function POST(request: Request) {
     stopWhen: stepCountIs(CHAT_CONFIG.MAX_STEPS),
     temperature: CHAT_CONFIG.TEMPERATURE,
     maxOutputTokens: CHAT_CONFIG.MAX_TOKENS,
-  })
+  });
 
-  return result.toUIMessageStreamResponse()
+  return result.toUIMessageStreamResponse();
 }

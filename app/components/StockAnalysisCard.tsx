@@ -17,6 +17,8 @@ interface StockAnalysisCardProps {
   currentTargetBuyPrice?: number | null;
   embedded?: boolean;
   onAnalysisDateLoaded?: (date: string | null) => void;
+  // シミュレーション用
+  isSimulation?: boolean;
 }
 
 interface AnalysisData {
@@ -65,6 +67,7 @@ export default function StockAnalysisCard({
   currentTargetBuyPrice,
   embedded = false,
   onAnalysisDateLoaded,
+  isSimulation = false,
 }: StockAnalysisCardProps) {
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +79,12 @@ export default function StockAnalysisCard({
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/stocks/${stockId}/portfolio-analysis`);
+      // シミュレーションモードの場合はシミュレーション用API
+      const endpoint = isSimulation
+        ? `/api/stocks/${stockId}/simulated-portfolio-analysis`
+        : `/api/stocks/${stockId}/portfolio-analysis`;
+
+      const response = await fetch(endpoint);
 
       if (response.ok) {
         const data = await response.json();
@@ -106,10 +114,14 @@ export default function StockAnalysisCard({
     setGenerating(true);
     setError("");
     try {
-      // ポートフォリオ用かウォッチリスト用かで分岐
-      const endpoint = quantity
+      // ポートフォリオ用かウォッチリスト用か、あるいはシミュレーション用かで分岐
+      let endpoint = quantity
         ? `/api/stocks/${stockId}/portfolio-analysis`
         : `/api/stocks/${stockId}/purchase-recommendation`;
+
+      if (isSimulation) {
+        endpoint = `/api/stocks/${stockId}/simulated-portfolio-analysis`;
+      }
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -216,7 +228,9 @@ export default function StockAnalysisCard({
     return (
       <div className="bg-gray-50 rounded-lg p-6 text-center">
         <div className="text-4xl mb-3">📊</div>
-        <p className="text-sm text-gray-600 mb-4">AIが分析中です...</p>
+        <p className="text-sm text-gray-600 mb-4">
+          {isSimulation ? "シミュレーション分析中です..." : "AIが分析中です..."}
+        </p>
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-400 text-white text-sm font-medium rounded-lg cursor-not-allowed">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
           分析中...
@@ -262,10 +276,17 @@ export default function StockAnalysisCard({
 
   return (
     <div className="space-y-4">
+      {/* シミュレーションバッジ */}
+      {isSimulation && (
+        <div className="bg-amber-100 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+          <span>🧪 シミュレーションモード: 100株保有として分析</span>
+        </div>
+      )}
+
       {/* ヘッダー */}
       <div className="flex items-center justify-between -mt-2 mb-2">
         <h3 className="text-base font-bold text-gray-800">
-          {quantity ? "AI売買判断" : "AI価格予測"}
+          {quantity || isSimulation ? "AI売買判断" : "AI価格予測"}
         </h3>
         <button
           onClick={generateAnalysis}

@@ -1,7 +1,10 @@
-import { prisma } from "@/lib/prisma"
-import { getOpenAIClient } from "@/lib/openai"
-import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
-import { fetchHistoricalPrices, fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { prisma } from "@/lib/prisma";
+import { getOpenAIClient } from "@/lib/openai";
+import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag";
+import {
+  fetchHistoricalPrices,
+  fetchStockPrices,
+} from "@/lib/stock-price-fetcher";
 import {
   buildFinancialMetrics,
   buildCandlestickContext,
@@ -15,246 +18,107 @@ import {
   buildRelativeStrengthContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
-} from "@/lib/stock-analysis-context"
-import { getNikkei225Data } from "@/lib/market-index"
-import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
-import { calculateDeviationRate, calculateRSI, calculateSMA } from "@/lib/technical-indicators"
-import { MA_DEVIATION, SELL_TIMING, RELATIVE_STRENGTH } from "@/lib/constants"
-import { getDaysAgoForDB } from "@/lib/date-utils"
-import { isSurgeStock, isDangerousStock } from "@/lib/stock-safety-rules"
-import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
-import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-import timezone from "dayjs/plugin/timezone"
+} from "@/lib/stock-analysis-context";
+import { getNikkei225Data } from "@/lib/market-index";
+import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend";
+import {
+  calculateDeviationRate,
+  calculateRSI,
+  calculateSMA,
+} from "@/lib/technical-indicators";
+import { MA_DEVIATION, SELL_TIMING, RELATIVE_STRENGTH } from "@/lib/constants";
+import { getDaysAgoForDB } from "@/lib/date-utils";
+import { isSurgeStock, isDangerousStock } from "@/lib/stock-safety-rules";
+import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
-dayjs.extend(utc)
-dayjs.extend(timezone)
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export class AnalysisError extends Error {
   constructor(
     message: string,
-    public readonly code: "NOT_FOUND" | "STALE_DATA" | "NO_PRICE_DATA" | "INTERNAL"
+    public readonly code:
+      | "NOT_FOUND"
+      | "STALE_DATA"
+      | "NO_PRICE_DATA"
+      | "INTERNAL",
   ) {
-    super(message)
+    super(message);
   }
 }
 
 export interface PortfolioAnalysisResult {
-  shortTerm: string
-  mediumTerm: string
-  longTerm: string
-  statusType: string
-  marketSignal: string | null
-  suggestedSellPrice: number | null
-  suggestedSellPercent: number | null
-  sellReason: string | null
-  sellCondition: string | null
-  sellTiming: string | null
-  sellTargetPrice: number | null
-  recommendation: string | null
-  lastAnalysis: string
-  isToday: true
+  shortTerm: string;
+  mediumTerm: string;
+  longTerm: string;
+  statusType: string;
+  marketSignal: string | null;
+  suggestedSellPrice: number | null;
+  suggestedSellPercent: number | null;
+  sellReason: string | null;
+  sellCondition: string | null;
+  sellTiming: string | null;
+  sellTargetPrice: number | null;
+  recommendation: string | null;
+  lastAnalysis: string;
+  isToday: true;
 }
 
 /**
- * ポートフォリオ分析のコアロジック
- * APIルート・fire-and-forget両方から呼ばれる単一ソースオブトゥルース
+ * ポートフォリオ分析用のプロンプトを構築
  */
-export async function executePortfolioAnalysis(
-  userId: string,
-  stockId: string
-): Promise<PortfolioAnalysisResult> {
-  // ポートフォリオ銘柄と株式情報を取得
-  const portfolioStock = await prisma.portfolioStock.findFirst({
-    where: {
-      userId,
-      stockId,
-    },
-    include: {
-      stock: true,
-      transactions: {
-        orderBy: { transactionDate: "asc" },
-      },
-    },
-  })
+export function buildPortfolioAnalysisPrompt(params: {
+  stockName: string;
+  tickerCode: string;
+  sector: string;
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number | null;
+  profit: number | null;
+  profitPercent: number | null;
+  userContext: string;
+  purchaseRecContext: string;
+  financialMetrics: string;
+  weekChangeContext: string;
+  patternContext: string;
+  technicalContext: string;
+  chartPatternContext: string;
+  deviationRateContext: string;
+  volumeAnalysisContext: string;
+  relativeStrengthContext: string;
+  newsContext: string;
+  marketContext: string;
+  sectorTrendContext: string;
+  isSimulation?: boolean;
+}) {
+  const {
+    stockName,
+    tickerCode,
+    sector,
+    quantity,
+    averagePrice,
+    currentPrice,
+    profit,
+    profitPercent,
+    userContext,
+    purchaseRecContext,
+    financialMetrics,
+    weekChangeContext,
+    patternContext,
+    technicalContext,
+    chartPatternContext,
+    deviationRateContext,
+    volumeAnalysisContext,
+    relativeStrengthContext,
+    newsContext,
+    marketContext,
+    sectorTrendContext,
+    isSimulation = false,
+  } = params;
 
-  if (!portfolioStock) {
-    throw new AnalysisError("この銘柄はポートフォリオに登録されていません", "NOT_FOUND")
-  }
-
-  // ユーザー設定を取得
-  const userSettings = await prisma.userSettings.findUnique({
-    where: { userId },
-    select: {
-      investmentPeriod: true,
-      riskTolerance: true,
-    },
-  })
-
-  // 保有数量と平均取得単価を計算
-  let quantity = 0
-  let totalBuyCost = 0
-  let totalBuyQuantity = 0
-
-  for (const tx of portfolioStock.transactions) {
-    if (tx.type === "buy") {
-      quantity += tx.quantity
-      totalBuyCost += Number(tx.totalAmount)
-      totalBuyQuantity += tx.quantity
-    } else {
-      quantity -= tx.quantity
-    }
-  }
-
-  const averagePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0
-
-  // staleチェック: 株価データが古すぎる銘柄は分析スキップ
-  const { prices: realtimePrices, staleTickers: staleCheck } = await fetchStockPrices([portfolioStock.stock.tickerCode])
-  if (staleCheck.includes(portfolioStock.stock.tickerCode)) {
-    throw new AnalysisError("最新の株価が取得できないため分析がおこなえません", "STALE_DATA")
-  }
-
-  // リアルタイム株価を取得
-  const currentPrice = realtimePrices[0]?.currentPrice ?? null
-
-  // 損益計算
-  let profit: number | null = null
-  let profitPercent: number | null = null
-  if (currentPrice && averagePrice > 0 && quantity > 0) {
-    const totalCost = averagePrice * quantity
-    const currentValue = currentPrice * quantity
-    profit = currentValue - totalCost
-    profitPercent = (profit / totalCost) * 100
-  }
-
-  // 直近30日の価格データを取得（yfinanceからリアルタイム取得）
-  const historicalPrices = await fetchHistoricalPrices(portfolioStock.stock.tickerCode, "1m")
-  const prices = historicalPrices.slice(-30) // oldest-first
-
-  // ローソク足パターン分析
-  const patternContext = buildCandlestickContext(prices)
-
-  // テクニカル指標（RSI / MACD）
-  const technicalContext = buildTechnicalContext(prices)
-
-  // チャートパターン（複数足フォーメーション）の検出
-  const chartPatternContext = buildChartPatternContext(prices)
-
-  // 週間変化率
-  const { text: weekChangeContext, rate: weekChangeRate } = buildWeekChangeContext(prices, "portfolio")
-
-  // 乖離率コンテキスト
-  const deviationRateContext = buildDeviationRateContext(prices)
-
-  // 出来高分析: 下落日 vs 上昇日の出来高を比較して売り圧力の本質を判定
-  const volumeAnalysisContext = buildVolumeAnalysisContext(prices)
-
-  // 関連ニュースを取得
-  const tickerCode = portfolioStock.stock.tickerCode.replace(".T", "")
-  const news = await getRelatedNews({
-    tickerCodes: [tickerCode],
-    sectors: portfolioStock.stock.sector ? [portfolioStock.stock.sector] : [],
-    limit: 5,
-    daysAgo: 7,
-  })
-  const newsContext = news.length > 0
-    ? `\n【最新のニュース情報】\n${formatNewsForPrompt(news)}`
-    : ""
-
-  // 財務指標のフォーマット
-  const stock = portfolioStock.stock
-  const financialMetrics = buildFinancialMetrics(stock, currentPrice)
-
-  // 上場廃止コンテキスト
-  const delistingContext = buildDelistingContext(stock.isDelisted, stock.fetchFailCount)
-
-  // 日経平均の市場文脈を取得
-  let marketData = null
-  try {
-    marketData = await getNikkei225Data()
-  } catch (error) {
-    console.error("市場データ取得失敗（フォールバック）:", error)
-  }
-  const marketContext = buildMarketContext(marketData)
-
-  // セクタートレンド
-  let sectorTrendContext = ""
-  let sectorAvgWeekChangeRate: number | null = null
-  if (stock.sector) {
-    const sectorTrend = await getSectorTrend(stock.sector)
-    if (sectorTrend) {
-      sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`
-      sectorAvgWeekChangeRate = sectorTrend.avgWeekChangeRate ?? null
-    }
-  }
-
-  // 相対強度分析: 銘柄の変化率を市場・セクターと比較して地合い要因か銘柄固有か判定
-  const relativeStrengthContext = buildRelativeStrengthContext(
-    weekChangeRate,
-    marketData?.weekChangeRate ?? null,
-    sectorAvgWeekChangeRate
-  )
-
-  // 初回購入が7日以内 → 直近の購入判断をコンテキストに含める
-  // （ウォッチリスト→ポートフォリオ移行直後の売り判定フリップを防ぐ）
-  const firstBuyTransaction = portfolioStock.transactions.find(tx => tx.type === "buy")
-  const isRecentlyPurchased = firstBuyTransaction
-    && firstBuyTransaction.transactionDate >= getDaysAgoForDB(7)
-
-  let purchaseRecContext = ""
-  if (isRecentlyPurchased) {
-    const recentPurchaseRec = await prisma.purchaseRecommendation.findFirst({
-      where: { stockId },
-      orderBy: { date: "desc" },
-      select: {
-        recommendation: true,
-        reason: true,
-        date: true,
-      },
-    })
-
-    if (recentPurchaseRec) {
-      const purchaseRecLabel: Record<string, string> = {
-        buy: "買い推奨",
-        stay: "様子見",
-        avoid: "見送り推奨",
-      }
-      const daysSinceRec = recentPurchaseRec.date
-        ? Math.floor((Date.now() - new Date(recentPurchaseRec.date).getTime()) / (1000 * 60 * 60 * 24))
-        : null
-      const daysAgoText = daysSinceRec !== null ? `${daysSinceRec}日前` : "直近"
-      purchaseRecContext = `\n【直近の購入判断 - 重要】
-- 判定: ${purchaseRecLabel[recentPurchaseRec.recommendation] || recentPurchaseRec.recommendation}
-- 判定日: ${daysAgoText}
-- 理由: ${recentPurchaseRec.reason}
-- ※ この銘柄は購入から7日以内です。以下のルールを厳守してください:
-  - 購入判断が「買い推奨」だった場合、明確な悪材料（決算ミス、不祥事等）がない限り recommendation は "sell" にしないでください
-  - 含み損が-15%未満の場合は "sell" にしないでください
-  - 購入直後の小幅な下落は正常な値動きです。shortTermで「購入判断の根拠は引き続き有効」であることを伝えてください
-  - cautionが必要な場合は recommendation を "hold" にしつつ、shortTermで注意点を述べてください
-`
-    }
-  }
-
-  // ユーザー設定コンテキスト
-  const periodMap: Record<string, string> = {
-    short: "短期（数週間〜数ヶ月）",
-    medium: "中期（半年〜1年）",
-    long: "長期（数年以上）",
-  }
-  const riskMap: Record<string, string> = {
-    low: "低リスク（安定重視）",
-    medium: "中リスク（バランス）",
-    high: "高リスク（積極的）",
-  }
-  const userContext = userSettings
-    ? `\n【ユーザーの投資設定】
-- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
-- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
-`
-    : ""
-
-  // プロンプト構築
   const prompt = `あなたは投資初心者向けのAIアナリストです。
 以下の保有銘柄について、テクニカル分析と売買判断を提供してください。
 
@@ -264,21 +128,21 @@ export async function executePortfolioAnalysis(
 - 文章は必ず「〇〇な理由で → △△な判断」の順番で書く
 - 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、MACD（トレンドの勢いを示す指標））
 
-【銘柄情報】
-- 名前: ${stock.name}
-- ティッカーコード: ${stock.tickerCode}
-- セクター: ${stock.sector || "不明"}
-- 保有数量: ${quantity}株
-- 平均取得単価: ${averagePrice.toFixed(0)}円
+【銘柄情報】${isSimulation ? "（※これは購入を検討しているユーザーのシミュレーションデータです）" : ""}
+- 名前: ${stockName}
+- ティッカーコード: ${tickerCode}
+- セクター: ${sector || "不明"}
+- ${isSimulation ? "シミュレーション" : ""}保有数量: ${quantity}株
+- ${isSimulation ? "シミュレーション" : ""}平均取得単価: ${averagePrice.toFixed(0)}円
 - 現在価格: ${currentPrice ? currentPrice.toLocaleString() : "不明"}円
-- 損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}
+- ${isSimulation ? "シミュレーション" : ""}損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}
 ${userContext}${purchaseRecContext}
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
 【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}
 【株価データ】
-直近30日の終値: ${prices.length}件のデータあり
+直近30日の終値: データあり
 ${newsContext}${marketContext}${sectorTrendContext}
 
 【回答形式】
@@ -314,9 +178,9 @@ ${PROMPT_MARKET_SIGNAL_DEFINITION}
 - テクニカル指標（RSI・MACD・ローソク足・チャートパターン）を必ず分析に活用してください
 - 財務指標（会社の規模、配当、株価水準）を分析に活用してください
 ${PROMPT_NEWS_CONSTRAINTS}
-- ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください
+${isSimulation ? "- シミュレーションのため、購入直後の設定です。" : "- ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください"}
 - ユーザーの投資期間設定がある場合は、期間に応じて判断の重みを調整してください（短期→shortTerm重視、長期→longTerm重視）
-- ユーザーのリスク許容度が低い場合は早めの売却検討を、高い場合は許容幅を広げてください
+- ユーザーのリスク許容度が低い場合は早めの売却(推奨損切り)設定を、高い場合は許容幅を広げて提案してください
 
 【モメンタム（トレンドフォロー）判断 - 重要】
 ■ 保有銘柄が下落トレンドの場合:
@@ -402,10 +266,252 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - 感情的な励まし・慰めの言葉は一切使わない
 - 根拠のない楽観・悲観は書かない
 - テクニカル指標と財務指標を根拠にした具体的な判断を示す
-`
+`;
+  return prompt;
+}
 
-  // OpenAI API呼び出し（Structured Outputs使用）
-  const openai = getOpenAIClient()
+/**
+ * ポートフォリオ分析のコアロジック
+ * APIルート・fire-and-forget両方から呼ばれる単一ソースオブトゥルース
+ */
+export async function executePortfolioAnalysis(
+  userId: string,
+  stockId: string,
+): Promise<PortfolioAnalysisResult> {
+  // ポートフォリオ銘柄と株式情報を取得
+  const portfolioStock = await prisma.portfolioStock.findFirst({
+    where: {
+      userId,
+      stockId,
+    },
+    include: {
+      stock: true,
+      transactions: {
+        orderBy: { transactionDate: "asc" },
+      },
+    },
+  });
+
+  if (!portfolioStock) {
+    throw new AnalysisError(
+      "この銘柄はポートフォリオに登録されていません",
+      "NOT_FOUND",
+    );
+  }
+
+  // ユーザー設定を取得
+  const userSettings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: {
+      investmentPeriod: true,
+      riskTolerance: true,
+    },
+  });
+
+  // 保有数量と平均取得単価を計算
+  let quantity = 0;
+  let totalBuyCost = 0;
+  let totalBuyQuantity = 0;
+
+  for (const tx of portfolioStock.transactions) {
+    if (tx.type === "buy") {
+      quantity += tx.quantity;
+      totalBuyCost += Number(tx.totalAmount);
+      totalBuyQuantity += tx.quantity;
+    } else {
+      quantity -= tx.quantity;
+    }
+  }
+
+  const averagePrice =
+    totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0;
+
+  // staleチェック: 株価データが古すぎる銘柄は分析スキップ
+  const { prices: realtimePrices, staleTickers: staleCheck } =
+    await fetchStockPrices([portfolioStock.stock.tickerCode]);
+  if (staleCheck.includes(portfolioStock.stock.tickerCode)) {
+    throw new AnalysisError(
+      "最新の株価が取得できないため分析がおこなえません",
+      "STALE_DATA",
+    );
+  }
+
+  // リアルタイム株価を取得
+  const currentPrice = realtimePrices[0]?.currentPrice ?? null;
+
+  // 損益計算
+  let profit: number | null = null;
+  let profitPercent: number | null = null;
+  if (currentPrice && averagePrice > 0 && quantity > 0) {
+    const totalCost = averagePrice * quantity;
+    const currentValue = currentPrice * quantity;
+    profit = currentValue - totalCost;
+    profitPercent = (profit / totalCost) * 100;
+  }
+
+  // 直近30日の価格データを取得（yfinanceからリアルタイム取得）
+  const historicalPrices = await fetchHistoricalPrices(
+    portfolioStock.stock.tickerCode,
+    "1m",
+  );
+  const prices = historicalPrices.slice(-30); // oldest-first
+
+  // ローソク足パターン分析
+  const patternContext = buildCandlestickContext(prices);
+
+  // テクニカル指標（RSI / MACD）
+  const technicalContext = buildTechnicalContext(prices);
+
+  // チャートパターン（複数足フォーメーション）の検出
+  const chartPatternContext = buildChartPatternContext(prices);
+
+  // 週間変化率
+  const { text: weekChangeContext, rate: weekChangeRate } =
+    buildWeekChangeContext(prices, "portfolio");
+
+  // 乖離率コンテキスト
+  const deviationRateContext = buildDeviationRateContext(prices);
+
+  // 出来高分析
+  const volumeAnalysisContext = buildVolumeAnalysisContext(prices);
+
+  // 関連ニュースを取得
+  const tickerCodeSlug = portfolioStock.stock.tickerCode.replace(".T", "");
+  const news = await getRelatedNews({
+    tickerCodes: [tickerCodeSlug],
+    sectors: portfolioStock.stock.sector ? [portfolioStock.stock.sector] : [],
+    limit: 5,
+    daysAgo: 7,
+  });
+  const newsContext =
+    news.length > 0
+      ? `\n【最新のニュース情報】\n${formatNewsForPrompt(news)}`
+      : "";
+
+  // 財務指標のフォーマット
+  const stock = portfolioStock.stock;
+  const financialMetrics = buildFinancialMetrics(stock, currentPrice);
+
+  // 日経平均の市場文脈を取得
+  let marketData = null;
+  try {
+    marketData = await getNikkei225Data();
+  } catch (error) {
+    console.error("市場データ取得失敗（フォールバック）:", error);
+  }
+  const marketContext = buildMarketContext(marketData);
+
+  // セクタートレンド
+  let sectorTrendContext = "";
+  let sectorAvgWeekChangeRate: number | null = null;
+  if (stock.sector) {
+    const sectorTrend = await getSectorTrend(stock.sector);
+    if (sectorTrend) {
+      sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`;
+      sectorAvgWeekChangeRate = sectorTrend.avgWeekChangeRate ?? null;
+    }
+  }
+
+  // 相対強度分析
+  const relativeStrengthContext = buildRelativeStrengthContext(
+    weekChangeRate,
+    marketData?.weekChangeRate ?? null,
+    sectorAvgWeekChangeRate,
+  );
+
+  // 初回購入が7日以内 → 直近の購入判断をコンテキストに含める
+  const firstBuyTransaction = portfolioStock.transactions.find(
+    (tx) => tx.type === "buy",
+  );
+  const isRecentlyPurchased =
+    firstBuyTransaction &&
+    firstBuyTransaction.transactionDate >= getDaysAgoForDB(7);
+
+  let purchaseRecContext = "";
+  if (isRecentlyPurchased) {
+    const recentPurchaseRec = await prisma.purchaseRecommendation.findFirst({
+      where: { stockId },
+      orderBy: { date: "desc" },
+      select: {
+        recommendation: true,
+        reason: true,
+        date: true,
+      },
+    });
+
+    if (recentPurchaseRec) {
+      const purchaseRecLabel: Record<string, string> = {
+        buy: "買い推奨",
+        stay: "様子見",
+        avoid: "見送り推奨",
+      };
+      const daysSinceRec = recentPurchaseRec.date
+        ? Math.floor(
+            (Date.now() - new Date(recentPurchaseRec.date).getTime()) /
+              (1000 * 60 * 60 * 24),
+          )
+        : null;
+      const daysAgoText =
+        daysSinceRec !== null ? `${daysSinceRec}日前` : "直近";
+      purchaseRecContext = `\n【直近の購入判断 - 重要】
+- 判定: ${purchaseRecLabel[recentPurchaseRec.recommendation] || recentPurchaseRec.recommendation}
+- 判定日: ${daysAgoText}
+- 理由: ${recentPurchaseRec.reason}
+- ※ この銘柄は購入から7日以内です。以下のルールを厳守してください:
+  - 購入判断が「買い推奨」だった場合、明確な悪材料（決算ミス、不祥事等）がない限り recommendation は "sell" にしないでください
+  - 含み損が-15%未満の場合は "sell" にしないでください
+  - 購入直後の小幅な下落は正常な値動きです。shortTermで「購入判断の根拠は引き続き有効」であることを伝えてください
+  - cautionが必要な場合は recommendation を "hold" にしつつ、shortTermで注意点を述べてください
+`;
+    }
+  }
+
+  // ユーザー設定コンテキスト
+  const periodMap: Record<string, string> = {
+    short: "短期（数週間〜数ヶ月）",
+    medium: "中期（半年〜1年）",
+    long: "長期（数年以上）",
+  };
+  const riskMap: Record<string, string> = {
+    low: "低リスク（安定重視）",
+    medium: "中リスク（バランス）",
+    high: "高リスク（積極的）",
+  };
+  const userContext = userSettings
+    ? `\n【ユーザーの投資設定】
+- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
+- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
+`
+    : "";
+
+  // プロンプト構築
+  const prompt = buildPortfolioAnalysisPrompt({
+    stockName: stock.name,
+    tickerCode: stock.tickerCode,
+    sector: stock.sector || "不明",
+    quantity,
+    averagePrice,
+    currentPrice,
+    profit,
+    profitPercent,
+    userContext,
+    purchaseRecContext,
+    financialMetrics,
+    weekChangeContext,
+    patternContext,
+    technicalContext,
+    chartPatternContext,
+    deviationRateContext,
+    volumeAnalysisContext,
+    relativeStrengthContext,
+    newsContext,
+    marketContext,
+    sectorTrendContext,
+    isSimulation: false,
+  });
+
+  // OpenAI API呼び出し
+  const openai = getOpenAIClient();
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
@@ -425,12 +531,18 @@ ${PROMPT_NEWS_CONSTRAINTS}
         schema: {
           type: "object",
           properties: {
-            marketSignal: { type: "string", enum: ["bullish", "neutral", "bearish"] },
+            marketSignal: {
+              type: "string",
+              enum: ["bullish", "neutral", "bearish"],
+            },
             shortTerm: { type: "string" },
             mediumTerm: { type: "string" },
             longTerm: { type: "string" },
             suggestedSellPrice: { type: ["number", "null"] },
-            suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
+            suggestedSellPercent: {
+              type: ["integer", "null"],
+              enum: [25, 50, 75, 100, null],
+            },
             sellReason: { type: ["string", "null"] },
             suggestedStopLossPrice: { type: ["number", "null"] },
             sellCondition: { type: ["string", "null"] },
@@ -449,146 +561,170 @@ ${PROMPT_NEWS_CONSTRAINTS}
           },
           required: [
             "marketSignal",
-            "shortTerm", "mediumTerm", "longTerm",
-            "suggestedSellPrice", "suggestedSellPercent", "sellReason",
-            "suggestedStopLossPrice", "sellCondition",
-            "shortTermTrend", "shortTermPriceLow", "shortTermPriceHigh",
-            "midTermTrend", "midTermPriceLow", "midTermPriceHigh",
-            "longTermTrend", "longTermPriceLow", "longTermPriceHigh",
-            "recommendation", "advice", "confidence"
+            "shortTerm",
+            "mediumTerm",
+            "longTerm",
+            "suggestedSellPrice",
+            "suggestedSellPercent",
+            "sellReason",
+            "suggestedStopLossPrice",
+            "sellCondition",
+            "shortTermTrend",
+            "shortTermPriceLow",
+            "shortTermPriceHigh",
+            "midTermTrend",
+            "midTermPriceLow",
+            "midTermPriceHigh",
+            "longTermTrend",
+            "longTermPriceLow",
+            "longTermPriceHigh",
+            "recommendation",
+            "advice",
+            "confidence",
           ],
           additionalProperties: false,
         },
       },
     },
-  })
+  });
 
-  const content = response.choices[0].message.content?.trim() || "{}"
-  const result = JSON.parse(content)
+  const content = response.choices[0].message.content?.trim() || "{}";
+  const result = JSON.parse(content);
 
-  // 乖離率・RSI計算（売りタイミング判定用）
-  const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
-  const deviationRate = calculateDeviationRate(pricesNewestFirst, MA_DEVIATION.PERIOD)
-  const rsiValue = calculateRSI(pricesNewestFirst)
-  const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD)
+  // 補正ロジック
+  const pricesNewestFirst = [...prices]
+    .reverse()
+    .map((p) => ({ close: p.close }));
+  const deviationRate = calculateDeviationRate(
+    pricesNewestFirst,
+    MA_DEVIATION.PERIOD,
+  );
+  const rsiValue = calculateRSI(pricesNewestFirst);
+  const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
 
-  // 強制補正: 乖離率-20%以下 → sell→hold（パニック売り防止）
+  // 強制補正: 乖離率-20%以下 → sell→hold
   if (
     deviationRate !== null &&
     deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
     result.recommendation === "sell"
   ) {
-    result.recommendation = "hold"
-    result.sellReason = null
-    result.suggestedSellPercent = null
-    result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`
-    result.shortTerm = `【様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、この水準での売却は避けることを推奨します（反発の可能性が高い）。AIの分析: ${result.shortTerm}`
-    result.advice = `移動平均線から${Math.abs(deviationRate).toFixed(1)}%の売られすぎ水準。大底での売却リスクが高いため、自律反発を待ちましょう。`
+    result.recommendation = "hold";
+    result.sellReason = null;
+    result.suggestedSellPercent = null;
+    result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`;
+    result.shortTerm = `【様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、この水準での売却は避けることを推奨します（反発の可能性が高い）。AIの分析: ${result.shortTerm}`;
+    result.advice = `移動平均線から${Math.abs(deviationRate).toFixed(1)}%の売られすぎ水準。大底での売却リスクが高いため、自律反発を待ちましょう。`;
   }
 
   // 上場廃止銘柄の強制補正
   if (stock.isDelisted) {
-    result.recommendation = "sell"
-    result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`
+    result.recommendation = "sell";
+    result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`;
   }
 
-  // 急騰銘柄の買い増し抑制（投資期間別）
-  const investmentPeriod = userSettings?.investmentPeriod ?? null
-  if (isSurgeStock(weekChangeRate, investmentPeriod) && result.recommendation === "buy") {
-    result.recommendation = "hold"
-    result.shortTerm = `週間+${weekChangeRate!.toFixed(0)}%の急騰後のため、買い増しは高値掴みのリスクがあります。${result.shortTerm}`
-  }
-
-  // 危険銘柄の買い増し抑制: 赤字+高ボラでbuy→hold
-  const volatility = stock.volatility ? Number(stock.volatility) : null
-  if (isDangerousStock(stock.isProfitable, volatility) && result.recommendation === "buy") {
-    result.recommendation = "hold"
-    result.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${result.shortTerm}`
-  }
-
-  // 売却目標が現在価格に近い場合はsellに補正
-  // ただし中期・長期が上昇見通しの場合は補正しない（短期要因だけで売らない）
+  // 急騰銘柄の買い増し抑制
+  const investmentPeriod = userSettings?.investmentPeriod ?? null;
   if (
-    result.recommendation === "hold" &&
-    result.suggestedSellPrice &&
-    currentPrice &&
-    Math.abs(result.suggestedSellPrice - currentPrice) / currentPrice < SELL_TIMING.SELL_PRICE_PROXIMITY_THRESHOLD &&
-    result.midTermTrend !== "up" &&
-    result.longTermTrend !== "up"
+    isSurgeStock(weekChangeRate, investmentPeriod) &&
+    result.recommendation === "buy"
   ) {
-    result.recommendation = "sell"
+    result.recommendation = "hold";
+    result.shortTerm = `週間+${weekChangeRate!.toFixed(0)}%の急騰後のため、買い増しは高値掴みのリスクがあります。${result.shortTerm}`;
   }
 
-  // 中長期トレンドによる売り保護: 中期or長期が上昇見通しなら sell → hold
-  // ただし含み損が大きい場合は保護を無効化（損切り優先）
+  // 危険銘柄の買い増し抑制
+  const volatility = stock.volatility ? Number(stock.volatility) : null;
+  if (
+    isDangerousStock(stock.isProfitable, volatility) &&
+    result.recommendation === "buy"
+  ) {
+    result.recommendation = "hold";
+    result.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${result.shortTerm}`;
+  }
+
+  // 中長期トレンドによる売り保護
   if (
     result.recommendation === "sell" &&
     (result.midTermTrend === "up" || result.longTermTrend === "up") &&
-    (profitPercent === null || profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+    (profitPercent === null ||
+      profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
   ) {
-    const trendInfo = [
+    const trendInfoArr = [
       result.midTermTrend === "up" ? "中期" : null,
       result.longTermTrend === "up" ? "長期" : null,
-    ].filter(Boolean).join("・")
-    result.recommendation = "hold"
-    result.sellReason = null
-    result.suggestedSellPercent = null
-    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.sellCondition || ""}`
-    result.shortTerm = `【様子見を推奨】${trendInfo}のトレンドが上昇見通しのため、短期の売りシグナルで手放すのは見送りを推奨します。AIの短期分析: ${result.shortTerm}`
-    result.advice = `${trendInfo}のトレンドは上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を待つ方針を推奨します。`
+    ].filter(Boolean);
+    const trendInfo = trendInfoArr.join("・");
+    result.recommendation = "hold";
+    result.sellReason = null;
+    result.suggestedSellPercent = null;
+    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.sellCondition || ""}`;
+    result.shortTerm = `【様子見を推奨】${trendInfo}のトレンドが上昇見通しのため、短期の売りシグナルで手放すのは見送りを推奨します。AIの短期分析: ${result.shortTerm}`;
+    result.advice = `${trendInfo}のトレンドは上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を待つ方針を推奨します。`;
   }
 
-  // 相対強度による売り保護: 市場全体の下落に引きずられただけなら sell → hold
-  // 銘柄固有の弱さではなく地合い要因の可能性が高い場合に売りを抑制
-  // ただし含み損が大きい場合は保護を無効化（損切り優先）
+  // 相対強度による売り保護
   if (
     result.recommendation === "sell" &&
-    weekChangeRate !== null && weekChangeRate < 0 &&
+    weekChangeRate !== null &&
+    weekChangeRate < 0 &&
     marketData?.weekChangeRate != null &&
-    (profitPercent === null || profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+    (profitPercent === null ||
+      profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
   ) {
-    const relVsMarket = weekChangeRate - marketData.weekChangeRate
+    const relVsMarket = weekChangeRate - marketData.weekChangeRate;
     if (relVsMarket >= RELATIVE_STRENGTH.OUTPERFORM_SELL_PROTECTION) {
-      result.recommendation = "hold"
-      result.sellReason = null
-      result.suggestedSellPercent = null
-      result.sellCondition = `市場（日経平均${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%）に対して+${relVsMarket.toFixed(1)}%のアウトパフォームで、下落は地合い要因とみられます。${result.sellCondition || ""}`
-      result.shortTerm = `【様子見を推奨】市場全体が${marketData.weekChangeRate.toFixed(1)}%下落する中、この銘柄は相対的に+${relVsMarket.toFixed(1)}%強く、地合い要因による下落と判断しました。AIの短期分析: ${result.shortTerm}`
-      result.advice = `市場全体の下落（日経平均${marketData.weekChangeRate.toFixed(1)}%）に対してアウトパフォームしており、地合い要因の下落とみられます。様子見を推奨します。`
+      result.recommendation = "hold";
+      result.sellReason = null;
+      result.suggestedSellPercent = null;
+      result.sellCondition = `市場（日経平均${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%）に対して+${relVsMarket.toFixed(1)}%のアウトパフォームで、下落は地合い要因とみられます。${result.sellCondition || ""}`;
+      result.shortTerm = `【様子見を推奨】市場全体が${marketData.weekChangeRate.toFixed(1)}%下落する中、この銘柄は相対的に+${relVsMarket.toFixed(1)}%強く、地合い要因による下落と判断しました。AIの短期分析: ${result.shortTerm}`;
+      result.advice = `市場全体の下落（日経平均${marketData.weekChangeRate.toFixed(1)}%）に対してアウトパフォームしており、地合い要因の下落とみられます。様子見を推奨します。`;
     }
   }
 
-  // statusType は recommendation から機械的に導出（AIに任せない）
-  const statusType = result.recommendation === "sell" ? "warning"
-    : result.recommendation === "buy" ? "good"
-    : "neutral"
+  // statusType
+  const statusType =
+    result.recommendation === "sell"
+      ? "warning"
+      : result.recommendation === "buy"
+        ? "good"
+        : "neutral";
 
-  // 売りタイミング判定（sell推奨時のみ）
-  let sellTiming: string | null = null
-  let sellTargetPrice: number | null = null
+  // 売りタイミング判定
+  let sellTiming: string | null = null;
+  let sellTargetPrice: number | null = null;
 
   if (result.recommendation === "sell") {
-    if (profitPercent !== null && profitPercent <= SELL_TIMING.STOP_LOSS_THRESHOLD) {
-      sellTiming = "market"
-    } else if (profitPercent !== null && profitPercent >= SELL_TIMING.PROFIT_TAKING_THRESHOLD) {
-      sellTiming = "market"
+    if (
+      profitPercent !== null &&
+      profitPercent <= SELL_TIMING.STOP_LOSS_THRESHOLD
+    ) {
+      sellTiming = "market";
+    } else if (
+      profitPercent !== null &&
+      profitPercent >= SELL_TIMING.PROFIT_TAKING_THRESHOLD
+    ) {
+      sellTiming = "market";
     } else {
-      const isDeviationOk = deviationRate === null || deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD
-      const isRsiOk = rsiValue === null || rsiValue >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD
+      const isDeviationOk =
+        deviationRate === null ||
+        deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD;
+      const isRsiOk =
+        rsiValue === null || rsiValue >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD;
 
       if (deviationRate === null && rsiValue === null) {
-        sellTiming = null
+        sellTiming = null;
       } else if (isDeviationOk && isRsiOk) {
-        sellTiming = "market"
+        sellTiming = "market";
       } else {
-        sellTiming = "rebound"
-        sellTargetPrice = sma25
+        sellTiming = "rebound";
+        sellTargetPrice = sma25;
       }
     }
   }
 
-  // データベースに保存
-  const now = dayjs.utc().toDate()
+  // 保存
+  const now = dayjs.utc().toDate();
 
   const [, createdAnalysis] = await prisma.$transaction([
     prisma.portfolioStock.update({
@@ -599,12 +735,12 @@ ${PROMPT_NEWS_CONSTRAINTS}
         longTerm: result.longTerm,
         statusType,
         marketSignal: result.marketSignal || null,
-        suggestedSellPrice: result.suggestedSellPrice ? result.suggestedSellPrice : null,
+        suggestedSellPrice: result.suggestedSellPrice || null,
         suggestedSellPercent: result.suggestedSellPercent || null,
         sellReason: result.sellReason || null,
         sellCondition: result.sellCondition || null,
-        sellTiming: sellTiming,
-        sellTargetPrice: sellTargetPrice,
+        sellTiming,
+        sellTargetPrice,
         lastAnalysis: now,
         updatedAt: now,
       },
@@ -634,14 +770,14 @@ ${PROMPT_NEWS_CONSTRAINTS}
         analyzedAt: now,
       },
     }),
-  ])
+  ]);
 
   // Outcome追跡
   const trendToPrediction: Record<string, Prediction> = {
     up: "up",
     down: "down",
     neutral: "neutral",
-  }
+  };
 
   await insertRecommendationOutcome({
     type: "analysis",
@@ -654,8 +790,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
     prediction: trendToPrediction[result.shortTermTrend] || "neutral",
     confidence: result.confidence || 0.7,
     volatility: stock.volatility ? Number(stock.volatility) : null,
-    marketCap: stock.marketCap ? BigInt(Number(stock.marketCap) * 100_000_000) : null,
-  })
+    marketCap: stock.marketCap
+      ? BigInt(Number(stock.marketCap) * 100_000_000)
+      : null,
+  });
 
   return {
     shortTerm: result.shortTerm,
@@ -667,10 +805,317 @@ ${PROMPT_NEWS_CONSTRAINTS}
     suggestedSellPercent: result.suggestedSellPercent || null,
     sellReason: result.sellReason || null,
     sellCondition: result.sellCondition || null,
-    sellTiming: sellTiming,
-    sellTargetPrice: sellTargetPrice,
+    sellTiming,
+    sellTargetPrice,
     recommendation: result.recommendation || null,
     lastAnalysis: now.toISOString(),
     isToday: true,
+  };
+}
+
+/**
+ * ポートフォリオ分析のシミュレーション（DB保存なし）
+ */
+export async function executeSimulatedPortfolioAnalysis(
+  userId: string,
+  stockId: string,
+  simulatedQuantity: number,
+  simulatedAveragePrice: number,
+): Promise<PortfolioAnalysisResult & { [key: string]: any }> {
+  const stock = await prisma.stock.findUnique({
+    where: { id: stockId },
+  });
+
+  if (!stock) {
+    throw new AnalysisError("銘柄が見つかりません", "NOT_FOUND");
   }
+
+  const userSettings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: {
+      investmentPeriod: true,
+      riskTolerance: true,
+      stopLossRate: true,
+      targetReturnRate: true,
+    },
+  });
+
+  const { prices: realtimePrices, staleTickers: staleCheck } =
+    await fetchStockPrices([stock.tickerCode]);
+  if (staleCheck.includes(stock.tickerCode)) {
+    throw new AnalysisError(
+      "最新の株価が取得できないため分析がおこなえません",
+      "STALE_DATA",
+    );
+  }
+
+  const currentPrice = realtimePrices[0]?.currentPrice ?? null;
+  const averagePrice = simulatedAveragePrice || currentPrice || 0;
+  const quantity = simulatedQuantity;
+
+  let profit: number | null = null;
+  let profitPercent: number | null = null;
+  if (currentPrice && averagePrice > 0 && quantity > 0) {
+    const totalCost = averagePrice * quantity;
+    const currentValue = currentPrice * quantity;
+    profit = currentValue - totalCost;
+    profitPercent = (profit / totalCost) * 100;
+  }
+
+  const historicalPrices = await fetchHistoricalPrices(stock.tickerCode, "1m");
+  const prices = historicalPrices.slice(-30);
+
+  const patternContext = buildCandlestickContext(prices);
+  const technicalContext = buildTechnicalContext(prices);
+  const chartPatternContext = buildChartPatternContext(prices);
+  const { text: weekChangeContext, rate: weekChangeRate } =
+    buildWeekChangeContext(prices, "portfolio");
+  const deviationRateContext = buildDeviationRateContext(prices);
+  const volumeAnalysisContext = buildVolumeAnalysisContext(prices);
+
+  const tickerCodeSlug = stock.tickerCode.replace(".T", "");
+  const news = await getRelatedNews({
+    tickerCodes: [tickerCodeSlug],
+    sectors: stock.sector ? [stock.sector] : [],
+    limit: 5,
+    daysAgo: 7,
+  });
+  const newsContext =
+    news.length > 0
+      ? `\n【最新のニュース情報】\n${formatNewsForPrompt(news)}`
+      : "";
+  const financialMetrics = buildFinancialMetrics(stock, currentPrice);
+
+  let marketData = null;
+  try {
+    marketData = await getNikkei225Data();
+  } catch (e) {}
+  const marketContext = buildMarketContext(marketData);
+
+  let sectorTrendContext = "";
+  let sectorAvgWeekChangeRate: number | null = null;
+  if (stock.sector) {
+    const sectorTrend = await getSectorTrend(stock.sector);
+    if (sectorTrend) {
+      sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`;
+      sectorAvgWeekChangeRate = sectorTrend.avgWeekChangeRate ?? null;
+    }
+  }
+
+  const relativeStrengthContext = buildRelativeStrengthContext(
+    weekChangeRate,
+    marketData?.weekChangeRate ?? null,
+    sectorAvgWeekChangeRate,
+  );
+
+  const periodMap: Record<string, string> = {
+    short: "短期（数週間〜数ヶ月）",
+    medium: "中期（半年〜1年）",
+    long: "長期（数年以上）",
+  };
+  const riskMap: Record<string, string> = {
+    low: "低リスク（安定重視）",
+    medium: "中リスク（バランス）",
+    high: "高リスク（積極的）",
+  };
+  const userContext = userSettings
+    ? `\n【ユーザーの投資設定】
+- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
+- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
+`
+    : "";
+
+  const prompt = buildPortfolioAnalysisPrompt({
+    stockName: stock.name,
+    tickerCode: stock.tickerCode,
+    sector: stock.sector || "不明",
+    quantity,
+    averagePrice,
+    currentPrice,
+    profit,
+    profitPercent,
+    userContext,
+    purchaseRecContext: "",
+    financialMetrics,
+    weekChangeContext,
+    patternContext,
+    technicalContext,
+    chartPatternContext,
+    deviationRateContext,
+    volumeAnalysisContext,
+    relativeStrengthContext,
+    newsContext,
+    marketContext,
+    sectorTrendContext,
+    isSimulation: true,
+  });
+
+  const openai = getOpenAIClient();
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: "You are a helpful investment coach for beginners.",
+      },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 800,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "portfolio_analysis",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            marketSignal: {
+              type: "string",
+              enum: ["bullish", "neutral", "bearish"],
+            },
+            shortTerm: { type: "string" },
+            mediumTerm: { type: "string" },
+            longTerm: { type: "string" },
+            suggestedSellPrice: { type: ["number", "null"] },
+            suggestedSellPercent: {
+              type: ["integer", "null"],
+              enum: [25, 50, 75, 100, null],
+            },
+            sellReason: { type: ["string", "null"] },
+            suggestedStopLossPrice: { type: ["number", "null"] },
+            sellCondition: { type: ["string", "null"] },
+            shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+            shortTermPriceLow: { type: "number" },
+            shortTermPriceHigh: { type: "number" },
+            midTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+            midTermPriceLow: { type: "number" },
+            midTermPriceHigh: { type: "number" },
+            longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
+            longTermPriceLow: { type: "number" },
+            longTermPriceHigh: { type: "number" },
+            recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+            advice: { type: "string" },
+            confidence: { type: "number" },
+          },
+          required: [
+            "marketSignal",
+            "shortTerm",
+            "mediumTerm",
+            "longTerm",
+            "suggestedSellPrice",
+            "suggestedSellPercent",
+            "sellReason",
+            "suggestedStopLossPrice",
+            "sellCondition",
+            "shortTermTrend",
+            "shortTermPriceLow",
+            "shortTermPriceHigh",
+            "midTermTrend",
+            "midTermPriceLow",
+            "midTermPriceHigh",
+            "longTermTrend",
+            "longTermPriceLow",
+            "longTermPriceHigh",
+            "recommendation",
+            "advice",
+            "confidence",
+          ],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  const content = response.choices[0].message.content?.trim() || "{}";
+  const result = JSON.parse(content);
+
+  const pricesNewestFirst = [...prices]
+    .reverse()
+    .map((p) => ({ close: p.close }));
+  const deviationRate = calculateDeviationRate(
+    pricesNewestFirst,
+    MA_DEVIATION.PERIOD,
+  );
+  const rsiValue = calculateRSI(pricesNewestFirst);
+  const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
+
+  const statusType =
+    result.recommendation === "sell"
+      ? "warning"
+      : result.recommendation === "buy"
+        ? "good"
+        : "neutral";
+
+  let sellTiming: string | null = null;
+  let sellTargetPrice: number | null = null;
+  if (result.recommendation === "sell") {
+    if (
+      profitPercent !== null &&
+      profitPercent <= SELL_TIMING.STOP_LOSS_THRESHOLD
+    ) {
+      sellTiming = "market";
+    } else if (
+      profitPercent !== null &&
+      profitPercent >= SELL_TIMING.PROFIT_TAKING_THRESHOLD
+    ) {
+      sellTiming = "market";
+    } else {
+      const isDeviationOk =
+        deviationRate === null ||
+        deviationRate >= SELL_TIMING.DEVIATION_LOWER_THRESHOLD;
+      const isRsiOk =
+        rsiValue === null || rsiValue >= SELL_TIMING.RSI_OVERSOLD_THRESHOLD;
+      if (isDeviationOk && isRsiOk) sellTiming = "market";
+      else {
+        sellTiming = "rebound";
+        sellTargetPrice = sma25;
+      }
+    }
+  }
+
+  const now = dayjs.utc().toDate();
+
+  return {
+    shortTerm: result.shortTerm,
+    mediumTerm: result.mediumTerm,
+    longTerm: result.longTerm,
+    statusType,
+    marketSignal: result.marketSignal || null,
+    suggestedSellPrice: result.suggestedSellPrice || null,
+    suggestedSellPercent: result.suggestedSellPercent || null,
+    sellReason: result.sellReason || null,
+    sellCondition: result.sellCondition || null,
+    sellTiming,
+    sellTargetPrice,
+    recommendation: result.recommendation || null,
+    lastAnalysis: now.toISOString(),
+    isToday: true,
+    currentPrice,
+    averagePurchasePrice: averagePrice,
+    stopLossRate: userSettings?.stopLossRate ?? null,
+    targetReturnRate: userSettings?.targetReturnRate ?? null,
+    userTargetPrice:
+      averagePrice && userSettings?.targetReturnRate
+        ? Math.round(averagePrice * (1 + userSettings.targetReturnRate / 100))
+        : null,
+    userStopLossPrice:
+      averagePrice && userSettings?.stopLossRate
+        ? Math.round(averagePrice * (1 + userSettings.stopLossRate / 100))
+        : null,
+    shortTermTrend: result.shortTermTrend,
+    shortTermPriceLow: result.shortTermPriceLow,
+    shortTermPriceHigh: result.shortTermPriceHigh,
+    midTermTrend: result.midTermTrend,
+    midTermPriceLow: result.midTermPriceLow,
+    midTermPriceHigh: result.midTermPriceHigh,
+    longTermTrend: result.longTermTrend,
+    longTermPriceLow: result.longTermPriceLow,
+    longTermPriceHigh: result.longTermPriceHigh,
+    advice: result.advice,
+    confidence: result.confidence,
+    limitPrice: result.suggestedSellPrice,
+    stopLossPrice: result.suggestedStopLossPrice,
+    analyzedAt: now.toISOString(),
+  };
 }
