@@ -3,8 +3,10 @@ import { openai } from "@ai-sdk/openai"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { createChatTools } from "@/lib/chat-tools"
-import { buildChatSystemPrompt } from "@/lib/chat-system-prompt"
+import { buildChatSystemPrompt, type StockPreloadedData } from "@/lib/chat-system-prompt"
 import { CHAT_CONFIG } from "@/lib/constants"
+import { getRelatedNews, type RelatedNews } from "@/lib/news-rag"
+import { getDaysAgoForDB } from "@/lib/date-utils"
 
 interface StockContext {
   stockId: string
@@ -12,7 +14,7 @@ interface StockContext {
   name: string
   sector: string | null
   currentPrice: number | null
-  type: "portfolio" | "watchlist"
+  type: "portfolio" | "watchlist" | "view"
   quantity?: number
   averagePurchasePrice?: number
   profit?: number
@@ -36,7 +38,184 @@ export async function POST(request: Request) {
     where: { userId: session.user.id },
   })
 
-  const systemPrompt = await buildChatSystemPrompt(userSettings, stockContext)
+  // 個別銘柄ページではすべての銘柄情報を事前取得
+  let preloadedData: StockPreloadedData | undefined
+  if (stockContext) {
+    try {
+      const tickerCode = stockContext.tickerCode.replace(".T", "")
+
+      const [stockData, analysisData, newsData, portfolioData, purchaseData] =
+        await Promise.all([
+          // 財務データ
+          prisma.stock.findUnique({
+            where: { id: stockContext.stockId },
+            select: {
+              pbr: true,
+              per: true,
+              roe: true,
+              operatingCF: true,
+              freeCF: true,
+              fiftyTwoWeekHigh: true,
+              fiftyTwoWeekLow: true,
+              marketCap: true,
+              dividendYield: true,
+              isProfitable: true,
+              profitTrend: true,
+              revenueGrowth: true,
+              netIncomeGrowth: true,
+              eps: true,
+              isDelisted: true,
+            },
+          }),
+          // AI分析
+          prisma.stockAnalysis.findFirst({
+            where: { stockId: stockContext.stockId },
+            orderBy: { analyzedAt: "desc" },
+          }),
+          // 関連ニュース
+          getRelatedNews({
+            tickerCodes: [tickerCode],
+            sectors: stockContext.sector ? [stockContext.sector] : [],
+            limit: 5,
+            daysAgo: 14,
+          }),
+          // 保有銘柄分析（ポートフォリオの場合）
+          stockContext.type === "portfolio"
+            ? prisma.portfolioStock.findFirst({
+                where: {
+                  userId: session.user.id,
+                  stockId: stockContext.stockId,
+                },
+                select: {
+                  shortTerm: true,
+                  mediumTerm: true,
+                  longTerm: true,
+                  statusType: true,
+                  suggestedSellPrice: true,
+                  suggestedSellPercent: true,
+                  sellCondition: true,
+                  sellReason: true,
+                  lastAnalysis: true,
+                },
+              })
+            : Promise.resolve(null),
+          // 購入推奨（ウォッチリスト/閲覧中の場合）
+          stockContext.type !== "portfolio"
+            ? prisma.purchaseRecommendation.findFirst({
+                where: {
+                  stockId: stockContext.stockId,
+                  date: { gte: getDaysAgoForDB(7) },
+                },
+                orderBy: { date: "desc" },
+              })
+            : Promise.resolve(null),
+        ])
+
+      preloadedData = {
+        financials: stockData
+          ? {
+              pbr: stockData.pbr ? Number(stockData.pbr) : null,
+              per: stockData.per ? Number(stockData.per) : null,
+              roe: stockData.roe ? Number(stockData.roe) : null,
+              operatingCF: stockData.operatingCF
+                ? Number(stockData.operatingCF)
+                : null,
+              freeCF: stockData.freeCF ? Number(stockData.freeCF) : null,
+              fiftyTwoWeekHigh: stockData.fiftyTwoWeekHigh
+                ? Number(stockData.fiftyTwoWeekHigh)
+                : null,
+              fiftyTwoWeekLow: stockData.fiftyTwoWeekLow
+                ? Number(stockData.fiftyTwoWeekLow)
+                : null,
+              marketCap: stockData.marketCap
+                ? Number(stockData.marketCap)
+                : null,
+              dividendYield: stockData.dividendYield
+                ? Number(stockData.dividendYield)
+                : null,
+              isProfitable: stockData.isProfitable,
+              profitTrend: stockData.profitTrend,
+              revenueGrowth: stockData.revenueGrowth
+                ? Number(stockData.revenueGrowth)
+                : null,
+              netIncomeGrowth: stockData.netIncomeGrowth
+                ? Number(stockData.netIncomeGrowth)
+                : null,
+              eps: stockData.eps ? Number(stockData.eps) : null,
+              isDelisted: stockData.isDelisted,
+            }
+          : null,
+        analysis: analysisData
+          ? {
+              shortTermTrend: analysisData.shortTermTrend,
+              shortTermText: analysisData.shortTermText,
+              shortTermPriceLow: Number(analysisData.shortTermPriceLow),
+              shortTermPriceHigh: Number(analysisData.shortTermPriceHigh),
+              midTermTrend: analysisData.midTermTrend,
+              midTermText: analysisData.midTermText,
+              midTermPriceLow: Number(analysisData.midTermPriceLow),
+              midTermPriceHigh: Number(analysisData.midTermPriceHigh),
+              longTermTrend: analysisData.longTermTrend,
+              longTermText: analysisData.longTermText,
+              longTermPriceLow: Number(analysisData.longTermPriceLow),
+              longTermPriceHigh: Number(analysisData.longTermPriceHigh),
+              recommendation: analysisData.recommendation,
+              advice: analysisData.advice,
+              confidence: analysisData.confidence,
+              statusType: analysisData.statusType,
+              analyzedAt: analysisData.analyzedAt,
+              daysAgo: Math.floor(
+                (Date.now() - analysisData.analyzedAt.getTime()) /
+                  (1000 * 60 * 60 * 24)
+              ),
+            }
+          : null,
+        news: newsData.map((n: RelatedNews) => ({
+          title: n.title,
+          content: n.content.substring(0, 300),
+          url: n.url,
+          sentiment: n.sentiment,
+          publishedAt: n.publishedAt,
+        })),
+        portfolioAnalysis: portfolioData
+          ? {
+              shortTerm: portfolioData.shortTerm,
+              mediumTerm: portfolioData.mediumTerm,
+              longTerm: portfolioData.longTerm,
+              statusType: portfolioData.statusType,
+              suggestedSellPrice: portfolioData.suggestedSellPrice
+                ? Number(portfolioData.suggestedSellPrice)
+                : null,
+              suggestedSellPercent: portfolioData.suggestedSellPercent,
+              sellCondition: portfolioData.sellCondition,
+              sellReason: portfolioData.sellReason,
+              lastAnalysis: portfolioData.lastAnalysis,
+            }
+          : null,
+        purchaseRecommendation: purchaseData
+          ? {
+              recommendation: purchaseData.recommendation,
+              confidence: purchaseData.confidence,
+              reason: purchaseData.reason,
+              positives: purchaseData.positives,
+              concerns: purchaseData.concerns,
+              buyCondition: purchaseData.buyCondition,
+              personalizedReason: purchaseData.personalizedReason,
+              marketSignal: purchaseData.marketSignal,
+              date: purchaseData.date,
+            }
+          : null,
+      }
+    } catch {
+      // 事前取得失敗してもチャットは続行（ツールで補完）
+    }
+  }
+
+  const systemPrompt = await buildChatSystemPrompt(
+    userSettings,
+    stockContext,
+    preloadedData
+  )
 
   const tools = createChatTools(session.user.id, stockContext)
 
