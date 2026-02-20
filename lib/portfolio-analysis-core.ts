@@ -11,13 +11,15 @@ import {
   buildMarketContext,
   buildDeviationRateContext,
   buildDelistingContext,
+  buildVolumeAnalysisContext,
+  buildRelativeStrengthContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context"
 import { getNikkei225Data } from "@/lib/market-index"
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 import { calculateDeviationRate, calculateRSI, calculateSMA } from "@/lib/technical-indicators"
-import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
+import { MA_DEVIATION, SELL_TIMING, RELATIVE_STRENGTH } from "@/lib/constants"
 import { getDaysAgoForDB } from "@/lib/date-utils"
 import { isSurgeStock, isDangerousStock } from "@/lib/stock-safety-rules"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
@@ -144,6 +146,9 @@ export async function executePortfolioAnalysis(
   // 乖離率コンテキスト
   const deviationRateContext = buildDeviationRateContext(prices)
 
+  // 出来高分析: 下落日 vs 上昇日の出来高を比較して売り圧力の本質を判定
+  const volumeAnalysisContext = buildVolumeAnalysisContext(prices)
+
   // 関連ニュースを取得
   const tickerCode = portfolioStock.stock.tickerCode.replace(".T", "")
   const news = await getRelatedNews({
@@ -174,12 +179,21 @@ export async function executePortfolioAnalysis(
 
   // セクタートレンド
   let sectorTrendContext = ""
+  let sectorAvgWeekChangeRate: number | null = null
   if (stock.sector) {
     const sectorTrend = await getSectorTrend(stock.sector)
     if (sectorTrend) {
       sectorTrendContext = `\n【セクタートレンド】\n${formatSectorTrendForPrompt(sectorTrend)}\n`
+      sectorAvgWeekChangeRate = sectorTrend.avgWeekChangeRate ?? null
     }
   }
+
+  // 相対強度分析: 銘柄の変化率を市場・セクターと比較して地合い要因か銘柄固有か判定
+  const relativeStrengthContext = buildRelativeStrengthContext(
+    weekChangeRate,
+    marketData?.weekChangeRate ?? null,
+    sectorAvgWeekChangeRate
+  )
 
   // 初回購入が7日以内 → 直近の購入判断をコンテキストに含める
   // （ウォッチリスト→ポートフォリオ移行直後の売り判定フリップを防ぐ）
@@ -262,7 +276,7 @@ ${userContext}${purchaseRecContext}
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
-【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}
+【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}
 【株価データ】
 直近30日の終値: ${prices.length}件のデータあり
 ${newsContext}${marketContext}${sectorTrendContext}
@@ -349,6 +363,15 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - statusType はシステムが recommendation から自動決定するため、気にしなくてよい
 - recommendation が "sell" の場合は sellReason に理由を記載する
 - recommendation が "hold" または "buy" の場合は sellReason と suggestedSellPercent は null にする
+
+【相対強度・出来高を考慮した下落の性質判断 - 重要】
+■ 相対強度（銘柄 vs 市場/セクター）で下落の原因を分類してください:
+- 銘柄が市場をアウトパフォーム（例: 市場-3%、銘柄-1%）: 地合い要因の可能性が高く、銘柄固有の弱さではない。holdを検討。
+- 銘柄が市場をアンダーパフォーム（例: 市場-1%、銘柄-5%）: 銘柄固有の弱さがある可能性。下落の根本原因をファンダメンタルや材料から探り、sellを検討。
+
+■ 出来高分析で売り圧力の質を判定してください:
+- 分配売り（下落日出来高 > 上昇日出来高の1.5倍以上）: 本物の売り圧力あり。下落は継続しやすく、「落ちるナイフ」を掴むリスクが高い。
+- 出来高を伴わない調整（下落日出来高 < 上昇日出来高の0.7倍以下）: 売り圧力弱く一時的な調整の可能性が高い。反発を待つ戦略が有効。
 
 【中長期トレンドを考慮した売却判断 - 重要】
 - recommendation を "sell" にする場合、短期テクニカル指標だけでなく、中期・長期の見通しも必ず考慮してください
@@ -509,6 +532,24 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.sellReason = null
     result.suggestedSellPercent = null
     result.sellCondition = `${trendInfo}見通しのため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.sellCondition || ""}`
+  }
+
+  // 相対強度による売り保護: 市場全体の下落に引きずられただけなら sell → hold
+  // 銘柄固有の弱さではなく地合い要因の可能性が高い場合に売りを抑制
+  // ただし含み損が大きい場合は保護を無効化（損切り優先）
+  if (
+    result.recommendation === "sell" &&
+    weekChangeRate !== null && weekChangeRate < 0 &&
+    marketData?.weekChangeRate != null &&
+    (profitPercent === null || profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+  ) {
+    const relVsMarket = weekChangeRate - marketData.weekChangeRate
+    if (relVsMarket >= RELATIVE_STRENGTH.OUTPERFORM_SELL_PROTECTION) {
+      result.recommendation = "hold"
+      result.sellReason = null
+      result.suggestedSellPercent = null
+      result.sellCondition = `市場（日経平均${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%）に対して+${relVsMarket.toFixed(1)}%のアウトパフォームで、下落は地合い要因とみられます。${result.sellCondition || ""}`
+    }
   }
 
   // statusType は recommendation から機械的に導出（AIに任せない）

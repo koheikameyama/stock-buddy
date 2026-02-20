@@ -10,7 +10,7 @@
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, formatChartPatternsForPrompt, PricePoint } from "@/lib/chart-patterns"
 import { calculateRSI, calculateMACD, calculateDeviationRate } from "@/lib/technical-indicators"
-import { MA_DEVIATION, FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
+import { MA_DEVIATION, FETCH_FAIL_WARNING_THRESHOLD, VOLUME_ANALYSIS, RELATIVE_STRENGTH } from "@/lib/constants"
 import { MarketIndexData } from "@/lib/market-index"
 
 // OHLCV データ型（oldest-first で渡す）
@@ -20,6 +20,7 @@ export interface OHLCVData {
   high: number
   low: number
   close: number
+  volume?: number
 }
 
 // 財務指標フィールド型（Prisma Decimal / number / null すべて受け入れる）
@@ -423,6 +424,132 @@ export function buildMarketContext(marketData: MarketIndexData | null): string {
 ※市場全体の状況を考慮して判断してください。
   市場が弱い中で堅調な銘柄は評価できます。
   市場上昇時は追い風として言及できます。
+`
+}
+
+/**
+ * 出来高分析コンテキスト文字列を生成する
+ *
+ * 下落日と上昇日の平均出来高を比較して「本物の売り圧力」か「出来高を伴わない調整」かを判定する。
+ * - 下落日出来高 >> 上昇日 → 機関投資家による分配売り（構造的な下落）
+ * - 下落日出来高 << 上昇日 → 売り圧力弱い（一時的な調整）
+ *
+ * @param prices - OHLCV データ（oldest-first、volume を含む）
+ */
+export function buildVolumeAnalysisContext(prices: OHLCVData[]): string {
+  const recentPrices = prices.slice(-VOLUME_ANALYSIS.ANALYSIS_DAYS)
+  if (recentPrices.length < 4) return ""
+
+  const upDayVolumes: number[] = []
+  const downDayVolumes: number[] = []
+
+  for (let i = 1; i < recentPrices.length; i++) {
+    const p = recentPrices[i]
+    const prev = recentPrices[i - 1]
+    if (!p.volume || p.volume === 0) continue
+
+    if (p.close > prev.close) {
+      upDayVolumes.push(p.volume)
+    } else if (p.close < prev.close) {
+      downDayVolumes.push(p.volume)
+    }
+  }
+
+  if (upDayVolumes.length === 0 || downDayVolumes.length === 0) return ""
+
+  const avgUpVolume = upDayVolumes.reduce((a, b) => a + b, 0) / upDayVolumes.length
+  const avgDownVolume = downDayVolumes.reduce((a, b) => a + b, 0) / downDayVolumes.length
+  const ratio = avgDownVolume / avgUpVolume
+
+  let signal: string
+  let interpretation: string
+
+  if (ratio >= VOLUME_ANALYSIS.DISTRIBUTION_THRESHOLD) {
+    signal = "分配売り（Distribution）"
+    interpretation = `下落日の出来高が上昇日の${ratio.toFixed(1)}倍と高く、売り圧力が強い状態です。今の下落は一時的でなく構造的な可能性があります。`
+  } else if (ratio <= VOLUME_ANALYSIS.ACCUMULATION_THRESHOLD) {
+    signal = "出来高を伴わない調整（Low Volume Pullback）"
+    interpretation = `下落日の出来高が上昇日の${ratio.toFixed(1)}倍と低く、本格的な売り圧力ではありません。一時的な調整の可能性が高いです。`
+  } else {
+    signal = "中立"
+    interpretation = `下落日と上昇日の出来高比は${ratio.toFixed(1)}倍で、偏りは軽微です。`
+  }
+
+  return `
+【出来高分析（直近${VOLUME_ANALYSIS.ANALYSIS_DAYS}日）】
+- 判定: ${signal}
+- 上昇日の平均出来高: ${Math.round(avgUpVolume).toLocaleString()}株（${upDayVolumes.length}日分）
+- 下落日の平均出来高: ${Math.round(avgDownVolume).toLocaleString()}株（${downDayVolumes.length}日分）
+- 下落日/上昇日 出来高比率: ${ratio.toFixed(2)}倍
+- 解釈: ${interpretation}
+`
+}
+
+/**
+ * 相対強度コンテキスト文字列を生成する
+ *
+ * 銘柄の週間変化率を日経平均・セクター平均と比較し、
+ * 「市場全体の下落に引きずられているだけ」か「銘柄固有の弱さがある」かを判定する。
+ *
+ * @param stockWeekChangeRate - 銘柄の週間変化率（%）
+ * @param marketWeekChangeRate - 日経平均の週間変化率（%）
+ * @param sectorAvgWeekChangeRate - セクター平均週間変化率（%）
+ */
+export function buildRelativeStrengthContext(
+  stockWeekChangeRate: number | null,
+  marketWeekChangeRate: number | null,
+  sectorAvgWeekChangeRate: number | null
+): string {
+  if (stockWeekChangeRate === null) return ""
+  if (marketWeekChangeRate === null && sectorAvgWeekChangeRate === null) return ""
+
+  const lines: string[] = []
+
+  let relVsMarket: number | null = null
+  if (marketWeekChangeRate !== null) {
+    relVsMarket = stockWeekChangeRate - marketWeekChangeRate
+    let label: string
+    if (relVsMarket >= RELATIVE_STRENGTH.OUTPERFORM_THRESHOLD) {
+      label = `アウトパフォーム（市場より+${relVsMarket.toFixed(1)}%強い）`
+    } else if (relVsMarket <= RELATIVE_STRENGTH.UNDERPERFORM_THRESHOLD) {
+      label = `アンダーパフォーム（市場より${relVsMarket.toFixed(1)}%弱い）`
+    } else {
+      label = `市場並み（差: ${relVsMarket >= 0 ? "+" : ""}${relVsMarket.toFixed(1)}%）`
+    }
+    lines.push(
+      `- 対日経平均: ${label}（銘柄${stockWeekChangeRate >= 0 ? "+" : ""}${stockWeekChangeRate.toFixed(1)}% / 市場${marketWeekChangeRate >= 0 ? "+" : ""}${marketWeekChangeRate.toFixed(1)}%）`
+    )
+  }
+
+  if (sectorAvgWeekChangeRate !== null) {
+    const relVsSector = stockWeekChangeRate - sectorAvgWeekChangeRate
+    let label: string
+    if (relVsSector >= RELATIVE_STRENGTH.OUTPERFORM_THRESHOLD) {
+      label = `セクター内で強い（+${relVsSector.toFixed(1)}%上回る）`
+    } else if (relVsSector <= RELATIVE_STRENGTH.UNDERPERFORM_THRESHOLD) {
+      label = `セクター内で弱い（${relVsSector.toFixed(1)}%下回る）`
+    } else {
+      label = `セクター並み（差: ${relVsSector >= 0 ? "+" : ""}${relVsSector.toFixed(1)}%）`
+    }
+    lines.push(
+      `- 対セクター: ${label}（セクター平均${sectorAvgWeekChangeRate >= 0 ? "+" : ""}${sectorAvgWeekChangeRate.toFixed(1)}%）`
+    )
+  }
+
+  // 下落局面での総合判定（AIが売り/ホールドを判断する最重要材料）
+  let overallJudgment = ""
+  if (stockWeekChangeRate < 0 && relVsMarket !== null) {
+    if (relVsMarket >= RELATIVE_STRENGTH.OUTPERFORM_THRESHOLD) {
+      overallJudgment = `\n- 総合判断: 市場下落に引きずられた地合い要因の可能性が高い。銘柄固有の弱さは限定的。`
+    } else if (relVsMarket <= RELATIVE_STRENGTH.UNDERPERFORM_THRESHOLD) {
+      overallJudgment = `\n- 総合判断: 市場より大きく下落しており、銘柄固有の弱さがある可能性。構造的な下落を疑う材料あり。`
+    }
+  }
+
+  return `
+【相対強度分析】
+${lines.join("\n")}${overallJudgment}
+※ 同じ下落でも「市場全体の地合い要因」か「銘柄固有の弱さ」かで保有継続の判断が変わります。
 `
 }
 
