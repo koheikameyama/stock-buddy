@@ -1,33 +1,38 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function NotificationBell() {
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
-        const response = await fetch("/api/notifications?limit=1")
+        const response = await fetch("/api/notifications?limit=1");
         if (response.ok) {
-          const data = await response.json()
-          setUnreadCount(data.unreadCount || 0)
+          const data = await response.json();
+          setUnreadCount(data.unreadCount || 0);
+        } else {
+          console.warn(
+            "Notification API returned non-OK status:",
+            response.status,
+          );
         }
       } catch (error) {
-        console.error("Error fetching unread count:", error)
+        console.error("Error fetching unread count:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchUnreadCount()
+    fetchUnreadCount();
 
     // 1分ごとに更新
-    const interval = setInterval(fetchUnreadCount, 60000)
-    return () => clearInterval(interval)
-  }, [])
+    const interval = setInterval(fetchUnreadCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Link
@@ -57,5 +62,5 @@ export default function NotificationBell() {
         </span>
       )}
     </Link>
-  )
+  );
 }

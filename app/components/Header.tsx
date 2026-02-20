@@ -1,8 +1,11 @@
-import Image from "next/image"
-import Link from "next/link"
-import NotificationBell from "./NotificationBell"
+import { auth } from "@/auth";
+import Image from "next/image";
+import Link from "next/link";
+import NotificationBell from "./NotificationBell";
 
 export default async function Header() {
+  const session = await auth();
+
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
@@ -19,10 +22,10 @@ export default async function Header() {
             <span className="text-xl font-bold text-gray-900">Stock Buddy</span>
           </Link>
 
-          {/* 通知ベル */}
-          <NotificationBell />
+          {/* 通知ベル - ログイン済みの場合のみ表示 */}
+          {session && <NotificationBell />}
         </div>
       </div>
     </header>
-  )
+  );
 }
