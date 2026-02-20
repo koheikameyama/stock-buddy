@@ -3,15 +3,17 @@
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
+import { UPDATE_SCHEDULES } from "@/lib/constants"
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
 interface StaleAnalysisBannerProps {
   analysisDate: string | null
+  schedule?: string
 }
 
-export default function StaleAnalysisBanner({ analysisDate }: StaleAnalysisBannerProps) {
+export default function StaleAnalysisBanner({ analysisDate, schedule = UPDATE_SCHEDULES.STOCK_ANALYSIS }: StaleAnalysisBannerProps) {
   if (!analysisDate) return null
 
   const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
@@ -30,7 +32,7 @@ export default function StaleAnalysisBanner({ analysisDate }: StaleAnalysisBanne
               この分析は{dateLabel}（{daysAgo}日前）のデータです
             </p>
             <p className="text-xs text-amber-700 mt-1">
-              最新の分析は平日 9:30 / 10:30 / 13:00 / 14:00 / 15:30 に更新されます
+              最新の分析は平日 {schedule} に更新されます
             </p>
           </div>
         </div>

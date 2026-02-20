@@ -6,6 +6,7 @@ import { UPDATE_SCHEDULES, FETCH_FAIL_WARNING_THRESHOLD, INVESTMENT_THEME_CONFIG
 import { CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import StockActionButtons from "@/app/components/StockActionButtons"
 import CopyableTicker from "@/app/components/CopyableTicker"
+import StaleAnalysisBanner from "@/app/components/StaleAnalysisBanner"
 
 interface FeaturedStock {
   id: string
@@ -37,6 +38,7 @@ export default function FeaturedStocksByCategory() {
   const [personalRecommendations, setPersonalRecommendations] = useState<FeaturedStock[]>([])
   const [pricesLoaded, setPricesLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [recommendationDate, setRecommendationDate] = useState<string | null>(null)
 
   useEffect(() => {
     fetchFeaturedStocks()
@@ -88,6 +90,7 @@ export default function FeaturedStocksByCategory() {
       if (response.ok) {
         const personal = data.personalRecommendations || []
         setPersonalRecommendations(personal)
+        setRecommendationDate(data.date || null)
 
         // 株価を非同期で取得（表示後にバックグラウンドで）
         fetchPrices(personal)
@@ -330,6 +333,7 @@ export default function FeaturedStocksByCategory() {
           </div>
         </div>
       </div>
+      <StaleAnalysisBanner analysisDate={recommendationDate} schedule={UPDATE_SCHEDULES.PERSONAL_RECOMMENDATIONS} />
       <div className="overflow-x-auto pb-2 -mx-1 px-1">
         <div className="flex gap-3 sm:gap-4" style={{ minWidth: "min-content" }}>
           {personalRecommendations.map((stock) => renderStockCard(stock))}
