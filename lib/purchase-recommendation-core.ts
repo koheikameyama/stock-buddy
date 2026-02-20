@@ -24,6 +24,7 @@ import {
   calculateDeviationRate,
   calculateSMA,
   calculateRSI,
+  calculateMACD,
 } from "@/lib/technical-indicators";
 import { getTodayForDB } from "@/lib/date-utils";
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils";
@@ -37,6 +38,11 @@ import {
 } from "@/lib/stock-safety-rules";
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend";
 import { AnalysisError } from "@/lib/portfolio-analysis-core";
+import {
+  getCombinedSignal,
+  analyzeSingleCandle,
+} from "@/lib/candlestick-patterns";
+import { detectChartPatterns } from "@/lib/chart-patterns";
 
 export interface PurchaseRecommendationResult {
   stockId: string;
@@ -381,6 +387,7 @@ ${
 }
 - 予測レンジが recommendation と整合すること（例: buyならshortTermが上昇傾向）
 - advice は価格帯予測の数値を踏まえた具体的なコメントにする（例:「今週は○○〜○○円で推移する見込みで...」）
+- 【重要】提供された【AI予測データ】が「上昇」となっていても、直近の【株価データ】やテクニカル指標で強い下落・売りシグナルが出ている場合は、安全性を優先し、無理に「買い」を推奨せず "stay" を選んでください。
 
 【重要: この銘柄はまだ購入していません】
 - この分析はウォッチリスト（購入検討中）の銘柄に対するものです
@@ -531,6 +538,58 @@ ${PROMPT_NEWS_CONSTRAINTS}
   const content = response.choices[0].message.content?.trim() || "{}";
   const result = JSON.parse(content);
 
+  // --- 強制補正ロジック（Hard Overrides） ---
+
+  // 1. テクニカル総合判定による強制ブレーキ (Consistency Fix)
+  // ポートフォリオ側と同じロジックで強い売りシグナルが出ている場合は、AIの回答に関わらず stay にする
+  const pricesNewestFirst = [...prices].reverse().map((p) => ({
+    date: p.date,
+    open: p.open,
+    high: p.high,
+    low: p.low,
+    close: p.close,
+  }));
+
+  const rsiValue = calculateRSI(pricesNewestFirst, 14);
+  const macd = calculateMACD(pricesNewestFirst);
+  const candlestickPatterns = prices.slice(-1).map((p) => ({
+    date: p.date,
+    open: p.open,
+    high: p.high,
+    low: p.low,
+    close: p.close,
+  }));
+  const latestCandle = candlestickPatterns[0];
+
+  const chartPatterns = detectChartPatterns(
+    prices.map((p) => ({
+      date: p.date,
+      open: p.open,
+      high: p.high,
+      low: p.low,
+      close: p.close,
+    })),
+  );
+
+  const combinedTechnical = getCombinedSignal(
+    latestCandle ? analyzeSingleCandle(latestCandle) : null,
+    rsiValue,
+    macd.histogram,
+    chartPatterns,
+  );
+
+  // テクニカル判定が sell で強さが 70% 以上の場合は、buy を禁止する
+  if (combinedTechnical.signal === "sell" && combinedTechnical.strength >= 70) {
+    if (result.recommendation === "buy") {
+      result.recommendation = "stay";
+      result.confidence = Math.max(0.5, combinedTechnical.strength / 100);
+      result.reason = `テクニカル指標で強い下落シグナル（${combinedTechnical.reasons.join("、")}）が出ているため、購入は下げ止まりを確認してからを推奨します。 ${result.reason}`;
+      result.caution = `最新のローソク足パターン等が強い下落（強さ${combinedTechnical.strength}%）を示しています。ポートフォリオ分析との一貫性を保つため、様子見を推奨します。${result.caution}`;
+      result.buyCondition =
+        "テクニカルシグナルが好転し、下げ止まりを確認できたら検討してください";
+    }
+  }
+
   // "avoid" は confidence >= 0.8 の場合のみ許可
   if (result.recommendation === "avoid" && result.confidence < 0.8) {
     result.recommendation = "stay";
@@ -597,9 +656,6 @@ ${PROMPT_NEWS_CONSTRAINTS}
   }
 
   // 移動平均乖離率による補正（短期投資は過熱圏ルールをスキップ）
-  const pricesNewestFirst = [...prices]
-    .reverse()
-    .map((p) => ({ close: p.close }));
   const deviationRate = calculateDeviationRate(
     pricesNewestFirst,
     MA_DEVIATION.PERIOD,
