@@ -371,7 +371,11 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
                   stroke="#9ca3af"
                 />
                 <YAxis
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => {
+                    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+                    if (v >= 10_000) return `${(v / 1_000).toFixed(0)}k`
+                    return v.toLocaleString()
+                  }}
                   tick={{ fontSize: 11 }}
                   stroke="#9ca3af"
                   domain={["auto", "auto"]}
