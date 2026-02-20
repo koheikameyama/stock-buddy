@@ -287,6 +287,24 @@ export const SELL_TIMING = {
   SELL_PRICE_PROXIMITY_THRESHOLD: 0.02, // 売却目標近接の閾値（比率）
 } as const;
 
+// 出来高分析の閾値（下落日 vs 上昇日の出来高比較）
+export const VOLUME_ANALYSIS = {
+  ANALYSIS_DAYS: 10, // 分析対象の直近日数
+  // 下落日出来高 / 上昇日出来高 の比率
+  DISTRIBUTION_THRESHOLD: 1.5, // これ以上 → 分配売り（構造的な下落シグナル）
+  ACCUMULATION_THRESHOLD: 0.7, // これ以下 → 出来高を伴わない調整（一時的な下落シグナル）
+} as const;
+
+// 相対強度分析の閾値（銘柄 vs 市場/セクター）
+export const RELATIVE_STRENGTH = {
+  // 銘柄変化率 - 市場変化率（%）: これ以上でアウトパフォーム
+  OUTPERFORM_THRESHOLD: 3,
+  // 銘柄変化率 - 市場変化率（%）: これ以下でアンダーパフォーム
+  UNDERPERFORM_THRESHOLD: -3,
+  // 下落局面でアウトパフォームしている場合、sellをholdに戻す閾値
+  OUTPERFORM_SELL_PROTECTION: 3,
+} as const;
+
 // セクタートレンド分析の閾値・重み
 export const SECTOR_TREND = {
   UP_THRESHOLD: 20, // compositeScore >= 20 → "up"

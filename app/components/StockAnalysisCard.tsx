@@ -709,19 +709,29 @@ export default function StockAnalysisCard({
               </div>
             </div>
           )}
-          {analysis.confidence !== null && (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all"
-                  style={{ width: `${analysis.confidence * 100}%` }}
-                ></div>
+          {analysis.confidence !== null && (() => {
+            const pct = Math.round(analysis.confidence * 100)
+            const color = pct >= 75 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-400"
+            const label = pct >= 75 ? "高" : pct >= 50 ? "中" : "低"
+            return (
+              <div className="mt-1 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500">
+                    AI分析の信頼度（データの質・量に基づく）
+                  </span>
+                  <span className={`text-xs font-semibold ${pct >= 75 ? "text-green-600" : pct >= 50 ? "text-yellow-600" : "text-red-500"}`}>
+                    {label} {pct}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`${color} h-2 rounded-full transition-all`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </div>
-              <span className="text-xs text-gray-600">
-                信頼度 {Math.round(analysis.confidence * 100)}%
-              </span>
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
 

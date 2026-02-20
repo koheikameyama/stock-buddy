@@ -185,7 +185,12 @@ export async function GET(
       sellCondition: portfolioStock.sellCondition,
       sellTiming: portfolioStock.sellTiming,
       sellTargetPrice: portfolioStock.sellTargetPrice ? Number(portfolioStock.sellTargetPrice) : null,
-      recommendation: stockAnalysis?.recommendation ?? null,
+      recommendation: stockAnalysis?.recommendation ?? (
+        // StockAnalysisがない古いデータ用フォールバック: statusTypeから導出
+        portfolioStock.statusType === "warning" ? "sell" :
+        portfolioStock.statusType === "good" ? "buy" :
+        portfolioStock.statusType ? "hold" : null
+      ),
       // 損切りアラート用
       averagePurchasePrice,
       stopLossRate,
@@ -207,7 +212,7 @@ export async function GET(
       longTermPriceLow: stockAnalysis?.longTermPriceLow ? Number(stockAnalysis.longTermPriceLow) : null,
       longTermPriceHigh: stockAnalysis?.longTermPriceHigh ? Number(stockAnalysis.longTermPriceHigh) : null,
       longTermText: stockAnalysis?.longTermText ?? null,
-      advice: stockAnalysis?.advice ?? null,
+      advice: stockAnalysis?.advice ?? portfolioStock.shortTerm ?? null,
       confidence: stockAnalysis?.confidence ?? null,
       limitPrice: stockAnalysis?.limitPrice ? Number(stockAnalysis.limitPrice) : null,
       stopLossPrice: stockAnalysis?.stopLossPrice ? Number(stockAnalysis.stopLossPrice) : null,
