@@ -18,6 +18,7 @@ import { getNikkei225Data } from "@/lib/market-index"
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 import { calculateDeviationRate, calculateRSI, calculateSMA } from "@/lib/technical-indicators"
 import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants"
+import { getDaysAgoForDB } from "@/lib/date-utils"
 import { isSurgeStock, isDangerousStock } from "@/lib/stock-safety-rules"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import dayjs from "dayjs"
@@ -180,6 +181,37 @@ export async function executePortfolioAnalysis(
     }
   }
 
+  // 初回購入が7日以内 → 直近の購入判断をコンテキストに含める
+  // （ウォッチリスト→ポートフォリオ移行直後の売り判定フリップを防ぐ）
+  const firstBuyTransaction = portfolioStock.transactions.find(tx => tx.type === "buy")
+  const isRecentlyPurchased = firstBuyTransaction
+    && firstBuyTransaction.transactionDate >= getDaysAgoForDB(7)
+
+  let purchaseRecContext = ""
+  if (isRecentlyPurchased) {
+    const recentPurchaseRec = await prisma.purchaseRecommendation.findFirst({
+      where: { stockId },
+      orderBy: { date: "desc" },
+      select: {
+        recommendation: true,
+        reason: true,
+      },
+    })
+
+    if (recentPurchaseRec) {
+      const purchaseRecLabel: Record<string, string> = {
+        buy: "買い推奨",
+        stay: "様子見",
+        avoid: "見送り推奨",
+      }
+      purchaseRecContext = `\n【直近の購入判断（参考情報）】
+- 判定: ${purchaseRecLabel[recentPurchaseRec.recommendation] || recentPurchaseRec.recommendation}
+- 理由: ${recentPurchaseRec.reason}
+- ※ この購入判断を踏まえ、明確な悪材料や状況変化がない限り、購入直後に売却検討とするのは整合性がありません。
+`
+    }
+  }
+
   // ユーザー設定コンテキスト
   const periodMap: Record<string, string> = {
     short: "短期（数週間〜数ヶ月）",
@@ -216,7 +248,7 @@ export async function executePortfolioAnalysis(
 - 平均取得単価: ${averagePrice.toFixed(0)}円
 - 現在価格: ${currentPrice ? currentPrice.toLocaleString() : "不明"}円
 - 損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}
-${userContext}
+${userContext}${purchaseRecContext}
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
