@@ -89,7 +89,7 @@ export const CACHE_TTL = {
   USER_STOCKS: 5 * 60 * 1000, // 5分
   TRACKED_STOCKS: 5 * 60 * 1000, // 5分
   SOLD_STOCKS: 5 * 60 * 1000, // 5分
-  STOCK_PRICES: 2 * 60 * 1000, // 2分
+  STOCK_PRICES: 30 * 1000, // 30秒
   PORTFOLIO_SUMMARY: 2 * 60 * 1000, // 2分
 } as const;
 
