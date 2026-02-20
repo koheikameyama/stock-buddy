@@ -32,6 +32,7 @@ interface AnalysisData {
   sellTargetPrice?: number | null;
   averagePurchasePrice: number | null;
   stopLossRate: number | null;
+  buyTiming?: string | null;
   targetReturnRate: number | null;
   userTargetPrice: number | null;
   userStopLossPrice: number | null;
@@ -402,8 +403,11 @@ export default function StockAnalysisCard({
 
                         if (isBuy) {
                           // buy推奨時: 現在価格と比較
+                          // buyTimingがある場合はmarketの時のみ、ない場合（古いデータ等）は既存のロジックを維持
                           const isNowBuyTime =
                             currentPrice &&
+                            (!analysis.buyTiming ||
+                              analysis.buyTiming === "market") &&
                             Math.abs(limitPriceNum - currentPrice) /
                               currentPrice <
                               0.01; // 1%以内なら「今が買い時」

@@ -436,8 +436,10 @@ export default function PurchaseRecommendation({
     const priceDiff =
       currentPrice && limitPriceNum ? limitPriceNum - currentPrice : 0;
     // buy推奨時のみ「今が買い時」と表示する（stay/avoid時は矛盾を避けるため単なる指値として表示）
+    // また「押し目買い推奨（dip）」の時に「成行で購入OK」と出ると矛盾するため、"market"の時のみとする
     const isNowBuyTime =
       data.recommendation === "buy" &&
+      data.buyTiming === "market" &&
       currentPrice &&
       limitPriceNum &&
       Math.abs(priceDiff / currentPrice) < 0.01;
