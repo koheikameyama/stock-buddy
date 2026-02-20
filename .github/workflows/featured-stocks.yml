@@ -2,10 +2,10 @@ name: Featured Stocks Generation
 
 on:
   schedule:
-    # 寄り付き後（09:30 JST = 00:30 UTC）- 月〜金
-    - cron: '30 0 * * 1-5'
-    # 後場開始後（13:00 JST = 04:00 UTC）- 月〜金
-    - cron: '0 4 * * 1-5'
+    # 前場開始時（09:00 JST = 00:00 UTC）- 月〜金
+    - cron: '0 0 * * 1-5'
+    # 後場開始時（12:30 JST = 03:30 UTC）- 月〜金
+    - cron: '30 3 * * 1-5'
     # 後場終了後（15:35 JST = 06:35 UTC）- 月〜金
     - cron: '35 6 * * 1-5'
   workflow_dispatch:
