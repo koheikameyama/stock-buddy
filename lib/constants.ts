@@ -68,6 +68,14 @@ export const OPENAI_CONFIG = {
   MAX_TOKENS_RECOMMENDATION: 500,
 } as const
 
+// チャットAI設定
+export const CHAT_CONFIG = {
+  MAX_STEPS: 3, // ツール呼び出しの最大ステップ数
+  MODEL: "gpt-4o-mini",
+  TEMPERATURE: 0.7,
+  MAX_TOKENS: 3000,
+} as const
+
 // AI分析の更新スケジュール（平日のみ）
 export const UPDATE_SCHEDULES = {
   // あなたへのおすすめ

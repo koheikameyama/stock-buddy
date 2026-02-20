@@ -29,12 +29,15 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.30",
+    "@ai-sdk/react": "^3.0.96",
     "@auth/prisma-adapter": "^2.11.1",
     "@prisma/client": "^6.19.2",
     "@types/cheerio": "^0.22.35",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "ai": "^6.0.94",
     "cheerio": "^1.2.0",
     "dayjs": "^1.11.19",
     "next": "^15.1.7",
@@ -52,6 +55,7 @@
     "web-push": "^3.6.7",
     "xlsx": "^0.18.5",
     "yahoo-finance2": "^3.13.0",
+    "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

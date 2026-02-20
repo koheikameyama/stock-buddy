@@ -1,12 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
+import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport, type UIMessage } from "ai"
 import { useChatContext } from "@/app/contexts/ChatContext"
-
-interface Message {
-  role: "user" | "assistant"
-  content: string
-}
 
 interface ParsedSource {
   title: string
@@ -38,12 +35,11 @@ function parseMessage(content: string): ParsedMessage {
     const line = lines[i].trim()
     if (line.startsWith("•")) {
       const title = line.substring(1).trim()
-      // 次の行がURLかチェック
       if (i + 1 < lines.length) {
         const nextLine = lines[i + 1].trim()
         if (nextLine.startsWith("http")) {
           sources.push({ title, url: nextLine })
-          i++ // URLの行をスキップ
+          i++
         }
       }
     }
@@ -117,13 +113,33 @@ const WATCHLIST_STOCK_QUESTIONS = [
   "どんなリスクがある？",
 ]
 
+// メッセージからテキストコンテンツを抽出
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part): part is Extract<typeof part, { type: "text" }> => part.type === "text")
+    .map((part) => part.text)
+    .join("")
+}
+
 export default function GlobalChat() {
   const { stockContext } = useChatContext()
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const {
+    messages,
+    sendMessage,
+    status,
+    setMessages,
+  } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      body: { stockContext },
+    }),
+  })
+
+  const isLoading = status === "submitted" || status === "streaming"
 
   // 銘柄が変わったら会話をリセット
   const prevStockRef = useRef<string | null>(null)
@@ -133,7 +149,7 @@ export default function GlobalChat() {
       setMessages([])
       prevStockRef.current = currentStockKey
     }
-  }, [stockContext])
+  }, [stockContext, setMessages])
 
   // 質問候補を決定
   const suggestedQuestions = stockContext
@@ -147,63 +163,15 @@ export default function GlobalChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const sendMessage = async (messageText: string) => {
-    if (!messageText.trim()) return
-
-    const userMessage: Message = {
-      role: "user",
-      content: messageText.trim(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
+  const handleSend = async (text: string) => {
+    if (!text.trim() || isLoading) return
     setInput("")
-    setIsLoading(true)
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: messageText.trim(),
-          conversationHistory: messages.slice(-4),
-          stockContext: stockContext,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to get response")
-      }
-
-      const data = await response.json()
-
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.response,
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
-    } catch (error) {
-      console.error("Chat error:", error)
-      const errorMessage: Message = {
-        role: "assistant",
-        content:
-          "申し訳ございません。エラーが発生しました。もう一度お試しください。",
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
-    }
+    await sendMessage({ text: text.trim() })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    sendMessage(input)
-  }
-
-  const handleSuggestedQuestion = (question: string) => {
-    sendMessage(question)
+    handleSend(input)
   }
 
   const toggleChat = () => {
@@ -222,7 +190,7 @@ export default function GlobalChat() {
 
   return (
     <>
-      {/* Floating Button - ボトムナビの上に配置 */}
+      {/* Floating Button */}
       <button
         onClick={toggleChat}
         className={`fixed bottom-[68px] right-4 w-14 h-14 ${
@@ -231,37 +199,17 @@ export default function GlobalChat() {
         title={chatTitle}
       >
         {isOpen ? (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         )}
       </button>
 
-      {/* Chat Panel - ボトムナビの上に配置 */}
+      {/* Chat Panel */}
       {isOpen && (
         <div className="fixed bottom-32 right-4 w-96 max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-12rem)] bg-white rounded-xl shadow-2xl flex flex-col z-40 border border-gray-200">
           {/* Header */}
@@ -269,18 +217,8 @@ export default function GlobalChat() {
             stockContext ? "bg-green-600" : "bg-blue-600"
           } text-white px-4 py-3 rounded-t-xl flex items-center justify-between`}>
             <div className="flex items-center gap-2">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               <div>
                 <h3 className="font-semibold text-sm">{chatTitle}</h3>
@@ -289,22 +227,9 @@ export default function GlobalChat() {
                 )}
               </div>
             </div>
-            <button
-              onClick={toggleChat}
-              className="text-white hover:text-gray-200 transition-colors"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+            <button onClick={toggleChat} className="text-white hover:text-gray-200 transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -318,32 +243,35 @@ export default function GlobalChat() {
                     <p className="mb-4 font-semibold text-gray-700">
                       {stockContext.name}について質問してください
                     </p>
-                    <p className="text-sm">
-                      この銘柄に特化したアドバイスをします
-                    </p>
+                    <p className="text-sm">この銘柄に特化したアドバイスをします</p>
                   </>
                 ) : (
                   <>
                     <p className="mb-4">投資について何でも質問してください</p>
-                    <p className="text-sm">
-                      あなたの保有銘柄や気になる銘柄をもとにアドバイスします
-                    </p>
+                    <p className="text-sm">あなたの保有銘柄や気になる銘柄をもとにアドバイスします</p>
                   </>
                 )}
               </div>
             )}
 
-            {messages.map((message, index) => {
-              const parsed = message.role === "assistant"
-                ? parseMessage(message.content)
-                : { mainContent: message.content, sources: [] }
+            {messages.map((message) => {
+              const text = getMessageText(message)
+              if (!text) return null
+
+              const isStreamingMsg =
+                status === "streaming" &&
+                message === messages[messages.length - 1] &&
+                message.role === "assistant"
+
+              const parsed =
+                message.role === "assistant" && !isStreamingMsg
+                  ? parseMessage(text)
+                  : { mainContent: text, sources: [] }
 
               return (
                 <div
-                  key={index}
-                  className={`flex ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                  key={message.id}
+                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
                     className={`max-w-[80%] rounded-lg px-4 py-3 ${
@@ -355,7 +283,7 @@ export default function GlobalChat() {
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{parsed.mainContent}</p>
-                    {message.role === "assistant" && (
+                    {message.role === "assistant" && !isStreamingMsg && (
                       <SourcesAccordion sources={parsed.sources} />
                     )}
                   </div>
@@ -363,7 +291,7 @@ export default function GlobalChat() {
               )
             })}
 
-            {isLoading && (
+            {status === "submitted" && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 rounded-lg px-4 py-3">
                   <div className="flex items-center gap-2">
@@ -389,7 +317,7 @@ export default function GlobalChat() {
                 {suggestedQuestions.map((question, index) => (
                   <button
                     key={index}
-                    onClick={() => handleSuggestedQuestion(question)}
+                    onClick={() => handleSend(question)}
                     className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
                       stockContext
                         ? "bg-green-50 text-green-700 hover:bg-green-100"
@@ -424,18 +352,8 @@ export default function GlobalChat() {
                     : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
             </div>
