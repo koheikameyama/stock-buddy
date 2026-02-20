@@ -178,10 +178,13 @@ export async function POST(request: NextRequest) {
 
     const registeredByUser = new Map<string, Set<string>>()
     for (const ps of portfolioStocks) {
-      if (!registeredByUser.has(ps.userId)) {
-        registeredByUser.set(ps.userId, new Set())
+      const { quantity } = calculatePortfolioFromTransactions(ps.transactions)
+      if (quantity > 0) {
+        if (!registeredByUser.has(ps.userId)) {
+          registeredByUser.set(ps.userId, new Set())
+        }
+        registeredByUser.get(ps.userId)!.add(ps.stockId)
       }
-      registeredByUser.get(ps.userId)!.add(ps.stockId)
     }
     for (const ws of watchlistStocks) {
       if (!registeredByUser.has(ws.userId)) {
