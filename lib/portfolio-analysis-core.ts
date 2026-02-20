@@ -195,6 +195,7 @@ export async function executePortfolioAnalysis(
       select: {
         recommendation: true,
         reason: true,
+        date: true,
       },
     })
 
@@ -204,10 +205,19 @@ export async function executePortfolioAnalysis(
         stay: "様子見",
         avoid: "見送り推奨",
       }
-      purchaseRecContext = `\n【直近の購入判断（参考情報）】
+      const daysSinceRec = recentPurchaseRec.date
+        ? Math.floor((Date.now() - new Date(recentPurchaseRec.date).getTime()) / (1000 * 60 * 60 * 24))
+        : null
+      const daysAgoText = daysSinceRec !== null ? `${daysSinceRec}日前` : "直近"
+      purchaseRecContext = `\n【直近の購入判断 - 重要】
 - 判定: ${purchaseRecLabel[recentPurchaseRec.recommendation] || recentPurchaseRec.recommendation}
+- 判定日: ${daysAgoText}
 - 理由: ${recentPurchaseRec.reason}
-- ※ この購入判断を踏まえ、明確な悪材料や状況変化がない限り、購入直後に売却検討とするのは整合性がありません。
+- ※ この銘柄は購入から7日以内です。以下のルールを厳守してください:
+  - 購入判断が「買い推奨」だった場合、明確な悪材料（決算ミス、不祥事等）がない限り recommendation は "sell" にしないでください
+  - 含み損が-15%未満の場合は "sell" にしないでください
+  - 購入直後の小幅な下落は正常な値動きです。shortTermで「購入判断の根拠は引き続き有効」であることを伝えてください
+  - cautionが必要な場合は recommendation を "hold" にしつつ、shortTermで注意点を述べてください
 `
     }
   }
@@ -293,6 +303,19 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください
 - ユーザーの投資期間設定がある場合は、期間に応じて判断の重みを調整してください（短期→shortTerm重視、長期→longTerm重視）
 - ユーザーのリスク許容度が低い場合は早めの売却検討を、高い場合は許容幅を広げてください
+
+【モメンタム（トレンドフォロー）判断 - 重要】
+■ 保有銘柄が下落トレンドの場合:
+- 下落中の銘柄への買い増しは「落ちるナイフ」を掴むリスクがある
+- recommendation を "buy" にしないでください（"hold" で様子見を推奨）
+- 特に短期投資の場合、週間変化率が-7%以下なら買い増しは推奨しない
+- 中期投資は-10%以下、長期投資は-15%以下を目安とする
+- shortTermで下落トレンドのリスクと買い増しを見送る理由を説明してください
+
+■ 保有銘柄が上昇トレンドの場合:
+- 上昇中の銘柄は recommendation を "buy"（買い増し検討）にしてOK
+- 短期投資の場合、モメンタムに乗る買い増しは有効な戦略
+- ただし急騰後（週間+30%以上）は利確のタイミングでもあるため、shortTermで利確検討にも言及する
 
 【業績に基づく判断の指針】
 - 赤字企業の場合は、shortTermで必ず「業績が赤字であること」とその判断への影響を言及する
@@ -438,8 +461,9 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`
   }
 
-  // 急騰銘柄の買い増し抑制: 週間+30%以上でbuy→hold
-  if (isSurgeStock(weekChangeRate) && result.recommendation === "buy") {
+  // 急騰銘柄の買い増し抑制（投資期間別）
+  const investmentPeriod = userSettings?.investmentPeriod ?? null
+  if (isSurgeStock(weekChangeRate, investmentPeriod) && result.recommendation === "buy") {
     result.recommendation = "hold"
     result.shortTerm = `週間+${weekChangeRate!.toFixed(0)}%の急騰後のため、買い増しは高値掴みのリスクがあります。${result.shortTerm}`
   }
