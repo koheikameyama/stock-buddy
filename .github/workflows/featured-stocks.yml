@@ -2,10 +2,10 @@ name: Featured Stocks Generation
 
 on:
   schedule:
-    # 寄り前（08:00 JST = 23:00 UTC 前日）- 月〜金
-    - cron: '0 23 * * 0-4'
-    # 昼休み（12:30 JST = 03:30 UTC）- 月〜金
-    - cron: '30 3 * * 1-5'
+    # 寄り付き後（09:30 JST = 00:30 UTC）- 月〜金
+    - cron: '30 0 * * 1-5'
+    # 後場開始後（13:00 JST = 04:00 UTC）- 月〜金
+    - cron: '0 4 * * 1-5'
     # 後場終了後（15:35 JST = 06:35 UTC）- 月〜金
     - cron: '35 6 * * 1-5'
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
             HOUR=$(TZ=Asia/Tokyo date +%H)
             if [ "$HOUR" -lt 10 ]; then
               echo "session=morning" >> $GITHUB_OUTPUT
-            elif [ "$HOUR" -lt 13 ]; then
+            elif [ "$HOUR" -lt 14 ]; then
               echo "session=afternoon" >> $GITHUB_OUTPUT
             else
               echo "session=evening" >> $GITHUB_OUTPUT

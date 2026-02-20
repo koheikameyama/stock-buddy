@@ -11,6 +11,7 @@ interface StockAnalysisCardProps {
   onBuyAlertClick?: (limitPrice: number | null) => void
   currentTargetBuyPrice?: number | null
   embedded?: boolean
+  onAnalysisDateLoaded?: (date: string | null) => void
 }
 
 interface AnalysisData {
@@ -52,7 +53,7 @@ interface AnalysisData {
 }
 
 
-export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice, embedded = false }: StockAnalysisCardProps) {
+export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, currentTargetBuyPrice, embedded = false, onAnalysisDateLoaded }: StockAnalysisCardProps) {
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -70,13 +71,17 @@ export default function StockAnalysisCard({ stockId, quantity, onBuyAlertClick, 
         setAnalysis(data)
         if (!data.lastAnalysis && !data.analyzedAt) {
           setNoData(true)
+          onAnalysisDateLoaded?.(null)
         } else {
           setNoData(false)
+          onAnalysisDateLoaded?.(data.analyzedAt || data.lastAnalysis)
         }
       } else if (response.status === 404) {
         setNoData(true)
+        onAnalysisDateLoaded?.(null)
       } else {
         setNoData(true)
+        onAnalysisDateLoaded?.(null)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました")

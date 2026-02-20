@@ -11,6 +11,7 @@ import PriceHistory from "@/app/components/PriceHistory"
 import RelatedNews from "@/app/components/RelatedNews"
 import StockDetailLayout from "@/app/components/StockDetailLayout"
 import DelistedWarning from "@/app/components/DelistedWarning"
+import StaleAnalysisBanner from "@/app/components/StaleAnalysisBanner"
 import CurrentPriceCard from "@/app/components/CurrentPriceCard"
 import DeleteButton from "@/app/components/DeleteButton"
 import Tabs from "@/app/components/Tabs"
@@ -91,6 +92,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
     stock.targetBuyPrice ?? null
   )
   const [showTrackingModal, setShowTrackingModal] = useState(false)
+  const [analysisDate, setAnalysisDate] = useState<string | null>(null)
 
   const isPortfolio = stock.type === "portfolio"
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0
@@ -178,6 +180,9 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
         isDelisted={stock.stock.isDelisted ?? false}
         fetchFailCount={stock.stock.fetchFailCount ?? 0}
       />
+
+      {/* Stale Analysis Banner */}
+      <StaleAnalysisBanner analysisDate={analysisDate} />
 
       {/* Portfolio Stock Details */}
       {isPortfolio && (
@@ -312,6 +317,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
             <StockAnalysisCard
               stockId={stock.stockId}
               quantity={quantity}
+              onAnalysisDateLoaded={setAnalysisDate}
             />
           </section>
 
@@ -492,7 +498,7 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
           {/* AI Purchase Recommendation Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-            <PurchaseRecommendation stockId={stock.stockId} />
+            <PurchaseRecommendation stockId={stock.stockId} onAnalysisDateLoaded={setAnalysisDate} />
           </section>
 
           {/* Tabbed Content Section */}

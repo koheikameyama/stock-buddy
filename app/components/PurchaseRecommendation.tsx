@@ -6,6 +6,7 @@ import { UPDATE_SCHEDULES } from "@/lib/constants"
 
 interface PurchaseRecommendationProps {
   stockId: string
+  onAnalysisDateLoaded?: (date: string | null) => void
 }
 
 interface RecommendationData {
@@ -98,7 +99,7 @@ function AvoidSellTimingSection({ sellTiming, sellTargetPrice }: {
   return null
 }
 
-export default function PurchaseRecommendation({ stockId }: PurchaseRecommendationProps) {
+export default function PurchaseRecommendation({ stockId, onAnalysisDateLoaded }: PurchaseRecommendationProps) {
   const [data, setData] = useState<RecommendationData | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -113,6 +114,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
 
       if (response.status === 404) {
         setNoData(true)
+        onAnalysisDateLoaded?.(null)
         return
       }
 
@@ -123,6 +125,7 @@ export default function PurchaseRecommendation({ stockId }: PurchaseRecommendati
       const result = await response.json()
       setData(result)
       setNoData(false)
+      onAnalysisDateLoaded?.(result.analyzedAt || null)
     } catch (err) {
       console.error("Error fetching purchase recommendation:", err)
       setError("購入判断の取得に失敗しました")

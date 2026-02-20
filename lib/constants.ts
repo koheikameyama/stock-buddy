@@ -71,9 +71,9 @@ export const OPENAI_CONFIG = {
 // AI分析の更新スケジュール（平日のみ）
 export const UPDATE_SCHEDULES = {
   // あなたへのおすすめ
-  PERSONAL_RECOMMENDATIONS: "8:00 / 12:30 / 15:35",
+  PERSONAL_RECOMMENDATIONS: "9:30 / 13:00 / 15:35",
   // ポートフォリオ分析・購入レコメンド（stock-predictions.yml）
-  STOCK_ANALYSIS: "8:00 / 10:30 / 12:30 / 14:00 / 15:30",
+  STOCK_ANALYSIS: "9:30 / 10:30 / 13:00 / 14:00 / 15:30",
 } as const
 
 // キャッシュTTL（ミリ秒）
