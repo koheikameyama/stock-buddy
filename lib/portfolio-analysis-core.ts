@@ -18,6 +18,7 @@ import { getNikkei225Data } from "@/lib/market-index"
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend"
 import { calculateDeviationRate, calculateRSI, calculateSMA } from "@/lib/technical-indicators"
 import { MA_DEVIATION, SELL_TIMING, PORTFOLIO_ANALYSIS } from "@/lib/constants"
+import { isSurgeStock, isDangerousStock } from "@/lib/stock-safety-rules"
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
@@ -78,6 +79,15 @@ export async function executePortfolioAnalysis(
     throw new AnalysisError("この銘柄はポートフォリオに登録されていません", "NOT_FOUND")
   }
 
+  // ユーザー設定を取得
+  const userSettings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: {
+      investmentPeriod: true,
+      riskTolerance: true,
+    },
+  })
+
   // 保有数量と平均取得単価を計算
   let quantity = 0
   let totalBuyCost = 0
@@ -137,7 +147,7 @@ export async function executePortfolioAnalysis(
   const chartPatternContext = buildChartPatternContext(prices)
 
   // 週間変化率
-  const { text: weekChangeContext } = buildWeekChangeContext(prices, "portfolio")
+  const { text: weekChangeContext, rate: weekChangeRate } = buildWeekChangeContext(prices, "portfolio")
 
   // 乖離率コンテキスト
   const deviationRateContext = buildDeviationRateContext(prices)
@@ -179,6 +189,24 @@ export async function executePortfolioAnalysis(
     }
   }
 
+  // ユーザー設定コンテキスト
+  const periodMap: Record<string, string> = {
+    short: "短期（数週間〜数ヶ月）",
+    medium: "中期（半年〜1年）",
+    long: "長期（数年以上）",
+  }
+  const riskMap: Record<string, string> = {
+    low: "低リスク（安定重視）",
+    medium: "中リスク（バランス）",
+    high: "高リスク（積極的）",
+  }
+  const userContext = userSettings
+    ? `\n【ユーザーの投資設定】
+- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
+- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
+`
+    : ""
+
   // プロンプト構築
   const prompt = `あなたは投資初心者向けのAIアナリストです。
 以下の保有銘柄について、テクニカル分析と売買判断を提供してください。
@@ -197,7 +225,7 @@ export async function executePortfolioAnalysis(
 - 平均取得単価: ${averagePrice.toFixed(0)}円
 - 現在価格: ${currentPrice ? currentPrice.toLocaleString() : "不明"}円
 - 損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}
-
+${userContext}
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
@@ -242,6 +270,8 @@ ${PROMPT_MARKET_SIGNAL_DEFINITION}
 - 財務指標（会社の規模、配当、株価水準）を分析に活用してください
 ${PROMPT_NEWS_CONSTRAINTS}
 - ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください
+- ユーザーの投資期間設定がある場合は、期間に応じて判断の重みを調整してください（短期→shortTerm重視、長期→longTerm重視）
+- ユーザーのリスク許容度が低い場合は早めの売却検討を、高い場合は許容幅を広げてください
 
 【業績に基づく判断の指針】
 - 赤字企業の場合は、shortTermで必ず「業績が赤字であること」とその判断への影響を言及する
@@ -416,6 +446,19 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.sellReason = null
     result.suggestedSellPercent = null
     result.shortTerm = `購入から${daysSincePurchase}日目のため、売却判断は時期尚早です。${result.shortTerm}`
+  }
+
+  // 急騰銘柄の買い増し抑制: 週間+30%以上でbuy→hold
+  if (isSurgeStock(weekChangeRate) && result.recommendation === "buy") {
+    result.recommendation = "hold"
+    result.shortTerm = `週間+${weekChangeRate!.toFixed(0)}%の急騰後のため、買い増しは高値掴みのリスクがあります。${result.shortTerm}`
+  }
+
+  // 危険銘柄の買い増し抑制: 赤字+高ボラでbuy→hold
+  const volatility = stock.volatility ? Number(stock.volatility) : null
+  if (isDangerousStock(stock.isProfitable, volatility) && result.recommendation === "buy") {
+    result.recommendation = "hold"
+    result.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${result.shortTerm}`
   }
 
   // statusType と recommendation の整合性補正
