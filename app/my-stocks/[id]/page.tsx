@@ -1,22 +1,22 @@
-import { Suspense } from "react"
-import { auth } from "@/auth"
-import { redirect } from "next/navigation"
-import { prisma } from "@/lib/prisma"
-import AuthenticatedLayout from "@/app/components/AuthenticatedLayout"
-import MyStockDetailClient from "./MyStockDetailClient"
-import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { StockDetailSkeleton } from "@/components/skeletons"
+import { Suspense } from "react";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import AuthenticatedLayout from "@/app/components/AuthenticatedLayout";
+import MyStockDetailClient from "./MyStockDetailClient";
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
+import { StockDetailSkeleton } from "@/components/skeletons";
 
 export default async function MyStockDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const session = await auth()
-  const { id } = await params
+  const session = await auth();
+  const { id } = await params;
 
   if (!session?.user?.email) {
-    redirect("/login")
+    redirect("/login");
   }
 
   return (
@@ -25,23 +25,23 @@ export default async function MyStockDetailPage({
         <StockDetailContent email={session.user.email} stockId={id} />
       </Suspense>
     </AuthenticatedLayout>
-  )
+  );
 }
 
 async function StockDetailContent({
   email,
   stockId,
 }: {
-  email: string
-  stockId: string
+  email: string;
+  stockId: string;
 }) {
   const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true },
-  })
+  });
 
   if (!user) {
-    redirect("/login")
+    redirect("/login");
   }
 
   // Fetch the specific user stock (either portfolio or watchlist)
@@ -77,34 +77,52 @@ async function StockDetailContent({
         },
       },
     }),
-  ])
+  ]);
 
-  const userStock = portfolioStock || watchlistStock
+  const userStock = portfolioStock || watchlistStock;
 
   if (!userStock) {
-    redirect("/my-stocks")
+    redirect("/my-stocks");
   }
 
   // Calculate portfolio values from transactions
-  let calculatedQuantity: number | undefined
-  let calculatedAveragePrice: number | undefined
-  let calculatedPurchaseDate: string | undefined
+  let calculatedQuantity: number | undefined;
+  let calculatedAveragePrice: number | undefined;
+  let calculatedPurchaseDate: string | undefined;
 
   if (portfolioStock && portfolioStock.transactions.length > 0) {
-    const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
-      portfolioStock.transactions
-    )
-    calculatedQuantity = quantity
-    calculatedAveragePrice = averagePurchasePrice.toNumber()
+    const { quantity, averagePurchasePrice } =
+      calculatePortfolioFromTransactions(portfolioStock.transactions);
+    calculatedQuantity = quantity;
+    calculatedAveragePrice = averagePurchasePrice.toNumber();
 
     // Get the first purchase date
     const firstBuyTransaction = [...portfolioStock.transactions]
       .sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime())
-      .find((t) => t.type === "buy")
-    calculatedPurchaseDate = firstBuyTransaction?.transactionDate.toISOString()
+      .find((t) => t.type === "buy");
+    calculatedPurchaseDate = firstBuyTransaction?.transactionDate.toISOString();
   }
 
   // Transform to unified format
+  // Transform to unified format for chat context and display
+  const portfolioDetails =
+    portfolioStock &&
+    calculatedQuantity !== undefined &&
+    calculatedAveragePrice !== undefined
+      ? {
+          quantity: calculatedQuantity,
+          averagePurchasePrice: calculatedAveragePrice,
+          profit:
+            (userStock.stock.latestPrice
+              ? Number(userStock.stock.latestPrice)
+              : calculatedAveragePrice) *
+              calculatedQuantity -
+            calculatedAveragePrice * calculatedQuantity,
+          // 上記は暫定的。MyStockDetailClient内で最新価格を使って再計算されるが、初期値として渡す
+          profitPercent: 0,
+        }
+      : undefined;
+
   const stockData = {
     id: userStock.id,
     stockId: userStock.stockId,
@@ -136,7 +154,9 @@ async function StockDetailContent({
       name: userStock.stock.name,
       sector: userStock.stock.sector,
       market: userStock.stock.market,
-      currentPrice: null, // クライアント側で非同期取得
+      currentPrice: userStock.stock.latestPrice
+        ? Number(userStock.stock.latestPrice)
+        : null,
       fiftyTwoWeekHigh: userStock.stock.fiftyTwoWeekHigh
         ? Number(userStock.stock.fiftyTwoWeekHigh)
         : null,
@@ -170,7 +190,12 @@ async function StockDetailContent({
       fetchFailCount: userStock.stock.fetchFailCount,
       isDelisted: userStock.stock.isDelisted,
     },
-  }
+  };
 
-  return <MyStockDetailClient stock={stockData} />
+  return (
+    <MyStockDetailClient
+      stock={stockData}
+      portfolioDetails={portfolioDetails}
+    />
+  );
 }

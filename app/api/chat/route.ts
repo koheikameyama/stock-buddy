@@ -41,6 +41,22 @@ export async function POST(request: Request) {
     stockContext?: StockContext;
   };
 
+  console.log("Chat API Request received:", {
+    messageCount: messages.length,
+    hasContext: !!stockContext,
+    stockContext: stockContext
+      ? {
+          id: stockContext.stockId,
+          ticker: stockContext.tickerCode,
+          name: stockContext.name,
+          type: stockContext.type,
+          qty: stockContext.quantity,
+          avg: stockContext.averagePurchasePrice,
+          profit: stockContext.profit,
+        }
+      : null,
+  });
+
   // 軽量な静的コンテキスト取得
   const userSettings = await prisma.userSettings.findUnique({
     where: { userId: session.user.id },
@@ -118,6 +134,14 @@ export async function POST(request: Request) {
               })
             : Promise.resolve(null),
         ]);
+
+      console.log("Preload finished:", {
+        foundStock: !!stockData,
+        foundAnalysis: !!analysisData,
+        foundPortfolio: !!portfolioData,
+        foundPurchase: !!purchaseData,
+        newsCount: newsData.length,
+      });
 
       preloadedData = {
         financials: stockData
@@ -224,7 +248,8 @@ export async function POST(request: Request) {
             }
           : null,
       };
-    } catch {
+    } catch (error) {
+      console.error("Preload error occurred:", error);
       // 事前取得失敗してもチャットは続行（ツールで補完）
     }
   }
@@ -234,6 +259,15 @@ export async function POST(request: Request) {
     stockContext,
     preloadedData,
   );
+
+  console.log("System Prompt generated. Length:", systemPrompt.length);
+  if (stockContext) {
+    console.log(
+      "Context being used:",
+      stockContext.tickerCode,
+      stockContext.type,
+    );
+  }
 
   const tools = createChatTools(session.user.id, stockContext);
 

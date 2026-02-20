@@ -73,7 +73,20 @@ interface Stock {
   };
 }
 
-export default function MyStockDetailClient({ stock }: { stock: Stock }) {
+interface Props {
+  stock: Stock;
+  portfolioDetails?: {
+    quantity: number;
+    averagePurchasePrice: number;
+    profit: number;
+    profitPercent: number;
+  };
+}
+
+export default function MyStockDetailClient({
+  stock,
+  portfolioDetails,
+}: Props) {
   const router = useRouter();
   const { setStockContext } = useChatContext();
   const { price, loading, isStale } = useStockPrice(stock.stock.tickerCode);
@@ -100,8 +113,14 @@ export default function MyStockDetailClient({ stock }: { stock: Stock }) {
 
   const isPortfolio = stock.type === "portfolio";
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0;
-  const quantity = stock.quantity || 0;
-  const averagePrice = stock.averagePurchasePrice || 0;
+  const quantity = isPortfolio
+    ? (portfolioDetails?.quantity ?? stock.quantity ?? 0)
+    : 0;
+  const averagePrice = isPortfolio
+    ? (portfolioDetails?.averagePurchasePrice ??
+      stock.averagePurchasePrice ??
+      0)
+    : 0;
 
   const totalCost = averagePrice * quantity;
   const currentValue = currentPrice * quantity;

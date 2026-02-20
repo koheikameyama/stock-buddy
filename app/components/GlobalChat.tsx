@@ -1,58 +1,58 @@
-"use client"
+"use client";
 
-import { useRef, useEffect, useState } from "react"
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport, type UIMessage } from "ai"
-import { useChatContext } from "@/app/contexts/ChatContext"
+import { useRef, useEffect, useState, useMemo } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { useChatContext } from "@/app/contexts/ChatContext";
 
 interface ParsedSource {
-  title: string
-  url: string
+  title: string;
+  url: string;
 }
 
 interface ParsedMessage {
-  mainContent: string
-  sources: ParsedSource[]
+  mainContent: string;
+  sources: ParsedSource[];
 }
 
 // メッセージから本文と参考情報を分離
 function parseMessage(content: string): ParsedMessage {
-  const separator = "\n\n---\n📰 参考にした情報:"
-  const separatorIndex = content.indexOf(separator)
+  const separator = "\n\n---\n📰 参考にした情報:";
+  const separatorIndex = content.indexOf(separator);
 
   if (separatorIndex === -1) {
-    return { mainContent: content, sources: [] }
+    return { mainContent: content, sources: [] };
   }
 
-  const mainContent = content.substring(0, separatorIndex)
-  const sourcesText = content.substring(separatorIndex + separator.length)
+  const mainContent = content.substring(0, separatorIndex);
+  const sourcesText = content.substring(separatorIndex + separator.length);
 
   // ソースをパース（• タイトル\n  URL の形式）
-  const sources: ParsedSource[] = []
-  const lines = sourcesText.trim().split("\n")
+  const sources: ParsedSource[] = [];
+  const lines = sourcesText.trim().split("\n");
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+    const line = lines[i].trim();
     if (line.startsWith("•")) {
-      const title = line.substring(1).trim()
+      const title = line.substring(1).trim();
       if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim()
+        const nextLine = lines[i + 1].trim();
         if (nextLine.startsWith("http")) {
-          sources.push({ title, url: nextLine })
-          i++
+          sources.push({ title, url: nextLine });
+          i++;
         }
       }
     }
   }
 
-  return { mainContent, sources }
+  return { mainContent, sources };
 }
 
 // ソースアコーディオンコンポーネント
 function SourcesAccordion({ sources }: { sources: ParsedSource[] }) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
 
-  if (sources.length === 0) return null
+  if (sources.length === 0) return null;
 
   return (
     <div className="mt-2 border-t border-gray-200 pt-2">
@@ -92,101 +92,104 @@ function SourcesAccordion({ sources }: { sources: ParsedSource[] }) {
         </ul>
       )}
     </div>
-  )
+  );
 }
 
 const DEFAULT_QUESTIONS = [
   "今日の注目点は？",
   "保有銘柄どう？",
   "何か気をつけることある？",
-]
+];
 
 const PORTFOLIO_STOCK_QUESTIONS = [
   "今後の見通しは？",
   "売り時？まだ持つべき？",
   "追加購入すべき？",
-]
+];
 
 const WATCHLIST_STOCK_QUESTIONS = [
   "今後の見通しは？",
   "今が買い時？",
   "どんなリスクがある？",
-]
+];
 
 // メッセージからテキストコンテンツを抽出
 function getMessageText(message: UIMessage): string {
   return message.parts
-    .filter((part): part is Extract<typeof part, { type: "text" }> => part.type === "text")
+    .filter(
+      (part): part is Extract<typeof part, { type: "text" }> =>
+        part.type === "text",
+    )
     .map((part) => part.text)
-    .join("")
+    .join("");
 }
 
 export default function GlobalChat() {
-  const { stockContext } = useChatContext()
-  const [isOpen, setIsOpen] = useState(false)
-  const [input, setInput] = useState("")
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { stockContext } = useChatContext();
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const {
-    messages,
-    sendMessage,
-    status,
-    setMessages,
-  } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      body: { stockContext },
-    }),
-  })
+  const { messages, sendMessage, status, setMessages } = useChat({
+    id: stockContext?.stockId ?? "global",
+    transport: useMemo(
+      () =>
+        new DefaultChatTransport({
+          api: "/api/chat",
+          body: { stockContext },
+        }),
+      [stockContext],
+    ),
+  });
 
-  const isLoading = status === "submitted" || status === "streaming"
+  const isLoading = status === "submitted" || status === "streaming";
 
   // 銘柄が変わったら会話をリセット
-  const prevStockRef = useRef<string | null>(null)
+  const prevStockRef = useRef<string | null>(null);
   useEffect(() => {
-    const currentStockKey = stockContext?.tickerCode ?? null
+    const currentStockKey = stockContext?.tickerCode ?? null;
     if (prevStockRef.current !== currentStockKey) {
-      setMessages([])
-      prevStockRef.current = currentStockKey
+      setMessages([]);
+      prevStockRef.current = currentStockKey;
     }
-  }, [stockContext, setMessages])
+  }, [stockContext, setMessages]);
 
   // 質問候補を決定
   const suggestedQuestions = stockContext
     ? stockContext.type === "portfolio"
       ? PORTFOLIO_STOCK_QUESTIONS
       : WATCHLIST_STOCK_QUESTIONS
-    : DEFAULT_QUESTIONS
+    : DEFAULT_QUESTIONS;
 
   // メッセージが更新されたら自動スクロール
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || isLoading) return
-    setInput("")
-    await sendMessage({ text: text.trim() })
-  }
+    if (!text.trim() || isLoading) return;
+    setInput("");
+    await sendMessage({ text: text.trim() }, { body: { stockContext } });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    handleSend(input)
-  }
+    e.preventDefault();
+    handleSend(input);
+  };
 
   const toggleChat = () => {
-    setIsOpen(!isOpen)
-  }
+    setIsOpen(!isOpen);
+  };
 
   // チャットタイトル
   const chatTitle = stockContext
     ? `${stockContext.name}について相談`
-    : "投資について相談"
+    : "投資について相談";
 
   // プレースホルダー
   const placeholder = stockContext
     ? `${stockContext.name}について質問...`
-    : "投資について相談..."
+    : "投資について相談...";
 
   return (
     <>
@@ -194,17 +197,39 @@ export default function GlobalChat() {
       <button
         onClick={toggleChat}
         className={`fixed bottom-[68px] right-4 w-14 h-14 ${
-          stockContext ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
+          stockContext
+            ? "bg-green-600 hover:bg-green-700"
+            : "bg-blue-600 hover:bg-blue-700"
         } text-white rounded-full shadow-lg flex items-center justify-center transition-all z-40`}
         title={chatTitle}
       >
         {isOpen ? (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         ) : (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            />
           </svg>
         )}
       </button>
@@ -213,23 +238,50 @@ export default function GlobalChat() {
       {isOpen && (
         <div className="fixed bottom-32 right-4 w-96 max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-12rem)] bg-white rounded-xl shadow-2xl flex flex-col z-40 border border-gray-200">
           {/* Header */}
-          <div className={`${
-            stockContext ? "bg-green-600" : "bg-blue-600"
-          } text-white px-4 py-3 rounded-t-xl flex items-center justify-between`}>
+          <div
+            className={`${
+              stockContext ? "bg-green-600" : "bg-blue-600"
+            } text-white px-4 py-3 rounded-t-xl flex items-center justify-between`}
+          >
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
               </svg>
               <div>
                 <h3 className="font-semibold text-sm">{chatTitle}</h3>
                 {stockContext && (
-                  <p className="text-xs opacity-80">{stockContext.tickerCode}</p>
+                  <p className="text-xs opacity-80">
+                    {stockContext.tickerCode}
+                  </p>
                 )}
               </div>
             </div>
-            <button onClick={toggleChat} className="text-white hover:text-gray-200 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <button
+              onClick={toggleChat}
+              className="text-white hover:text-gray-200 transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -243,30 +295,34 @@ export default function GlobalChat() {
                     <p className="mb-4 font-semibold text-gray-700">
                       {stockContext.name}について質問してください
                     </p>
-                    <p className="text-sm">この銘柄に特化したアドバイスをします</p>
+                    <p className="text-sm">
+                      この銘柄に特化したアドバイスをします
+                    </p>
                   </>
                 ) : (
                   <>
                     <p className="mb-4">投資について何でも質問してください</p>
-                    <p className="text-sm">あなたの保有銘柄や気になる銘柄をもとにアドバイスします</p>
+                    <p className="text-sm">
+                      あなたの保有銘柄や気になる銘柄をもとにアドバイスします
+                    </p>
                   </>
                 )}
               </div>
             )}
 
             {messages.map((message) => {
-              const text = getMessageText(message)
-              if (!text) return null
+              const text = getMessageText(message);
+              if (!text) return null;
 
               const isStreamingMsg =
                 status === "streaming" &&
                 message === messages[messages.length - 1] &&
-                message.role === "assistant"
+                message.role === "assistant";
 
               const parsed =
                 message.role === "assistant" && !isStreamingMsg
                   ? parseMessage(text)
-                  : { mainContent: text, sources: [] }
+                  : { mainContent: text, sources: [] };
 
               return (
                 <div
@@ -282,13 +338,15 @@ export default function GlobalChat() {
                         : "bg-gray-100 text-gray-900"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{parsed.mainContent}</p>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {parsed.mainContent}
+                    </p>
                     {message.role === "assistant" && !isStreamingMsg && (
                       <SourcesAccordion sources={parsed.sources} />
                     )}
                   </div>
                 </div>
-              )
+              );
             })}
 
             {status === "submitted" && (
@@ -300,7 +358,9 @@ export default function GlobalChat() {
                       <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                       <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                     </div>
-                    <span className="text-sm text-gray-600">考えています...</span>
+                    <span className="text-sm text-gray-600">
+                      考えています...
+                    </span>
                   </div>
                 </div>
               </div>
@@ -333,7 +393,10 @@ export default function GlobalChat() {
           )}
 
           {/* Input Form */}
-          <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
+          <form
+            onSubmit={handleSubmit}
+            className="p-4 border-t border-gray-200"
+          >
             <div className="flex gap-2">
               <input
                 type="text"
@@ -352,8 +415,18 @@ export default function GlobalChat() {
                     : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                  />
                 </svg>
               </button>
             </div>
@@ -361,5 +434,5 @@ export default function GlobalChat() {
         </div>
       )}
     </>
-  )
+  );
 }
