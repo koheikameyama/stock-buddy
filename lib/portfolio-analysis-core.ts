@@ -482,6 +482,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.sellReason = null
     result.suggestedSellPercent = null
     result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており異常な売られすぎです。大底で手放すリスクが高いため、自律反発を待つことを推奨します。`
+    result.shortTerm = `【様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、この水準での売却は避けることを推奨します（反発の可能性が高い）。AIの分析: ${result.shortTerm}`
+    result.advice = `移動平均線から${Math.abs(deviationRate).toFixed(1)}%の売られすぎ水準。大底での売却リスクが高いため、自律反発を待ちましょう。`
   }
 
   // 上場廃止銘柄の強制補正
@@ -525,13 +527,15 @@ ${PROMPT_NEWS_CONSTRAINTS}
     (profitPercent === null || profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
   ) {
     const trendInfo = [
-      result.midTermTrend === "up" ? "中期: 上昇" : null,
-      result.longTermTrend === "up" ? "長期: 上昇" : null,
-    ].filter(Boolean).join("、")
+      result.midTermTrend === "up" ? "中期" : null,
+      result.longTermTrend === "up" ? "長期" : null,
+    ].filter(Boolean).join("・")
     result.recommendation = "hold"
     result.sellReason = null
     result.suggestedSellPercent = null
-    result.sellCondition = `${trendInfo}見通しのため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.sellCondition || ""}`
+    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.sellCondition || ""}`
+    result.shortTerm = `【様子見を推奨】${trendInfo}のトレンドが上昇見通しのため、短期の売りシグナルで手放すのは見送りを推奨します。AIの短期分析: ${result.shortTerm}`
+    result.advice = `${trendInfo}のトレンドは上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を待つ方針を推奨します。`
   }
 
   // 相対強度による売り保護: 市場全体の下落に引きずられただけなら sell → hold
@@ -549,6 +553,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.sellReason = null
       result.suggestedSellPercent = null
       result.sellCondition = `市場（日経平均${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%）に対して+${relVsMarket.toFixed(1)}%のアウトパフォームで、下落は地合い要因とみられます。${result.sellCondition || ""}`
+      result.shortTerm = `【様子見を推奨】市場全体が${marketData.weekChangeRate.toFixed(1)}%下落する中、この銘柄は相対的に+${relVsMarket.toFixed(1)}%強く、地合い要因による下落と判断しました。AIの短期分析: ${result.shortTerm}`
+      result.advice = `市場全体の下落（日経平均${marketData.weekChangeRate.toFixed(1)}%）に対してアウトパフォームしており、地合い要因の下落とみられます。様子見を推奨します。`
     }
   }
 
