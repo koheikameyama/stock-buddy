@@ -7,7 +7,7 @@
 import { MA_DEVIATION, MOMENTUM } from "@/lib/constants";
 
 /** 高ボラティリティの閾値（%） */
-const HIGH_VOLATILITY_THRESHOLD = 60;
+const HIGH_VOLATILITY_THRESHOLD = 50;
 
 /** 急騰銘柄か（投資期間別の閾値で判定） */
 export function isSurgeStock(
