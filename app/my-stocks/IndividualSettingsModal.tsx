@@ -43,7 +43,8 @@ export default function IndividualSettingsModal({
   useEffect(() => {
     if (isOpen) {
       setTpRate(initialTpRate != null ? String(initialTpRate) : "");
-      setSlRate(initialSlRate != null ? String(initialSlRate) : "");
+      // DBからは負の値で来るので、表示時には正の値に変換（絶対値）
+      setSlRate(initialSlRate != null ? String(Math.abs(initialSlRate)) : "");
     }
   }, [isOpen, initialTpRate, initialSlRate]);
 
@@ -59,8 +60,9 @@ export default function IndividualSettingsModal({
       }
 
       if (slRate && !isNaN(Number(slRate))) {
+        // ユーザー入力は正の値なので、計算時は負に変換
         setSlPriceHint(
-          Math.round(avgPurchasePrice * (1 + Number(slRate) / 100)),
+          Math.round(avgPurchasePrice * (1 - Number(slRate) / 100)),
         );
       } else {
         setSlPriceHint(null);
@@ -74,7 +76,8 @@ export default function IndividualSettingsModal({
     setSaving(true);
     try {
       const tpRateValue = tpRate ? Number(tpRate) : null;
-      const slRateValue = slRate ? Number(slRate) : null;
+      // 損切りは必ず負の値で保存（ユーザー入力は正の値）
+      const slRateValue = slRate ? -Math.abs(Number(slRate)) : null;
 
       const response = await fetch(`/api/user-stocks/${stockId}`, {
         method: "PATCH",
@@ -158,6 +161,7 @@ export default function IndividualSettingsModal({
                 <input
                   type="number"
                   step="0.1"
+                  min="0.1"
                   value={tpRate}
                   onChange={(e) => setTpRate(e.target.value)}
                   placeholder="10"
@@ -192,13 +196,17 @@ export default function IndividualSettingsModal({
                 許容損失率
               </label>
               <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 text-sm font-bold">
+                  -
+                </span>
                 <input
                   type="number"
                   step="0.1"
+                  min="0.1"
                   value={slRate}
                   onChange={(e) => setSlRate(e.target.value)}
                   placeholder="5"
-                  className="w-full pr-7 pl-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                  className="w-full pr-7 pl-8 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
                 />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
                   %

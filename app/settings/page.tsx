@@ -149,7 +149,8 @@ export default function SettingsPage() {
   const handleCustomStopLossSave = () => {
     const val = parseFloat(customStopLossText);
     if (!isNaN(val) && val > 0) {
-      saveSettings({ stopLossRate: -val });
+      // 損切りは必ず負の値で保存
+      saveSettings({ stopLossRate: -Math.abs(val) });
     }
   };
 
