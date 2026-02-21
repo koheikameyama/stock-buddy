@@ -127,7 +127,7 @@ def parse_jpx_excel(excel_data: bytes) -> list[dict]:
     
     # Yahoo Financeでの実在確認（サフィックス判別も含む）
     print("Verifying stocks on Yahoo Finance...")
-    from scripts.python.fetch_stock_prices import fetch_prices_bulk
+    from python.fetch_stock_prices import fetch_prices_bulk
     
     verified_stocks = []
     # 50銘柄ずつのバッチで確認
