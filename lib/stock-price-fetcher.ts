@@ -74,8 +74,16 @@ export async function fetchStockPrices(
     return { prices: [], staleTickers: [] };
   }
 
-  // ティッカーコードを正規化
-  const normalizedCodes = tickerCodes.map(normalizeTickerCode);
+  // ティッカーコードを正規化し、正規化後→元コードのマッピングを保持する
+  // （Python は正規化済みコードを tickerCode として返すため、元のコードに戻す必要がある）
+  const normalizedToOriginal = new Map<string, string>();
+  const normalizedCodes = tickerCodes.map((code) => {
+    const normalized = normalizeTickerCode(code);
+    if (!normalizedToOriginal.has(normalized)) {
+      normalizedToOriginal.set(normalized, code);
+    }
+    return normalized;
+  });
 
   try {
     const scriptPath = getPythonScriptPath("fetch_stock_prices.py");
@@ -99,7 +107,17 @@ export async function fetchStockPrices(
 
     const result: StockPriceResult = JSON.parse(stdout.trim());
 
-    return result;
+    // tickerCode を正規化前の元コードに戻す
+    // （呼び出し元が元のコードで検索できるようにするため）
+    return {
+      prices: result.prices.map((p) => ({
+        ...p,
+        tickerCode: normalizedToOriginal.get(p.tickerCode) ?? p.tickerCode,
+      })),
+      staleTickers: result.staleTickers.map(
+        (t) => normalizedToOriginal.get(t) ?? t,
+      ),
+    };
   } catch (error) {
     throw new Error(
       `Failed to fetch stock prices: ${error instanceof Error ? error.message : error}`,
