@@ -56,6 +56,8 @@ export async function GET(
           sellCondition: true,
           sellTiming: true,
           sellTargetPrice: true,
+          takeProfitRate: true,
+          stopLossRate: true,
           transactions: {
             orderBy: { transactionDate: "asc" },
           },
@@ -102,9 +104,14 @@ export async function GET(
     // 日本時間で今日の00:00:00を取得
     const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
 
-    // ユーザー設定に基づく計算価格
-    const targetReturnRate = userSettings?.targetReturnRate ?? null
-    const stopLossRate = userSettings?.stopLossRate ?? null
+    // 個別設定を優先、なければユーザー設定をフォールバック
+    const targetReturnRate = portfolioStock.takeProfitRate
+      ? Number(portfolioStock.takeProfitRate)
+      : userSettings?.targetReturnRate ?? null
+    const stopLossRate = portfolioStock.stopLossRate
+      ? Number(portfolioStock.stopLossRate)
+      : userSettings?.stopLossRate ?? null
+
     let userTargetPrice: number | null = null
     let userStopLossPrice: number | null = null
 

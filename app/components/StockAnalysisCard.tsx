@@ -734,36 +734,6 @@ export default function StockAnalysisCard({
             </div>
           )}
 
-          {/* ユーザー設定に基づく目標価格 */}
-          {(analysis.userTargetPrice || analysis.userStopLossPrice) && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-              <p className="text-sm font-semibold text-gray-800 mb-2">
-                📊 あなたの設定に基づく目標
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {analysis.userTargetPrice && analysis.targetReturnRate && (
-                  <div>
-                    <p className="text-xs text-gray-500">
-                      利確目標（+{analysis.targetReturnRate}%）
-                    </p>
-                    <p className="text-base font-bold text-green-600">
-                      {analysis.userTargetPrice.toLocaleString()}円
-                    </p>
-                  </div>
-                )}
-                {analysis.userStopLossPrice && analysis.stopLossRate && (
-                  <div>
-                    <p className="text-xs text-gray-500">
-                      損切り（{analysis.stopLossRate}%）
-                    </p>
-                    <p className="text-base font-bold text-red-600">
-                      {analysis.userStopLossPrice.toLocaleString()}円
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
           {analysis.confidence !== null &&
             (() => {
               const pct = Math.round(analysis.confidence * 100);
