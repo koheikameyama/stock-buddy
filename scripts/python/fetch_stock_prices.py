@@ -1,121 +1,151 @@
 #!/usr/bin/env python3
 """
-株価取得スクリプト
-yfinanceを使って東京証券取引所の株価をリアルタイム取得
+株価取得スクリプト（バルク最適化版）
+yf.Tickers を使用して複数銘柄の情報を一括取得し、前日終値なども含めて効率的に取得する。
 """
 
 import json
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import re
+from datetime import datetime, timedelta
 import yfinance as yf
 
-# 株価データの鮮度チェック（日数）（lib/constants.ts の STALE_DATA_DAYS と同じ値）
+# 株価データの鮮度チェック（日数）
 STALE_DATA_DAYS = 14
 
-# yfinance API の同時リクエスト数（レート制限回避のため少なめ）
-CONCURRENCY_LIMIT = 3
-
-# リトライ設定
-MAX_RETRIES = 2
-RETRY_DELAY = 1.0
-
-
-def fetch_single_price(ticker: str) -> dict | None:
-    """1銘柄の株価を取得（リトライ付き）
-    staleデータの場合は {"tickerCode": ticker, "stale": True} を返す
+def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
+    """複数銘柄の株価を一括取得
+    Returns: {"prices": [...], "staleTickers": [...]}
     """
-    for attempt in range(MAX_RETRIES + 1):
-        try:
-            stock = yf.Ticker(ticker)
-            info = stock.info
+    if not ticker_inputs:
+        return {"prices": [], "staleTickers": []}
 
-            # 現在価格を取得（複数のフィールドをフォールバック）
-            current_price = (
-                info.get("currentPrice")
-                or info.get("regularMarketPrice")
-                or info.get("previousClose")
-                or 0
-            )
+    # 1. 判別が必要な銘柄（サフィックスがない、あるいは .T のもの）の候補を作成
+    probes = {}  # original_input -> [candidate1, candidate2]
+    all_candidates = []
+    
+    for original in ticker_inputs:
+        # 日本株形式（数字 or 新形式）のベース部分を抽出
+        match = re.match(r"^(\d+[A-Z]?)(?:\.[A-Z]+)?$", original)
+        if match:
+            base = match.group(1)
+            candidates = [f"{base}.T", f"{base}.NG"]
+            probes[original] = candidates
+            all_candidates.extend(candidates)
+        elif "." not in original:
+            # サフィックスがない英字のみの米国株など
+            all_candidates.append(original)
+        else:
+            # すでにサフィックスがある非日本株（インデックス等）
+            all_candidates.append(original)
 
-            # レート制限で空データが返った場合はリトライ
-            if current_price == 0 and attempt < MAX_RETRIES:
-                time.sleep(RETRY_DELAY * (attempt + 1))
-                continue
+    # 重複除去
+    all_candidates = list(set(all_candidates))
+    
+    # 2. 一括取得 (history を使用して価格データを取得)
+    # 2日分のデータを取得すれば、現在価格（最終行）と前日終値（その前）が手に入る
+    try:
+        tickers_obj = yf.Tickers(" ".join(all_candidates))
+        # period='2d' で直近2営業日分を取得
+        hist = tickers_obj.history(period="2d", interval="1d", progress=False)
+    except Exception as e:
+        print(f"Error calling yfinance: {e}", file=sys.stderr)
+        return {"prices": [], "staleTickers": [], "error": str(e)}
 
-            # 前日終値
-            previous_close = (
-                info.get("previousClose")
-                or info.get("regularMarketPreviousClose")
-                or current_price
-            )
+    results = []
+    stale_tickers = []
+    processed_originals = set()
 
-            # 変動計算
-            change = current_price - previous_close if previous_close else 0
-            change_percent = (change / previous_close * 100) if previous_close else 0
+    # 3. 取得結果の解析
+    # hist は MultiIndex (Close, 7203.T) のような形になるか、単一なら単一の DataFrame
+    def get_ticker_data(t):
+        if len(all_candidates) > 1:
+            try:
+                # Column check
+                if t in hist.columns.get_level_values(1):
+                    return hist.xs(t, axis=1, level=1)
+            except:
+                pass
+        else:
+            # 単一銘柄の場合は hist がそのままその銘柄のデータ
+            return hist
+        return None
 
-            # 高値・安値・出来高
-            high = info.get("dayHigh") or info.get("regularMarketDayHigh") or current_price
-            low = info.get("dayLow") or info.get("regularMarketDayLow") or current_price
-            volume = info.get("volume") or info.get("regularMarketVolume") or 0
+    # 各元の入力に対して最適な結果を選ぶ
+    for original in ticker_inputs:
+        candidates = probes.get(original, [original])
+        best_data = None
+        hit_ticker = None
 
-            # 最終取引時刻が2週間以上前なら古すぎるためstaleとして返す
-            market_time = info.get("regularMarketTime", 0)
-            if market_time and (time.time() - market_time) > STALE_DATA_DAYS * 86400:
-                print(f"Stale data for {ticker} (last trade: {market_time})", file=sys.stderr)
-                return {"tickerCode": ticker, "stale": True}
+        max_volume = -1
+        for cand in candidates:
+            data = get_ticker_data(cand)
+            if data is not None and not data.empty and not data['Close'].dropna().empty:
+                # 出来高を比較して、より活発な市場（通常は東証）を選択する
+                # ただしデータが存在することが前提
+                try:
+                    current_vol = int(data['Volume'].iloc[-1]) if 'Volume' in data.columns else 0
+                except:
+                    current_vol = 0
+                
+                if current_vol > max_volume:
+                    max_volume = current_vol
+                    best_data = data
+                    hit_ticker = cand
 
-            if current_price > 0:
-                return {
-                    "tickerCode": ticker,
+        if best_data is not None:
+            try:
+                # 最新行（当日）と前行（前日）
+                rows = best_data.dropna(subset=['Close'])
+                if rows.empty:
+                    continue
+                
+                current_row = rows.iloc[-1]
+                prev_row = rows.iloc[-2] if len(rows) > 1 else current_row
+
+                current_price = float(current_row['Close'])
+                prev_close = float(prev_row['Close'])
+                
+                # yfinance の history には volume などの情報も含まれる
+                high = float(current_row['High'])
+                low = float(current_row['Low'])
+                volume = int(current_row['Volume'])
+                
+                # 計算
+                change = current_price - prev_close
+                change_percent = (change / prev_close * 100) if prev_close != 0 else 0
+
+                # 鮮度チェック (Index は Timestamp)
+                last_date = rows.index[-1]
+                if (datetime.now() - last_date.to_pydatetime()).days > STALE_DATA_DAYS:
+                    stale_tickers.append(original)
+                    continue
+
+                results.append({
+                    "tickerCode": original,
+                    "actualTicker": hit_ticker,
                     "currentPrice": round(current_price, 2),
-                    "previousClose": round(previous_close, 2),
+                    "previousClose": round(prev_close, 2),
                     "change": round(change, 2),
                     "changePercent": round(change_percent, 2),
                     "volume": volume,
                     "high": round(high, 2),
                     "low": round(low, 2),
-                    "marketTime": market_time or None,
-                }
-            else:
-                print(f"No price data for {ticker}", file=sys.stderr)
-                return None
+                    "marketTime": int(last_date.timestamp())
+                })
+            except Exception as e:
+                print(f"Error processing {original}: {e}", file=sys.stderr)
+        else:
+            # どの候補もヒットしなかった場合
+            print(f"No valid data found for {original}", file=sys.stderr)
 
-        except Exception as e:
-            if attempt < MAX_RETRIES:
-                time.sleep(RETRY_DELAY * (attempt + 1))
-                continue
-            print(f"Error fetching {ticker}: {e}", file=sys.stderr)
-            return None
-
-    return None
-
-
-def fetch_prices(tickers: list[str]) -> dict:
-    """複数銘柄の株価を並列取得
-    Returns: {"prices": [...], "staleTickers": [...]}
-    """
-    prices = []
-    stale_tickers = []
-
-    with ThreadPoolExecutor(max_workers=CONCURRENCY_LIMIT) as executor:
-        futures = {
-            executor.submit(fetch_single_price, ticker): ticker
-            for ticker in tickers
-        }
-        for future in as_completed(futures):
-            result = future.result()
-            if result is not None:
-                if result.get("stale"):
-                    stale_tickers.append(result["tickerCode"])
-                else:
-                    prices.append(result)
-
-    return {"prices": prices, "staleTickers": stale_tickers}
-
+    return {"prices": results, "staleTickers": stale_tickers}
 
 if __name__ == "__main__":
-    tickers = sys.argv[1].split(",") if len(sys.argv) > 1 else []
-    results = fetch_prices(tickers)
-    print(json.dumps(results))
+    if len(sys.argv) > 1:
+        ticker_list = sys.argv[1].split(",")
+        output = fetch_prices_bulk(ticker_list)
+        print(json.dumps(output))
+    else:
+        print(json.dumps({"prices": [], "staleTickers": []}))

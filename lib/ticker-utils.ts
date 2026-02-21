@@ -6,45 +6,49 @@
  */
 
 /**
- * ティッカーコードを正規化（.T サフィックスを確実に付与）
+ * ティッカーコードを正規化（日本株の可能性が高い場合に .T サフィックスを補完）
+ * すでにサフィックスがある場合や、英字のみ（米国株）の場合はそのまま
  *
- * @param tickerCode - 元のティッカーコード（例: "7203" or "7203.T"）
- * @returns 正規化されたティッカーコード（例: "7203.T"）
- *
- * @example
- * normalizeTickerCode("7203") // "7203.T"
- * normalizeTickerCode("7203.T") // "7203.T"
+ * @param tickerCode - 元のティッカーコード（例: "7203", "123A", "AAPL", "7203.NG"）
+ * @returns 正規化されたティッカーコード
  */
 export function normalizeTickerCode(tickerCode: string): string {
   if (!tickerCode) {
-    throw new Error("tickerCode is required")
+    throw new Error("tickerCode is required");
   }
 
-  // すでに .T がついている場合はそのまま返す
-  if (tickerCode.endsWith(".T")) {
-    return tickerCode
+  // すでにサフィックス（ドット）が含まれている場合はそのまま返す
+  if (tickerCode.includes(".")) {
+    return tickerCode;
   }
 
-  // .T がついていない場合は追加
-  return `${tickerCode}.T`
+  // インデックス（^で始まる）はそのまま返す
+  if (tickerCode.startsWith("^")) {
+    return tickerCode;
+  }
+
+  // 数字のみ、または数字+英字1文字（JPX新コード形式 123Aなど）の場合は .T を付与
+  if (/^\d+$/.test(tickerCode) || /^\d+[A-Z]$/i.test(tickerCode)) {
+    return `${tickerCode}.T`;
+  }
+
+  // それ以外（英字のみの米国株など）はそのまま返す
+  return tickerCode;
 }
 
 /**
- * ティッカーコードから .T サフィックスを削除
+ * ティッカーコードからサフィックス（.T, .NGなど）を削除
  *
- * @param tickerCode - ティッカーコード（例: "7203.T"）
- * @returns サフィックスなしのコード（例: "7203"）
- *
- * @example
- * removeTickerSuffix("7203.T") // "7203"
- * removeTickerSuffix("7203") // "7203"
+ * @param tickerCode - ティッカーコード（例: "7203.T", "AAPL"）
+ * @returns サフィックスなしのコード（例: "7203", "AAPL"）
  */
 export function removeTickerSuffix(tickerCode: string): string {
   if (!tickerCode) {
-    throw new Error("tickerCode is required")
+    throw new Error("tickerCode is required");
   }
 
-  return tickerCode.replace(".T", "")
+  // 最初のドット以前を抽出
+  return tickerCode.split(".")[0];
 }
 
 /**
@@ -57,27 +61,28 @@ export function removeTickerSuffix(tickerCode: string): string {
  * normalizeTickerCodes(["7203", "9432.T"]) // ["7203.T", "9432.T"]
  */
 export function normalizeTickerCodes(tickerCodes: string[]): string[] {
-  return tickerCodes.map(normalizeTickerCode)
+  return tickerCodes.map(normalizeTickerCode);
 }
 
 /**
  * Yahoo Finance用にティッカーコードを準備
- * （normalizeTickerCodeのエイリアス）
+ * 市場が特定できない場合にデフォルトで .T を付与
  *
- * @param tickerCode - 元のティッカーコード
- * @returns Yahoo Finance用のティッカーコード
+ * @param tickerCode - DB保存用のサフィックスなしコード、または入力をそのまま
+ * @returns Yahoo Finance用のティッカーコード（例: "7203.T"）
  */
 export function prepareTickerForYahoo(tickerCode: string): string {
-  return normalizeTickerCode(tickerCode)
+  return normalizeTickerCode(tickerCode);
 }
 
 /**
  * データベース保存用にティッカーコードを準備
- * （現在は .T 付きで統一しているため、normalizeTickerCodeのエイリアス）
+ * サフィックスがない場合、デフォルトで .T を補完して保存する
+ * (正確な市場判別が必要な場合は登録フローで fetchStockPrices を使用すること)
  *
- * @param tickerCode - 元のティッカーコード
- * @returns データベース保存用のティッカーコード
+ * @param tickerCode - 入力されたティッカーコード
+ * @returns サフィックス付きのティッカーコード（例: "7203" -> "7203.T"）
  */
 export function prepareTickerForDB(tickerCode: string): string {
-  return normalizeTickerCode(tickerCode)
+  return normalizeTickerCode(tickerCode);
 }

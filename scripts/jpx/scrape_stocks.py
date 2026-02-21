@@ -103,8 +103,8 @@ def scrape_new_listings() -> list[dict]:
                         if not ticker or not name:
                             continue
 
-                        # .T サフィックスを追加
-                        if not ticker.endswith(".T"):
+                        # サフィックスがない場合は .T を付加
+                        if "." not in ticker:
                             ticker = f"{ticker}.T"
 
                         listed_date = parse_japanese_date(date_text)
@@ -169,7 +169,8 @@ def scrape_delisted_stocks() -> list[dict]:
                         if not ticker or not name:
                             continue
 
-                        if not ticker.endswith(".T"):
+                        # サフィックスがない場合は .T を付加
+                        if "." not in ticker:
                             ticker = f"{ticker}.T"
 
                         delisted_date = parse_japanese_date(date_text)
@@ -222,7 +223,36 @@ def main() -> int:
     if len(all_stocks) != len(unique_stocks):
         print(f"Removed {len(all_stocks) - len(unique_stocks)} duplicates")
 
-    all_stocks = unique_stocks
+    # Yahoo Financeでの実在確認（サフィックス判別含む）
+    print("Verifying stocks on Yahoo Finance...")
+    # scripts/python/fetch_stock_prices.py の fetch_prices_bulk をインポート
+    # PYTHONPATHの調整が必要な場合があるが、ここでは直接インポート（cwd想定）
+    sys.path.append(str(Path(__file__).parent.parent.parent))
+    from scripts.python.fetch_stock_prices import fetch_prices_bulk
+
+    verified_stocks = []
+    CHUNK_SIZE = 50
+    for i in range(0, len(unique_stocks), CHUNK_SIZE):
+        chunk = unique_stocks[i:i + CHUNK_SIZE]
+        tickers = [s["ticker"] for s in chunk]
+        
+        print(f"  Verifying batch {i // CHUNK_SIZE + 1}/{len(unique_stocks) // CHUNK_SIZE + 1}...")
+        try:
+            result = fetch_prices_bulk(tickers)
+            valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
+            
+            for stock in chunk:
+                if stock["ticker"] in valid_results:
+                    # 正しいサフィックスに更新
+                    stock["ticker"] = valid_results[stock["ticker"]]
+                    verified_stocks.append(stock)
+        except Exception as e:
+            print(f"  Error verifying batch: {e}")
+            # エラーの場合はパス（または元のデータを維持）
+            verified_stocks.extend(chunk)
+
+    all_stocks = verified_stocks
+    print(f"  {len(all_stocks)} stocks verified and kept")
 
     if not all_stocks:
         print("No data retrieved. This might be due to:")

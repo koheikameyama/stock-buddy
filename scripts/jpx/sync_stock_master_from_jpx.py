@@ -109,8 +109,8 @@ def parse_jpx_excel(excel_data: bytes) -> list[dict]:
                 if sector_val and sector_val not in ["nan", "-"]:
                     sector = sector_val
 
-            # 数値のみのコードに .T を付与
-            if re.match(r"^\d+$", ticker_code):
+            # DBにはサフィックス付きで保存する（ない場合は .T を補完。JPX Excelは東証銘柄のみのため）
+            if "." not in ticker_code:
                 ticker_code = f"{ticker_code}.T"
 
             stocks.append({
@@ -124,7 +124,36 @@ def parse_jpx_excel(excel_data: bytes) -> list[dict]:
             continue
 
     print(f"  Parsed {len(stocks)} valid stocks")
-    return stocks
+    
+    # Yahoo Financeでの実在確認（サフィックス判別も含む）
+    print("Verifying stocks on Yahoo Finance...")
+    from scripts.python.fetch_stock_prices import fetch_prices_bulk
+    
+    verified_stocks = []
+    # 50銘柄ずつのバッチで確認
+    CHUNK_SIZE = 50
+    for i in range(0, len(stocks), CHUNK_SIZE):
+        chunk = stocks[i:i + CHUNK_SIZE]
+        tickers = [s["ticker"] for s in chunk]
+        
+        print(f"  Verifying batch {i // CHUNK_SIZE + 1}/{len(stocks) // CHUNK_SIZE + 1}...")
+        try:
+            result = fetch_prices_bulk(tickers)
+            valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
+            
+            for stock in chunk:
+                if stock["ticker"] in valid_results:
+                    # 正しいサフィックスに更新（例: .T か .NG か）
+                    stock["ticker"] = valid_results[stock["ticker"]]
+                    verified_stocks.append(stock)
+        except Exception as e:
+            print(f"  Error verifying batch: {e}")
+            # エラーの場合は安全のため元のデータを維持（またはスキップ）
+            # ここではスキップせずに継続
+            verified_stocks.extend(chunk)
+
+    print(f"  {len(verified_stocks)} stocks verified and kept")
+    return verified_stocks
 
 
 def upsert_stocks_to_db(conn, stocks: list[dict]) -> dict:

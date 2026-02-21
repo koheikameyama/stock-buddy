@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { fetchStockPrices } from "@/lib/stock-price-fetcher";
+import { removeTickerSuffix, prepareTickerForYahoo } from "@/lib/ticker-utils";
 
 /**
  * Stock Search API
@@ -10,30 +11,30 @@ import { fetchStockPrices } from "@/lib/stock-price-fetcher"
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const query = searchParams.get("q")
+    const searchParams = request.nextUrl.searchParams;
+    const query = searchParams.get("q");
 
     if (!query || query.length < 1) {
-      return NextResponse.json({ stocks: [] })
+      return NextResponse.json({ stocks: [] });
     }
 
-    // Search by ticker code or company name
-    // If query is just numbers, append .T to prioritize exact ticker matches
-    const isNumericQuery = /^\d+$/.test(query)
-    const tickerQuery = isNumericQuery ? `${query}.T` : query
+    // 検索クエリを正規化
+    // 1. DB検索用：サフィックスなし（例: 7203.T -> 7203）
+    const dbTickerQuery = removeTickerSuffix(query);
 
     // Convert half-width to full-width for Japanese character search
     const toFullWidth = (str: string) => {
       return str.replace(/[A-Za-z0-9]/g, (s) => {
-        return String.fromCharCode(s.charCodeAt(0) + 0xFEE0)
-      })
-    }
-    const fullWidthQuery = toFullWidth(query)
+        return String.fromCharCode(s.charCodeAt(0) + 0xfee0);
+      });
+    };
+    const fullWidthQuery = toFullWidth(query);
 
     const stocks = await prisma.stock.findMany({
       where: {
         OR: [
-          { tickerCode: { startsWith: tickerQuery, mode: "insensitive" } },
+          { tickerCode: { startsWith: dbTickerQuery, mode: "insensitive" } },
+          { tickerCode: { startsWith: query, mode: "insensitive" } },
           { tickerCode: { contains: query, mode: "insensitive" } },
           { name: { contains: query, mode: "insensitive" } },
           { name: { contains: fullWidthQuery, mode: "insensitive" } },
@@ -47,12 +48,19 @@ export async function GET(request: NextRequest) {
         sector: true,
       },
       take: 20, // Limit results
-    })
+    });
 
-    // リアルタイム株価を取得
-    const tickerCodes = stocks.map((s) => s.tickerCode)
-    const { prices } = await fetchStockPrices(tickerCodes)
-    const priceMap = new Map(prices.map((p) => [p.tickerCode, p.currentPrice]))
+    // リアルタイム株価を取得（Yahoo Finance用にサフィックスを補完）
+    const tickerCodesForYahoo = stocks.map((s) =>
+      prepareTickerForYahoo(s.tickerCode),
+    );
+    const { prices } = await fetchStockPrices(tickerCodesForYahoo);
+
+    // DBコードと取得結果をマッピング
+    const priceMap = new Map();
+    prices.forEach((p) => {
+      priceMap.set(p.tickerCode, p.currentPrice);
+    });
 
     // Format response with latest price
     const formattedStocks = stocks.map((stock) => ({
@@ -63,25 +71,29 @@ export async function GET(request: NextRequest) {
       sector: stock.sector,
       latestPrice: priceMap.get(stock.tickerCode) ?? null,
       latestPriceDate: null, // リアルタイム取得なので常に最新
-    }))
+    }));
 
-    // Sort results: prioritize exact ticker matches with .T
+    // Sort results: prioritize exact ticker matches
     const sortedStocks = formattedStocks.sort((a, b) => {
-      const aStartsWithQuery = a.tickerCode.toLowerCase().startsWith(tickerQuery.toLowerCase())
-      const bStartsWithQuery = b.tickerCode.toLowerCase().startsWith(tickerQuery.toLowerCase())
+      const aStartsWithQuery = a.tickerCode
+        .toLowerCase()
+        .startsWith(dbTickerQuery.toLowerCase());
+      const bStartsWithQuery = b.tickerCode
+        .toLowerCase()
+        .startsWith(dbTickerQuery.toLowerCase());
 
-      if (aStartsWithQuery && !bStartsWithQuery) return -1
-      if (!aStartsWithQuery && bStartsWithQuery) return 1
+      if (aStartsWithQuery && !bStartsWithQuery) return -1;
+      if (!aStartsWithQuery && bStartsWithQuery) return 1;
 
-      return 0
-    })
+      return 0;
+    });
 
-    return NextResponse.json({ stocks: sortedStocks })
+    return NextResponse.json({ stocks: sortedStocks });
   } catch (error) {
-    console.error("Error searching stocks:", error)
+    console.error("Error searching stocks:", error);
     return NextResponse.json(
       { error: "Failed to search stocks" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
