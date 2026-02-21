@@ -15,8 +15,6 @@ interface UpdateUserStockRequest {
   // Watchlist fields
   targetBuyPrice?: number | null;
   // Portfolio fields
-  takeProfitPrice?: number | null;
-  stopLossPrice?: number | null;
   takeProfitRate?: number | null;
   stopLossRate?: number | null;
 }
@@ -288,10 +286,8 @@ async function handleUpdate(
     ]);
     const portfolioCurrentPrice = portfolioPrices[0]?.currentPrice ?? null;
 
-    // Update individual TP/SL prices if provided
+    // Update individual TP/SL rates if provided
     const updateData: {
-      takeProfitPrice?: number | null;
-      stopLossPrice?: number | null;
       takeProfitRate?: number | null;
       stopLossRate?: number | null;
     } = {};
@@ -340,12 +336,6 @@ async function handleUpdate(
       shortTerm: updated.shortTerm,
       mediumTerm: updated.mediumTerm,
       longTerm: updated.longTerm,
-      takeProfitPrice: updated.takeProfitPrice
-        ? Number(updated.takeProfitPrice)
-        : null,
-      stopLossPrice: updated.stopLossPrice
-        ? Number(updated.stopLossPrice)
-        : null,
       takeProfitRate: updated.takeProfitRate
         ? Number(updated.takeProfitRate)
         : null,

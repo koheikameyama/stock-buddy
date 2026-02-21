@@ -43,9 +43,9 @@ interface Stock {
   statusType?: string | null;
   suggestedSellPrice?: number | null;
   sellCondition?: string | null;
-  // Individual TP/SL fields
-  takeProfitPrice?: number | null;
-  stopLossPrice?: number | null;
+  // Individual TP/SL settings (rates in %)
+  takeProfitRate?: number | null;
+  stopLossRate?: number | null;
   // Watchlist fields
   targetBuyPrice?: number | null;
   limitPrice?: number | null; // AI suggested limit price (fallback for buy alert)
@@ -115,13 +115,13 @@ export default function MyStockDetailClient({
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
 
-  // Individual TP/SL state
+  // Individual TP/SL state (rates in %)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [currentTpPrice, setCurrentTpPrice] = useState<number | null>(
-    stock.takeProfitPrice ?? null,
+  const [currentTpRate, setCurrentTpRate] = useState<number | null>(
+    stock.takeProfitRate ?? null,
   );
-  const [currentSlPrice, setCurrentSlPrice] = useState<number | null>(
-    stock.stopLossPrice ?? null,
+  const [currentSlRate, setCurrentSlRate] = useState<number | null>(
+    stock.stopLossRate ?? null,
   );
 
   const isPortfolio = stock.type === "portfolio";
@@ -389,8 +389,8 @@ export default function MyStockDetailClient({
                       利確ライン
                     </p>
                     <p className="text-sm font-bold text-green-800">
-                      {currentTpPrice
-                        ? `¥${currentTpPrice.toLocaleString()}`
+                      {currentTpRate && averagePrice
+                        ? `¥${Math.round(averagePrice * (1 + currentTpRate / 100)).toLocaleString()}`
                         : "未設定"}
                     </p>
                   </div>
@@ -399,8 +399,8 @@ export default function MyStockDetailClient({
                       損切りライン
                     </p>
                     <p className="text-sm font-bold text-red-800">
-                      {currentSlPrice
-                        ? `¥${currentSlPrice.toLocaleString()}`
+                      {currentSlRate && averagePrice
+                        ? `¥${Math.round(averagePrice * (1 + currentSlRate / 100)).toLocaleString()}`
                         : "未設定"}
                     </p>
                   </div>
@@ -961,11 +961,11 @@ export default function MyStockDetailClient({
         stockId={stock.id}
         stockName={stock.stock.name}
         avgPurchasePrice={stock.averagePurchasePrice ?? 0}
-        initialTpRate={currentTpPrice}
-        initialSlRate={currentSlPrice}
-        onSuccess={(tp, sl) => {
-          setCurrentTpPrice(tp);
-          setCurrentSlPrice(sl);
+        initialTpRate={currentTpRate}
+        initialSlRate={currentSlRate}
+        onSuccess={(tpRate, slRate) => {
+          setCurrentTpRate(tpRate);
+          setCurrentSlRate(slRate);
         }}
       />
     </StockDetailLayout>

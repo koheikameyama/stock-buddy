@@ -228,10 +228,6 @@ export async function POST(
       shortTerm: result.shortTerm,
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
-      takeProfitPrice: result.takeProfitPrice
-        ? Number(result.takeProfitPrice)
-        : null,
-      stopLossPrice: result.stopLossPrice ? Number(result.stopLossPrice) : null,
       takeProfitRate: result.takeProfitRate
         ? Number(result.takeProfitRate)
         : null,

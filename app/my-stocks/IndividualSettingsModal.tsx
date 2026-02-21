@@ -160,7 +160,7 @@ export default function IndividualSettingsModal({
                   step="0.1"
                   value={tpRate}
                   onChange={(e) => setTpRate(e.target.value)}
-                  placeholder="+10"
+                  placeholder="10"
                   className="w-full pr-7 pl-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                 />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
@@ -197,7 +197,7 @@ export default function IndividualSettingsModal({
                   step="0.1"
                   value={slRate}
                   onChange={(e) => setSlRate(e.target.value)}
-                  placeholder="-5"
+                  placeholder="5"
                   className="w-full pr-7 pl-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
                 />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
@@ -213,7 +213,7 @@ export default function IndividualSettingsModal({
                 </span>
                 <br />
                 <span className="text-[10px] text-gray-400 font-normal">
-                  (損失: -{(avgPurchasePrice - slPriceHint).toLocaleString()}円)
+                  (損失: {(avgPurchasePrice - slPriceHint).toLocaleString()}円)
                 </span>
               </p>
             )}

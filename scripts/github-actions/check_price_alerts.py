@@ -104,9 +104,9 @@ def fetch_portfolio_sell_target_alerts(conn) -> list[dict]:
     """
     ポートフォリオ銘柄の利確（売り目標）到達アラートをチェック
 
-    優先順位:
-    1. ユーザーが targetReturnRate を設定 → 平均取得単価 * (1 + targetReturnRate/100)
-    2. 未設定 → AIの suggestedSellPrice を使用
+    ユーザーが targetReturnRate を設定している銘柄のみ対象。
+    → 平均取得単価 * (1 + targetReturnRate/100) を目標価格とする。
+    AIの suggestedSellPrice は参考情報のため通知には使用しない。
 
     条件: 現在価格 >= 目標価格 かつ 保有株数 > 0
     """
@@ -120,14 +120,13 @@ def fetch_portfolio_sell_target_alerts(conn) -> list[dict]:
                 s.name as "stockName",
                 s."tickerCode",
                 s."latestPrice",
-                p."suggestedSellPrice",
                 us."targetReturnRate",
                 COALESCE(
                     (SELECT SUM(
                         CASE WHEN t.type = 'buy' THEN t.quantity
                              WHEN t.type = 'sell' THEN -t.quantity
                              ELSE 0
-                        END
+                         END
                     )
                     FROM "Transaction" t
                     WHERE t."portfolioStockId" = p.id
@@ -144,35 +143,29 @@ def fetch_portfolio_sell_target_alerts(conn) -> list[dict]:
             JOIN "Stock" s ON p."stockId" = s.id
             LEFT JOIN "UserSettings" us ON us."userId" = p."userId"
             WHERE s."latestPrice" IS NOT NULL
-              AND (us."targetReturnRate" IS NOT NULL OR p."suggestedSellPrice" IS NOT NULL)
+              AND us."targetReturnRate" IS NOT NULL
         ''')
 
         for row in cur.fetchall():
-            total_quantity = row[7] or 0
+            total_quantity = row[6] or 0
             if total_quantity <= 0:
                 continue  # 保有なしはスキップ
 
             latest_price = float(row[4]) if row[4] else 0
-            ai_target_price = float(row[5]) if row[5] else None
-            user_target_rate = float(row[6]) if row[6] else None
-            average_cost = float(row[8]) if row[8] else 0
-            user_stock_id = row[9]
+            user_target_rate = float(row[5]) if row[5] else None
+            average_cost = float(row[7]) if row[7] else 0
+            user_stock_id = row[8]
 
-            # 目標価格を決定（ユーザー設定優先）
-            if user_target_rate is not None and average_cost > 0:
-                # ユーザー設定: 平均取得単価 * (1 + targetReturnRate/100)
-                target_price = average_cost * (1 + user_target_rate / 100)
-                source = "user"
-            elif ai_target_price is not None:
-                # AI提案
-                target_price = ai_target_price
-                source = "ai"
-            else:
-                continue  # 目標価格がない場合はスキップ
+            # ユーザー設定がない場合はスキップ（AIフォールバックなし）
+            if user_target_rate is None or average_cost <= 0:
+                continue
+
+            # 目標価格 = 平均取得単価 * (1 + targetReturnRate/100)
+            target_price = average_cost * (1 + user_target_rate / 100)
 
             # 現在価格が目標価格以上なら通知
             if latest_price >= target_price:
-                gain_percent = ((latest_price - average_cost) / average_cost) * 100 if average_cost > 0 else 0
+                gain_percent = ((latest_price - average_cost) / average_cost) * 100
 
                 alerts.append({
                     "userId": row[0],
@@ -183,7 +176,6 @@ def fetch_portfolio_sell_target_alerts(conn) -> list[dict]:
                     "targetPrice": target_price,
                     "averageCost": average_cost,
                     "gainPercent": gain_percent,
-                    "source": source,
                     "type": "sell_target",
                     "userStockId": user_stock_id,
                 })
@@ -195,9 +187,9 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
     """
     ポートフォリオ銘柄の逆指値（ストップロス）アラートをチェック
 
-    優先順位:
-    1. ユーザーが stopLossRate を設定 → 平均取得単価 * (1 + stopLossRate/100)
-    2. 未設定 → AIの StockAnalysis.stopLossPrice を使用
+    ユーザーが stopLossRate を設定している銘柄のみ対象。
+    → 平均取得単価 * (1 + stopLossRate/100) を逆指値価格とする。
+    AIの StockAnalysis.stopLossPrice は参考情報のため通知には使用しない。
 
     条件: 現在価格 <= 逆指値価格 かつ 保有株数 > 0
     例: 取得単価1000円、stopLossRate=-10% → 逆指値900円
@@ -213,13 +205,12 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
                 s."tickerCode",
                 s."latestPrice",
                 us."stopLossRate",
-                sa."stopLossPrice" as "aiStopLossPrice",
                 COALESCE(
                     (SELECT SUM(
                         CASE WHEN t.type = 'buy' THEN t.quantity
                              WHEN t.type = 'sell' THEN -t.quantity
                              ELSE 0
-                        END
+                         END
                     )
                     FROM "Transaction" t
                     WHERE t."portfolioStockId" = p.id
@@ -235,43 +226,30 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
             FROM "PortfolioStock" p
             JOIN "Stock" s ON p."stockId" = s.id
             LEFT JOIN "UserSettings" us ON us."userId" = p."userId"
-            LEFT JOIN LATERAL (
-                SELECT "stopLossPrice"
-                FROM "StockAnalysis"
-                WHERE "stockId" = s.id
-                ORDER BY "analyzedAt" DESC
-                LIMIT 1
-            ) sa ON true
             WHERE s."latestPrice" IS NOT NULL
-              AND (us."stopLossRate" IS NOT NULL OR sa."stopLossPrice" IS NOT NULL)
+              AND us."stopLossRate" IS NOT NULL
         ''')
 
         for row in cur.fetchall():
-            total_quantity = row[7] or 0
+            total_quantity = row[6] or 0
             if total_quantity <= 0:
                 continue  # 保有なしはスキップ
 
             latest_price = float(row[4]) if row[4] else 0
             user_stop_loss_rate = float(row[5]) if row[5] else None
-            ai_stop_loss_price = float(row[6]) if row[6] else None
-            average_cost = float(row[8]) if row[8] else 0
-            user_stock_id = row[9]
+            average_cost = float(row[7]) if row[7] else 0
+            user_stock_id = row[8]
 
-            # 逆指値価格を決定（ユーザー設定優先）
-            if user_stop_loss_rate is not None and average_cost > 0:
-                # ユーザー設定: 平均取得単価 * (1 + stopLossRate/100)
-                stop_loss_price = average_cost * (1 + user_stop_loss_rate / 100)
-                source = "user"
-            elif ai_stop_loss_price is not None:
-                # AI提案
-                stop_loss_price = ai_stop_loss_price
-                source = "ai"
-            else:
-                continue  # 逆指値価格がない場合はスキップ
+            # ユーザー設定がない場合はスキップ（AIフォールバックなし）
+            if user_stop_loss_rate is None or average_cost <= 0:
+                continue
+
+            # 逆指値価格 = 平均取得単価 * (1 + stopLossRate/100)
+            stop_loss_price = average_cost * (1 + user_stop_loss_rate / 100)
 
             # 現在価格が逆指値以下なら通知
             if latest_price <= stop_loss_price:
-                loss_percent = ((latest_price - average_cost) / average_cost) * 100 if average_cost > 0 else 0
+                loss_percent = ((latest_price - average_cost) / average_cost) * 100
 
                 alerts.append({
                     "userId": row[0],
@@ -282,7 +260,6 @@ def fetch_portfolio_stop_loss_alerts(conn) -> list[dict]:
                     "stopLossPrice": stop_loss_price,
                     "averageCost": average_cost,
                     "lossPercent": loss_percent,
-                    "source": source,
                     "type": "stop_loss",
                     "userStockId": user_stock_id,
                 })
@@ -439,11 +416,7 @@ def main():
         logger.info(f"  Found {len(sell_target_alerts)} sell target alerts")
 
         for alert in sell_target_alerts:
-            # ユーザー設定 or AI提案で通知メッセージを変える
-            if alert.get("source") == "user":
-                body = f"現在価格 {alert['latestPrice']:,.0f}円（+{alert['gainPercent']:.1f}%）が目標価格 {alert['targetPrice']:,.0f}円 を超えました"
-            else:
-                body = f"現在価格 {alert['latestPrice']:,.0f}円 がAI提案売却価格 {alert['targetPrice']:,.0f}円 を超えました"
+            body = f"現在価格 {alert['latestPrice']:,.0f}円（+{alert['gainPercent']:.1f}%）が目標利確価格 {alert['targetPrice']:,.0f}円 を超えました"
 
             notifications.append({
                 "userId": alert["userId"],
@@ -463,11 +436,7 @@ def main():
         logger.info(f"  Found {len(stop_loss_alerts)} stop loss alerts")
 
         for alert in stop_loss_alerts:
-            # ユーザー設定 or AI提案で通知メッセージを変える
-            if alert.get("source") == "user":
-                body = f"現在価格 {alert['latestPrice']:,.0f}円（{alert['lossPercent']:.1f}%）が損切りライン {alert['stopLossPrice']:,.0f}円 を下回りました"
-            else:
-                body = f"現在価格 {alert['latestPrice']:,.0f}円 がAI提案損切りライン {alert['stopLossPrice']:,.0f}円 を下回りました"
+            body = f"現在価格 {alert['latestPrice']:,.0f}円（{alert['lossPercent']:.1f}%）が損切りライン {alert['stopLossPrice']:,.0f}円 を下回りました"
 
             notifications.append({
                 "userId": alert["userId"],

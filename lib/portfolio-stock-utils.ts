@@ -29,8 +29,6 @@ export interface CreatePortfolioStockResult {
     shortTerm: string | null;
     mediumTerm: string | null;
     longTerm: string | null;
-    takeProfitPrice: Decimal | null;
-    stopLossPrice: Decimal | null;
     takeProfitRate: Decimal | null;
     stopLossRate: Decimal | null;
     statusType: string | null;
@@ -210,12 +208,6 @@ export function buildPortfolioStockResponse(params: {
     shortTerm: portfolioStock.shortTerm,
     mediumTerm: portfolioStock.mediumTerm,
     longTerm: portfolioStock.longTerm,
-    takeProfitPrice: portfolioStock.takeProfitPrice
-      ? Number(portfolioStock.takeProfitPrice)
-      : null,
-    stopLossPrice: portfolioStock.stopLossPrice
-      ? Number(portfolioStock.stopLossPrice)
-      : null,
     takeProfitRate: portfolioStock.takeProfitRate
       ? Number(portfolioStock.takeProfitRate)
       : null,

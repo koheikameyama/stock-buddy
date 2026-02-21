@@ -560,12 +560,6 @@ export async function executePortfolioAnalysis(
     sectorTrendContext,
     gapFillContext,
     supportResistanceContext,
-    takeProfitPrice: portfolioStock.takeProfitPrice
-      ? Number(portfolioStock.takeProfitPrice)
-      : null,
-    stopLossPrice: portfolioStock.stopLossPrice
-      ? Number(portfolioStock.stopLossPrice)
-      : null,
     takeProfitRate: portfolioStock.takeProfitRate
       ? Number(portfolioStock.takeProfitRate)
       : null,

@@ -73,6 +73,10 @@ export default function SettingsPage() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [showCustomBudget, setShowCustomBudget] = useState(false);
   const [customBudgetText, setCustomBudgetText] = useState("");
+  const [showCustomTargetReturn, setShowCustomTargetReturn] = useState(false);
+  const [customTargetReturnText, setCustomTargetReturnText] = useState("");
+  const [showCustomStopLoss, setShowCustomStopLoss] = useState(false);
+  const [customStopLossText, setCustomStopLossText] = useState("");
 
   useEffect(() => {
     checkPushNotificationStatus();
@@ -101,6 +105,24 @@ export default function SettingsPage() {
             setShowCustomBudget(true);
             setCustomBudgetText(String(Math.round(budget / 10000)));
           }
+          // プリセット以外の利確ラインが設定されていればカスタム入力を表示
+          const targetReturn = data.settings.targetReturnRate;
+          if (
+            targetReturn !== null &&
+            !TARGET_RETURN_OPTIONS.some((o) => o.value === targetReturn)
+          ) {
+            setShowCustomTargetReturn(true);
+            setCustomTargetReturnText(String(targetReturn));
+          }
+          // プリセット以外の損切りラインが設定されていればカスタム入力を表示
+          const stopLoss = data.settings.stopLossRate;
+          if (
+            stopLoss !== null &&
+            !STOP_LOSS_OPTIONS.some((o) => o.value === stopLoss)
+          ) {
+            setShowCustomStopLoss(true);
+            setCustomStopLossText(String(Math.abs(stopLoss)));
+          }
         }
       }
     } catch (error) {
@@ -114,6 +136,20 @@ export default function SettingsPage() {
     const 万円 = parseInt(customBudgetText, 10);
     if (!isNaN(万円) && 万円 > 0) {
       saveSettings({ investmentBudget: 万円 * 10000 });
+    }
+  };
+
+  const handleCustomTargetReturnSave = () => {
+    const val = parseFloat(customTargetReturnText);
+    if (!isNaN(val) && val > 0) {
+      saveSettings({ targetReturnRate: val });
+    }
+  };
+
+  const handleCustomStopLossSave = () => {
+    const val = parseFloat(customStopLossText);
+    if (!isNaN(val) && val > 0) {
+      saveSettings({ stopLossRate: -val });
     }
   };
 
@@ -564,19 +600,22 @@ export default function SettingsPage() {
                       {TARGET_RETURN_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() =>
-                            saveSettings({ targetReturnRate: option.value })
-                          }
+                          onClick={() => {
+                            setShowCustomTargetReturn(false);
+                            saveSettings({ targetReturnRate: option.value });
+                          }}
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-left transition-all ${
-                            settings.targetReturnRate === option.value
+                            settings.targetReturnRate === option.value &&
+                            !showCustomTargetReturn
                               ? "border-green-500 bg-green-50"
                               : "border-gray-200 hover:border-gray-300 bg-white"
                           } disabled:opacity-50`}
                         >
                           <div
                             className={`font-bold ${
-                              settings.targetReturnRate === option.value
+                              settings.targetReturnRate === option.value &&
+                              !showCustomTargetReturn
                                 ? "text-green-600"
                                 : "text-gray-900"
                             }`}
@@ -589,18 +628,91 @@ export default function SettingsPage() {
                         </button>
                       ))}
                       <button
-                        onClick={() => saveSettings({ targetReturnRate: null })}
+                        onClick={() => {
+                          setShowCustomTargetReturn(true);
+                          setCustomTargetReturnText(
+                            settings.targetReturnRate !== null &&
+                              !TARGET_RETURN_OPTIONS.some(
+                                (o) => o.value === settings.targetReturnRate,
+                              )
+                              ? String(settings.targetReturnRate)
+                              : "",
+                          );
+                        }}
                         disabled={savingSettings}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
-                          settings.targetReturnRate === null
+                          showCustomTargetReturn
+                            ? "border-green-500 bg-green-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        } disabled:opacity-50`}
+                      >
+                        <div
+                          className={`font-bold text-sm ${
+                            showCustomTargetReturn
+                              ? "text-green-600"
+                              : "text-gray-900"
+                          }`}
+                        >
+                          その他
+                        </div>
+                        <div className="text-xs text-gray-500">数値を入力</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCustomTargetReturn(false);
+                          saveSettings({ targetReturnRate: null });
+                        }}
+                        disabled={savingSettings}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          settings.targetReturnRate === null &&
+                          !showCustomTargetReturn
                             ? "border-gray-500 bg-gray-100"
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
                         <div className="font-bold text-gray-600">設定なし</div>
-                        <div className="text-xs text-gray-500">AIにお任せ</div>
+                        <div className="text-xs text-gray-500">通知しない</div>
                       </button>
                     </div>
+                    {/* カスタム利確ライン入力欄 */}
+                    {showCustomTargetReturn && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-1 bg-white border-2 border-green-300 rounded-lg px-3 py-2 focus-within:border-green-500 transition-colors">
+                          <span className="text-sm text-gray-500 shrink-0">
+                            +
+                          </span>
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="0.1"
+                            value={customTargetReturnText}
+                            onChange={(e) =>
+                              setCustomTargetReturnText(e.target.value)
+                            }
+                            onKeyDown={(e) =>
+                              e.key === "Enter" &&
+                              handleCustomTargetReturnSave()
+                            }
+                            placeholder="例: 12"
+                            className="flex-1 outline-none text-sm font-semibold text-gray-900 bg-transparent min-w-0"
+                          />
+                          <span className="text-sm text-gray-500 shrink-0">
+                            %
+                          </span>
+                        </div>
+                        <button
+                          onClick={handleCustomTargetReturnSave}
+                          disabled={
+                            savingSettings ||
+                            !customTargetReturnText ||
+                            parseFloat(customTargetReturnText) <= 0
+                          }
+                          className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                        >
+                          設定
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* 損切りライン */}
@@ -613,19 +725,22 @@ export default function SettingsPage() {
                       {STOP_LOSS_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() =>
-                            saveSettings({ stopLossRate: option.value })
-                          }
+                          onClick={() => {
+                            setShowCustomStopLoss(false);
+                            saveSettings({ stopLossRate: option.value });
+                          }}
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-left transition-all ${
-                            settings.stopLossRate === option.value
+                            settings.stopLossRate === option.value &&
+                            !showCustomStopLoss
                               ? "border-red-500 bg-red-50"
                               : "border-gray-200 hover:border-gray-300 bg-white"
                           } disabled:opacity-50`}
                         >
                           <div
                             className={`font-bold ${
-                              settings.stopLossRate === option.value
+                              settings.stopLossRate === option.value &&
+                              !showCustomStopLoss
                                 ? "text-red-600"
                                 : "text-gray-900"
                             }`}
@@ -638,18 +753,89 @@ export default function SettingsPage() {
                         </button>
                       ))}
                       <button
-                        onClick={() => saveSettings({ stopLossRate: null })}
+                        onClick={() => {
+                          setShowCustomStopLoss(true);
+                          setCustomStopLossText(
+                            settings.stopLossRate !== null &&
+                              !STOP_LOSS_OPTIONS.some(
+                                (o) => o.value === settings.stopLossRate,
+                              )
+                              ? String(Math.abs(settings.stopLossRate!))
+                              : "",
+                          );
+                        }}
                         disabled={savingSettings}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
-                          settings.stopLossRate === null
+                          showCustomStopLoss
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        } disabled:opacity-50`}
+                      >
+                        <div
+                          className={`font-bold text-sm ${
+                            showCustomStopLoss
+                              ? "text-red-600"
+                              : "text-gray-900"
+                          }`}
+                        >
+                          その他
+                        </div>
+                        <div className="text-xs text-gray-500">数値を入力</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCustomStopLoss(false);
+                          saveSettings({ stopLossRate: null });
+                        }}
+                        disabled={savingSettings}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          settings.stopLossRate === null && !showCustomStopLoss
                             ? "border-gray-500 bg-gray-100"
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
                         <div className="font-bold text-gray-600">設定なし</div>
-                        <div className="text-xs text-gray-500">AIにお任せ</div>
+                        <div className="text-xs text-gray-500">通知しない</div>
                       </button>
                     </div>
+                    {/* カスタム損切りライン入力欄 */}
+                    {showCustomStopLoss && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-1 bg-white border-2 border-red-300 rounded-lg px-3 py-2 focus-within:border-red-500 transition-colors">
+                          <span className="text-sm text-gray-500 shrink-0">
+                            -
+                          </span>
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="0.1"
+                            value={customStopLossText}
+                            onChange={(e) =>
+                              setCustomStopLossText(e.target.value)
+                            }
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleCustomStopLossSave()
+                            }
+                            placeholder="例: 8"
+                            className="flex-1 outline-none text-sm font-semibold text-gray-900 bg-transparent min-w-0"
+                          />
+                          <span className="text-sm text-gray-500 shrink-0">
+                            %
+                          </span>
+                        </div>
+                        <button
+                          onClick={handleCustomStopLossSave}
+                          disabled={
+                            savingSettings ||
+                            !customStopLossText ||
+                            parseFloat(customStopLossText) <= 0
+                          }
+                          className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                        >
+                          設定
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* 説明 */}

@@ -39,9 +39,7 @@ export interface UserStockResponse {
   sellCondition?: string | null;
   // 買い時通知（Watchlist only）
   targetBuyPrice?: number | null;
-  // 個別設定価格（Portfolio only）
-  takeProfitPrice?: number | null;
-  stopLossPrice?: number | null;
+  // 個別設定率（Portfolio only）
   takeProfitRate?: number | null;
   stopLossRate?: number | null;
   // おすすめ経由の情報（Watchlist only）
@@ -256,8 +254,6 @@ export async function GET(request: NextRequest) {
         shortTerm: ps.shortTerm,
         mediumTerm: ps.mediumTerm,
         longTerm: ps.longTerm,
-        takeProfitPrice: ps.takeProfitPrice ? Number(ps.takeProfitPrice) : null,
-        stopLossPrice: ps.stopLossPrice ? Number(ps.stopLossPrice) : null,
         takeProfitRate: ps.takeProfitRate ? Number(ps.takeProfitRate) : null,
         stopLossRate: ps.stopLossRate ? Number(ps.stopLossRate) : null,
         recommendation,
@@ -574,8 +570,6 @@ export async function POST(request: NextRequest) {
         portfolioStock: Awaited<
           ReturnType<typeof createPortfolioStockWithTransaction>
         >["portfolioStock"] & {
-          takeProfitPrice?: Decimal | null;
-          stopLossPrice?: Decimal | null;
           statusType?: string | null;
           suggestedSellPrice?: Decimal | null;
           sellCondition?: string | null;
