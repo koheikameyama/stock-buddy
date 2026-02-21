@@ -12,6 +12,7 @@ JPX（日本取引所グループ）から新規上場・上場廃止銘柄を�
 import json
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -229,18 +230,21 @@ def main() -> int:
     # PYTHONPATHの調整が必要な場合があるが、ここでは直接インポート（cwd想定）
     sys.path.append(str(Path(__file__).parent.parent.parent))
     from scripts.python.fetch_stock_prices import fetch_prices_bulk
+    from scripts.lib.constants import YFINANCE_BATCH_SLEEP_SECONDS
 
     verified_stocks = []
     CHUNK_SIZE = 50
+    total_batches = (len(unique_stocks) + CHUNK_SIZE - 1) // CHUNK_SIZE
     for i in range(0, len(unique_stocks), CHUNK_SIZE):
         chunk = unique_stocks[i:i + CHUNK_SIZE]
         tickers = [s["ticker"] for s in chunk]
-        
-        print(f"  Verifying batch {i // CHUNK_SIZE + 1}/{len(unique_stocks) // CHUNK_SIZE + 1}...")
+        batch_num = i // CHUNK_SIZE + 1
+
+        print(f"  Verifying batch {batch_num}/{total_batches}...")
         try:
             result = fetch_prices_bulk(tickers)
             valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
-            
+
             for stock in chunk:
                 if stock["ticker"] in valid_results:
                     # 正しいサフィックスに更新
@@ -250,6 +254,10 @@ def main() -> int:
             print(f"  Error verifying batch: {e}")
             # エラーの場合はパス（または元のデータを維持）
             verified_stocks.extend(chunk)
+
+        # レート制限を避けるため、バッチ間にスリープ
+        if i + CHUNK_SIZE < len(unique_stocks):
+            time.sleep(YFINANCE_BATCH_SLEEP_SECONDS)
 
     all_stocks = verified_stocks
     print(f"  {len(all_stocks)} stocks verified and kept")

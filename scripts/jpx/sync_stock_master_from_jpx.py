@@ -12,6 +12,7 @@ JPXの公式サイトから東証上場銘柄一覧（Excelファイル）をダ
 import os
 import re
 import sys
+import time
 from io import BytesIO
 
 import pandas as pd
@@ -21,7 +22,7 @@ import requests
 
 # scriptsディレクトリをPythonパスに追加
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from lib.constants import DB_BATCH_SIZE
+from lib.constants import DB_BATCH_SIZE, YFINANCE_BATCH_SLEEP_SECONDS
 
 # JPXの東証上場銘柄一覧Excelファイル
 JPX_EXCEL_URL = "https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls"
@@ -132,15 +133,17 @@ def parse_jpx_excel(excel_data: bytes) -> list[dict]:
     verified_stocks = []
     # 50銘柄ずつのバッチで確認
     CHUNK_SIZE = 50
+    total_batches = (len(stocks) + CHUNK_SIZE - 1) // CHUNK_SIZE
     for i in range(0, len(stocks), CHUNK_SIZE):
         chunk = stocks[i:i + CHUNK_SIZE]
         tickers = [s["ticker"] for s in chunk]
-        
-        print(f"  Verifying batch {i // CHUNK_SIZE + 1}/{len(stocks) // CHUNK_SIZE + 1}...")
+        batch_num = i // CHUNK_SIZE + 1
+
+        print(f"  Verifying batch {batch_num}/{total_batches}...")
         try:
             result = fetch_prices_bulk(tickers)
             valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
-            
+
             for stock in chunk:
                 if stock["ticker"] in valid_results:
                     # 正しいサフィックスに更新（例: .T か .NG か）
@@ -151,6 +154,10 @@ def parse_jpx_excel(excel_data: bytes) -> list[dict]:
             # エラーの場合は安全のため元のデータを維持（またはスキップ）
             # ここではスキップせずに継続
             verified_stocks.extend(chunk)
+
+        # レート制限を避けるため、バッチ間にスリープ
+        if i + CHUNK_SIZE < len(stocks):
+            time.sleep(YFINANCE_BATCH_SLEEP_SECONDS)
 
     print(f"  {len(verified_stocks)} stocks verified and kept")
     return verified_stocks

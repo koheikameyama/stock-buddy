@@ -5,6 +5,7 @@ yf.Tickers を使用して複数銘柄の情報を一括取得し、前日終値
 """
 
 import json
+import os
 import sys
 import time
 import re
@@ -13,6 +14,19 @@ import yfinance as yf
 
 # 株価データの鮮度チェック（日数）
 STALE_DATA_DAYS = 14
+
+# Yahoo Finance レート制限リトライ設定
+YFINANCE_RATE_LIMIT_MAX_RETRIES = 5
+YFINANCE_RATE_LIMIT_WAIT_SECONDS = [30, 60, 120, 240, 480]  # 指数バックオフ（秒）
+
+
+def _is_rate_limit_error(e: Exception) -> bool:
+    """Yahoo Finance のレート制限エラーかどうか判定"""
+    return (
+        "YFRateLimitError" in type(e).__name__
+        or "Too Many Requests" in str(e)
+        or "Rate limited" in str(e)
+    )
 
 def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
     """複数銘柄の株価を一括取得
@@ -45,13 +59,30 @@ def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
     
     # 2. 一括取得 (history を使用して価格データを取得)
     # 2日分のデータを取得すれば、現在価格（最終行）と前日終値（その前）が手に入る
-    try:
-        tickers_obj = yf.Tickers(" ".join(all_candidates))
-        # period='2d' で直近2営業日分を取得
-        hist = tickers_obj.history(period="2d", interval="1d", progress=False)
-    except Exception as e:
-        print(f"Error calling yfinance: {e}", file=sys.stderr)
-        return {"prices": [], "staleTickers": [], "error": str(e)}
+    hist = None
+    last_error = None
+    for attempt in range(YFINANCE_RATE_LIMIT_MAX_RETRIES):
+        try:
+            tickers_obj = yf.Tickers(" ".join(all_candidates))
+            # period='2d' で直近2営業日分を取得
+            hist = tickers_obj.history(period="2d", interval="1d", progress=False)
+            break  # 成功
+        except Exception as e:
+            last_error = e
+            if _is_rate_limit_error(e) and attempt < YFINANCE_RATE_LIMIT_MAX_RETRIES - 1:
+                wait_time = YFINANCE_RATE_LIMIT_WAIT_SECONDS[attempt]
+                print(
+                    f"Yahoo Finance rate limited. {wait_time}秒待機してリトライします "
+                    f"(試行 {attempt + 1}/{YFINANCE_RATE_LIMIT_MAX_RETRIES})...",
+                    file=sys.stderr,
+                )
+                time.sleep(wait_time)
+            else:
+                print(f"Error calling yfinance: {e}", file=sys.stderr)
+                return {"prices": [], "staleTickers": [], "error": str(e)}
+    if hist is None:
+        print(f"Yahoo Finance API の最大リトライ数を超えました: {last_error}", file=sys.stderr)
+        return {"prices": [], "staleTickers": [], "error": "Max retries exceeded"}
 
     results = []
     stale_tickers = []
