@@ -16,6 +16,8 @@ import {
   buildDelistingContext,
   buildVolumeAnalysisContext,
   buildRelativeStrengthContext,
+  buildGapFillContext,
+  buildSupportResistanceContext,
   PROMPT_MARKET_SIGNAL_DEFINITION,
   PROMPT_NEWS_CONSTRAINTS,
 } from "@/lib/stock-analysis-context";
@@ -100,6 +102,8 @@ export function buildPortfolioAnalysisPrompt(params: {
   newsContext: string;
   marketContext: string;
   sectorTrendContext: string;
+  gapFillContext: string;
+  supportResistanceContext: string;
   isSimulation?: boolean;
 }) {
   const {
@@ -124,17 +128,24 @@ export function buildPortfolioAnalysisPrompt(params: {
     newsContext,
     marketContext,
     sectorTrendContext,
+    gapFillContext,
+    supportResistanceContext,
     isSimulation = false,
   } = params;
 
   const prompt = `あなたは投資初心者向けのAIアナリストです。
 以下の保有銘柄について、テクニカル分析と売買判断を提供してください。
 
+【思考の優先順位】
+1. トレンドの連続性: 短期的な急落（窓埋め等）が発生した場合、中期トレンドが崩れたかどうかをまず判定してください。
+2. 矛盾の解消: もし短期と中期の予測が逆転する場合（例：短期下落・中期上昇）、それを「一時的な調整」か「トレンド転換」か明確に切り分け、最終的なアクションを決定してください。
+
 【絶対ルール】
 - 「焦らないで」「大丈夫です」「株価は上下するもの」などの感情的な励ましは絶対に書かない
 - すべての判断に具体的な根拠（テクニカル指標・ニュース・市場環境・財務指標）を必ず1つ以上挙げる
 - 文章は必ず「〇〇な理由で → △△な判断」の順番で書く
-- 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、MACD（トレンドの勢いを示す指標））
+- 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標））
+- ステータス（statusType）は、現在の地合いとテクニカルを総合し、後述の5つから必ず1つ選択してください。
 
 【銘柄情報】${isSimulation ? "（※これは購入を検討しているユーザーのシミュレーションデータです）" : ""}
 - 名前: ${stockName}
@@ -148,7 +159,7 @@ ${userContext}${purchaseRecContext}
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
-【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}
+【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}${gapFillContext}${supportResistanceContext}
 【株価データ】
 直近30日の終値: データあり
 ${newsContext}${marketContext}${sectorTrendContext}
@@ -158,7 +169,8 @@ ${newsContext}${marketContext}${sectorTrendContext}
 
 {
   "marketSignal": "bullish" | "neutral" | "bearish",
-  "shortTerm": "【必須】テクニカル指標・ニュース等の具体的な根拠を1-2文で述べた後、今週の判断（様子見/買い増し検討/売却検討）を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
+  "statusType": "即時売却" | "戻り売り" | "ホールド" | "押し目買い" | "全力買い",
+  "shortTerm": "【必須】テクニカル指標・ニュース等の具体的な根拠を1-2文で述べた後、今週の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "mediumTerm": "【必須】ファンダメンタル・中期トレンドの根拠を1-2文で述べた後、今月の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "longTerm": "【必須】事業展望・財務状況の根拠を1-2文で述べた後、長期継続の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "suggestedSellPrice": 売却目標価格（数値のみ、円単位、現在価格・平均取得単価・市場分析を総合的に考慮）,
@@ -269,8 +281,15 @@ ${isSimulation ? "- シミュレーションのため、購入直後の設定で
 - 例（下落）: 「市場全体で大型株への資金シフトが進んでおり、中小型株は売られやすい地合いです」
 - 例（上昇）: 「好決算を受けて買いが集中し、レジスタンスラインを突破しました」
 
+【ステータス（statusType）の選択指針】
+1. 【即時売却】: 損切りライン到達、または致命的なトレンド崩壊（長期トレンド転換）。
+2. 【戻り売り】: 下落トレンドだが、一時的な反発（リバウンド）が見込めるため、戻ったところでの利益確定・損切りを推奨。
+3. 【ホールド】: 短期的なノイズや窓埋めはあるが、支持線（サポート）で止まる可能性が高く、静観が妥当。
+4. 【押し目買い】: 上昇トレンド中の健全な調整。支持線付近での追加購入の好機。
+5. 【全力買い】: 強い上昇シグナル（逆三尊完成など）と良好なファンダメンタルが合致。
+
 【表現の指針】
-- 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、ダブルボトム（2回底を打って反転するパターン））
+- 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標）、窓（前日の価格帯と重ならない隙間））
 - 感情的な励まし・慰めの言葉は一切使わない
 - 根拠のない楽観・悲観は書かない
 - テクニカル指標と財務指標を根拠にした具体的な判断を示す
@@ -382,6 +401,12 @@ export async function executePortfolioAnalysis(
 
   // 出来高分析
   const volumeAnalysisContext = buildVolumeAnalysisContext(prices);
+
+  // 窓埋め判定
+  const gapFillContext = buildGapFillContext(prices);
+
+  // 支持線・抵抗線
+  const supportResistanceContext = buildSupportResistanceContext(prices);
 
   // 関連ニュースを取得
   const tickerCodeSlug = portfolioStock.stock.tickerCode.replace(".T", "");
@@ -515,6 +540,8 @@ export async function executePortfolioAnalysis(
     newsContext,
     marketContext,
     sectorTrendContext,
+    gapFillContext,
+    supportResistanceContext,
     isSimulation: false,
   });
 
@@ -719,13 +746,14 @@ export async function executePortfolioAnalysis(
     }
   }
 
-  // statusType（recommendationに基づいて最終決定）
+  // statusType（AIの出力を優先）
   const statusType =
-    result.recommendation === "sell"
-      ? "warning"
+    result.statusType ||
+    (result.recommendation === "sell"
+      ? "即時売却"
       : result.recommendation === "buy"
-        ? "good"
-        : "neutral";
+        ? "押し目買い"
+        : "ホールド");
 
   // 売りタイミング判定
   let sellTiming: string | null = null;
@@ -965,6 +993,9 @@ export async function executeSimulatedPortfolioAnalysis(
 `
     : "";
 
+  const gapFillContext = buildGapFillContext(prices);
+  const supportResistanceContext = buildSupportResistanceContext(prices);
+
   const prompt = buildPortfolioAnalysisPrompt({
     stockName: stock.name,
     tickerCode: stock.tickerCode,
@@ -987,6 +1018,8 @@ export async function executeSimulatedPortfolioAnalysis(
     newsContext,
     marketContext,
     sectorTrendContext,
+    gapFillContext,
+    supportResistanceContext,
     isSimulation: true,
   });
 
@@ -1014,6 +1047,16 @@ export async function executeSimulatedPortfolioAnalysis(
               type: "string",
               enum: ["bullish", "neutral", "bearish"],
             },
+            statusType: {
+              type: "string",
+              enum: [
+                "即時売却",
+                "戻り売り",
+                "ホールド",
+                "押し目買い",
+                "全力買い",
+              ],
+            },
             shortTerm: { type: "string" },
             mediumTerm: { type: "string" },
             longTerm: { type: "string" },
@@ -1037,17 +1080,18 @@ export async function executeSimulatedPortfolioAnalysis(
             recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
             advice: { type: "string" },
             confidence: { type: "number" },
+            isCriticalChange: { type: "boolean" },
+            reconciliationMessage: { type: ["string", "null"] },
           },
           required: [
             "marketSignal",
+            "statusType",
             "shortTerm",
             "mediumTerm",
             "longTerm",
-            "suggestedSellPrice",
-            "suggestedSellPercent",
-            "sellReason",
-            "suggestedStopLossPrice",
-            "sellCondition",
+            "recommendation",
+            "advice",
+            "confidence",
             "shortTermTrend",
             "shortTermPriceLow",
             "shortTermPriceHigh",
@@ -1057,9 +1101,6 @@ export async function executeSimulatedPortfolioAnalysis(
             "longTermTrend",
             "longTermPriceLow",
             "longTermPriceHigh",
-            "recommendation",
-            "advice",
-            "confidence",
           ],
           additionalProperties: false,
         },
@@ -1080,12 +1121,14 @@ export async function executeSimulatedPortfolioAnalysis(
   const rsiValue = calculateRSI(pricesNewestFirst);
   const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
 
+  // statusType（AIの出力を優先）
   const statusType =
-    result.recommendation === "sell"
-      ? "warning"
+    result.statusType ||
+    (result.recommendation === "sell"
+      ? "即時売却"
       : result.recommendation === "buy"
-        ? "good"
-        : "neutral";
+        ? "押し目買い"
+        : "ホールド");
 
   let sellTiming: string | null = null;
   let sellTargetPrice: number | null = null;

@@ -37,43 +37,43 @@ model Session {
 }
 
 model User {
-  id                      String                   @id @default(cuid())
+  id                      String    @id @default(cuid())
   name                    String?
-  email                   String?                  @unique
+  email                   String?   @unique
   emailVerified           DateTime?
   image                   String?
-  termsAccepted           Boolean                  @default(false)
+  termsAccepted           Boolean   @default(false)
   termsAcceptedAt         DateTime?
-  privacyPolicyAccepted   Boolean                  @default(false)
+  privacyPolicyAccepted   Boolean   @default(false)
   privacyPolicyAcceptedAt DateTime?
 
   // ロール
-  role                    String                   @default("user") // 'user' | 'admin'
+  role String @default("user") // 'user' | 'admin'
 
   // 課金プラン（将来用）
-  subscriptionPlan        String                   @default("free") // 'free' | 'premium'
-  subscriptionExpiry      DateTime?
+  subscriptionPlan   String    @default("free") // 'free' | 'premium'
+  subscriptionExpiry DateTime?
 
-  accounts                  Account[]
-  sessions                  Session[]
-  settings                  UserSettings?
-  pushSubscriptions         PushSubscription[]
-  stockRequests             StockRequest[]
-  watchlistStocks           WatchlistStock[]
-  portfolioStocks           PortfolioStock[]
-  transactions              Transaction[]
-  dailyRecommendations      UserDailyRecommendation[]
-  trackedStocks             TrackedStock[]
-  portfolioOverallAnalysis  PortfolioOverallAnalysis?
+  accounts                 Account[]
+  sessions                 Session[]
+  settings                 UserSettings?
+  pushSubscriptions        PushSubscription[]
+  stockRequests            StockRequest[]
+  watchlistStocks          WatchlistStock[]
+  portfolioStocks          PortfolioStock[]
+  transactions             Transaction[]
+  dailyRecommendations     UserDailyRecommendation[]
+  trackedStocks            TrackedStock[]
+  portfolioOverallAnalysis PortfolioOverallAnalysis?
 
   // 通知
-  notifications             Notification[]
+  notifications Notification[]
 
   // 資産スナップショット
-  portfolioSnapshots        PortfolioSnapshot[]
+  portfolioSnapshots PortfolioSnapshot[]
 
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model VerificationToken {
@@ -86,87 +86,87 @@ model VerificationToken {
 
 // ユーザー設定
 model UserSettings {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  investmentPeriod    String   // 'short' | 'medium' | 'long'
-  riskTolerance       String   // 'low' | 'medium' | 'high'
-  investmentBudget    Int?     // 投資資金（円）例: 100000, 300000, 500000, 1000000
-  targetReturnRate    Int?     // 目標利益率（%）: 5, 10, 15, 20, 30
-  stopLossRate        Int?     // 損切りライン（%）: -5, -10, -15, -20
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investmentPeriod String // 'short' | 'medium' | 'long'
+  riskTolerance    String // 'low' | 'medium' | 'high'
+  investmentBudget Int? // 投資資金（円）例: 100000, 300000, 500000, 1000000
+  targetReturnRate Int? // 目標利益率（%）: 5, 10, 15, 20, 30
+  stopLossRate     Int? // 損切りライン（%）: -5, -10, -15, -20
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 // 銘柄マスタ
 model Stock {
-  id                String             @id @default(cuid())
-  tickerCode        String             @unique
-  name              String
-  market            String
-  sector            String?
-  marketCap         Decimal?           // 時価総額（億円）
-  dividendYield     Decimal?           // 配当利回り（%）
+  id            String   @id @default(cuid())
+  tickerCode    String   @unique
+  name          String
+  market        String
+  sector        String?
+  marketCap     Decimal? // 時価総額（億円）
+  dividendYield Decimal? // 配当利回り（%）
 
   // 財務指標
-  pbr               Decimal?           @db.Decimal(8, 2)  // 株価純資産倍率 (Price to Book Ratio)
-  per               Decimal?           @db.Decimal(8, 2)  // 株価収益率 (Price to Earnings Ratio)
-  roe               Decimal?           @db.Decimal(8, 4)  // 自己資本利益率 (Return on Equity)
-  operatingCF       Decimal?           @db.Decimal(15, 2) // 営業キャッシュフロー
-  freeCF            Decimal?           @db.Decimal(15, 2) // フリーキャッシュフロー
+  pbr         Decimal? @db.Decimal(8, 2) // 株価純資産倍率 (Price to Book Ratio)
+  per         Decimal? @db.Decimal(8, 2) // 株価収益率 (Price to Earnings Ratio)
+  roe         Decimal? @db.Decimal(8, 4) // 自己資本利益率 (Return on Equity)
+  operatingCF Decimal? @db.Decimal(15, 2) // 営業キャッシュフロー
+  freeCF      Decimal? @db.Decimal(15, 2) // フリーキャッシュフロー
 
   // その他の有用な指標
-  fiftyTwoWeekHigh  Decimal?           @db.Decimal(12, 2) // 52週高値
-  fiftyTwoWeekLow   Decimal?           @db.Decimal(12, 2) // 52週安値
+  fiftyTwoWeekHigh Decimal? @db.Decimal(12, 2) // 52週高値
+  fiftyTwoWeekLow  Decimal? @db.Decimal(12, 2) // 52週安値
 
   // 最新株価データ（バッチ更新用）
-  latestPrice       Decimal?           @db.Decimal(12, 2) // 最新株価
-  latestVolume      BigInt?            // 最新出来高
-  dailyChangeRate   Decimal?           @db.Decimal(8, 2)  // 前日比変化率（%）
-  weekChangeRate    Decimal?           @db.Decimal(8, 2)  // 週間変化率（%）
-  volatility        Decimal?           @db.Decimal(8, 2)  // 30日間ボラティリティ（%）
-  volumeRatio       Decimal?           @db.Decimal(8, 2)  // 出来高比率（直近3日/4-30日前）
-  maDeviationRate   Decimal?           @db.Decimal(8, 2)  // 25日移動平均乖離率（%）
-  latestPriceDate   DateTime?          @db.Date   // yfinance株価データの実際の日付
-  priceUpdatedAt    DateTime?          // 株価更新日時
+  latestPrice     Decimal?  @db.Decimal(12, 2) // 最新株価
+  latestVolume    BigInt? // 最新出来高
+  dailyChangeRate Decimal?  @db.Decimal(8, 2) // 前日比変化率（%）
+  weekChangeRate  Decimal?  @db.Decimal(8, 2) // 週間変化率（%）
+  volatility      Decimal?  @db.Decimal(8, 2) // 30日間ボラティリティ（%）
+  volumeRatio     Decimal?  @db.Decimal(8, 2) // 出来高比率（直近3日/4-30日前）
+  maDeviationRate Decimal?  @db.Decimal(8, 2) // 25日移動平均乖離率（%）
+  latestPriceDate DateTime? @db.Date // yfinance株価データの実際の日付
+  priceUpdatedAt  DateTime? // 株価更新日時
 
   // 財務データの最終更新日時
   financialDataUpdatedAt DateTime?
 
   // 業績データ（yfinanceから取得）
-  latestRevenue          Decimal?           @db.Decimal(18, 0) // 直近通期売上高（円）
-  latestNetIncome        Decimal?           @db.Decimal(18, 0) // 直近通期純利益（円）
-  revenueGrowth          Decimal?           @db.Decimal(8, 2)  // 売上高前年比（%）
-  netIncomeGrowth        Decimal?           @db.Decimal(8, 2)  // 純利益前年比（%）
-  eps                    Decimal?           @db.Decimal(12, 2) // 1株当たり利益（EPS）
-  isProfitable           Boolean?           // 黒字かどうか
-  profitTrend            String?            // 'increasing' | 'decreasing' | 'stable'
-  earningsUpdatedAt      DateTime?          // 業績データ更新日時
+  latestRevenue     Decimal?  @db.Decimal(18, 0) // 直近通期売上高（円）
+  latestNetIncome   Decimal?  @db.Decimal(18, 0) // 直近通期純利益（円）
+  revenueGrowth     Decimal?  @db.Decimal(8, 2) // 売上高前年比（%）
+  netIncomeGrowth   Decimal?  @db.Decimal(8, 2) // 純利益前年比（%）
+  eps               Decimal?  @db.Decimal(12, 2) // 1株当たり利益（EPS）
+  isProfitable      Boolean? // 黒字かどうか
+  profitTrend       String? // 'increasing' | 'decreasing' | 'stable'
+  earningsUpdatedAt DateTime? // 業績データ更新日時
 
   // 事業内容（yfinance + OpenAI翻訳で取得）
-  businessDescription    String?            @db.Text // 企業の事業概要（日本語）
-  businessDescriptionUpdatedAt DateTime?    // 事業内容の更新日時
+  businessDescription          String?   @db.Text // 企業の事業概要（日本語）
+  businessDescriptionUpdatedAt DateTime? // 事業内容の更新日時
 
   // IPO対応
-  listedDate        DateTime?          // 上場日
+  listedDate DateTime? // 上場日
 
   // 株価取得失敗トラッキング
-  fetchFailCount    Int       @default(0)  // 連続失敗回数
-  lastFetchFailedAt DateTime?              // 最後に失敗した日時
+  fetchFailCount    Int       @default(0) // 連続失敗回数
+  lastFetchFailedAt DateTime? // 最後に失敗した日時
   isDelisted        Boolean   @default(false) // 上場廃止フラグ
 
-  analyses                StockAnalysis[]
-  featuredStocks          DailyFeaturedStock[]
-  watchlistStocks         WatchlistStock[]
-  portfolioStocks         PortfolioStock[]
-  transactions            Transaction[]
-  purchaseRecommendations PurchaseRecommendation[]
+  analyses                 StockAnalysis[]
+  featuredStocks           DailyFeaturedStock[]
+  watchlistStocks          WatchlistStock[]
+  portfolioStocks          PortfolioStock[]
+  transactions             Transaction[]
+  purchaseRecommendations  PurchaseRecommendation[]
   userDailyRecommendations UserDailyRecommendation[]
-  trackedStocks           TrackedStock[]
-  dailyMarketMovers       DailyMarketMover[]
-  notifications           Notification[]
-  recommendationOutcomes  RecommendationOutcome[]
-  createdAt               DateTime @default(now())
+  trackedStocks            TrackedStock[]
+  dailyMarketMovers        DailyMarketMover[]
+  notifications            Notification[]
+  recommendationOutcomes   RecommendationOutcome[]
+  createdAt                DateTime                  @default(now())
 
   @@index([tickerCode])
 }
@@ -179,11 +179,11 @@ model MarketNews {
   url         String?
   source      String   @default("tavily")
   sector      String?
-  sentiment   String?  // 'positive' | 'negative' | 'neutral'
+  sentiment   String? // 'positive' | 'negative' | 'neutral'
   publishedAt DateTime
   createdAt   DateTime @default(now())
   market      String   @default("JP") // "JP" or "US"
-  region      String?  // "日本", "米国" など（表示用）
+  region      String? // "日本", "米国" など（表示用）
 
   @@index([publishedAt(sort: Desc)])
   @@index([sector])
@@ -193,42 +193,42 @@ model MarketNews {
 
 // セクタートレンド分析（ニュース + 株価統合）
 model SectorTrend {
-  id        String   @id @default(cuid())
-  date      DateTime @db.Date
-  sector    String
+  id     String   @id @default(cuid())
+  date   DateTime @db.Date
+  sector String
 
   // 3日窓（短期の勢い）- ニュース
-  score3d       Float
-  newsCount3d   Int
-  positive3d    Int
-  negative3d    Int
-  neutral3d     Int
+  score3d     Float
+  newsCount3d Int
+  positive3d  Int
+  negative3d  Int
+  neutral3d   Int
 
   // 7日窓（中期トレンド）- ニュース
-  score7d       Float
-  newsCount7d   Int
-  positive7d    Int
-  negative7d    Int
-  neutral7d     Int
+  score7d     Float
+  newsCount7d Int
+  positive7d  Int
+  negative7d  Int
+  neutral7d   Int
 
   // US→JP連動
-  usNewsCount3d Int   @default(0)
-  usNewsCount7d Int   @default(0)
+  usNewsCount3d Int @default(0)
+  usNewsCount7d Int @default(0)
 
   // 株価モメンタム（セクター内全銘柄の平均）
-  avgWeekChangeRate   Float?   // セクター平均週間変化率（%）
-  avgDailyChangeRate  Float?   // セクター平均日次変化率（%）
-  avgMaDeviationRate  Float?   // セクター平均MA乖離率（%）
-  avgVolumeRatio      Float?   // セクター平均出来高比率
-  avgVolatility       Float?   // セクター平均ボラティリティ（%）
-  stockCount          Int      @default(0) // 集計対象の銘柄数
+  avgWeekChangeRate  Float? // セクター平均週間変化率（%）
+  avgDailyChangeRate Float? // セクター平均日次変化率（%）
+  avgMaDeviationRate Float? // セクター平均MA乖離率（%）
+  avgVolumeRatio     Float? // セクター平均出来高比率
+  avgVolatility      Float? // セクター平均ボラティリティ（%）
+  stockCount         Int    @default(0) // 集計対象の銘柄数
 
   // 総合スコア（ニュース + 株価を統合）
-  compositeScore      Float?   // -100 〜 +100
+  compositeScore Float? // -100 〜 +100
 
   // メタ
-  trendDirection String   // "up" | "down" | "neutral"
-  createdAt  DateTime @default(now())
+  trendDirection String // "up" | "down" | "neutral"
+  createdAt      DateTime @default(now())
 
   @@unique([date, sector])
   @@index([date])
@@ -237,53 +237,52 @@ model SectorTrend {
 
 // 銘柄分析（AI予測機能）
 model StockAnalysis {
-  id                  String   @id @default(cuid())
-  stockId             String
-  stock               Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  stockId String
+  stock   Stock  @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
   // 短期予測（1週間）
-  shortTermTrend      String   // 'up' | 'neutral' | 'down'
-  shortTermPriceLow   Decimal  @db.Decimal(12, 2)
-  shortTermPriceHigh  Decimal  @db.Decimal(12, 2)
+  shortTermTrend     String // 'up' | 'neutral' | 'down'
+  shortTermPriceLow  Decimal @db.Decimal(12, 2)
+  shortTermPriceHigh Decimal @db.Decimal(12, 2)
 
   // 中期予測（1ヶ月）
-  midTermTrend        String   // 'up' | 'neutral' | 'down'
-  midTermPriceLow     Decimal  @db.Decimal(12, 2)
-  midTermPriceHigh    Decimal  @db.Decimal(12, 2)
+  midTermTrend     String // 'up' | 'neutral' | 'down'
+  midTermPriceLow  Decimal @db.Decimal(12, 2)
+  midTermPriceHigh Decimal @db.Decimal(12, 2)
 
   // 長期予測（3ヶ月）
-  longTermTrend       String   // 'up' | 'neutral' | 'down'
-  longTermPriceLow    Decimal  @db.Decimal(12, 2)
-  longTermPriceHigh   Decimal  @db.Decimal(12, 2)
+  longTermTrend     String // 'up' | 'neutral' | 'down'
+  longTermPriceLow  Decimal @db.Decimal(12, 2)
+  longTermPriceHigh Decimal @db.Decimal(12, 2)
 
   // 総合推奨
-  recommendation      String   // 'buy' | 'hold' | 'sell'
-  advice              String   @db.Text // AI生成のアドバイス
-  confidence          Float    // 0.0 - 1.0
+  recommendation String // 'buy' | 'hold' | 'sell'
+  advice         String @db.Text // AI生成のアドバイス
+  confidence     Float // 0.0 - 1.0
 
   // 指値・逆指値
-  limitPrice          Decimal? @db.Decimal(12, 2) // 指値（理想の買値）
-  stopLossPrice       Decimal? @db.Decimal(12, 2) // 逆指値（損切りライン）
+  limitPrice    Decimal? @db.Decimal(12, 2) // 指値（理想の買値）
+  stopLossPrice Decimal? @db.Decimal(12, 2) // 逆指値（損切りライン）
 
   // テキスト分析（ポートフォリオ・ウォッチリスト共通）
-  shortTermText       String?  @db.Text           // 短期予測テキスト
-  midTermText         String?  @db.Text           // 中期予測テキスト
-  longTermText        String?  @db.Text           // 長期予測テキスト
+  shortTermText String? @db.Text // 短期予測テキスト
+  midTermText   String? @db.Text // 中期予測テキスト
+  longTermText  String? @db.Text // 長期予測テキスト
 
   // ステータス情報
-  statusType          String?                     // "good", "neutral", "caution", "warning"
+  statusType String? // "即時売却" | "戻り売り" | "ホールド" | "押し目買い" | "全力買い"
 
   // 売却条件
-  sellCondition       String?  @db.Text           // 売却判断の条件テキスト
+  sellCondition String? @db.Text // 売却判断の条件テキスト
 
-  analyzedAt          DateTime @default(now())
-  createdAt           DateTime @default(now())
+  analyzedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@unique([stockId, analyzedAt])
   @@index([stockId, analyzedAt(sort: Desc)])
   @@index([analyzedAt(sort: Desc)])
 }
-
 
 // プッシュ通知購読
 model PushSubscription {
@@ -301,15 +300,15 @@ model PushSubscription {
 
 // 今日の注目銘柄（全ユーザー共通）
 model DailyFeaturedStock {
-  id          String   @id @default(cuid())
-  date        DateTime @db.Date
-  stockId     String
-  stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  category    String   @default("stable") // surge: 短期急騰, stable: 中長期安定, trending: 話題
-  position    Int      // 表示順序（1, 2, 3）
-  reason      String   @db.Text // 注目理由
-  score       Int      // 選定時のスコア
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  stockId   String
+  stock     Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  category  String   @default("stable") // surge: 短期急騰, stable: 中長期安定, trending: 話題
+  position  Int // 表示順序（1, 2, 3）
+  reason    String   @db.Text // 注目理由
+  score     Int // 選定時のスコア
+  createdAt DateTime @default(now())
 
   @@unique([date, position])
   @@index([date(sort: Desc)])
@@ -317,26 +316,25 @@ model DailyFeaturedStock {
   @@index([date, category])
 }
 
-
 // 銘柄追加リクエスト
 model StockRequest {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // リクエストされた銘柄情報
-  tickerCode  String   // "6600.T"（東証）、"AAPL"（米国）など
-  name        String?  // "キオクシアホールディングス"
-  market      String?  // "東証プライム"など
-  reason      String?  // ユーザーが追加したい理由（任意）
+  tickerCode String // "6600.T"（東証）、"AAPL"（米国）など
+  name       String? // "キオクシアホールディングス"
+  market     String? // "東証プライム"など
+  reason     String? // ユーザーが追加したい理由（任意）
 
   // ステータス管理
-  status      String   @default("pending") // pending, approved, rejected, added
-  adminNote   String?  // 管理者メモ（却下理由など）
+  status    String  @default("pending") // pending, approved, rejected, added
+  adminNote String? // 管理者メモ（却下理由など）
 
   // メタ情報
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -346,18 +344,18 @@ model StockRequest {
 
 // ウォッチリスト（気になる銘柄）
 model WatchlistStock {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stockId     String
-  stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockId String
+  stock   Stock  @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
   // 買い時通知の目標価格（この価格以下で通知）
   targetBuyPrice Decimal? @db.Decimal(12, 2)
 
   // おすすめ経由で追加された場合の情報
   investmentTheme      String?
-  recommendationReason String?  @db.Text
+  recommendationReason String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -384,17 +382,17 @@ model PortfolioStock {
   longTerm     String?   @db.Text
 
   // ステータス
-  statusType         String?            // good/caution/excellent/neutral/warning
+  statusType String? // 即時売却/戻り売り/ホールド/押し目買い/全力買い
 
   // 市場シグナル（評価軸の統一）
-  marketSignal         String?                     // "bullish" | "neutral" | "bearish"
+  marketSignal String? // "bullish" | "neutral" | "bearish"
 
   // 売却提案
   suggestedSellPrice   Decimal? @db.Decimal(12, 2) // 提案売却価格
-  suggestedSellPercent Int?                        // 推奨売却割合（25, 50, 75, 100）
-  sellCondition        String?  @db.Text           // 売却条件
-  sellReason           String?  @db.Text           // 売却理由（AIが生成）
-  sellTiming           String?                     // "market" | "rebound" | null
+  suggestedSellPercent Int? // 推奨売却割合（25, 50, 75, 100）
+  sellCondition        String?  @db.Text // 売却条件
+  sellReason           String?  @db.Text // 売却理由（AIが生成）
+  sellTiming           String? // "market" | "rebound" | null
   sellTargetPrice      Decimal? @db.Decimal(12, 2) // 戻り売り時の目安価格（SMA25）
 
   // 取引履歴
@@ -410,16 +408,16 @@ model PortfolioStock {
 
 // 取引履歴
 model Transaction {
-  id               String   @id @default(cuid())
+  id               String          @id @default(cuid())
   userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   stockId          String
-  stock            Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  stock            Stock           @relation(fields: [stockId], references: [id], onDelete: Cascade)
   portfolioStockId String?
   portfolioStock   PortfolioStock? @relation(fields: [portfolioStockId], references: [id], onDelete: SetNull)
 
   // 取引情報
-  type            String   // "buy" | "sell"
+  type            String // "buy" | "sell"
   quantity        Int
   price           Decimal  @db.Decimal(12, 2)
   totalAmount     Decimal  @db.Decimal(15, 2)
@@ -437,40 +435,40 @@ model Transaction {
 
 // 購入判断分析（ウォッチリスト向け）
 model PurchaseRecommendation {
-  id     String   @id @default(cuid())
+  id      String   @id @default(cuid())
   stockId String
-  stock   Stock   @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  stock   Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
   date    DateTime @db.Date
 
   // 基本判断
   recommendation String // "buy" | "stay"
-  confidence     Float  // 0.0-1.0
+  confidence     Float // 0.0-1.0
 
   // 説明
   reason  String @db.Text
   caution String @db.Text
 
   // B. 深掘り評価
-  positives            String?  @db.Text    // 良いところ（箇条書き）
-  concerns             String?  @db.Text    // 不安な点（箇条書き）
-  suitableFor          String?  @db.Text    // こんな人向け
+  positives   String? @db.Text // 良いところ（箇条書き）
+  concerns    String? @db.Text // 不安な点（箇条書き）
+  suitableFor String? @db.Text // こんな人向け
 
   // C. 買い時条件（stayの時に表示）
-  buyCondition         String?  @db.Text    // どうなったら買い時か
-  buyTiming            String?              // "market" | "dip" | null（買い推奨時の購入タイミング）
-  dipTargetPrice       Decimal? @db.Decimal(12, 2)  // 押し目買い時の目安価格（SMA25）
-  sellTiming           String?                      // "market" | "rebound" | null（avoid時のみ）
-  sellTargetPrice      Decimal? @db.Decimal(10, 2)  // 戻り売り時の目安価格（SMA25）
+  buyCondition    String?  @db.Text // どうなったら買い時か
+  buyTiming       String? // "market" | "dip" | null（買い推奨時の購入タイミング）
+  dipTargetPrice  Decimal? @db.Decimal(12, 2) // 押し目買い時の目安価格（SMA25）
+  sellTiming      String? // "market" | "rebound" | null（avoid時のみ）
+  sellTargetPrice Decimal? @db.Decimal(10, 2) // 戻り売り時の目安価格（SMA25）
 
   // D. パーソナライズ（ユーザー設定に基づく評価）
-  userFitScore         Int?                 // おすすめ度 0-100
-  budgetFit            Boolean?             // 予算内で購入可能？
-  periodFit            Boolean?             // 投資期間にマッチ？
-  riskFit              Boolean?             // リスク許容度に合う？
-  personalizedReason   String?  @db.Text    // パーソナライズされた理由
+  userFitScore       Int? // おすすめ度 0-100
+  budgetFit          Boolean? // 予算内で購入可能？
+  periodFit          Boolean? // 投資期間にマッチ？
+  riskFit            Boolean? // リスク許容度に合う？
+  personalizedReason String?  @db.Text // パーソナライズされた理由
 
   // 市場シグナル（評価軸の統一）
-  marketSignal         String?  // "bullish" | "neutral" | "bearish"
+  marketSignal String? // "bullish" | "neutral" | "bearish"
 
   // 将来拡張用
   analysisData Json?
@@ -501,16 +499,16 @@ model TrackedStock {
 
 // ユーザーごとのAIおすすめ銘柄（毎日バッチで生成）
 model UserDailyRecommendation {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date        DateTime @db.Date
-  stockId     String
-  stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  position    Int      // 表示順序（1, 2, 3）
-  reason      String   @db.Text // AIが生成した初心者向け理由
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime @db.Date
+  stockId         String
+  stock           Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  position        Int // 表示順序（1, 2, 3）
+  reason          String   @db.Text // AIが生成した初心者向け理由
   investmentTheme String? // 投資テーマ: "短期成長" | "中長期安定成長" | "高配当" | "割安反発" | "テクニカル好転" | "安定ディフェンシブ"
-  createdAt   DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   @@unique([userId, date, position])
   @@index([userId, date(sort: Desc)])
@@ -519,31 +517,31 @@ model UserDailyRecommendation {
 
 // ポートフォリオ総評分析（ユーザーごと）
 model PortfolioOverallAnalysis {
-  id                     String   @id @default(cuid())
-  userId                 String   @unique
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  analyzedAt             DateTime
+  analyzedAt DateTime
 
   // 数値指標
-  sectorConcentration    Decimal? @db.Decimal(5, 2)  // 最大セクター比率(%)
-  sectorCount            Int?                         // セクター数
-  totalValue             Decimal? @db.Decimal(15, 2)  // 総資産額
-  totalCost              Decimal? @db.Decimal(15, 2)  // 総投資額
-  unrealizedGain         Decimal? @db.Decimal(15, 2)  // 含み損益
-  unrealizedGainPercent  Decimal? @db.Decimal(8, 2)   // 含み損益率(%)
-  portfolioVolatility    Decimal? @db.Decimal(8, 2)   // ポートフォリオ全体のボラティリティ(%)
+  sectorConcentration   Decimal? @db.Decimal(5, 2) // 最大セクター比率(%)
+  sectorCount           Int? // セクター数
+  totalValue            Decimal? @db.Decimal(15, 2) // 総資産額
+  totalCost             Decimal? @db.Decimal(15, 2) // 総投資額
+  unrealizedGain        Decimal? @db.Decimal(15, 2) // 含み損益
+  unrealizedGainPercent Decimal? @db.Decimal(8, 2) // 含み損益率(%)
+  portfolioVolatility   Decimal? @db.Decimal(8, 2) // ポートフォリオ全体のボラティリティ(%)
 
   // AI生成テキスト
-  overallSummary         String   @db.Text            // 全体の総評（2-3文）
-  overallStatus          String                       // 好調/順調/やや低調/注意/要確認
-  overallStatusType      String                       // excellent/good/neutral/caution/warning
-  metricsAnalysis        Json                         // 各指標の解説・評価・アクション提案
-  actionSuggestions      Json                         // 推奨アクションリスト
-  watchlistSimulation    Json?                        // ウォッチリスト銘柄追加時の予測
+  overallSummary      String @db.Text // 全体の総評（2-3文）
+  overallStatus       String // 好調/順調/やや低調/注意/要確認
+  overallStatusType   String // excellent/good/neutral/caution/warning
+  metricsAnalysis     Json // 各指標の解説・評価・アクション提案
+  actionSuggestions   Json // 推奨アクションリスト
+  watchlistSimulation Json? // ウォッチリスト銘柄追加時の予測
 
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([analyzedAt(sort: Desc)])
@@ -552,8 +550,8 @@ model PortfolioOverallAnalysis {
 // 週次AI精度レポート
 model WeeklyAIReport {
   id        String   @id @default(cuid())
-  weekStart DateTime @db.Date  // レポート対象週の開始日
-  weekEnd   DateTime @db.Date  // レポート対象週の終了日
+  weekStart DateTime @db.Date // レポート対象週の開始日
+  weekEnd   DateTime @db.Date // レポート対象週の終了日
 
   // おすすめ銘柄
   dailyRecommendationCount       Int?
@@ -577,7 +575,7 @@ model WeeklyAIReport {
   stockAnalysisImprovement String?
 
   // 詳細データ（JSON）
-  details Json?  // ベスト/ワースト、セクター別等
+  details Json? // ベスト/ワースト、セクター別等
 
   createdAt DateTime @default(now())
 
@@ -588,7 +586,7 @@ model WeeklyAIReport {
 // 日次AI精度レポート（毎日生成、過去7日間の滚动集計）
 model DailyAIReport {
   id   String   @id @default(cuid())
-  date DateTime @db.Date  // レポート生成日（JST）
+  date DateTime @db.Date // レポート生成日（JST）
 
   // おすすめ銘柄
   dailyRecommendationCount       Int?
@@ -612,7 +610,7 @@ model DailyAIReport {
   stockAnalysisImprovement String?
 
   // 詳細データ（JSON）
-  details Json?  // ベスト/ワースト、セクター別等
+  details Json? // ベスト/ワースト、セクター別等
 
   createdAt DateTime @default(now())
 
@@ -626,11 +624,11 @@ model DailyMarketMover {
   date        DateTime @db.Date
   stockId     String
   stock       Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  type        String   // 'gainer' | 'loser'
-  position    Int      // 表示順序（1-5）
-  changeRate  Decimal  @db.Decimal(8, 2)  // 前日比変化率（%）
-  analysis    String   @db.Text           // AI原因分析
-  relatedNews Json?                       // 関連ニュース [{title, url, sentiment}]
+  type        String // 'gainer' | 'loser'
+  position    Int // 表示順序（1-5）
+  changeRate  Decimal  @db.Decimal(8, 2) // 前日比変化率（%）
+  analysis    String   @db.Text // AI原因分析
+  relatedNews Json? // 関連ニュース [{title, url, sentiment}]
   createdAt   DateTime @default(now())
 
   @@unique([date, type, position])
@@ -645,33 +643,33 @@ model DailyMarketMover {
 
 // アプリ内通知（履歴管理）
 model Notification {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // 通知タイプ: "ideal_entry_price" | "surge" | "plunge" | "sell_target"
-  type        String
+  type String
 
   // 関連銘柄
-  stockId     String?
-  stock       Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
+  stockId String?
+  stock   Stock?  @relation(fields: [stockId], references: [id], onDelete: SetNull)
 
   // 通知内容
-  title       String
-  body        String   @db.Text
-  url         String?  // 遷移先URL
+  title String
+  body  String  @db.Text
+  url   String? // 遷移先URL
 
   // 価格情報（通知時点の情報を保存）
-  triggerPrice    Decimal? @db.Decimal(12, 2)  // トリガーとなった価格
-  targetPrice     Decimal? @db.Decimal(12, 2)  // 目標価格（理想買値/指値）
-  changeRate      Decimal? @db.Decimal(8, 2)   // 変化率（急騰/急落用）
+  triggerPrice Decimal? @db.Decimal(12, 2) // トリガーとなった価格
+  targetPrice  Decimal? @db.Decimal(12, 2) // 目標価格（理想買値/指値）
+  changeRate   Decimal? @db.Decimal(8, 2) // 変化率（急騰/急落用）
 
   // 状態管理
-  isRead      Boolean  @default(false)
-  isPushSent  Boolean  @default(false)  // プッシュ通知送信済みか
+  isRead     Boolean @default(false)
+  isPushSent Boolean @default(false) // プッシュ通知送信済みか
 
-  createdAt   DateTime @default(now())
-  readAt      DateTime?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
 
   @@index([userId, isRead])
   @@index([userId, createdAt(sort: Desc)])
@@ -684,39 +682,39 @@ model Notification {
 
 // 推薦結果追跡（精度検証用）
 model RecommendationOutcome {
-  id                    String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // 推薦の種類と参照
-  type                  String   // "daily" | "purchase" | "analysis"
-  recommendationId      String   // 元の推薦レコードのID
+  type             String // "daily" | "purchase" | "analysis"
+  recommendationId String // 元の推薦レコードのID
 
   // 銘柄情報（分析用に非正規化して保持）
-  stockId               String
-  stock                 Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
-  tickerCode            String
-  sector                String?
+  stockId    String
+  stock      Stock   @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  tickerCode String
+  sector     String?
 
   // 推薦時点のスナップショット（後から変わる値を固定）
-  recommendedAt         DateTime
-  priceAtRec            Decimal  @db.Decimal(12, 2)
-  prediction            String   // "buy" | "stay" | "remove" | "up" | "down" | "neutral"
-  confidence            Decimal? @db.Decimal(5, 2)
-  volatility            Decimal? @db.Decimal(8, 2)
-  marketCap             BigInt?
-  sectorTrendScore      Float?   // 推薦時点のセクタートレンド総合スコア
-  sectorTrendDirection  String?  // 推薦時点のトレンド方向: "up"|"down"|"neutral"
+  recommendedAt        DateTime
+  priceAtRec           Decimal  @db.Decimal(12, 2)
+  prediction           String // "buy" | "stay" | "remove" | "up" | "down" | "neutral"
+  confidence           Decimal? @db.Decimal(5, 2)
+  volatility           Decimal? @db.Decimal(8, 2)
+  marketCap            BigInt?
+  sectorTrendScore     Float? // 推薦時点のセクタートレンド総合スコア
+  sectorTrendDirection String? // 推薦時点のトレンド方向: "up"|"down"|"neutral"
 
   // 時間経過ごとのリターン（%）- バッチで段階的に埋まる
-  returnAfter1Day       Decimal? @db.Decimal(8, 2)
-  returnAfter3Days      Decimal? @db.Decimal(8, 2)
-  returnAfter7Days      Decimal? @db.Decimal(8, 2)
-  returnAfter14Days     Decimal? @db.Decimal(8, 2)
+  returnAfter1Day   Decimal? @db.Decimal(8, 2)
+  returnAfter3Days  Decimal? @db.Decimal(8, 2)
+  returnAfter7Days  Decimal? @db.Decimal(8, 2)
+  returnAfter14Days Decimal? @db.Decimal(8, 2)
 
   // ベンチマーク（同期間の日経225リターン）
-  benchmarkReturn7Days  Decimal? @db.Decimal(8, 2)
+  benchmarkReturn7Days Decimal? @db.Decimal(8, 2)
 
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([type, recommendationId])
   @@index([type, recommendedAt])
@@ -726,27 +724,27 @@ model RecommendationOutcome {
 
 // ポートフォリオスナップショット（日次記録）
 model PortfolioSnapshot {
-  id                    String   @id @default(cuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date                  DateTime @db.Date
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date   DateTime @db.Date
 
   // 資産サマリー
-  totalValue            Decimal  @db.Decimal(15, 2)  // 総資産額（時価評価額）
-  totalCost             Decimal  @db.Decimal(15, 2)  // 総投資額（取得原価）
-  unrealizedGain        Decimal  @db.Decimal(15, 2)  // 含み損益
-  unrealizedGainPercent Decimal  @db.Decimal(8, 2)   // 損益率（%）
+  totalValue            Decimal @db.Decimal(15, 2) // 総資産額（時価評価額）
+  totalCost             Decimal @db.Decimal(15, 2) // 総投資額（取得原価）
+  unrealizedGain        Decimal @db.Decimal(15, 2) // 含み損益
+  unrealizedGainPercent Decimal @db.Decimal(8, 2) // 損益率（%）
 
   // 銘柄数
-  stockCount            Int                          // 保有銘柄数
+  stockCount Int // 保有銘柄数
 
   // セクター別内訳（JSON）
-  sectorBreakdown       Json?    // [{sector: "情報・通信", value: 150000, percent: 30.5}, ...]
+  sectorBreakdown Json? // [{sector: "情報・通信", value: 150000, percent: 30.5}, ...]
 
   // 銘柄別内訳（JSON）
-  stockBreakdown        Json?    // [{stockId: "xxx", name: "トヨタ", value: 50000, percent: 10.2}, ...]
+  stockBreakdown Json? // [{stockId: "xxx", name: "トヨタ", value: 50000, percent: 10.2}, ...]
 
-  createdAt             DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([userId, date])
   @@index([userId, date(sort: Desc)])

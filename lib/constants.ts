@@ -112,10 +112,20 @@ export const PORTFOLIO_STATUS_CONFIG: Record<
     bg: string;
   }
 > = {
-  good: { text: "買増検討", color: "text-green-700", bg: "bg-green-50" },
-  neutral: { text: "様子見", color: "text-blue-700", bg: "bg-blue-50" },
-  caution: { text: "注意", color: "text-amber-700", bg: "bg-amber-50" },
-  warning: { text: "売却検討", color: "text-red-700", bg: "bg-red-50" },
+  全力買い: { text: "全力買い", color: "text-purple-700", bg: "bg-purple-50" },
+  押し目買い: {
+    text: "押し目買い",
+    color: "text-green-700",
+    bg: "bg-green-50",
+  },
+  ホールド: { text: "ホールド", color: "text-blue-700", bg: "bg-blue-50" },
+  戻り売り: { text: "戻り売り", color: "text-amber-700", bg: "bg-amber-50" },
+  即時売却: { text: "即時売却", color: "text-red-700", bg: "bg-red-50" },
+  // 互換性維持のためのエイリアス
+  good: { text: "押し目買い", color: "text-green-700", bg: "bg-green-50" },
+  neutral: { text: "ホールド", color: "text-blue-700", bg: "bg-blue-50" },
+  warning: { text: "戻り売り", color: "text-amber-700", bg: "bg-amber-50" },
+  caution: { text: "戻り売り", color: "text-amber-700", bg: "bg-amber-50" },
 };
 
 // ウォッチリスト購入判断

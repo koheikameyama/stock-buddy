@@ -581,34 +581,39 @@ export default function StockAnalysisCard({
               </div>
             );
           })()}
-          {/* 買増検討（好調時） */}
-          {analysis.statusType === "good" &&
-            analysis.recommendation === "buy" && (
+          {/* 買増・全力買い検討（好調時） */}
+          {(analysis.statusType === "押し目買い" ||
+            analysis.statusType === "全力買い") &&
+            (analysis.recommendation === "buy" ||
+              analysis.recommendation === "hold") && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
                 <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                  📈 買増検討
+                  📈 {analysis.statusType}
                 </p>
                 <p className="text-sm text-gray-700">
-                  好調な状態が続いています。買増を検討しても良いタイミングです。
+                  {analysis.statusType === "全力買い"
+                    ? "非常に強い上昇シグナルが出ています。積極的な投資を検討できるタイミングです。"
+                    : "上昇トレンド中の健全な調整です。押し目でのサポートを確認しながらの買い増しを検討しましょう。"}
                 </p>
               </div>
             )}
-          {/* 様子見（neutral時） */}
-          {analysis.statusType === "neutral" && (
+          {/* ホールド（様子見） */}
+          {analysis.statusType === "ホールド" && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                👀 様子見
+                👀 ホールド
               </p>
               <p className="text-sm text-gray-700">
-                現在は大きな動きがありません。しばらく様子を見ましょう。
+                現在は重要な節目や調整局面にあります。不透明な動きが多いため、無理に動かず静観するのが賢明です。
               </p>
             </div>
           )}
-          {/* AIによる売却提案（warning時） */}
-          {analysis.statusType === "warning" && (
+          {/* 売却検討（即時売却・戻り売り） */}
+          {(analysis.statusType === "即時売却" ||
+            analysis.statusType === "戻り売り") && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
               <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                ⚠️ 売却推奨
+                ⚠️ {analysis.statusType}
               </p>
               <div className="space-y-2">
                 {analysis.suggestedSellPercent && (

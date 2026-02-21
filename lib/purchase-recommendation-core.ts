@@ -329,6 +329,7 @@ ${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をその�
 
 {
   "marketSignal": "bullish" | "neutral" | "bearish",
+  "statusType": "即時売却" | "戻り売り" | "ホールド" | "押し目買い" | "全力買い",
 
   // A. 価格帯予測${hasPrediction ? "（【AI予測データ】の値をそのまま使用）" : "（予測を根拠として購入判断の前に示す）"}
   "shortTermTrend": "up" | "neutral" | "down",
@@ -475,6 +476,16 @@ ${PROMPT_NEWS_CONSTRAINTS}
               type: "string",
               enum: ["bullish", "neutral", "bearish"],
             },
+            statusType: {
+              type: "string",
+              enum: [
+                "即時売却",
+                "戻り売り",
+                "ホールド",
+                "押し目買い",
+                "全力買い",
+              ],
+            },
             shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             shortTermPriceLow: { type: "number" },
             shortTermPriceHigh: { type: "number" },
@@ -504,6 +515,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
           },
           required: [
             "marketSignal",
+            "statusType",
             "shortTermTrend",
             "shortTermPriceLow",
             "shortTermPriceHigh",
@@ -823,6 +835,13 @@ ${PROMPT_NEWS_CONSTRAINTS}
           : result.recommendation === "avoid"
             ? "sell"
             : "hold",
+      statusType:
+        result.statusType ||
+        (result.recommendation === "buy"
+          ? "押し目買い"
+          : result.recommendation === "avoid"
+            ? "即時売却"
+            : "ホールド"),
       advice: result.advice || result.reason || "",
       confidence: result.confidence || 0.7,
       limitPrice: null,
