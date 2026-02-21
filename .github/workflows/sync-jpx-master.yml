@@ -24,7 +24,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pandas openpyxl xlrd psycopg2-binary
+        run: pip install requests pandas openpyxl xlrd psycopg2-binary yfinance lxml
 
       - name: Sync JPX stock master
         env:

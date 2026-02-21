@@ -23,7 +23,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4 psycopg2-binary
+        run: pip install requests beautifulsoup4 psycopg2-binary yfinance lxml
 
       - name: Scrape JPX stocks
         id: scrape
