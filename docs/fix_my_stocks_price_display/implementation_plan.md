@@ -1,40 +1,27 @@
-# マイ銘柄の現在価格表示問題の修正計画
+# 銘柄移行スクリプトのレート制限耐性強化の計画
 
 ## 概要
 
-マイ銘柄（保有中リスト等）で現在価格が「価格情報なし」と表示される問題を修正します。
-原因として、DBに保存されているティッカーコード（例: "7203"）とAPIから返されるコード（例: "7203.T"）の形式不一致により、フロントエンドで価格情報が正しくマッピングできていない可能性が高いです。
+大量の銘柄を一度に処理する `migrate-existing-tickers.ts` において、Yahoo Finance のレート制限によるエラーでスキップが発生しないよう、リトライロジックとスリープを追加します。また、方針変更に伴い東証（.T）のみを対象とするように修正します。
 
 ## ユーザーレビューが必要な項目
 
-- 特になし（内部的な形式変換の改善のため）
+- 特になし
 
 ## 提案される変更
 
-### [Component: Store]
+### [Component: Scripts]
 
-#### [MODIFY] [useAppStore.ts](file:///Users/kouheikameyama/development/stock-buddy/store/useAppStore.ts)
+#### [MODIFY] [migrate-existing-tickers.ts](file:///Users/kouheikameyama/development/stock-buddy/scripts/migrate-existing-tickers.ts)
 
-- `fetchStockPrices` 内で、APIから返却された価格情報（`.T` 付与済み）を、リクエストされた元のティッカーコード（`.T` なしの場合がある）にマッピングし直して `result` Map に格納するように修正します。
-- これにより、`MyStocksClient.tsx` が `7203` でリクエストした場合でも、結果の Map から `7203` をキーとして価格が取り出せるようになります。
-
-### [Component: Frontend]
-
-#### [MODIFY] [MyStocksClient.tsx](file:///Users/kouheikameyama/development/stock-buddy/app/my-stocks/MyStocksClient.tsx)
-
-- 必要に応じて、`priceRecord` の構築時にキーの整合性が保たれるようにします。
-
-#### [MODIFY] [StockCard.tsx](file:///Users/kouheikameyama/development/stock-buddy/app/my-stocks/StockCard.tsx)
-
-- `prices` から取得する際のキーを確実にするため、フォールバックの仕組み（`/\\.T$/` の有無の両方をチェック）を念のため追加します。
+- **クエリの修正**: 名証（`.NG`, `.NX`）の検索を削除し、サフィックスがない銘柄のみを抽出対象にします。
+- **リトライロジックの導入**: `fetchStockPrices` 呼び出し時に、レート制限エラー（429等）が発生した際、最大5回程度のリトライ（指数バックオフ付き）を行う関数を追加します。
+- **バッチ間のスリープ**: 各バッチの処理完了後に、`YFINANCE_BATCH_SLEEP_SECONDS`（通常30秒程度）の間スリープし、アクセス密度を下げます。
 
 ## 検証計画
 
-### 自動テスト
-
-- なし
-
 ### 手動検証
 
-- ローカル環境で「マイ銘柄」画面を開き、現在価格が正しく表示されることを確認します。
-- 損益計算が正しく行われていることを確認します。
+- スクリプトを実行し、ログから以下の点を確認します：
+  - バッチ間にスリープが挟まっていること
+  - 仮にエラーが発生しても即座にスキップせず、待機後にリトライしていること

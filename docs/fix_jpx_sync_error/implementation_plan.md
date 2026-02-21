@@ -1,32 +1,51 @@
-# JPX銘柄マスタ同期エラーの修正計画
+# JPX銘柄マスタ同期エラーの修正計画（サフィックス修正・インポートエラー対応）
 
-GitHub Actionsの `sync-jpx-master.yml` ワークフローで発生している `ModuleNotFoundError` を解決します。
+GitHub Actionsおよびローカル実行時に発生している課題を解決します。
 
-## 背景
+## 課題
 
-`sync-jpx-master` ジョブが失敗しており、原因は `sync_stock_master_from_jpx.py` が依存している `yfinance` ライブラリがインストールされていないためです。このスクリプトは `scripts/python/fetch_stock_prices.py` をインポートしており、そこで `yfinance` が使用されています。
+1. 名古屋証券取引所のサフィックスが `.NG` となっていますが、`yfinance` では `.NX` が正解です。
+2. スクリプト実行時に `ModuleNotFoundError: No module named 'scripts'` などのインポートエラーが発生することがあります。
 
 ## 提案される変更
 
-### GitHub Actions ワークフロー
+### 1. サフィックスの修正
 
-#### [MODIFY] [sync-jpx-master.yml](file:///Users/kouheikameyama/development/stock-buddy/.github/workflows/sync-jpx-master.yml)
+#### [MODIFY] [fetch_stock_prices.py](file:///Users/kouheikameyama/development/stock-buddy/scripts/python/fetch_stock_prices.py)
 
-`Install dependencies` ステップに `yfinance` を追加します。また、`yfinance` の動作を安定させるために `lxml` も追加します。
+`.NG` を `.NX` に変更します。
 
-```diff
--        run: pip install requests pandas openpyxl xlrd psycopg2-binary
-+        run: pip install requests pandas openpyxl xlrd psycopg2-binary yfinance lxml
-```
+#### [MODIFY] [sync_stock_master_from_jpx.py](file:///Users/kouheikameyama/development/stock-buddy/scripts/jpx/sync_stock_master_from_jpx.py)
+
+コメント内の `.NG` を `.NX` に変更（整合性のため）。
+
+### 2. インポートエラーの解決（パス通しの統一）
+
+#### [NEW] `__init__.py` の追加
+
+以下のディレクトリに `__init__.py` を作成し、パッケージとして認識されるようにします。
+
+- `scripts/__init__.py`
+- `scripts/python/__init__.py`
+- `scripts/jpx/__init__.py`
+- `scripts/lib/__init__.py`
+
+#### [MODIFY] [sync_stock_master_from_jpx.py](file:///Users/kouheikameyama/development/stock-buddy/scripts/jpx/sync_stock_master_from_jpx.py)
+
+#### [MODIFY] [scrape_stocks.py](file:///Users/kouheikameyama/development/stock-buddy/scripts/jpx/scrape_stocks.py)
+
+プロジェクトルートを `sys.path` に追加する処理を導入し、インポートを `scripts.xxx` 形式に統一するか、一貫性のある方法に変更します。
 
 ## 検証計画
 
-### 自動テスト
+### 1. ローカル実行確認
 
-- 修正後のワークフローを GitHub Actions 上で実行（手動トリガーまたはスケジュール実行の待機）。
-- `python scripts/jpx/sync_stock_master_from_jpx.py` をローカル環境で依存関係をインストールした状態で実行し、インポートエラーが出ないことを確認する。
+- 以下のコマンドがエラーなく実行できることを確認します。
+  ```bash
+  export DATABASE_URL="xxx"
+  python scripts/jpx/sync_stock_master_from_jpx.py
+  ```
 
-### 手動確認
+### 2. GitHub Actions
 
-- GitHub Actions のログで `Sync JPX stock master` ステップが正常に終了することを確認。
-- Slack 通知が `✅ JPX銘柄マスタの同期に成功しました` となることを確認。
+- 修正をプッシュし、Actions 上でジョブが完走することを確認します。

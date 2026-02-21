@@ -1,22 +1,20 @@
-# マイ銘柄の現在価格表示問題の修正報告
+# 銘柄移行スクリプトのレート制限耐性強化の修正報告
+
+大量の銘柄を一度に処理する際の Yahoo Finance のレート制限（Rate Limit）問題を解決し、移行プロセスを安定化させました。
 
 ## 変更内容
 
-マイ銘柄（保有中・気になる銘柄）のリストで現在価格が正しく表示されない問題を修正しました。
+### 1. 銘柄移行スクリプトの強化 ([migrate-existing-tickers.ts](file:///Users/kouheikameyama/development/stock-buddy/scripts/migrate-existing-tickers.ts))
 
-### 1. ストアの修正 ([useAppStore.ts](file:///Users/kouheikameyama/development/stock-buddy/store/useAppStore.ts))
+- **リトライロジックの導入**: `fetchWithRetry` 関数を実装し、レート制限エラー発生時に最大5回まで、待機時間を徐々に伸ばしながら自動リトライ（指数バックオフ）を行うようにしました。
+- **バッチ間の強制スリープ**: 1バッチ（15銘柄）の処理完了ごとに10秒間のスリープを挟むことで、アクセスの集中を避け、レート制限にかかりにくくしました。
+- **東証（.T）一本化への対応**: DBクエリを、ドットを含まない（サフィックスがない）銘柄を抽出して `.T` を付与・検証する形に修正しました。
 
-- APIから返される `.T` 付きのコードと、リクエスト時のコード（DB保存のサフィックスなし）の両方を価格 Map のキーとして保持するようにしました。これにより、どちらの形式でも価格が取得可能になりました。
+### 2. Pythonスクリプトの堅牢性向上 ([fetch_stock_prices.py](file:///Users/kouheikameyama/development/stock-buddy/scripts/python/fetch_stock_prices.py))
 
-### 2. コンポーネントの修正 ([StockCard.tsx](file:///Users/kouheikameyama/development/stock-buddy/app/my-stocks/StockCard.tsx))
+- 型チェックによる `NoneType` アクセスの警告（`hist` が `None` の場合）を回避するためのガード処理を追加し、スクリプトの安全性を高めました。
 
-- 価格取得のロジックをカプセル化し、より安全に `currentPrice` を取り出せるようにガードを追加しました。
+## 修正のメリット
 
-### 3. クライアントの修正 ([MyStocksClient.tsx](file:///Users/kouheikameyama/development/stock-buddy/app/my-stocks/MyStocksClient.tsx))
-
-- 追跡銘柄（tracked stocks）のフェッチ処理においても、ティッカーコードの正規化（`.T` の除去）を考慮したマッピング処理を追加しました。
-
-## 検証結果
-
-- **原因の再現**: DB内の `7203` と API返却の `7203.T` が一致しないため、フロントエンドで `prices['7203']` が `undefined` になることを確認。
-- **修正の確認**: ストアおよびクライアント側でマッピングを二重（`.T` あり/なし）で持つようにしたことで、表示が復旧します。
+- **自動化の安定性**: 数百から数千銘柄の移行を行う際、エラーで途中で止まったり特定の銘柄がスキップされたりするリスクが大幅に低減しました。
+- **エラーへの耐性**: 一時的なネットワークエラーや API の制限に対して、人間が介在することなく自律的に回復可能になりました。

@@ -151,7 +151,7 @@ def parse_jpx_excel(excel_data: bytes) -> list[dict]:
                 valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
                 for stock in chunk:
                     if stock["ticker"] in valid_results:
-                        # 正しいサフィックスに更新（例: .T か .NG か）
+                        # 正しいティッカー（例: .T）に更新
                         stock["ticker"] = valid_results[stock["ticker"]]
                         verified_stocks.append(stock)
         except Exception as e:

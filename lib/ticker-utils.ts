@@ -9,7 +9,7 @@
  * ティッカーコードを正規化（日本株の可能性が高い場合に .T サフィックスを補完）
  * すでにサフィックスがある場合や、英字のみ（米国株）の場合はそのまま
  *
- * @param tickerCode - 元のティッカーコード（例: "7203", "123A", "AAPL", "7203.NG"）
+ * @param tickerCode - 元のティッカーコード（例: "7203", "123A", "AAPL"）
  * @returns 正規化されたティッカーコード
  */
 export function normalizeTickerCode(tickerCode: string): string {
@@ -37,7 +37,7 @@ export function normalizeTickerCode(tickerCode: string): string {
 }
 
 /**
- * ティッカーコードからサフィックス（.T, .NGなど）を削除
+ * ティッカーコードからサフィックス（.Tなど）を削除
  *
  * @param tickerCode - ティッカーコード（例: "7203.T", "AAPL"）
  * @returns サフィックスなしのコード（例: "7203", "AAPL"）
