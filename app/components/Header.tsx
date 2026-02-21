@@ -20,6 +20,9 @@ export default async function Header() {
               className="rounded"
             />
             <span className="text-xl font-bold text-gray-900">Stock Buddy</span>
+            <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-blue-200 ml-1">
+              東証限定
+            </span>
           </Link>
 
           {/* 通知ベル - ログイン済みの場合のみ表示 */}

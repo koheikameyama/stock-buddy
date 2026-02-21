@@ -1,4 +1,4 @@
-import Link from "next/link"
+import Link from "next/link";
 
 export default function Footer() {
   return (
@@ -9,6 +9,9 @@ export default function Footer() {
             <h3 className="text-lg font-bold text-gray-900">Stock Buddy</h3>
             <p className="text-sm text-gray-600 mt-1">
               投資初心者のための資産運用サポート
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              対応市場: 東京証券取引所（順次拡大予定）
             </p>
           </div>
 
@@ -41,5 +44,5 @@ export default function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }

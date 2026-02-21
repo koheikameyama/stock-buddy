@@ -1,4 +1,4 @@
-import Link from "next/link"
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -12,8 +12,11 @@ export default function Home() {
           <p className="text-2xl md:text-3xl text-gray-700 mb-4">
             あなた専属のAI投資コーチ
           </p>
-          <p className="text-xl text-gray-600 mb-12">
+          <p className="text-xl text-gray-600 mb-4">
             投資、始めたいけど怖い？一緒に学びながら成長しましょう
+          </p>
+          <p className="text-sm text-blue-600 font-medium mb-12">
+            ※現在は東京証券取引所（東証）の銘柄のみに対応しています
           </p>
 
           <Link
@@ -53,7 +56,9 @@ export default function Home() {
 
         {/* How it works Section */}
         <div className="mt-24 max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">使い方はシンプル</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">
+            使い方はシンプル
+          </h2>
           <div className="space-y-8">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xl">
@@ -72,7 +77,9 @@ export default function Home() {
                 2
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2">あなたのことを教えてください</h3>
+                <h3 className="text-xl font-bold mb-2">
+                  あなたのことを教えてください
+                </h3>
                 <p className="text-gray-600">
                   予算や投資期間、リスクの考え方を教えてください。あなたにぴったりの銘柄を一緒に探します。
                 </p>
@@ -84,7 +91,9 @@ export default function Home() {
                 3
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2">毎日コーチからメッセージ</h3>
+                <h3 className="text-xl font-bold mb-2">
+                  毎日コーチからメッセージ
+                </h3>
                 <p className="text-gray-600">
                   市場が終わったら、今日のアドバイスをお届けします。一緒に振り返りましょう。
                 </p>
@@ -110,10 +119,12 @@ export default function Home() {
       <footer className="bg-gray-900 text-white py-8 mt-24">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-center items-center">
-            <p className="text-gray-400 text-sm">© 2026 Stock Buddy. All rights reserved.</p>
+            <p className="text-gray-400 text-sm">
+              © 2026 Stock Buddy. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }
