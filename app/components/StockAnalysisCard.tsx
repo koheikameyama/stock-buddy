@@ -650,11 +650,31 @@ export default function StockAnalysisCard({
                           戻り売り推奨
                         </span>
                       </div>
-                      <p className="text-sm text-yellow-800 mt-1">
-                        {analysis.sellTargetPrice
-                          ? `25日移動平均線の${analysis.sellTargetPrice.toLocaleString()}円付近まで反発を待つとより有利です。`
-                          : "現在は売られすぎの状態です。少し反発してから売却するのがおすすめです。"}
-                      </p>
+                      {analysis.sellTargetPrice ? (
+                        <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-amber-700">
+                              戻り売りの目安（25日移動平均線）
+                            </span>
+                            <span className="text-base font-bold text-amber-800">
+                              {analysis.sellTargetPrice.toLocaleString()}円
+                            </span>
+                          </div>
+                          {analysis.currentPrice && (
+                            <p className="text-xs text-amber-600 mt-1">
+                              現在価格から
+                              {analysis.sellTargetPrice > analysis.currentPrice
+                                ? `+${(analysis.sellTargetPrice - analysis.currentPrice).toLocaleString()}円（+${(((analysis.sellTargetPrice - analysis.currentPrice) / analysis.currentPrice) * 100).toFixed(1)}%）`
+                                : `${(analysis.sellTargetPrice - analysis.currentPrice).toLocaleString()}円（${(((analysis.sellTargetPrice - analysis.currentPrice) / analysis.currentPrice) * 100).toFixed(1)}%）`}
+                              で到達
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-yellow-800 mt-1">
+                          現在は売られすぎの状態です。少し反発してから売却するのがおすすめです。
+                        </p>
+                      )}
                       <p className="text-xs text-yellow-600 mt-1">
                         戻り売り:
                         下落後の一時的な反発（リバウンド）を狙って売ること。移動平均線は過去25日間の平均価格で、株価が戻りやすい目安になります。
