@@ -90,15 +90,13 @@ def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
     def get_ticker_data(t):
         if hist is None:
             return None
-        if len(all_candidates) > 1:
-            try:
-                if t in hist.columns.get_level_values(1):
-                    return hist.xs(t, axis=1, level=1)
-            except:
-                pass
-        else:
-            # 単一銘柄の場合は hist がそのままその銘柄のデータ
-            return hist
+        # yf.Tickers は単一銘柄でも常にMultiIndex DataFrameを返すため、
+        # 単一・複数銘柄どちらの場合も .xs() でティッカーを抽出する
+        try:
+            if t in hist.columns.get_level_values(1):
+                return hist.xs(t, axis=1, level=1)
+        except Exception:
+            pass
         return None
 
     # 3. 取得結果の解析
