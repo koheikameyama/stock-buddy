@@ -28,9 +28,11 @@ def _is_rate_limit_error(e: Exception) -> bool:
         or "Rate limited" in str(e)
     )
 
+
 def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
     """複数銘柄の株価を一括取得
     Returns: {"prices": [...], "staleTickers": [...]}
+            エラー時は追加で "error" キーを含む
     """
     if not ticker_inputs:
         return {"prices": [], "staleTickers": []}
@@ -38,7 +40,7 @@ def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
     # 1. 判別が必要な銘柄（サフィックスがない、あるいは .T のもの）の候補を作成
     probes = {}  # original_input -> [candidate1, candidate2]
     all_candidates = []
-    
+
     for original in ticker_inputs:
         # 日本株形式（数字 or 新形式）のベース部分を抽出
         match = re.match(r"^(\d+[A-Z]?)(?:\.[A-Z]+)?$", original)
@@ -56,7 +58,7 @@ def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
 
     # 重複除去
     all_candidates = list(set(all_candidates))
-    
+
     # 2. 一括取得 (history を使用して価格データを取得)
     # 2日分のデータを取得すれば、現在価格（最終行）と前日終値（その前）が手に入る
     hist = None
@@ -119,7 +121,7 @@ def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
                     current_vol = int(data['Volume'].iloc[-1]) if 'Volume' in data.columns else 0
                 except:
                     current_vol = 0
-                
+
                 if current_vol > max_volume:
                     max_volume = current_vol
                     best_data = data
@@ -131,25 +133,30 @@ def fetch_prices_bulk(ticker_inputs: list[str]) -> dict:
                 rows = best_data.dropna(subset=['Close'])
                 if rows.empty:
                     continue
-                
+
                 current_row = rows.iloc[-1]
                 prev_row = rows.iloc[-2] if len(rows) > 1 else current_row
 
                 current_price = float(current_row['Close'])
                 prev_close = float(prev_row['Close'])
-                
+
                 # yfinance の history には volume などの情報も含まれる
                 high = float(current_row['High'])
                 low = float(current_row['Low'])
                 volume = int(current_row['Volume'])
-                
+
                 # 計算
                 change = current_price - prev_close
                 change_percent = (change / prev_close * 100) if prev_close != 0 else 0
 
                 # 鮮度チェック (Index は Timestamp)
+                # yfinance の新バージョンはタイムゾーン付き Timestamp を返すため、
+                # datetime.now()（naive）と比較する前に tzinfo を除去する
                 last_date = rows.index[-1]
-                if (datetime.now() - last_date.to_pydatetime()).days > STALE_DATA_DAYS:
+                last_dt = last_date.to_pydatetime()
+                if last_dt.tzinfo is not None:
+                    last_dt = last_dt.replace(tzinfo=None)
+                if (datetime.now() - last_dt).days > STALE_DATA_DAYS:
                     stale_tickers.append(original)
                     continue
 
