@@ -814,6 +814,16 @@ export async function executePortfolioAnalysis(
     }
   }
 
+  // 戻り売りステータスの場合、sellTimingとsellTargetPriceを強制設定
+  if (statusType === "戻り売り") {
+    if (sellTiming !== "rebound") {
+      sellTiming = "rebound";
+    }
+    if (!sellTargetPrice && sma25 !== null) {
+      sellTargetPrice = sma25;
+    }
+  }
+
   // 保存
   const now = dayjs.utc().toDate();
 
@@ -1180,6 +1190,16 @@ export async function executeSimulatedPortfolioAnalysis(
         sellTiming = "rebound";
         sellTargetPrice = sma25;
       }
+    }
+  }
+
+  // 戻り売りステータスの場合、sellTimingとsellTargetPriceを強制設定
+  if (statusType === "戻り売り") {
+    if (sellTiming !== "rebound") {
+      sellTiming = "rebound";
+    }
+    if (!sellTargetPrice && sma25 !== null) {
+      sellTargetPrice = sma25;
     }
   }
 
