@@ -85,6 +85,7 @@ export async function GET(
       buyTiming: recommendation.buyTiming,
       dipTargetPrice: recommendation.dipTargetPrice ? Number(recommendation.dipTargetPrice) : null,
       sellTiming: recommendation.sellTiming,
+      sellTargetPrice: recommendation.sellTargetPrice ? Number(recommendation.sellTargetPrice) : null,
       // D. パーソナライズ
       userFitScore: recommendation.userFitScore,
       budgetFit: recommendation.budgetFit,

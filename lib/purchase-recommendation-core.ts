@@ -73,6 +73,8 @@ export interface PurchaseRecommendationResult {
   buyCondition: string | null;
   buyTiming: string | null;
   dipTargetPrice: number | null;
+  sellTiming: string | null;
+  sellTargetPrice: number | null;
   userFitScore: number | null;
   budgetFit: boolean | null;
   periodFit: boolean | null;
@@ -903,6 +905,8 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.recommendation === "stay" ? result.buyCondition || null : null,
     buyTiming: buyTiming,
     dipTargetPrice: dipTargetPrice,
+    sellTiming: sellTiming,
+    sellTargetPrice: sellTargetPrice,
     userFitScore: result.userFitScore ?? null,
     budgetFit: result.budgetFit ?? null,
     periodFit: result.periodFit ?? null,
