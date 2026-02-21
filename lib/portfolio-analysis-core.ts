@@ -104,6 +104,12 @@ export function buildPortfolioAnalysisPrompt(params: {
   sectorTrendContext: string;
   gapFillContext: string;
   supportResistanceContext: string;
+  takeProfitPrice?: number | null;
+  stopLossPrice?: number | null;
+  takeProfitRate?: number | null;
+  stopLossRate?: number | null;
+  defaultTakeProfitRate?: number | null;
+  defaultStopLossRate?: number | null;
   isSimulation?: boolean;
 }) {
   const {
@@ -130,6 +136,12 @@ export function buildPortfolioAnalysisPrompt(params: {
     sectorTrendContext,
     gapFillContext,
     supportResistanceContext,
+    takeProfitPrice,
+    stopLossPrice,
+    takeProfitRate,
+    stopLossRate,
+    defaultTakeProfitRate,
+    defaultStopLossRate,
     isSimulation = false,
   } = params;
 
@@ -155,6 +167,10 @@ export function buildPortfolioAnalysisPrompt(params: {
 - ${isSimulation ? "シミュレーション" : ""}平均取得単価: ${averagePrice.toFixed(0)}円
 - 現在価格: ${currentPrice ? currentPrice.toLocaleString() : "不明"}円
 - ${isSimulation ? "シミュレーション" : ""}損益: ${profit !== null && profitPercent !== null ? `${profit.toLocaleString()}円 (${profitPercent >= 0 ? "+" : ""}${profitPercent.toFixed(2)}%)` : "不明"}
+- 個別利確設定: ${takeProfitRate ? `+${takeProfitRate}%` : takeProfitPrice ? `${takeProfitPrice.toLocaleString()}円` : "なし"}
+- 個別損切り設定: ${stopLossRate ? `${stopLossRate}%` : stopLossPrice ? `${stopLossPrice.toLocaleString()}円` : "なし"}
+- アカウント全体デフォルト利確設定: ${defaultTakeProfitRate ? `+${defaultTakeProfitRate}%` : "なし"}
+- アカウント全体デフォルト損切り設定: ${defaultStopLossRate ? `${defaultStopLossRate}%` : "なし"}
 ${userContext}${purchaseRecContext}
 【財務指標（初心者向け解説）】
 ${financialMetrics}
@@ -198,7 +214,7 @@ ${PROMPT_MARKET_SIGNAL_DEFINITION}
 - テクニカル指標（RSI・MACD・ローソク足・チャートパターン）を必ず分析に活用してください
 - 財務指標（会社の規模、配当、株価水準）を分析に活用してください
 ${PROMPT_NEWS_CONSTRAINTS}
-${isSimulation ? "- シミュレーションのため、購入直後の設定です。" : "- ユーザーの売却目標設定がある場合は、目標への進捗や損切ラインへの接近を考慮してください"}
+- ユーザーの利確・損切り設定（個別銘柄設定 または アカウントデフォルト設定）がある場合は、AIの推奨値よりもそれらを最優先し、そのラインに基づいた分析を行ってください。特に個別価格設定がある場合はそれが絶対的な基準です。
 - ユーザーの投資期間設定がある場合は、期間に応じて判断の重みを調整してください（短期→shortTerm重視、長期→longTerm重視）
 - ユーザーのリスク許容度が低い場合は早めの売却(推奨損切り)設定を、高い場合は許容幅を広げて提案してください
 
@@ -332,6 +348,8 @@ export async function executePortfolioAnalysis(
     select: {
       investmentPeriod: true,
       riskTolerance: true,
+      targetReturnRate: true,
+      stopLossRate: true,
     },
   });
 
@@ -542,6 +560,20 @@ export async function executePortfolioAnalysis(
     sectorTrendContext,
     gapFillContext,
     supportResistanceContext,
+    takeProfitPrice: portfolioStock.takeProfitPrice
+      ? Number(portfolioStock.takeProfitPrice)
+      : null,
+    stopLossPrice: portfolioStock.stopLossPrice
+      ? Number(portfolioStock.stopLossPrice)
+      : null,
+    takeProfitRate: portfolioStock.takeProfitRate
+      ? Number(portfolioStock.takeProfitRate)
+      : null,
+    stopLossRate: portfolioStock.stopLossRate
+      ? Number(portfolioStock.stopLossRate)
+      : null,
+    defaultTakeProfitRate: userSettings?.targetReturnRate,
+    defaultStopLossRate: userSettings?.stopLossRate,
     isSimulation: false,
   });
 

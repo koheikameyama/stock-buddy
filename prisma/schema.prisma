@@ -395,6 +395,12 @@ model PortfolioStock {
   sellTiming           String? // "market" | "rebound" | null
   sellTargetPrice      Decimal? @db.Decimal(12, 2) // 戻り売り時の目安価格（SMA25）
 
+  // ユーザー設定（個別設定）
+  takeProfitPrice Decimal? @db.Decimal(12, 2) // 個別利確価格（推奨：takeProfitRateを使用）
+  stopLossPrice   Decimal? @db.Decimal(12, 2) // 個別損切り価格（推奨：stopLossRateを使用）
+  takeProfitRate  Decimal? @db.Decimal(8, 2) // 個別利確率（%）
+  stopLossRate    Decimal? @db.Decimal(8, 2) // 個別損切り率（%）
+
   // 取引履歴
   transactions Transaction[]
 

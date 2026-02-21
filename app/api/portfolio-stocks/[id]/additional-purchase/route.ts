@@ -1,108 +1,120 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
-import { prisma } from "@/lib/prisma"
-import { Decimal } from "@prisma/client/runtime/library"
-import { calculatePortfolioFromTransactions, syncPortfolioStockQuantity } from "@/lib/portfolio-calculator"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
+import {
+  calculatePortfolioFromTransactions,
+  syncPortfolioStockQuantity,
+} from "@/lib/portfolio-calculator";
+import { fetchStockPrices } from "@/lib/stock-price-fetcher";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     // 認証チェック
-    const session = await auth()
+    const session = await auth();
     if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "認証が必要です" },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-    })
+    });
 
     if (!user) {
       return NextResponse.json(
         { error: "ユーザーが見つかりません" },
-        { status: 404 }
-      )
+        { status: 404 },
+      );
     }
 
     // paramsをawait
-    const { id } = await params
+    const { id } = await params;
 
     // リクエストボディを取得
-    const body = await request.json()
-    const { type = "buy", quantity, price, purchaseDate } = body
+    const body = await request.json();
+    const { type = "buy", quantity, price, purchaseDate } = body;
 
     // typeのバリデーション
     if (type !== "buy" && type !== "sell") {
       return NextResponse.json(
         { error: "取引種別が不正です" },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
-    const isBuy = type === "buy"
+    const isBuy = type === "buy";
 
     // バリデーション
     if (!quantity || quantity <= 0) {
       return NextResponse.json(
-        { error: isBuy ? "購入株数を入力してください" : "売却株数を入力してください" },
-        { status: 400 }
-      )
+        {
+          error: isBuy
+            ? "購入株数を入力してください"
+            : "売却株数を入力してください",
+        },
+        { status: 400 },
+      );
     }
 
     if (!price || price <= 0) {
       return NextResponse.json(
-        { error: isBuy ? "購入単価を入力してください" : "売却単価を入力してください" },
-        { status: 400 }
-      )
+        {
+          error: isBuy
+            ? "購入単価を入力してください"
+            : "売却単価を入力してください",
+        },
+        { status: 400 },
+      );
     }
 
     if (!purchaseDate) {
       return NextResponse.json(
-        { error: isBuy ? "購入日を入力してください" : "売却日を入力してください" },
-        { status: 400 }
-      )
+        {
+          error: isBuy
+            ? "購入日を入力してください"
+            : "売却日を入力してください",
+        },
+        { status: 400 },
+      );
     }
 
-    // ポートフォリオストックを取得（売却時は現在の保有数も確認）
+    // ポートフォリオストックを取得
     const portfolioStock = await prisma.portfolioStock.findUnique({
       where: { id },
       include: {
         stock: true,
         transactions: { orderBy: { transactionDate: "asc" } },
       },
-    })
+    });
 
     if (!portfolioStock) {
       return NextResponse.json(
         { error: "保有銘柄が見つかりません" },
-        { status: 404 }
-      )
+        { status: 404 },
+      );
     }
 
     // 所有者チェック
     if (portfolioStock.userId !== user.id) {
       return NextResponse.json(
         { error: "この銘柄にアクセスする権限がありません" },
-        { status: 403 }
-      )
+        { status: 403 },
+      );
     }
 
     // 売却の場合、現在の保有数を超えていないかチェック
     if (!isBuy) {
       const { quantity: currentQuantity } = calculatePortfolioFromTransactions(
-        portfolioStock.transactions
-      )
+        portfolioStock.transactions,
+      );
       if (quantity > currentQuantity) {
         return NextResponse.json(
           { error: `売却可能な株数は${currentQuantity}株までです` },
-          { status: 400 }
-        )
+          { status: 400 },
+        );
       }
     }
 
@@ -118,13 +130,13 @@ export async function POST(
         totalAmount: new Decimal(quantity).times(price),
         transactionDate: new Date(purchaseDate),
       },
-    })
+    });
 
     // PortfolioStock の quantity を同期
-    await syncPortfolioStockQuantity(portfolioStock.id)
+    await syncPortfolioStockQuantity(portfolioStock.id);
 
     // 更新後のデータを取得（Transactionを含む）
-    const result = await prisma.portfolioStock.findUnique({
+    let result = await prisma.portfolioStock.findUnique({
       where: { id },
       include: {
         stock: true,
@@ -132,24 +144,76 @@ export async function POST(
           orderBy: { transactionDate: "asc" },
         },
       },
-    })
+    });
 
     if (!result) {
       return NextResponse.json(
         { error: "更新後のデータ取得に失敗しました" },
-        { status: 500 }
-      )
+        { status: 500 },
+      );
     }
 
     // Transactionから計算
     const { quantity: totalQuantity, averagePurchasePrice } =
-      calculatePortfolioFromTransactions(result.transactions)
-    const firstBuyTransaction = result.transactions.find((t) => t.type === "buy")
-    const firstPurchaseDate = firstBuyTransaction?.transactionDate || result.createdAt
+      calculatePortfolioFromTransactions(result.transactions);
+
+    // 追加購入の場合、デフォルト設定から目標価格を再計算
+    if (isBuy) {
+      try {
+        const userSettings = await prisma.userSettings.findUnique({
+          where: { userId: user.id },
+        });
+
+        if (userSettings) {
+          let takeProfitPriceCalc: number | null = null;
+          let stopLossPriceCalc: number | null = null;
+
+          if (
+            userSettings.targetReturnRate &&
+            userSettings.targetReturnRate > 0
+          ) {
+            takeProfitPriceCalc = userSettings.targetReturnRate;
+          }
+          if (userSettings.stopLossRate && userSettings.stopLossRate < 0) {
+            stopLossPriceCalc = userSettings.stopLossRate;
+          }
+
+          if (takeProfitPriceCalc || stopLossPriceCalc) {
+            const updated = await prisma.portfolioStock.update({
+              where: { id },
+              data: {
+                takeProfitRate: takeProfitPriceCalc
+                  ? new Decimal(takeProfitPriceCalc)
+                  : result.takeProfitRate,
+                stopLossRate: stopLossPriceCalc
+                  ? new Decimal(stopLossPriceCalc)
+                  : result.stopLossRate,
+              },
+              include: {
+                stock: true,
+                transactions: { orderBy: { transactionDate: "asc" } },
+              },
+            });
+            result = updated;
+          }
+        }
+      } catch (err) {
+        console.error(
+          "Failed to fetch user settings for default TP/SL recalculation:",
+          err,
+        );
+      }
+    }
+
+    const firstBuyTransaction = result.transactions.find(
+      (t) => t.type === "buy",
+    );
+    const firstPurchaseDate =
+      firstBuyTransaction?.transactionDate || result.createdAt;
 
     // リアルタイム株価を取得
-    const { prices } = await fetchStockPrices([result.stock.tickerCode])
-    const currentPrice = prices[0]?.currentPrice ?? null
+    const { prices } = await fetchStockPrices([result.stock.tickerCode]);
+    const currentPrice = prices[0]?.currentPrice ?? null;
 
     // レスポンス用のデータ整形
     const response = {
@@ -164,6 +228,14 @@ export async function POST(
       shortTerm: result.shortTerm,
       mediumTerm: result.mediumTerm,
       longTerm: result.longTerm,
+      takeProfitPrice: result.takeProfitPrice
+        ? Number(result.takeProfitPrice)
+        : null,
+      stopLossPrice: result.stopLossPrice ? Number(result.stopLossPrice) : null,
+      takeProfitRate: result.takeProfitRate
+        ? Number(result.takeProfitRate)
+        : null,
+      stopLossRate: result.stopLossRate ? Number(result.stopLossRate) : null,
       transactions: result.transactions.map((t) => ({
         id: t.id,
         type: t.type,
@@ -182,14 +254,14 @@ export async function POST(
       },
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
-    }
+    };
 
-    return NextResponse.json(response)
+    return NextResponse.json(response);
   } catch (error) {
-    console.error("Transaction error:", error)
+    console.error("Transaction error:", error);
     return NextResponse.json(
       { error: "取引の登録に失敗しました" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

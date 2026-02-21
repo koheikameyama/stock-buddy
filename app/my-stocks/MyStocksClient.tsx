@@ -8,6 +8,7 @@ import TrackedStockCard from "./TrackedStockCard";
 import SoldStockCard from "./SoldStockCard";
 import AddStockDialog from "./AddStockDialog";
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog";
+import IndividualSettingsModal from "./IndividualSettingsModal";
 import {
   UPDATE_SCHEDULES,
   MAX_PORTFOLIO_STOCKS,
@@ -87,6 +88,12 @@ export default function MyStocksClient() {
     market?: string;
     sector?: string | null;
   } | null>(null);
+  // 個別設定価格モーダル用
+  const [showIndividualSettingsModal, setShowIndividualSettingsModal] =
+    useState(false);
+  const [newlyAddedStock, setNewlyAddedStock] = useState<UserStock | null>(
+    null,
+  );
   // Fetch all data on initial load
   useEffect(() => {
     async function fetchData() {
@@ -427,6 +434,16 @@ export default function MyStocksClient() {
   const handleStockAdded = (newStock: UserStock) => {
     setUserStocks((prev) => [...prev, newStock]);
     setShowAddDialog(false);
+
+    // ポートフォリオへの追加で、且つ利確・損切り価格が設定されていれば設定モーダルを表示
+    if (
+      newStock.type === "portfolio" &&
+      (newStock.takeProfitPrice || newStock.stopLossPrice)
+    ) {
+      setNewlyAddedStock(newStock);
+      // 少し遅延させてダイアログが閉じるのを待つ
+      setTimeout(() => setShowIndividualSettingsModal(true), 300);
+    }
   };
 
   const handleTransactionSuccess = (updatedStock: UserStock) => {
@@ -435,6 +452,15 @@ export default function MyStocksClient() {
     );
     setShowTransactionDialog(false);
     setSelectedStock(null);
+
+    // 購入の場合、利確・損切り価格が設定されていれば設定モーダルを表示
+    if (
+      updatedStock.type === "portfolio" &&
+      (updatedStock.takeProfitPrice || updatedStock.stopLossPrice)
+    ) {
+      setNewlyAddedStock(updatedStock);
+      setShowIndividualSettingsModal(true);
+    }
   };
 
   // Filter stocks by type
@@ -995,6 +1021,32 @@ export default function MyStocksClient() {
             </div>
           </div>
         </div>
+      )}
+      {/* 個別利益・損切り価格設定モーダル */}
+      {newlyAddedStock && (
+        <IndividualSettingsModal
+          isOpen={showIndividualSettingsModal}
+          onClose={() => {
+            setShowIndividualSettingsModal(false);
+            setNewlyAddedStock(null);
+          }}
+          stockId={newlyAddedStock.id}
+          stockName={newlyAddedStock.stock.name}
+          avgPurchasePrice={newlyAddedStock.averagePurchasePrice ?? 0}
+          initialTpRate={newlyAddedStock.takeProfitRate ?? null}
+          initialSlRate={newlyAddedStock.stopLossRate ?? null}
+          onSuccess={(tp, sl) => {
+            // 更新後の情報を反映
+            setUserStocks((prev) =>
+              prev.map((s) =>
+                s.id === newlyAddedStock.id
+                  ? { ...s, takeProfitPrice: tp, stopLossPrice: sl }
+                  : s,
+              ),
+            );
+          }}
+          isNewAddition={true}
+        />
       )}
     </>
   );

@@ -22,6 +22,7 @@ import AddStockDialog from "../AddStockDialog";
 import { toast } from "sonner";
 import { useChatContext } from "@/app/contexts/ChatContext";
 import { useStockPrice } from "@/app/hooks/useStockPrice";
+import IndividualSettingsModal from "../IndividualSettingsModal";
 
 interface Transaction {
   id: string;
@@ -42,6 +43,9 @@ interface Stock {
   statusType?: string | null;
   suggestedSellPrice?: number | null;
   sellCondition?: string | null;
+  // Individual TP/SL fields
+  takeProfitPrice?: number | null;
+  stopLossPrice?: number | null;
   // Watchlist fields
   targetBuyPrice?: number | null;
   limitPrice?: number | null; // AI suggested limit price (fallback for buy alert)
@@ -110,6 +114,15 @@ export default function MyStockDetailClient({
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
+
+  // Individual TP/SL state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [currentTpPrice, setCurrentTpPrice] = useState<number | null>(
+    stock.takeProfitPrice ?? null,
+  );
+  const [currentSlPrice, setCurrentSlPrice] = useState<number | null>(
+    stock.stopLossPrice ?? null,
+  );
 
   const isPortfolio = stock.type === "portfolio";
   const currentPrice = price?.currentPrice || stock.stock.currentPrice || 0;
@@ -356,6 +369,43 @@ export default function MyStockDetailClient({
                   </div>
                 </div>
               )}
+
+              {/* Individual TP/SL Targets */}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-gray-700">
+                    個別利確・損切り設定
+                  </h3>
+                  <button
+                    onClick={() => setShowSettingsModal(true)}
+                    className="text-xs text-blue-600 font-semibold hover:underline"
+                  >
+                    設定を変更
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 rounded-lg p-2.5 border border-green-100">
+                    <p className="text-[10px] text-green-700 font-bold mb-0.5">
+                      利確ライン
+                    </p>
+                    <p className="text-sm font-bold text-green-800">
+                      {currentTpPrice
+                        ? `¥${currentTpPrice.toLocaleString()}`
+                        : "未設定"}
+                    </p>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-2.5 border border-red-100">
+                    <p className="text-[10px] text-red-700 font-bold mb-0.5">
+                      損切りライン
+                    </p>
+                    <p className="text-sm font-bold text-red-800">
+                      {currentSlPrice
+                        ? `¥${currentSlPrice.toLocaleString()}`
+                        : "未設定"}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -901,6 +951,21 @@ export default function MyStockDetailClient({
           market: stock.stock.market,
           sector: stock.stock.sector,
           latestPrice: currentPrice || null,
+        }}
+      />
+
+      {/* Individual Settings Modal */}
+      <IndividualSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        stockId={stock.id}
+        stockName={stock.stock.name}
+        avgPurchasePrice={stock.averagePurchasePrice ?? 0}
+        initialTpRate={currentTpPrice}
+        initialSlRate={currentSlPrice}
+        onSuccess={(tp, sl) => {
+          setCurrentTpPrice(tp);
+          setCurrentSlPrice(sl);
         }}
       />
     </StockDetailLayout>

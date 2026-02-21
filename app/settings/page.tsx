@@ -1,25 +1,25 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { toast } from "sonner"
-import Footer from "@/app/components/Footer"
-import BottomNavigation from "@/app/components/BottomNavigation"
-import BackButton from "@/app/components/BackButton"
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
+import Footer from "@/app/components/Footer";
+import BottomNavigation from "@/app/components/BottomNavigation";
+import BackButton from "@/app/components/BackButton";
 
 type PushSubscriptionState = {
-  supported: boolean
-  subscribed: boolean
-  loading: boolean
-}
+  supported: boolean;
+  subscribed: boolean;
+  loading: boolean;
+};
 
 type UserSettings = {
-  investmentPeriod: string | null
-  riskTolerance: string | null
-  investmentBudget: number | null
-  targetReturnRate: number | null
-  stopLossRate: number | null
-}
+  investmentPeriod: string | null;
+  riskTolerance: string | null;
+  investmentBudget: number | null;
+  targetReturnRate: number | null;
+  stopLossRate: number | null;
+};
 
 const TARGET_RETURN_OPTIONS = [
   { value: 5, label: "+5%", description: "安定志向" },
@@ -27,62 +27,62 @@ const TARGET_RETURN_OPTIONS = [
   { value: 15, label: "+15%", description: "やや積極的" },
   { value: 20, label: "+20%", description: "積極的" },
   { value: 30, label: "+30%", description: "長期・ハイリターン" },
-]
+];
 
 const STOP_LOSS_OPTIONS = [
   { value: -5, label: "-5%", description: "慎重派" },
   { value: -10, label: "-10%", description: "バランス型" },
   { value: -15, label: "-15%", description: "中長期" },
   { value: -20, label: "-20%", description: "長期・変動許容" },
-]
+];
 
 const INVESTMENT_PERIOD_OPTIONS = [
   { value: "short", label: "短期", description: "〜1年", icon: "📅" },
   { value: "medium", label: "中期", description: "1〜3年", icon: "📆" },
   { value: "long", label: "長期", description: "3年〜", icon: "🗓️" },
-]
+];
 
 const RISK_TOLERANCE_OPTIONS = [
   { value: "low", label: "低", description: "安定重視", icon: "🛡️" },
   { value: "medium", label: "中", description: "バランス", icon: "⚖️" },
   { value: "high", label: "高", description: "成長重視", icon: "🚀" },
-]
+];
 
 const BUDGET_OPTIONS = [
   { value: 100000, label: "10万円", description: "少額から" },
   { value: 300000, label: "30万円", description: "手軽に" },
   { value: 500000, label: "50万円", description: "しっかり" },
   { value: 1000000, label: "100万円", description: "本格的に" },
-]
+];
 
 export default function SettingsPage() {
   const [pushState, setPushState] = useState<PushSubscriptionState>({
     supported: false,
     subscribed: false,
     loading: true,
-  })
+  });
   const [settings, setSettings] = useState<UserSettings>({
     investmentPeriod: null,
     riskTolerance: null,
     investmentBudget: null,
     targetReturnRate: null,
     stopLossRate: null,
-  })
-  const [settingsLoading, setSettingsLoading] = useState(true)
-  const [savingSettings, setSavingSettings] = useState(false)
-  const [showCustomBudget, setShowCustomBudget] = useState(false)
-  const [customBudgetText, setCustomBudgetText] = useState("")
+  });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [showCustomBudget, setShowCustomBudget] = useState(false);
+  const [customBudgetText, setCustomBudgetText] = useState("");
 
   useEffect(() => {
-    checkPushNotificationStatus()
-    fetchSettings()
-  }, [])
+    checkPushNotificationStatus();
+    fetchSettings();
+  }, []);
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch("/api/settings")
+      const response = await fetch("/api/settings");
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
         if (data.settings) {
           setSettings({
             investmentPeriod: data.settings.investmentPeriod,
@@ -90,33 +90,36 @@ export default function SettingsPage() {
             investmentBudget: data.settings.investmentBudget,
             targetReturnRate: data.settings.targetReturnRate,
             stopLossRate: data.settings.stopLossRate,
-          })
+          });
           // プリセット以外の金額が設定されていればカスタム入力を表示
-          const budget = data.settings.investmentBudget
-          if (budget !== null && !BUDGET_OPTIONS.some(o => o.value === budget)) {
-            setShowCustomBudget(true)
-            setCustomBudgetText(String(Math.round(budget / 10000)))
+          const budget = data.settings.investmentBudget;
+          if (
+            budget !== null &&
+            !BUDGET_OPTIONS.some((o) => o.value === budget)
+          ) {
+            setShowCustomBudget(true);
+            setCustomBudgetText(String(Math.round(budget / 10000)));
           }
         }
       }
     } catch (error) {
-      console.error("Error fetching settings:", error)
+      console.error("Error fetching settings:", error);
     } finally {
-      setSettingsLoading(false)
+      setSettingsLoading(false);
     }
-  }
+  };
 
   const handleCustomBudgetSave = () => {
-    const 万円 = parseInt(customBudgetText, 10)
+    const 万円 = parseInt(customBudgetText, 10);
     if (!isNaN(万円) && 万円 > 0) {
-      saveSettings({ investmentBudget: 万円 * 10000 })
+      saveSettings({ investmentBudget: 万円 * 10000 });
     }
-  }
+  };
 
   const saveSettings = async (updates: Partial<UserSettings>) => {
-    setSavingSettings(true)
+    setSavingSettings(true);
     try {
-      const newSettings = { ...settings, ...updates }
+      const newSettings = { ...settings, ...updates };
 
       const response = await fetch("/api/settings", {
         method: "PUT",
@@ -128,91 +131,91 @@ export default function SettingsPage() {
           targetReturnRate: newSettings.targetReturnRate,
           stopLossRate: newSettings.stopLossRate,
         }),
-      })
+      });
 
       if (response.ok) {
-        setSettings(newSettings)
-        toast.success("設定を保存しました")
+        setSettings(newSettings);
+        toast.success("設定を保存しました");
       } else {
-        toast.error("設定の保存に失敗しました")
+        toast.error("設定の保存に失敗しました");
       }
     } catch (error) {
-      console.error("Error saving settings:", error)
-      toast.error("設定の保存に失敗しました")
+      console.error("Error saving settings:", error);
+      toast.error("設定の保存に失敗しました");
     } finally {
-      setSavingSettings(false)
+      setSavingSettings(false);
     }
-  }
+  };
 
   const checkPushNotificationStatus = async () => {
     try {
       // Check if push notifications are supported
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        setPushState({ supported: false, subscribed: false, loading: false })
-        return
+        setPushState({ supported: false, subscribed: false, loading: false });
+        return;
       }
 
       // Register service worker
-      const registration = await navigator.serviceWorker.register("/sw.js")
+      const registration = await navigator.serviceWorker.register("/sw.js");
 
       // Check if already subscribed
-      const subscription = await registration.pushManager.getSubscription()
+      const subscription = await registration.pushManager.getSubscription();
 
       setPushState({
         supported: true,
         subscribed: !!subscription,
         loading: false,
-      })
+      });
     } catch (error) {
-      console.error("Error checking push notification status:", error)
-      setPushState({ supported: false, subscribed: false, loading: false })
+      console.error("Error checking push notification status:", error);
+      setPushState({ supported: false, subscribed: false, loading: false });
     }
-  }
+  };
 
   const togglePushNotifications = async () => {
     try {
-      setPushState({ ...pushState, loading: true })
+      setPushState({ ...pushState, loading: true });
 
-      const registration = await navigator.serviceWorker.ready
+      const registration = await navigator.serviceWorker.ready;
 
       if (pushState.subscribed) {
         // Unsubscribe
-        const subscription = await registration.pushManager.getSubscription()
+        const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
-          await subscription.unsubscribe()
+          await subscription.unsubscribe();
           await fetch("/api/push/subscribe", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ endpoint: subscription.endpoint }),
-          })
+          });
         }
-        setPushState({ ...pushState, subscribed: false, loading: false })
-        toast.success("プッシュ通知をオフにしました")
+        setPushState({ ...pushState, subscribed: false, loading: false });
+        toast.success("プッシュ通知をオフにしました");
       } else {
         // Subscribe
-        const response = await fetch("/api/push/subscribe")
-        const { publicKey } = await response.json()
+        const response = await fetch("/api/push/subscribe");
+        const { publicKey } = await response.json();
 
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: publicKey,
-        })
+        });
 
         await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(subscription.toJSON()),
-        })
+        });
 
-        setPushState({ ...pushState, subscribed: true, loading: false })
-        toast.success("プッシュ通知をオンにしました")
+        setPushState({ ...pushState, subscribed: true, loading: false });
+        toast.success("プッシュ通知をオンにしました");
       }
     } catch (error) {
-      console.error("Error toggling push notifications:", error)
-      toast.error("プッシュ通知の設定に失敗しました")
-      setPushState({ ...pushState, loading: false })
+      console.error("Error toggling push notifications:", error);
+      toast.error("プッシュ通知の設定に失敗しました");
+      setPushState({ ...pushState, loading: false });
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -222,7 +225,9 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2">
             <Link href="/dashboard" className="flex items-center gap-2">
               <span className="text-2xl">📊</span>
-              <span className="text-xl font-bold text-gray-900">Stock Buddy</span>
+              <span className="text-xl font-bold text-gray-900">
+                Stock Buddy
+              </span>
             </Link>
           </div>
         </div>
@@ -279,8 +284,8 @@ export default function SettingsPage() {
                     {pushState.loading
                       ? "処理中..."
                       : pushState.subscribed
-                      ? "オフにする"
-                      : "オンにする"}
+                        ? "オフにする"
+                        : "オンにする"}
                   </button>
                 </div>
               )}
@@ -295,15 +300,21 @@ export default function SettingsPage() {
               <ul className="space-y-2 text-sm sm:text-base text-gray-700">
                 <li className="flex items-start gap-2">
                   <span>•</span>
-                  <span><strong>7:00</strong> - 保有銘柄分析</span>
+                  <span>
+                    <strong>7:00</strong> - 保有銘柄分析
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span>•</span>
-                  <span><strong>9:00 / 15:00 / 22:00</strong> - 注目銘柄更新</span>
+                  <span>
+                    <strong>9:00 / 15:00 / 22:00</strong> - 注目銘柄更新
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span>•</span>
-                  <span><strong>17:00</strong> - 株価データ更新</span>
+                  <span>
+                    <strong>17:00</strong> - 株価データ更新
+                  </span>
                 </li>
               </ul>
             </div>
@@ -336,7 +347,9 @@ export default function SettingsPage() {
                       {INVESTMENT_PERIOD_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => saveSettings({ investmentPeriod: option.value })}
+                          onClick={() =>
+                            saveSettings({ investmentPeriod: option.value })
+                          }
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-center transition-all ${
                             settings.investmentPeriod === option.value
@@ -345,14 +358,18 @@ export default function SettingsPage() {
                           } disabled:opacity-50`}
                         >
                           <div className="text-lg mb-1">{option.icon}</div>
-                          <div className={`font-bold text-sm ${
-                            settings.investmentPeriod === option.value
-                              ? "text-blue-600"
-                              : "text-gray-900"
-                          }`}>
+                          <div
+                            className={`font-bold text-sm ${
+                              settings.investmentPeriod === option.value
+                                ? "text-blue-600"
+                                : "text-gray-900"
+                            }`}
+                          >
                             {option.label}
                           </div>
-                          <div className="text-xs text-gray-500">{option.description}</div>
+                          <div className="text-xs text-gray-500">
+                            {option.description}
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -368,7 +385,9 @@ export default function SettingsPage() {
                       {RISK_TOLERANCE_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => saveSettings({ riskTolerance: option.value })}
+                          onClick={() =>
+                            saveSettings({ riskTolerance: option.value })
+                          }
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-center transition-all ${
                             settings.riskTolerance === option.value
@@ -377,14 +396,18 @@ export default function SettingsPage() {
                           } disabled:opacity-50`}
                         >
                           <div className="text-lg mb-1">{option.icon}</div>
-                          <div className={`font-bold text-sm ${
-                            settings.riskTolerance === option.value
-                              ? "text-blue-600"
-                              : "text-gray-900"
-                          }`}>
+                          <div
+                            className={`font-bold text-sm ${
+                              settings.riskTolerance === option.value
+                                ? "text-blue-600"
+                                : "text-gray-900"
+                            }`}
+                          >
                             {option.label}
                           </div>
-                          <div className="text-xs text-gray-500">{option.description}</div>
+                          <div className="text-xs text-gray-500">
+                            {option.description}
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -401,34 +424,45 @@ export default function SettingsPage() {
                         <button
                           key={option.value}
                           onClick={() => {
-                            setShowCustomBudget(false)
-                            saveSettings({ investmentBudget: option.value })
+                            setShowCustomBudget(false);
+                            saveSettings({ investmentBudget: option.value });
                           }}
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-center transition-all ${
-                            settings.investmentBudget === option.value && !showCustomBudget
+                            settings.investmentBudget === option.value &&
+                            !showCustomBudget
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300 bg-white"
                           } disabled:opacity-50`}
                         >
-                          <div className={`font-bold text-sm ${
-                            settings.investmentBudget === option.value && !showCustomBudget
-                              ? "text-blue-600"
-                              : "text-gray-900"
-                          }`}>
+                          <div
+                            className={`font-bold text-sm ${
+                              settings.investmentBudget === option.value &&
+                              !showCustomBudget
+                                ? "text-blue-600"
+                                : "text-gray-900"
+                            }`}
+                          >
                             {option.label}
                           </div>
-                          <div className="text-xs text-gray-500">{option.description}</div>
+                          <div className="text-xs text-gray-500">
+                            {option.description}
+                          </div>
                         </button>
                       ))}
                       <button
                         onClick={() => {
-                          setShowCustomBudget(true)
+                          setShowCustomBudget(true);
                           setCustomBudgetText(
-                            settings.investmentBudget && !BUDGET_OPTIONS.some(o => o.value === settings.investmentBudget)
-                              ? String(Math.round(settings.investmentBudget / 10000))
-                              : ""
-                          )
+                            settings.investmentBudget &&
+                              !BUDGET_OPTIONS.some(
+                                (o) => o.value === settings.investmentBudget,
+                              )
+                              ? String(
+                                  Math.round(settings.investmentBudget / 10000),
+                                )
+                              : "",
+                          );
                         }}
                         disabled={savingSettings}
                         className={`p-3 rounded-lg border-2 text-center transition-all ${
@@ -437,25 +471,32 @@ export default function SettingsPage() {
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
-                        <div className={`font-bold text-sm ${showCustomBudget ? "text-blue-600" : "text-gray-900"}`}>
+                        <div
+                          className={`font-bold text-sm ${showCustomBudget ? "text-blue-600" : "text-gray-900"}`}
+                        >
                           その他
                         </div>
                         <div className="text-xs text-gray-500">金額を入力</div>
                       </button>
                       <button
                         onClick={() => {
-                          setShowCustomBudget(false)
-                          saveSettings({ investmentBudget: null })
+                          setShowCustomBudget(false);
+                          saveSettings({ investmentBudget: null });
                         }}
                         disabled={savingSettings}
                         className={`p-3 rounded-lg border-2 text-center transition-all ${
-                          settings.investmentBudget === null && !showCustomBudget
+                          settings.investmentBudget === null &&
+                          !showCustomBudget
                             ? "border-gray-500 bg-gray-100"
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
-                        <div className="font-bold text-sm text-gray-600">未定</div>
-                        <div className="text-xs text-gray-500">あとで決める</div>
+                        <div className="font-bold text-sm text-gray-600">
+                          未定
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          あとで決める
+                        </div>
                       </button>
                     </div>
 
@@ -467,16 +508,26 @@ export default function SettingsPage() {
                             type="number"
                             min="1"
                             value={customBudgetText}
-                            onChange={(e) => setCustomBudgetText(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleCustomBudgetSave()}
+                            onChange={(e) =>
+                              setCustomBudgetText(e.target.value)
+                            }
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleCustomBudgetSave()
+                            }
                             placeholder="例: 150"
                             className="flex-1 outline-none text-sm font-semibold text-gray-900 bg-transparent min-w-0"
                           />
-                          <span className="text-sm text-gray-500 shrink-0">万円</span>
+                          <span className="text-sm text-gray-500 shrink-0">
+                            万円
+                          </span>
                         </div>
                         <button
                           onClick={handleCustomBudgetSave}
-                          disabled={savingSettings || !customBudgetText || parseInt(customBudgetText) <= 0}
+                          disabled={
+                            savingSettings ||
+                            !customBudgetText ||
+                            parseInt(customBudgetText) <= 0
+                          }
                           className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
                         >
                           設定
@@ -516,7 +567,9 @@ export default function SettingsPage() {
                       {TARGET_RETURN_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => saveSettings({ targetReturnRate: option.value })}
+                          onClick={() =>
+                            saveSettings({ targetReturnRate: option.value })
+                          }
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-left transition-all ${
                             settings.targetReturnRate === option.value
@@ -524,14 +577,18 @@ export default function SettingsPage() {
                               : "border-gray-200 hover:border-gray-300 bg-white"
                           } disabled:opacity-50`}
                         >
-                          <div className={`font-bold ${
-                            settings.targetReturnRate === option.value
-                              ? "text-green-600"
-                              : "text-gray-900"
-                          }`}>
+                          <div
+                            className={`font-bold ${
+                              settings.targetReturnRate === option.value
+                                ? "text-green-600"
+                                : "text-gray-900"
+                            }`}
+                          >
                             {option.label}
                           </div>
-                          <div className="text-xs text-gray-500">{option.description}</div>
+                          <div className="text-xs text-gray-500">
+                            {option.description}
+                          </div>
                         </button>
                       ))}
                       <button
@@ -543,7 +600,7 @@ export default function SettingsPage() {
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
-                        <div className="font-bold text-gray-600">未設定</div>
+                        <div className="font-bold text-gray-600">設定なし</div>
                         <div className="text-xs text-gray-500">AIにお任せ</div>
                       </button>
                     </div>
@@ -559,7 +616,9 @@ export default function SettingsPage() {
                       {STOP_LOSS_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => saveSettings({ stopLossRate: option.value })}
+                          onClick={() =>
+                            saveSettings({ stopLossRate: option.value })
+                          }
                           disabled={savingSettings}
                           className={`p-3 rounded-lg border-2 text-left transition-all ${
                             settings.stopLossRate === option.value
@@ -567,14 +626,18 @@ export default function SettingsPage() {
                               : "border-gray-200 hover:border-gray-300 bg-white"
                           } disabled:opacity-50`}
                         >
-                          <div className={`font-bold ${
-                            settings.stopLossRate === option.value
-                              ? "text-red-600"
-                              : "text-gray-900"
-                          }`}>
+                          <div
+                            className={`font-bold ${
+                              settings.stopLossRate === option.value
+                                ? "text-red-600"
+                                : "text-gray-900"
+                            }`}
+                          >
                             {option.label}
                           </div>
-                          <div className="text-xs text-gray-500">{option.description}</div>
+                          <div className="text-xs text-gray-500">
+                            {option.description}
+                          </div>
                         </button>
                       ))}
                       <button
@@ -586,7 +649,7 @@ export default function SettingsPage() {
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
-                        <div className="font-bold text-gray-600">未設定</div>
+                        <div className="font-bold text-gray-600">設定なし</div>
                         <div className="text-xs text-gray-500">AIにお任せ</div>
                       </button>
                     </div>
@@ -595,18 +658,18 @@ export default function SettingsPage() {
                   {/* 説明 */}
                   <div className="bg-amber-50 rounded-xl p-4">
                     <p className="text-sm text-amber-800">
-                      💡 設定した目標は全銘柄に適用されます。銘柄ごとに変更したい場合は、マイ銘柄の詳細画面から個別に設定できます。
+                      💡
+                      設定した目標は全銘柄に適用されます。銘柄ごとに変更したい場合は、マイ銘柄の詳細画面から個別に設定できます。
                     </p>
                   </div>
                 </div>
               )}
             </div>
-
           </div>
         </div>
       </div>
       <Footer />
       <BottomNavigation />
     </div>
-  )
+  );
 }

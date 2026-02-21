@@ -1,23 +1,28 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
-import { prisma } from "@/lib/prisma"
-import { Decimal } from "@prisma/client/runtime/library"
-import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
-import { UserStockResponse } from "../route"
-import { fetchStockPrices } from "@/lib/stock-price-fetcher"
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
+import { UserStockResponse } from "../route";
+import { fetchStockPrices } from "@/lib/stock-price-fetcher";
 
 interface UpdateUserStockRequest {
-  type?: "watchlist" | "portfolio"
+  type?: "watchlist" | "portfolio";
   // Watchlist fields
-  targetBuyPrice?: number | null
+  targetBuyPrice?: number | null;
+  // Portfolio fields
+  takeProfitPrice?: number | null;
+  stopLossPrice?: number | null;
+  takeProfitRate?: number | null;
+  stopLossRate?: number | null;
 }
 
 interface ConvertRequest {
-  convertTo: "watchlist" | "portfolio"
+  convertTo: "watchlist" | "portfolio";
   // Portfolio fields (when converting to portfolio)
-  quantity?: number
-  averagePurchasePrice?: number
-  purchaseDate?: string
+  quantity?: number;
+  averagePurchasePrice?: number;
+  purchaseDate?: string;
 }
 
 /**
@@ -26,53 +31,63 @@ interface ConvertRequest {
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params
+  const { id } = await params;
   try {
-    const session = await auth()
+    const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id
-    const body = await request.json()
+    const userId = session.user.id;
+    const body = await request.json();
 
     // Check if this is a conversion request
     if ("convertTo" in body) {
-      return handleConversion(id, userId, body as ConvertRequest)
+      return handleConversion(id, userId, body as ConvertRequest);
     }
 
     // Regular update
-    return handleUpdate(id, userId, body as UpdateUserStockRequest)
+    return handleUpdate(id, userId, body as UpdateUserStockRequest);
   } catch (error) {
-    console.error("Error updating user stock:", error)
+    console.error("Error updating user stock:", error);
     return NextResponse.json(
       { error: "Failed to update user stock" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
-async function handleConversion(id: string, userId: string, body: ConvertRequest) {
-  const { convertTo, quantity, averagePurchasePrice, purchaseDate } = body
+async function handleConversion(
+  id: string,
+  userId: string,
+  body: ConvertRequest,
+) {
+  const { convertTo, quantity, averagePurchasePrice, purchaseDate } = body;
 
   // Find in both tables
   const [watchlistStock, portfolioStock] = await Promise.all([
-    prisma.watchlistStock.findUnique({ where: { id }, include: { stock: true } }),
+    prisma.watchlistStock.findUnique({
+      where: { id },
+      include: { stock: true },
+    }),
     prisma.portfolioStock.findUnique({
       where: { id },
-      include: { stock: true, transactions: { orderBy: { transactionDate: "asc" } } },
+      include: {
+        stock: true,
+        transactions: { orderBy: { transactionDate: "asc" } },
+      },
     }),
-  ])
+  ]);
 
-  const existingStock = watchlistStock || portfolioStock
+  const existingStock = watchlistStock || portfolioStock;
   if (!existingStock) {
-    return NextResponse.json({ error: "Stock not found" }, { status: 404 })
+    return NextResponse.json({ error: "Stock not found" }, { status: 404 });
   }
 
   if (existingStock.userId !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (convertTo === "portfolio" && watchlistStock) {
@@ -80,28 +95,63 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
     if (!quantity || quantity <= 0) {
       return NextResponse.json(
         { error: "quantity is required and must be greater than 0" },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     if (!averagePurchasePrice || averagePurchasePrice <= 0) {
       return NextResponse.json(
-        { error: "averagePurchasePrice is required and must be greater than 0" },
-        { status: 400 }
-      )
+        {
+          error: "averagePurchasePrice is required and must be greater than 0",
+        },
+        { status: 400 },
+      );
     }
 
-    const transactionDate = purchaseDate ? new Date(purchaseDate) : new Date()
+    const transactionDate = purchaseDate ? new Date(purchaseDate) : new Date();
+
+    // デフォルト設定（%）から目標価格を自動計算
+    let takeProfitPriceCalc: number | null = null;
+    let stopLossPriceCalc: number | null = null;
+
+    try {
+      const userSettings = await prisma.userSettings.findUnique({
+        where: { userId },
+      });
+
+      if (userSettings) {
+        if (
+          userSettings.targetReturnRate &&
+          userSettings.targetReturnRate > 0
+        ) {
+          takeProfitPriceCalc = userSettings.targetReturnRate;
+        }
+        if (userSettings.stopLossRate && userSettings.stopLossRate < 0) {
+          stopLossPriceCalc = userSettings.stopLossRate;
+        }
+      }
+    } catch (err) {
+      console.error(
+        "Failed to fetch user settings for default TP/SL calculation:",
+        err,
+      );
+    }
 
     // Delete from watchlist and create in portfolio with transaction
     const result = await prisma.$transaction(async (tx) => {
-      await tx.watchlistStock.delete({ where: { id } })
+      await tx.watchlistStock.delete({ where: { id } });
 
       const newPortfolioStock = await tx.portfolioStock.create({
         data: {
           userId,
           stockId: watchlistStock.stockId,
           quantity, // 初回購入数量を設定
+          takeProfitRate: takeProfitPriceCalc
+            ? new Decimal(takeProfitPriceCalc)
+            : null,
+          stopLossRate: stopLossPriceCalc
+            ? new Decimal(stopLossPriceCalc)
+            : null,
         },
         include: {
           stock: {
@@ -114,7 +164,7 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
             },
           },
         },
-      })
+      });
 
       const transaction = await tx.transaction.create({
         data: {
@@ -127,14 +177,16 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
           totalAmount: new Decimal(quantity).times(averagePurchasePrice),
           transactionDate,
         },
-      })
+      });
 
-      return { portfolioStock: newPortfolioStock, transaction }
-    })
+      return { portfolioStock: newPortfolioStock, transaction };
+    });
 
     // リアルタイム株価を取得
-    const { prices } = await fetchStockPrices([result.portfolioStock.stock.tickerCode])
-    const currentPrice = prices[0]?.currentPrice ?? null
+    const { prices } = await fetchStockPrices([
+      result.portfolioStock.stock.tickerCode,
+    ]);
+    const currentPrice = prices[0]?.currentPrice ?? null;
 
     const response: UserStockResponse = {
       id: result.portfolioStock.id,
@@ -144,14 +196,16 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       quantity,
       averagePurchasePrice,
       purchaseDate: transactionDate.toISOString(),
-      transactions: [{
-        id: result.transaction.id,
-        type: result.transaction.type,
-        quantity: result.transaction.quantity,
-        price: result.transaction.price.toNumber(),
-        totalAmount: result.transaction.totalAmount.toNumber(),
-        transactionDate: result.transaction.transactionDate.toISOString(),
-      }],
+      transactions: [
+        {
+          id: result.transaction.id,
+          type: result.transaction.type,
+          quantity: result.transaction.quantity,
+          price: result.transaction.price.toNumber(),
+          totalAmount: result.transaction.totalAmount.toNumber(),
+          transactionDate: result.transaction.transactionDate.toISOString(),
+        },
+      ],
       stock: {
         id: result.portfolioStock.stock.id,
         tickerCode: result.portfolioStock.stock.tickerCode,
@@ -162,9 +216,9 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       },
       createdAt: result.portfolioStock.createdAt.toISOString(),
       updatedAt: result.portfolioStock.updatedAt.toISOString(),
-    }
+    };
 
-    return NextResponse.json(response)
+    return NextResponse.json(response);
   } else if (convertTo === "watchlist" && portfolioStock) {
     // Portfolio → Watchlist
     // Delete portfolio and its transactions
@@ -172,9 +226,9 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       // Delete transactions
       await tx.transaction.deleteMany({
         where: { portfolioStockId: id },
-      })
-      await tx.portfolioStock.delete({ where: { id } })
-    })
+      });
+      await tx.portfolioStock.delete({ where: { id } });
+    });
 
     const newWatchlistStock = await prisma.watchlistStock.create({
       data: {
@@ -192,11 +246,13 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
           },
         },
       },
-    })
+    });
 
     // リアルタイム株価を取得
-    const { prices: watchlistPrices } = await fetchStockPrices([newWatchlistStock.stock.tickerCode])
-    const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null
+    const { prices: watchlistPrices } = await fetchStockPrices([
+      newWatchlistStock.stock.tickerCode,
+    ]);
+    const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null;
 
     const response: UserStockResponse = {
       id: newWatchlistStock.id,
@@ -213,61 +269,76 @@ async function handleConversion(id: string, userId: string, body: ConvertRequest
       },
       createdAt: newWatchlistStock.createdAt.toISOString(),
       updatedAt: newWatchlistStock.updatedAt.toISOString(),
-    }
+    };
 
-    return NextResponse.json(response)
+    return NextResponse.json(response);
   } else {
     return NextResponse.json(
       { error: "Invalid conversion request" },
-      { status: 400 }
-    )
+      { status: 400 },
+    );
   }
 }
 
-async function handleUpdate(id: string, userId: string, body: UpdateUserStockRequest) {
+async function handleUpdate(
+  id: string,
+  userId: string,
+  body: UpdateUserStockRequest,
+) {
   // Find in both tables
   const [watchlistStock, portfolioStock] = await Promise.all([
-    prisma.watchlistStock.findUnique({ where: { id }, include: { stock: true } }),
+    prisma.watchlistStock.findUnique({
+      where: { id },
+      include: { stock: true },
+    }),
     prisma.portfolioStock.findUnique({
       where: { id },
-      include: { stock: true, transactions: { orderBy: { transactionDate: "asc" } } },
+      include: {
+        stock: true,
+        transactions: { orderBy: { transactionDate: "asc" } },
+      },
     }),
-  ])
+  ]);
 
-  const existingStock = watchlistStock || portfolioStock
+  const existingStock = watchlistStock || portfolioStock;
   if (!existingStock) {
-    return NextResponse.json({ error: "Stock not found" }, { status: 404 })
+    return NextResponse.json({ error: "Stock not found" }, { status: 404 });
   }
 
   if (existingStock.userId !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (watchlistStock) {
     // Update targetBuyPrice if provided
-    const updateData: { targetBuyPrice?: number | null } = {}
+    const updateData: { targetBuyPrice?: number | null } = {};
     if ("targetBuyPrice" in body) {
-      updateData.targetBuyPrice = body.targetBuyPrice
+      updateData.targetBuyPrice = body.targetBuyPrice;
     }
 
-    const updated = Object.keys(updateData).length > 0
-      ? await prisma.watchlistStock.update({
-          where: { id },
-          data: updateData,
-          include: { stock: true },
-        })
-      : watchlistStock
+    const updated =
+      Object.keys(updateData).length > 0
+        ? await prisma.watchlistStock.update({
+            where: { id },
+            data: updateData,
+            include: { stock: true },
+          })
+        : watchlistStock;
 
     // リアルタイム株価を取得
-    const { prices: watchlistPrices } = await fetchStockPrices([updated.stock.tickerCode])
-    const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null
+    const { prices: watchlistPrices } = await fetchStockPrices([
+      updated.stock.tickerCode,
+    ]);
+    const watchlistCurrentPrice = watchlistPrices[0]?.currentPrice ?? null;
 
     const response: UserStockResponse = {
       id: updated.id,
       userId: updated.userId,
       stockId: updated.stockId,
       type: "watchlist",
-      targetBuyPrice: updated.targetBuyPrice ? Number(updated.targetBuyPrice) : null,
+      targetBuyPrice: updated.targetBuyPrice
+        ? Number(updated.targetBuyPrice)
+        : null,
       stock: {
         id: updated.stock.id,
         tickerCode: updated.stock.tickerCode,
@@ -278,23 +349,53 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       },
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
-    }
+    };
 
-    return NextResponse.json(response)
+    return NextResponse.json(response);
   } else if (portfolioStock) {
     // リアルタイム株価を取得
-    const { prices: portfolioPrices } = await fetchStockPrices([portfolioStock.stock.tickerCode])
-    const portfolioCurrentPrice = portfolioPrices[0]?.currentPrice ?? null
+    const { prices: portfolioPrices } = await fetchStockPrices([
+      portfolioStock.stock.tickerCode,
+    ]);
+    const portfolioCurrentPrice = portfolioPrices[0]?.currentPrice ?? null;
 
-    // Portfolio has no editable fields now (transactions are updated separately)
-    const updated = portfolioStock
+    // Update individual TP/SL prices if provided
+    const updateData: {
+      takeProfitPrice?: number | null;
+      stopLossPrice?: number | null;
+      takeProfitRate?: number | null;
+      stopLossRate?: number | null;
+    } = {};
+    let hasUpdates = false;
+
+    if ("takeProfitRate" in body) {
+      updateData.takeProfitRate = body.takeProfitRate;
+      hasUpdates = true;
+    }
+    if ("stopLossRate" in body) {
+      updateData.stopLossRate = body.stopLossRate;
+      hasUpdates = true;
+    }
+
+    const updated = hasUpdates
+      ? await prisma.portfolioStock.update({
+          where: { id },
+          data: updateData,
+          include: {
+            stock: true,
+            transactions: { orderBy: { transactionDate: "asc" } },
+          },
+        })
+      : portfolioStock;
 
     // Calculate from transactions
-    const { quantity, averagePurchasePrice } = calculatePortfolioFromTransactions(
-      updated.transactions
-    )
-    const firstBuyTransaction = updated.transactions.find((t) => t.type === "buy")
-    const purchaseDate = firstBuyTransaction?.transactionDate || updated.createdAt
+    const { quantity, averagePurchasePrice } =
+      calculatePortfolioFromTransactions(updated.transactions);
+    const firstBuyTransaction = updated.transactions.find(
+      (t) => t.type === "buy",
+    );
+    const purchaseDate =
+      firstBuyTransaction?.transactionDate || updated.createdAt;
 
     const response: UserStockResponse = {
       id: updated.id,
@@ -304,10 +405,22 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       quantity,
       averagePurchasePrice: averagePurchasePrice.toNumber(),
       purchaseDate: purchaseDate.toISOString(),
-      lastAnalysis: updated.lastAnalysis ? updated.lastAnalysis.toISOString() : null,
+      lastAnalysis: updated.lastAnalysis
+        ? updated.lastAnalysis.toISOString()
+        : null,
       shortTerm: updated.shortTerm,
       mediumTerm: updated.mediumTerm,
       longTerm: updated.longTerm,
+      takeProfitPrice: updated.takeProfitPrice
+        ? Number(updated.takeProfitPrice)
+        : null,
+      stopLossPrice: updated.stopLossPrice
+        ? Number(updated.stopLossPrice)
+        : null,
+      takeProfitRate: updated.takeProfitRate
+        ? Number(updated.takeProfitRate)
+        : null,
+      stopLossRate: updated.stopLossRate ? Number(updated.stopLossRate) : null,
       transactions: updated.transactions.map((t) => ({
         id: t.id,
         type: t.type,
@@ -326,12 +439,12 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
       },
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
-    }
+    };
 
-    return NextResponse.json(response)
+    return NextResponse.json(response);
   }
 
-  return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+  return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 }
 
 /**
@@ -340,54 +453,60 @@ async function handleUpdate(id: string, userId: string, body: UpdateUserStockReq
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params
+  const { id } = await params;
   try {
-    const session = await auth()
+    const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id
+    const userId = session.user.id;
 
     // Find in both tables
     const [watchlistStock, portfolioStock] = await Promise.all([
-      prisma.watchlistStock.findUnique({ where: { id }, include: { stock: true } }),
-      prisma.portfolioStock.findUnique({ where: { id }, include: { stock: true } }),
-    ])
+      prisma.watchlistStock.findUnique({
+        where: { id },
+        include: { stock: true },
+      }),
+      prisma.portfolioStock.findUnique({
+        where: { id },
+        include: { stock: true },
+      }),
+    ]);
 
-    const existingStock = watchlistStock || portfolioStock
+    const existingStock = watchlistStock || portfolioStock;
     if (!existingStock) {
-      return NextResponse.json({ error: "Stock not found" }, { status: 404 })
+      return NextResponse.json({ error: "Stock not found" }, { status: 404 });
     }
 
     if (existingStock.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Delete from appropriate table
     if (watchlistStock) {
-      await prisma.watchlistStock.delete({ where: { id } })
+      await prisma.watchlistStock.delete({ where: { id } });
     } else if (portfolioStock) {
       // Delete transactions and portfolio
       await prisma.$transaction(async (tx) => {
         await tx.transaction.deleteMany({
           where: { portfolioStockId: id },
-        })
-        await tx.portfolioStock.delete({ where: { id } })
-      })
+        });
+        await tx.portfolioStock.delete({ where: { id } });
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: `Stock ${existingStock.stock.name} (${existingStock.stock.tickerCode}) removed successfully`,
-    })
+    });
   } catch (error) {
-    console.error("Error deleting user stock:", error)
+    console.error("Error deleting user stock:", error);
     return NextResponse.json(
       { error: "Failed to delete user stock" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
