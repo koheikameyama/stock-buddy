@@ -8,6 +8,11 @@ import { MAX_WATCHLIST_STOCKS, MAX_PORTFOLIO_STOCKS } from "@/lib/constants";
 import { fetchStockPrices } from "@/lib/stock-price-fetcher";
 import { executePurchaseRecommendation } from "@/lib/purchase-recommendation-core";
 import { executePortfolioAnalysis } from "@/lib/portfolio-analysis-core";
+import {
+  fetchDefaultTpSlRates,
+  createPortfolioStockWithTransaction,
+  buildPortfolioStockResponse,
+} from "@/lib/portfolio-stock-utils";
 
 // Types
 export interface UserStockResponse {
@@ -557,63 +562,23 @@ export async function POST(request: NextRequest) {
         : new Date();
 
       // デフォルト設定（%）から目標価格を自動計算
-      let takeProfitPriceCalc: number | null = null;
-      let stopLossPriceCalc: number | null = null;
-
-      try {
-        const userSettings = await prisma.userSettings.findUnique({
-          where: { userId },
-        });
-
-        if (userSettings) {
-          if (
-            userSettings.targetReturnRate &&
-            userSettings.targetReturnRate > 0
-          ) {
-            takeProfitPriceCalc = userSettings.targetReturnRate;
-          }
-          if (userSettings.stopLossRate && userSettings.stopLossRate < 0) {
-            stopLossPriceCalc = userSettings.stopLossRate;
-          }
-        }
-      } catch (err) {
-        console.error(
-          "Failed to fetch user settings for default TP/SL calculation:",
-          err,
-        );
-      }
+      const {
+        takeProfitRate: takeProfitPriceCalc,
+        stopLossRate: stopLossPriceCalc,
+      } = await fetchDefaultTpSlRates(userId);
 
       // 保有してた銘柄の再購入か、新規追加かで処理を分岐
       const isRepurchase = existingPortfolio && portfolioQuantity === 0;
 
       let result: {
-        portfolioStock: {
-          id: string;
-          userId: string;
-          stockId: string;
-          lastAnalysis: Date | null;
-          shortTerm: string | null;
-          mediumTerm: string | null;
-          longTerm: string | null;
-          takeProfitRate: Decimal | null;
-          stopLossRate: Decimal | null;
-          createdAt: Date;
-          updatedAt: Date;
-          stock: {
-            id: string;
-            tickerCode: string;
-            name: string;
-            sector: string | null;
-            market: string;
-          };
-        };
-        transaction: {
-          id: string;
-          type: string;
-          quantity: number;
-          price: Decimal;
-          totalAmount: Decimal;
-          transactionDate: Date;
+        portfolioStock: Awaited<
+          ReturnType<typeof createPortfolioStockWithTransaction>
+        >["portfolioStock"] & {
+          takeProfitPrice?: Decimal | null;
+          stopLossPrice?: Decimal | null;
+          statusType?: string | null;
+          suggestedSellPrice?: Decimal | null;
+          sellCondition?: string | null;
         };
         allTransactions: {
           id: string;
@@ -627,7 +592,7 @@ export async function POST(request: NextRequest) {
 
       if (isRepurchase) {
         // 保有してた銘柄への再購入：既存PortfolioStockにトランザクションを追加
-        const transaction = await prisma.transaction.create({
+        await prisma.transaction.create({
           data: {
             userId,
             stockId: stock.id,
@@ -679,55 +644,24 @@ export async function POST(request: NextRequest) {
 
         result = {
           portfolioStock,
-          transaction,
           allTransactions: portfolioStock.transactions,
         };
       } else {
-        // 新規追加：PortfolioStockと購入履歴を同時に作成
-        const txResult = await prisma.$transaction(async (tx) => {
-          const portfolioStock = await tx.portfolioStock.create({
-            data: {
-              userId,
-              stockId: stock.id,
-              quantity, // 初回購入数量を設定
-              takeProfitRate: takeProfitPriceCalc
-                ? new Decimal(takeProfitPriceCalc)
-                : null,
-              stopLossRate: stopLossPriceCalc
-                ? new Decimal(stopLossPriceCalc)
-                : null,
-            },
-            include: {
-              stock: {
-                select: {
-                  id: true,
-                  tickerCode: true,
-                  name: true,
-                  sector: true,
-                  market: true,
-                },
-              },
-            },
-          });
-
-          const transaction = await tx.transaction.create({
-            data: {
-              userId,
-              stockId: stock.id,
-              portfolioStockId: portfolioStock.id,
-              type: "buy",
-              quantity,
-              price: new Decimal(averagePurchasePrice),
-              totalAmount: new Decimal(quantity).times(averagePurchasePrice),
-              transactionDate,
-            },
-          });
-
-          return { portfolioStock, transaction };
-        });
+        // 新規追加：共通関数で PortfolioStock と Transaction を作成
+        const txResult = await prisma.$transaction(async (tx) =>
+          createPortfolioStockWithTransaction(tx, {
+            userId,
+            stockId: stock.id,
+            quantity,
+            averagePurchasePrice,
+            transactionDate,
+            takeProfitRate: takeProfitPriceCalc,
+            stopLossRate: stopLossPriceCalc,
+          }),
+        );
 
         result = {
-          ...txResult,
+          portfolioStock: txResult.portfolioStock,
           allTransactions: [txResult.transaction],
         };
       }
@@ -743,63 +677,14 @@ export async function POST(request: NextRequest) {
       ]);
       const currentPrice = prices[0]?.currentPrice ?? null;
 
-      // 全トランザクションから保有数と平均取得単価を計算
-      const calculated = calculatePortfolioFromTransactions(
-        result.allTransactions,
-      );
-      const firstBuyTx = result.allTransactions.find((t) => t.type === "buy");
-      const calculatedPurchaseDate =
-        firstBuyTx?.transactionDate || result.portfolioStock.createdAt;
-
-      const response: UserStockResponse = {
-        id: result.portfolioStock.id,
-        userId: result.portfolioStock.userId,
-        stockId: result.portfolioStock.stockId,
-        type: "portfolio",
-        quantity: calculated.quantity,
-        averagePurchasePrice: calculated.averagePurchasePrice.toNumber(),
-        purchaseDate:
-          calculatedPurchaseDate instanceof Date
-            ? calculatedPurchaseDate.toISOString()
-            : calculatedPurchaseDate,
-        lastAnalysis: result.portfolioStock.lastAnalysis
-          ? result.portfolioStock.lastAnalysis.toISOString()
-          : null,
-        shortTerm: result.portfolioStock.shortTerm,
-        mediumTerm: result.portfolioStock.mediumTerm,
-        longTerm: result.portfolioStock.longTerm,
-        takeProfitRate: result.portfolioStock.takeProfitRate
-          ? Number(result.portfolioStock.takeProfitRate)
-          : null,
-        stopLossRate: result.portfolioStock.stopLossRate
-          ? Number(result.portfolioStock.stopLossRate)
-          : null,
-        transactions: result.allTransactions.map((t) => ({
-          id: t.id,
-          type: t.type,
-          quantity: t.quantity,
-          price:
-            t.price instanceof Decimal ? t.price.toNumber() : Number(t.price),
-          totalAmount:
-            t.totalAmount instanceof Decimal
-              ? t.totalAmount.toNumber()
-              : Number(t.totalAmount),
-          transactionDate:
-            t.transactionDate instanceof Date
-              ? t.transactionDate.toISOString()
-              : t.transactionDate,
-        })),
-        stock: {
-          id: result.portfolioStock.stock.id,
-          tickerCode: result.portfolioStock.stock.tickerCode,
-          name: result.portfolioStock.stock.name,
-          sector: result.portfolioStock.stock.sector,
-          market: result.portfolioStock.stock.market,
-          currentPrice,
-        },
-        createdAt: result.portfolioStock.createdAt.toISOString(),
-        updatedAt: result.portfolioStock.updatedAt.toISOString(),
-      };
+      // 共通関数でレスポンスを整形
+      const response = buildPortfolioStockResponse({
+        portfolioStock: result.portfolioStock as Parameters<
+          typeof buildPortfolioStockResponse
+        >[0]["portfolioStock"],
+        transactions: result.allTransactions,
+        currentPrice,
+      });
 
       return NextResponse.json(response, { status: 201 });
     }

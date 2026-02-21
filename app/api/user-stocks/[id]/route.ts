@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Decimal } from "@prisma/client/runtime/library";
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 import { UserStockResponse } from "../route";
 import { fetchStockPrices } from "@/lib/stock-price-fetcher";
+import {
+  fetchDefaultTpSlRates,
+  createPortfolioStockWithTransaction,
+  buildPortfolioStockResponse,
+} from "@/lib/portfolio-stock-utils";
 
 interface UpdateUserStockRequest {
   type?: "watchlist" | "portfolio";
@@ -111,75 +115,23 @@ async function handleConversion(
     const transactionDate = purchaseDate ? new Date(purchaseDate) : new Date();
 
     // デフォルト設定（%）から目標価格を自動計算
-    let takeProfitPriceCalc: number | null = null;
-    let stopLossPriceCalc: number | null = null;
+    const {
+      takeProfitRate: takeProfitPriceCalc,
+      stopLossRate: stopLossPriceCalc,
+    } = await fetchDefaultTpSlRates(userId);
 
-    try {
-      const userSettings = await prisma.userSettings.findUnique({
-        where: { userId },
-      });
-
-      if (userSettings) {
-        if (
-          userSettings.targetReturnRate &&
-          userSettings.targetReturnRate > 0
-        ) {
-          takeProfitPriceCalc = userSettings.targetReturnRate;
-        }
-        if (userSettings.stopLossRate && userSettings.stopLossRate < 0) {
-          stopLossPriceCalc = userSettings.stopLossRate;
-        }
-      }
-    } catch (err) {
-      console.error(
-        "Failed to fetch user settings for default TP/SL calculation:",
-        err,
-      );
-    }
-
-    // Delete from watchlist and create in portfolio with transaction
+    // ウォッチリストを削除し、ポートフォリオ作成（共通関数）をトランザクション内で実行
     const result = await prisma.$transaction(async (tx) => {
       await tx.watchlistStock.delete({ where: { id } });
-
-      const newPortfolioStock = await tx.portfolioStock.create({
-        data: {
-          userId,
-          stockId: watchlistStock.stockId,
-          quantity, // 初回購入数量を設定
-          takeProfitRate: takeProfitPriceCalc
-            ? new Decimal(takeProfitPriceCalc)
-            : null,
-          stopLossRate: stopLossPriceCalc
-            ? new Decimal(stopLossPriceCalc)
-            : null,
-        },
-        include: {
-          stock: {
-            select: {
-              id: true,
-              tickerCode: true,
-              name: true,
-              sector: true,
-              market: true,
-            },
-          },
-        },
+      return createPortfolioStockWithTransaction(tx, {
+        userId,
+        stockId: watchlistStock.stockId,
+        quantity,
+        averagePurchasePrice,
+        transactionDate,
+        takeProfitRate: takeProfitPriceCalc,
+        stopLossRate: stopLossPriceCalc,
       });
-
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          stockId: watchlistStock.stockId,
-          portfolioStockId: newPortfolioStock.id,
-          type: "buy",
-          quantity,
-          price: new Decimal(averagePurchasePrice),
-          totalAmount: new Decimal(quantity).times(averagePurchasePrice),
-          transactionDate,
-        },
-      });
-
-      return { portfolioStock: newPortfolioStock, transaction };
     });
 
     // リアルタイム株価を取得
@@ -188,35 +140,12 @@ async function handleConversion(
     ]);
     const currentPrice = prices[0]?.currentPrice ?? null;
 
-    const response: UserStockResponse = {
-      id: result.portfolioStock.id,
-      userId: result.portfolioStock.userId,
-      stockId: result.portfolioStock.stockId,
-      type: "portfolio",
-      quantity,
-      averagePurchasePrice,
-      purchaseDate: transactionDate.toISOString(),
-      transactions: [
-        {
-          id: result.transaction.id,
-          type: result.transaction.type,
-          quantity: result.transaction.quantity,
-          price: result.transaction.price.toNumber(),
-          totalAmount: result.transaction.totalAmount.toNumber(),
-          transactionDate: result.transaction.transactionDate.toISOString(),
-        },
-      ],
-      stock: {
-        id: result.portfolioStock.stock.id,
-        tickerCode: result.portfolioStock.stock.tickerCode,
-        name: result.portfolioStock.stock.name,
-        sector: result.portfolioStock.stock.sector,
-        market: result.portfolioStock.stock.market,
-        currentPrice,
-      },
-      createdAt: result.portfolioStock.createdAt.toISOString(),
-      updatedAt: result.portfolioStock.updatedAt.toISOString(),
-    };
+    // 共通関数でレスポンスを整形
+    const response = buildPortfolioStockResponse({
+      portfolioStock: result.portfolioStock,
+      transactions: [result.transaction],
+      currentPrice,
+    });
 
     return NextResponse.json(response);
   } else if (convertTo === "watchlist" && portfolioStock) {
