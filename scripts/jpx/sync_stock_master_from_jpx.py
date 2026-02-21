@@ -142,17 +142,20 @@ def parse_jpx_excel(excel_data: bytes) -> list[dict]:
         print(f"  Verifying batch {batch_num}/{total_batches}...")
         try:
             result = fetch_prices_bulk(tickers)
-            valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
 
-            for stock in chunk:
-                if stock["ticker"] in valid_results:
-                    # 正しいサフィックスに更新（例: .T か .NG か）
-                    stock["ticker"] = valid_results[stock["ticker"]]
-                    verified_stocks.append(stock)
+            if result.get("error"):
+                # エラー時（レート制限リトライ上限超過など）は元のデータを維持
+                print(f"  Warning: verification failed, keeping original data: {result['error']}")
+                verified_stocks.extend(chunk)
+            else:
+                valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
+                for stock in chunk:
+                    if stock["ticker"] in valid_results:
+                        # 正しいサフィックスに更新（例: .T か .NG か）
+                        stock["ticker"] = valid_results[stock["ticker"]]
+                        verified_stocks.append(stock)
         except Exception as e:
             print(f"  Error verifying batch: {e}")
-            # エラーの場合は安全のため元のデータを維持（またはスキップ）
-            # ここではスキップせずに継続
             verified_stocks.extend(chunk)
 
         # レート制限を避けるため、バッチ間にスリープ

@@ -228,9 +228,12 @@ def main() -> int:
     print("Verifying stocks on Yahoo Finance...")
     # scripts/python/fetch_stock_prices.py の fetch_prices_bulk をインポート
     # PYTHONPATHの調整が必要な場合があるが、ここでは直接インポート（cwd想定）
-    sys.path.append(str(Path(__file__).parent.parent.parent))
+    _project_root = str(Path(__file__).parent.parent.parent)
+    _scripts_dir = str(Path(__file__).parent.parent)
+    sys.path.append(_project_root)
+    sys.path.insert(0, _scripts_dir)
     from scripts.python.fetch_stock_prices import fetch_prices_bulk
-    from scripts.lib.constants import YFINANCE_BATCH_SLEEP_SECONDS
+    from lib.constants import YFINANCE_BATCH_SLEEP_SECONDS
 
     verified_stocks = []
     CHUNK_SIZE = 50
@@ -243,16 +246,20 @@ def main() -> int:
         print(f"  Verifying batch {batch_num}/{total_batches}...")
         try:
             result = fetch_prices_bulk(tickers)
-            valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
 
-            for stock in chunk:
-                if stock["ticker"] in valid_results:
-                    # 正しいサフィックスに更新
-                    stock["ticker"] = valid_results[stock["ticker"]]
-                    verified_stocks.append(stock)
+            if result.get("error"):
+                # エラー時（レート制限リトライ上限超過など）は元のデータを維持
+                print(f"  Warning: verification failed, keeping original data: {result['error']}")
+                verified_stocks.extend(chunk)
+            else:
+                valid_results = {p["tickerCode"]: p["actualTicker"] for p in result["prices"]}
+                for stock in chunk:
+                    if stock["ticker"] in valid_results:
+                        # 正しいサフィックスに更新
+                        stock["ticker"] = valid_results[stock["ticker"]]
+                        verified_stocks.append(stock)
         except Exception as e:
             print(f"  Error verifying batch: {e}")
-            # エラーの場合はパス（または元のデータを維持）
             verified_stocks.extend(chunk)
 
         # レート制限を避けるため、バッチ間にスリープ
