@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import Footer from "@/app/components/Footer";
 import BottomNavigation from "@/app/components/BottomNavigation";
 import BackButton from "@/app/components/BackButton";
+import { UPDATE_SCHEDULES } from "@/lib/constants";
 
 type PushSubscriptionState = {
   supported: boolean;
@@ -301,19 +302,15 @@ export default function SettingsPage() {
                 <li className="flex items-start gap-2">
                   <span>•</span>
                   <span>
-                    <strong>7:00</strong> - 保有銘柄分析
+                    <strong>{UPDATE_SCHEDULES.STOCK_ANALYSIS}</strong> -
+                    ポートフォリオ分析・購入レコメンド（平日）
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span>•</span>
                   <span>
-                    <strong>9:00 / 15:00 / 22:00</strong> - 注目銘柄更新
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span>•</span>
-                  <span>
-                    <strong>17:00</strong> - 株価データ更新
+                    <strong>{UPDATE_SCHEDULES.PERSONAL_RECOMMENDATIONS}</strong>{" "}
+                    - あなたへのおすすめ更新（平日）
                   </span>
                 </li>
               </ul>
