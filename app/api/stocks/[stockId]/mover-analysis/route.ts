@@ -3,6 +3,7 @@ import { verifyCronAuth } from "@/lib/cron-auth"
 import { prisma } from "@/lib/prisma"
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag"
 import { getOpenAIClient } from "@/lib/openai"
+import { buildMoverAnalysisMessages } from "@/lib/prompts/mover-analysis-prompt"
 
 interface MoverAnalysis {
   analysis: string
@@ -84,41 +85,23 @@ export async function POST(
     const direction = moverType === "gainer" ? "上昇" : "下落"
 
     // OpenAIで原因分析
+    const { systemMessage, userMessage } = buildMoverAnalysisMessages({
+      direction,
+      stockName: stock.name,
+      tickerCode: stock.tickerCode,
+      sector: stock.sector,
+      changeRate,
+      latestPrice: Number(stock.latestPrice),
+      latestVolume: stock.latestVolume ? Number(stock.latestVolume) : null,
+      weekChangeRate: stock.weekChangeRate ? Number(stock.weekChangeRate) : null,
+      volumeRatio: stock.volumeRatio ? Number(stock.volumeRatio) : null,
+      newsForPrompt,
+    })
     const response = await getOpenAIClient().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content: `あなたは株式投資の専門家です。初心者向けに株価変動の原因を分析してください。
-専門用語を使う場合は必ず簡単な解説を添えてください。
-例:「出来高（取引された株の数）が急増しており...」
-
-【重要: ハルシネーション防止】
-- 提供されたニュース情報のみを参考にしてください
-- ニュースにない情報（決算発表、業績予想、M&A、人事異動など）は推測・創作しないでください
-- 関連ニュースがない場合は「具体的な材料は確認できませんが」と前置きしてください
-- 過去の一般知識（例:「○○社は過去に○○した」）は使用しないでください`,
-        },
-        {
-          role: "user",
-          content: `以下の銘柄が本日${direction}しました。原因を分析してください。
-
-【銘柄情報】
-- 銘柄: ${stock.name}（${stock.tickerCode}）
-- セクター: ${stock.sector || "不明"}
-- 前日比: ${changeRate > 0 ? "+" : ""}${changeRate.toFixed(2)}%
-- 現在株価: ${Number(stock.latestPrice).toLocaleString()}円
-- 出来高: ${stock.latestVolume ? Number(stock.latestVolume).toLocaleString() : "不明"}
-- 週間変化率: ${stock.weekChangeRate ? `${Number(stock.weekChangeRate) > 0 ? "+" : ""}${Number(stock.weekChangeRate).toFixed(2)}%` : "不明"}
-- 出来高比率: ${stock.volumeRatio ? `${Number(stock.volumeRatio).toFixed(2)}倍` : "不明"}
-
-【関連ニュース】
-${newsForPrompt || "関連ニュースなし"}
-
-【回答の制約】
-- 上記のニュース情報のみを参考にしてください
-- ニュースにない情報は創作しないでください`,
-        },
+        { role: "system", content: systemMessage },
+        { role: "user", content: userMessage },
       ],
       response_format: ANALYSIS_SCHEMA,
       temperature: 0.3,

@@ -11,7 +11,7 @@ import { createChatTools } from "@/lib/chat-tools";
 import {
   buildChatSystemPrompt,
   type StockPreloadedData,
-} from "@/lib/chat-system-prompt";
+} from "@/lib/prompts/chat-system-prompt";
 import { CHAT_CONFIG } from "@/lib/constants";
 import { getRelatedNews, type RelatedNews } from "@/lib/news-rag";
 import { getDaysAgoForDB } from "@/lib/date-utils";

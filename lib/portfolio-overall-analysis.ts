@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { getOpenAIClient } from "@/lib/openai"
+import { buildPortfolioOverallAnalysisPrompt } from "@/lib/prompts/portfolio-overall-analysis-prompt"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -250,109 +251,30 @@ async function generateAnalysisWithAI(
   const decreasingCount = portfolioStocks.filter(s => s.profitTrend === "decreasing").length
   const hasEarningsData = portfolioStocks.some(s => s.isProfitable !== null)
 
-  const maxSectorConcentration = sectorBreakdown.length > 0 ? sectorBreakdown[0].percentage : 0
-
-  const prompt = `あなたは投資初心者向けのAIコーチです。
-以下のポートフォリオ情報を分析し、総評と指標別の解説を提供してください。
-
-【ポートフォリオ情報】
-- 保有銘柄数: ${portfolioStocks.length}銘柄
-- ウォッチリスト銘柄数: ${watchlistStocks.length}銘柄
-- 総資産額: ¥${Math.round(totalValue).toLocaleString()}
-- 総投資額: ¥${Math.round(totalCost).toLocaleString()}
-- 含み損益: ¥${Math.round(unrealizedGain).toLocaleString()}（${unrealizedGainPercent >= 0 ? "+" : ""}${unrealizedGainPercent.toFixed(1)}%）
-
-【保有銘柄】
-${portfolioStocksText}
-
-【セクター構成】
-${sectorBreakdownText}
-
-【ボラティリティ】
-- ポートフォリオ全体: ${portfolioVolatility != null ? portfolioVolatility.toFixed(1) + "%" : "データなし"}
-
-【業績状況】
-${hasEarningsData ? `- 黒字銘柄: ${profitableCount}/${portfolioStocks.length}銘柄
-- 増益傾向: ${increasingCount}銘柄
-- 減益傾向: ${decreasingCount}銘柄` : "業績データなし"}
-
-【⚠️ リスク警告: 赤字銘柄】
-${unprofitablePortfolioStocks.length > 0
-  ? `ポートフォリオ: ${unprofitablePortfolioStocks.map(s => s.name).join("、")}（${unprofitablePortfolioStocks.length}銘柄が赤字）`
-  : "ポートフォリオ: 赤字銘柄なし"}
-${unprofitableWatchlistStocks.length > 0
-  ? `ウォッチリスト: ${unprofitableWatchlistStocks.map(s => s.name).join("、")}（${unprofitableWatchlistStocks.length}銘柄が赤字）`
-  : "ウォッチリスト: 赤字銘柄なし"}
-
-【ウォッチリスト銘柄】
-${watchlistStocksText}
-
-【回答形式】
-以下のJSON形式で回答してください。
-
-{
-  "overallSummary": "全体の総評を初心者向けに2-3文で。専門用語を使う場合は括弧で解説を添える",
-  "overallStatus": "好調/順調/やや低調/注意/要確認のいずれか",
-  "overallStatusType": "excellent/good/neutral/caution/warningのいずれか",
-  "metricsAnalysis": {
-    "sectorDiversification": {
-      "value": "最も比率の高いセクターと比率（例: 67%（テクノロジー））",
-      "explanation": "セクター分散の意味と重要性を中学生でも分かる言葉で1-2文",
-      "evaluation": "評価（優秀/適正/注意など）",
-      "evaluationType": "good/neutral/warning",
-      "action": "具体的な改善アクション（なければ「現状維持で問題ありません」）"
-    },
-    "profitLoss": {
-      "value": "含み損益額と率（例: +12,500円（+8.5%））",
-      "explanation": "損益状況の解説を1-2文",
-      "evaluation": "評価（好調/順調/やや低調/注意など）",
-      "evaluationType": "good/neutral/warning",
-      "action": "アドバイス"
-    },
-    "volatility": {
-      "value": "ボラティリティ値（例: 18.5%）",
-      "explanation": "ボラティリティの意味と現在の評価を1-2文",
-      "evaluation": "評価（安定/普通/やや高め/高めなど）",
-      "evaluationType": "good/neutral/warning",
-      "action": "アドバイス"
-    }
-  },
-  "actionSuggestions": [
-    {
-      "priority": 1,
-      "title": "最も重要なアクションのタイトル",
-      "description": "具体的な説明",
-      "type": "diversify/rebalance/hold/take_profit/cut_loss"
-    }
-  ],
-  "watchlistSimulation": ${watchlistStocks.length > 0 ? `{
-    "stocks": [
-      ${watchlistStocks.map(ws => `{
-        "stockId": "${ws.stockId}",
-        "stockName": "${ws.name}",
-        "tickerCode": "${ws.tickerCode}",
-        "sector": "${ws.sector || "その他"}",
-        "predictedImpact": {
-          "sectorConcentrationChange": -5.0,
-          "diversificationScore": "改善/悪化/変化なし",
-          "recommendation": "この銘柄を追加した場合の具体的なアドバイス"
-        }
-      }`).join(",")}
-    ]
-  }` : "null"}
-}
-
-【表現の指針】
-- 専門用語には必ず解説を添える（例：「ボラティリティ（値動きの激しさ）」）
-- 数値の基準を具体的に説明する（例：「20%以下は比較的安定」）
-- 行動につながる具体的なアドバイスを含める
-- ネガティブな内容も前向きな表現で伝える
-
-【重要: ハルシネーション防止】
-- 提供されたデータのみを使用してください
-- 決算発表、業績予想、ニュースなど、提供されていない情報を創作しないでください
-- 銘柄の将来性について断定的な予測をしないでください
-- 不明なデータは「データがないため判断できません」と明示してください`
+  const prompt = buildPortfolioOverallAnalysisPrompt({
+    portfolioCount: portfolioStocks.length,
+    watchlistCount: watchlistStocks.length,
+    totalValue,
+    totalCost,
+    unrealizedGain,
+    unrealizedGainPercent,
+    portfolioVolatility,
+    sectorBreakdownText,
+    portfolioStocksText,
+    watchlistStocksText,
+    hasEarningsData,
+    profitableCount,
+    increasingCount,
+    decreasingCount,
+    unprofitablePortfolioNames: unprofitablePortfolioStocks.map(s => s.name),
+    unprofitableWatchlistNames: unprofitableWatchlistStocks.map(s => s.name),
+    watchlistForSimulation: watchlistStocks.map(ws => ({
+      stockId: ws.stockId,
+      name: ws.name,
+      tickerCode: ws.tickerCode,
+      sector: ws.sector,
+    })),
+  })
 
   // MetricAnalysis のスキーマ定義
   const metricAnalysisSchema = {
