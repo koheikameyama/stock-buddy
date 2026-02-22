@@ -2,9 +2,11 @@ import { auth } from "@/auth";
 import Image from "next/image";
 import Link from "next/link";
 import NotificationBell from "./NotificationBell";
+import { getTranslations } from 'next-intl/server';
 
 export default async function Header() {
   const session = await auth();
+  const t = await getTranslations('common');
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm">
@@ -14,14 +16,14 @@ export default async function Header() {
           <Link href="/dashboard" className="flex items-center gap-2">
             <Image
               src="/favicon.png"
-              alt="Stock Buddy"
+              alt={t('appName')}
               width={32}
               height={32}
               className="rounded"
             />
-            <span className="text-xl font-bold text-gray-900">Stock Buddy</span>
+            <span className="text-xl font-bold text-gray-900">{t('appName')}</span>
             <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-blue-200 ml-1">
-              東証限定
+              {t('badge.tokyoStockExchange')}
             </span>
           </Link>
 
