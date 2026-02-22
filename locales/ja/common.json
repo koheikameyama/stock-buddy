@@ -1,0 +1,60 @@
+{
+  "appName": "Stock Buddy",
+  "buttons": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "close": "閉じる",
+    "back": "戻る",
+    "add": "追加",
+    "remove": "削除",
+    "confirm": "確認",
+    "send": "送信",
+    "search": "検索",
+    "filter": "絞り込み",
+    "clear": "クリア",
+    "apply": "適用",
+    "yes": "はい",
+    "no": "いいえ",
+    "ok": "OK"
+  },
+  "errors": {
+    "loadFailed": "データの読み込みに失敗しました",
+    "saveFailed": "保存に失敗しました",
+    "deleteFailed": "削除に失敗しました",
+    "networkError": "ネットワークエラーが発生しました",
+    "serverError": "サーバーエラーが発生しました",
+    "invalidInput": "入力内容に誤りがあります",
+    "required": "必須項目です",
+    "unauthorized": "認証が必要です",
+    "forbidden": "アクセス権限がありません",
+    "notFound": "データが見つかりません"
+  },
+  "labels": {
+    "loading": "読み込み中...",
+    "noData": "データがありません",
+    "search": "検索",
+    "filter": "絞り込み",
+    "sort": "並び替え",
+    "date": "日付",
+    "time": "時刻",
+    "status": "ステータス",
+    "type": "種別",
+    "all": "すべて"
+  },
+  "navigation": {
+    "home": "ホーム",
+    "dashboard": "ダッシュボード",
+    "portfolio": "ポートフォリオ",
+    "watchlist": "ウォッチリスト",
+    "analysis": "分析",
+    "news": "ニュース",
+    "settings": "設定",
+    "menu": "メニュー",
+    "notifications": "通知"
+  },
+  "badge": {
+    "tokyoStockExchange": "東証限定"
+  }
+}

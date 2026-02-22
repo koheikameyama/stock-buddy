@@ -1,14 +1,16 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useTranslations } from 'next-intl'
 
 interface BackButtonProps {
   href?: string
   label?: string
 }
 
-export default function BackButton({ href = "/my-stocks", label = "戻る" }: BackButtonProps) {
+export default function BackButton({ href = "/my-stocks", label }: BackButtonProps) {
   const router = useRouter()
+  const t = useTranslations('common.buttons')
 
   return (
     <button
@@ -28,7 +30,7 @@ export default function BackButton({ href = "/my-stocks", label = "戻る" }: Ba
           d="M15 19l-7-7 7-7"
         />
       </svg>
-      <span className="text-sm sm:text-base font-semibold">{label}</span>
+      <span className="text-sm sm:text-base font-semibold">{label || t('back')}</span>
     </button>
   )
 }

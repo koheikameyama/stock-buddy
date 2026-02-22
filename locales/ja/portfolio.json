@@ -1,0 +1,102 @@
+{
+  "title": "ポートフォリオ",
+  "myStocks": "マイ銘柄",
+  "description": "気になる銘柄と保有銘柄を一覧管理",
+  "backToDashboard": "ダッシュボードに戻る",
+  "overallAnalysisButton": "総評",
+  "summary": {
+    "title": "サマリー",
+    "totalValue": "評価額合計",
+    "totalInvestment": "投資額合計",
+    "totalGain": "損益",
+    "gainRate": "損益率",
+    "cash": "現金",
+    "totalAssets": "総資産",
+    "unrealizedGain": "含み損益",
+    "realizedGain": "確定損益",
+    "dailyChange": "本日の変動",
+    "cashRatio": "現金比率"
+  },
+  "tabs": {
+    "holdings": "保有中",
+    "watchlist": "ウォッチリスト",
+    "watchlistAlt": "気になる",
+    "sold": "売却済み",
+    "soldAlt": "過去の保有",
+    "tracked": "追跡銘柄",
+    "trackedAlt": "追跡"
+  },
+  "tracked": {
+    "description": "AI分析なしで株価を追跡",
+    "addButton": "追跡銘柄を追加",
+    "emptyTitle": "追跡中の銘柄はありません",
+    "emptyDescription": "AI分析なしで株価だけ追いたい銘柄を追加しましょう",
+    "addStockButton": "銘柄を追加する"
+  },
+  "addStock": {
+    "title": "銘柄を追加",
+    "searchPlaceholder": "銘柄名またはティッカーで検索",
+    "selectType": "追加先を選択",
+    "portfolio": "ポートフォリオ",
+    "watchlist": "ウォッチリスト",
+    "purchaseDate": "購入日",
+    "quantity": "株数",
+    "purchasePrice": "購入価格",
+    "success": "銘柄を追加しました"
+  },
+  "stockCard": {
+    "currentPrice": "現在価格",
+    "purchasePrice": "購入価格",
+    "quantity": "保有数",
+    "totalValue": "評価額",
+    "gain": "損益",
+    "gainRate": "損益率",
+    "dayChange": "日次変動",
+    "addedDate": "追加日",
+    "purchaseDate": "購入日",
+    "soldDate": "売却日",
+    "soldPrice": "売却価格",
+    "viewDetails": "詳細を見る",
+    "edit": "編集",
+    "delete": "削除",
+    "sell": "売却",
+    "buy": "購入"
+  },
+  "deleteConfirm": {
+    "title": "銘柄を削除しますか？",
+    "message": "この操作は取り消せません。",
+    "success": "銘柄を削除しました"
+  },
+  "sellConfirm": {
+    "title": "銘柄を売却しますか？",
+    "soldPrice": "売却価格",
+    "soldDate": "売却日",
+    "success": "銘柄を売却しました"
+  },
+  "editTransaction": {
+    "title": "取引を編集",
+    "success": "取引を更新しました"
+  },
+  "additionalPurchase": {
+    "title": "追加購入",
+    "success": "追加購入を記録しました"
+  },
+  "analysis": {
+    "title": "ポートフォリオ分析",
+    "overallAnalysis": "総合分析",
+    "composition": "構成",
+    "history": "履歴",
+    "performance": "パフォーマンス"
+  },
+  "settings": {
+    "takeProfitLine": "利確ライン",
+    "stopLossLine": "損切りライン",
+    "targetBuyPrice": "目標購入価格",
+    "enableAlerts": "アラートを有効にする"
+  },
+  "limits": {
+    "portfolioMax": "ポートフォリオは最大{max}銘柄まで追加できます",
+    "watchlistMax": "ウォッチリストは最大{max}銘柄まで追加できます",
+    "trackedMax": "追跡銘柄は最大{max}銘柄まで追加できます"
+  }
+}

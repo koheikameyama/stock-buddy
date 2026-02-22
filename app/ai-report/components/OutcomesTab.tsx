@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 
 interface OutcomeData {
   id: string
@@ -41,31 +42,37 @@ function formatPercent(value: number | null): string {
   return `${sign}${value.toFixed(1)}%`
 }
 
-function formatPrediction(prediction: string): string {
-  const labels: Record<string, string> = {
-    buy: "買い",
-    stay: "様子見",
-    remove: "見送り",
-    up: "上昇",
-    down: "下落",
-    neutral: "横ばい",
-  }
-  return labels[prediction] || prediction
-}
-
-function formatType(type: string): string {
-  const labels: Record<string, string> = {
-    daily: "おすすめ",
-    purchase: "購入判断",
-    analysis: "銘柄分析",
-  }
-  return labels[type] || type
-}
-
 export default function OutcomesTab() {
+  const t = useTranslations('analysis.outcomesTab')
+  const tPredictions = useTranslations('analysis.outcomesTab.predictions')
+  const tFilters = useTranslations('analysis.outcomesTab.filters')
+  const tSummary = useTranslations('analysis.outcomesTab.summary')
+  const tTable = useTranslations('analysis.outcomesTab.table')
+  const tErrors = useTranslations('analysis.aiReport')
   const [data, setData] = useState<OutcomesResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState<string>("all")
+
+  const formatPrediction = (prediction: string): string => {
+    const labels: Record<string, string> = {
+      buy: tPredictions('buy'),
+      stay: tPredictions('stay'),
+      remove: tPredictions('remove'),
+      up: tPredictions('up'),
+      down: tPredictions('down'),
+      neutral: tPredictions('neutral'),
+    }
+    return labels[prediction] || prediction
+  }
+
+  const formatType = (type: string): string => {
+    const labels: Record<string, string> = {
+      daily: tFilters('recommendations'),
+      purchase: tFilters('purchases'),
+      analysis: tFilters('analysis'),
+    }
+    return labels[type] || type
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,7 +86,7 @@ export default function OutcomesTab() {
         }
 
         const response = await fetch(`/api/reports/recommendation-outcomes?${params}`)
-        if (!response.ok) throw new Error("データの取得に失敗しました")
+        if (!response.ok) throw new Error(tErrors('fetchError'))
         const result = await response.json()
         setData(result)
       } catch (err) {
@@ -90,7 +97,7 @@ export default function OutcomesTab() {
     }
 
     fetchData()
-  }, [typeFilter])
+  }, [typeFilter, tErrors])
 
   if (loading) {
     return (
@@ -109,8 +116,8 @@ export default function OutcomesTab() {
     return (
       <div className="text-center py-12 text-gray-500">
         <span className="text-4xl mb-4 block">📊</span>
-        <p>まだ評価データがありません</p>
-        <p className="text-sm mt-2">推薦が蓄積されると表示されます</p>
+        <p>{t('noData')}</p>
+        <p className="text-sm mt-2">{t('noDataDescription')}</p>
       </div>
     )
   }
@@ -122,26 +129,26 @@ export default function OutcomesTab() {
       {/* サマリー */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-gray-50 rounded-lg p-4">
-          <div className="text-xs text-gray-500 mb-1">件数</div>
+          <div className="text-xs text-gray-500 mb-1">{tSummary('count')}</div>
           <div className="text-2xl font-bold text-gray-900">
             {summary.evaluatedCount}<span className="text-sm text-gray-500">/{summary.totalCount}</span>
           </div>
-          <div className="text-xs text-gray-500">評価済み</div>
+          <div className="text-xs text-gray-500">{tSummary('evaluated')}</div>
         </div>
         <div className="bg-blue-50 rounded-lg p-4">
-          <div className="text-xs text-blue-600 mb-1">成功率（7日後）</div>
+          <div className="text-xs text-blue-600 mb-1">{tSummary('successRate7Days')}</div>
           <div className="text-2xl font-bold text-blue-900">
             {summary.successRate7Days !== null ? `${summary.successRate7Days}%` : "---"}
           </div>
         </div>
         <div className="bg-green-50 rounded-lg p-4">
-          <div className="text-xs text-green-600 mb-1">平均リターン（7日後）</div>
+          <div className="text-xs text-green-600 mb-1">{tSummary('avgReturn7Days')}</div>
           <div className="text-2xl font-bold text-green-900">
             {formatPercent(summary.avgReturn7Days)}
           </div>
         </div>
         <div className="bg-purple-50 rounded-lg p-4">
-          <div className="text-xs text-purple-600 mb-1">vs 日経225</div>
+          <div className="text-xs text-purple-600 mb-1">{tSummary('vsNikkei')}</div>
           <div className="text-2xl font-bold text-purple-900">
             {summary.avgReturn7Days !== null && summary.benchmarkAvgReturn7Days !== null
               ? formatPercent(summary.avgReturn7Days - summary.benchmarkAvgReturn7Days)
@@ -153,10 +160,10 @@ export default function OutcomesTab() {
       {/* フィルター */}
       <div className="flex gap-2 flex-wrap">
         {[
-          { value: "all", label: "全て" },
-          { value: "daily", label: "おすすめ" },
-          { value: "purchase", label: "購入判断" },
-          { value: "analysis", label: "銘柄分析" },
+          { value: "all", label: tFilters('all') },
+          { value: "daily", label: tFilters('recommendations') },
+          { value: "purchase", label: tFilters('purchases') },
+          { value: "analysis", label: tFilters('analysis') },
         ].map(({ value, label }) => (
           <button
             key={value}
@@ -177,14 +184,14 @@ export default function OutcomesTab() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-2 text-gray-600 font-medium">銘柄</th>
-              <th className="text-left py-3 px-2 text-gray-600 font-medium">種類</th>
-              <th className="text-left py-3 px-2 text-gray-600 font-medium">予測</th>
-              <th className="text-right py-3 px-2 text-gray-600 font-medium">信頼度</th>
-              <th className="text-right py-3 px-2 text-gray-600 font-medium">1日後</th>
-              <th className="text-right py-3 px-2 text-gray-600 font-medium">7日後</th>
-              <th className="text-right py-3 px-2 text-gray-600 font-medium">14日後</th>
-              <th className="text-right py-3 px-2 text-gray-600 font-medium">vs日経</th>
+              <th className="text-left py-3 px-2 text-gray-600 font-medium">{tTable('stock')}</th>
+              <th className="text-left py-3 px-2 text-gray-600 font-medium">{tTable('type')}</th>
+              <th className="text-left py-3 px-2 text-gray-600 font-medium">{tTable('prediction')}</th>
+              <th className="text-right py-3 px-2 text-gray-600 font-medium">{tTable('confidence')}</th>
+              <th className="text-right py-3 px-2 text-gray-600 font-medium">{tTable('after1Day')}</th>
+              <th className="text-right py-3 px-2 text-gray-600 font-medium">{tTable('after7Days')}</th>
+              <th className="text-right py-3 px-2 text-gray-600 font-medium">{tTable('after14Days')}</th>
+              <th className="text-right py-3 px-2 text-gray-600 font-medium">{tTable('vsNikkei')}</th>
             </tr>
           </thead>
           <tbody>

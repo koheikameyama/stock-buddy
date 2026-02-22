@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import PurchaseRecommendation from "@/app/components/PurchaseRecommendation";
 import StockAnalysisCard from "@/app/components/StockAnalysisCard";
 import FinancialMetrics from "@/app/components/FinancialMetrics";
@@ -92,6 +93,8 @@ export default function MyStockDetailClient({
   portfolioDetails,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations('stocks.detail');
+  const tTabs = useTranslations('stocks.tabs');
   const { setStockContext } = useChatContext();
   const { price, loading, isStale } = useStockPrice(stock.stock.tickerCode);
   const [selectedTransaction, setSelectedTransaction] =
@@ -169,7 +172,7 @@ export default function MyStockDetailClient({
   ]);
 
   const handleDelete = async () => {
-    if (!confirm(`${stock.stock.name}を削除しますか？`)) {
+    if (!confirm(t('confirmDelete', { name: stock.stock.name }))) {
       return;
     }
 
@@ -194,7 +197,7 @@ export default function MyStockDetailClient({
   const handleDeleteTransaction = async (transactionId: string) => {
     if (
       !confirm(
-        "この取引履歴を削除しますか？保有数量と平均単価が再計算されます。",
+        t('confirmDeleteTransaction'),
       )
     ) {
       return;
@@ -240,7 +243,7 @@ export default function MyStockDetailClient({
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                現在の状況
+                {t('currentStatus')}
               </h2>
               <div className="flex gap-2">
                 <button
@@ -250,7 +253,7 @@ export default function MyStockDetailClient({
                   }}
                   className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
                 >
-                  +追加購入
+                  {t('addPurchase')}
                 </button>
                 <button
                   onClick={() => {
@@ -260,7 +263,7 @@ export default function MyStockDetailClient({
                   disabled={quantity === 0}
                   className="px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 rounded transition-colors disabled:text-gray-400 disabled:hover:bg-transparent"
                 >
-                  -売却
+                  {t('sell')}
                 </button>
               </div>
             </div>
@@ -269,10 +272,10 @@ export default function MyStockDetailClient({
               {/* Current Price */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">
-                  {stock.stock.isDelisted ? "最終価格" : "現在価格"}
+                  {stock.stock.isDelisted ? t('finalPrice') : t('currentPrice')}
                 </span>
                 {loading ? (
-                  <span className="text-sm text-gray-400">読み込み中...</span>
+                  <span className="text-sm text-gray-400">{t('loading')}</span>
                 ) : price ? (
                   <div className="text-right">
                     <p
@@ -301,38 +304,38 @@ export default function MyStockDetailClient({
                             minute: "2-digit",
                           },
                         )}
-                        時点
+                        {t('asOf')}
                       </p>
                     )}
                   </div>
                 ) : isStale ? (
                   <span className="text-xs text-amber-600">
-                    株価データが取得できませんでした。
+                    {t('priceDataUnavailable')}
                     <br />
-                    上場廃止、取引停止の銘柄の可能性があります。
+                    {t('delistedOrSuspendedWarning')}
                   </span>
                 ) : (
-                  <span className="text-sm text-gray-400">価格情報なし</span>
+                  <span className="text-sm text-gray-400">{t('noPriceInfo')}</span>
                 )}
               </div>
 
               {/* Holdings Info */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">保有数</span>
+                <span className="text-gray-600">{t('quantity')}</span>
                 <span className="font-semibold text-gray-900">
-                  {quantity}株
+                  {quantity}{t('shares')}
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">平均取得単価</span>
+                <span className="text-gray-600">{t('averagePrice')}</span>
                 <span className="font-semibold text-gray-900">
                   ¥{averagePrice.toLocaleString()}
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">評価額</span>
+                <span className="text-gray-600">{t('currentValue')}</span>
                 <span className="font-semibold text-gray-900">
                   ¥{currentValue.toLocaleString()}
                 </span>
@@ -348,7 +351,7 @@ export default function MyStockDetailClient({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">評価損益</span>
+                    <span className="text-sm text-gray-600">{t('unrealizedPL')}</span>
                     <div className="text-right">
                       <p
                         className={`text-2xl font-bold ${
@@ -374,34 +377,34 @@ export default function MyStockDetailClient({
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-bold text-gray-700">
-                    個別利確・損切り設定
+                    {t('individualSettings')}
                   </h3>
                   <button
                     onClick={() => setShowSettingsModal(true)}
                     className="text-xs text-blue-600 font-semibold hover:underline"
                   >
-                    設定を変更
+                    {t('changeSettings')}
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-green-50 rounded-lg p-2.5 border border-green-100">
                     <p className="text-[10px] text-green-700 font-bold mb-0.5">
-                      利確ライン
+                      {t('takeProfitLine')}
                     </p>
                     <p className="text-sm font-bold text-green-800">
                       {currentTpRate && averagePrice
                         ? `¥${Math.round(averagePrice * (1 + currentTpRate / 100)).toLocaleString()}`
-                        : "未設定"}
+                        : t('notSet')}
                     </p>
                   </div>
                   <div className="bg-red-50 rounded-lg p-2.5 border border-red-100">
                     <p className="text-[10px] text-red-700 font-bold mb-0.5">
-                      損切りライン
+                      {t('stopLossLine')}
                     </p>
                     <p className="text-sm font-bold text-red-800">
                       {currentSlRate && averagePrice
                         ? `¥${Math.round(averagePrice * (1 + currentSlRate / 100)).toLocaleString()}`
-                        : "未設定"}
+                        : t('notSet')}
                     </p>
                   </div>
                 </div>
@@ -422,10 +425,10 @@ export default function MyStockDetailClient({
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
             <Tabs
               tabs={[
-                { id: "chart", label: "チャート" },
-                { id: "analysis", label: "分析" },
-                { id: "news", label: "ニュース" },
-                { id: "details", label: "詳細" },
+                { id: "chart", label: tTabs('chart') },
+                { id: "analysis", label: tTabs('technical') },
+                { id: "news", label: tTabs('news') },
+                { id: "details", label: tTabs('details') },
               ]}
               defaultTab="chart"
             >
@@ -458,7 +461,7 @@ export default function MyStockDetailClient({
           {stock.transactions && stock.transactions.length > 0 && (
             <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-                取引履歴
+                {t('transactionHistory')}
               </h2>
 
               <div className="space-y-3">
@@ -475,7 +478,7 @@ export default function MyStockDetailClient({
                             : "bg-orange-100 text-orange-700"
                         }`}
                       >
-                        {transaction.type === "buy" ? "買" : "売"}
+                        {transaction.type === "buy" ? t('buy') : t('sellButton')}
                       </span>
                       <div>
                         <p className="text-sm font-semibold text-gray-900">
@@ -488,7 +491,7 @@ export default function MyStockDetailClient({
                     <div className="flex items-center gap-3">
                       <div className="text-right">
                         <p className="text-sm font-semibold text-gray-900">
-                          {transaction.quantity}株 @ ¥
+                          {transaction.quantity}{t('shares')} @ ¥
                           {transaction.price.toLocaleString()}
                         </p>
                         <p className="text-xs text-gray-500">
@@ -505,7 +508,7 @@ export default function MyStockDetailClient({
                             )
                           }
                           className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                          title="メニュー"
+                          title={t('menu')}
                         >
                           <svg
                             className="w-4 h-4"
@@ -531,7 +534,7 @@ export default function MyStockDetailClient({
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
-                                編集
+                                {t('edit')}
                               </button>
                               <button
                                 onClick={() => {
@@ -540,7 +543,7 @@ export default function MyStockDetailClient({
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                               >
-                                削除
+                                {t('delete')}
                               </button>
                             </div>
                           </>
@@ -572,14 +575,14 @@ export default function MyStockDetailClient({
                   onClick={() => setShowPurchaseDialog(true)}
                   className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
                 >
-                  +購入
+                  {t('purchase')}
                 </button>
                 <button
                   onClick={() => setShowTrackingModal(true)}
                   disabled={trackingStock}
                   className="px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                 >
-                  -見送り
+                  {t('skip')}
                 </button>
               </>
             }
@@ -598,8 +601,8 @@ export default function MyStockDetailClient({
                 }`}
               >
                 {currentTargetBuyPrice
-                  ? `🔔 通知設定中（¥${currentTargetBuyPrice.toLocaleString()}）`
-                  : "🔔 買い時通知を設定"}
+                  ? t('alertSet', { price: currentTargetBuyPrice.toLocaleString() })
+                  : t('setBuyAlert')}
               </button>
             }
           />
@@ -610,7 +613,7 @@ export default function MyStockDetailClient({
               onClick={() => setIsSimulating(true)}
               className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-colors"
             >
-              購入後分析シミュレーション
+              {t('postPurchaseSimulation')}
             </button>
           </div>
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
@@ -668,10 +671,10 @@ export default function MyStockDetailClient({
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
             <Tabs
               tabs={[
-                { id: "chart", label: "チャート" },
-                { id: "analysis", label: "分析" },
-                { id: "news", label: "ニュース" },
-                { id: "details", label: "詳細" },
+                { id: "chart", label: tTabs('chart') },
+                { id: "analysis", label: tTabs('technical') },
+                { id: "news", label: tTabs('news') },
+                { id: "details", label: tTabs('details') },
               ]}
               defaultTab="chart"
             >
@@ -751,7 +754,7 @@ export default function MyStockDetailClient({
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-lg font-bold text-gray-900">
-                この銘柄を追跡しますか？
+                {t('trackThisStock')}
               </h3>
               <button
                 onClick={() => setShowTrackingModal(false)}
@@ -776,7 +779,7 @@ export default function MyStockDetailClient({
               <span className="font-semibold">{stock.stock.name}</span>
             </p>
             <p className="text-sm text-gray-500 mb-6">
-              追跡すると、AI分析なしで株価だけを追いかけられます。気になるリストからは移動されます。
+              {t('trackingDescription')}
             </p>
             <div className="flex gap-2">
               <button
@@ -798,7 +801,7 @@ export default function MyStockDetailClient({
                 disabled={trackingStock}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
-                {trackingStock ? "処理中..." : "見送る"}
+                {trackingStock ? t('processing') : t('passForNow')}
               </button>
               <button
                 onClick={async () => {
@@ -830,7 +833,7 @@ export default function MyStockDetailClient({
                 disabled={trackingStock}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {trackingStock ? "処理中..." : "追跡する"}
+                {trackingStock ? t('processing') : t('track')}
               </button>
             </div>
           </div>
@@ -842,7 +845,7 @@ export default function MyStockDetailClient({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-bold text-gray-900">🔔 買い時通知</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('buyAlertTitle')}</h3>
               <button
                 onClick={() => setShowBuyAlertModal(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -863,12 +866,12 @@ export default function MyStockDetailClient({
               </button>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              設定した価格以下になったら通知します
+              {t('buyAlertDescription')}
             </p>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                目標買値
+                {t('targetBuyPrice')}
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
@@ -891,7 +894,7 @@ export default function MyStockDetailClient({
                 onClick={() => setShowBuyAlertModal(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                キャンセル
+                {t('cancel')}
               </button>
               <button
                 onClick={async () => {
@@ -924,12 +927,12 @@ export default function MyStockDetailClient({
                 disabled={savingTargetPrice}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {savingTargetPrice ? "保存中..." : "保存"}
+                {savingTargetPrice ? t('saving') : t('save')}
               </button>
             </div>
 
             <p className="text-xs text-gray-500 mt-3">
-              ※ 取引時間中に15分間隔でチェック
+              {t('buyAlertNote')}
             </p>
           </div>
         </div>

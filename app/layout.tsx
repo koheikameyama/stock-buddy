@@ -7,6 +7,8 @@ import GoogleAnalytics from './components/GoogleAnalytics'
 import { ChatProvider } from './contexts/ChatContext'
 import { BadgeProvider } from './contexts/BadgeContext'
 import { Toaster } from 'sonner'
+import { NextIntlClientProvider } from 'next-intl'
+import { getMessages } from 'next-intl/server'
 
 export const metadata: Metadata = {
   title: 'Stock Buddy - AI投資アシスタント',
@@ -39,11 +41,13 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const messages = await getMessages()
+
   return (
     <html lang="ja">
       <head>
@@ -51,16 +55,18 @@ export default function RootLayout({
         <meta name="google-adsense-account" content="ca-pub-7558679080857597" />
       </head>
       <body className="antialiased">
-        <ChatProvider>
-          <BadgeProvider>
-            <GoogleAnalytics />
-            {children}
-            <PWARegister />
-            <GlobalChatWrapper />
-            <AdSense />
-            <Toaster position="top-center" richColors />
-          </BadgeProvider>
-        </ChatProvider>
+        <NextIntlClientProvider messages={messages}>
+          <ChatProvider>
+            <BadgeProvider>
+              <GoogleAnalytics />
+              {children}
+              <PWARegister />
+              <GlobalChatWrapper />
+              <AdSense />
+              <Toaster position="top-center" richColors />
+            </BadgeProvider>
+          </ChatProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   )

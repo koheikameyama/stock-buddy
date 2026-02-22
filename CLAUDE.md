@@ -11,6 +11,7 @@
 AIに判断を任せながら、理由を理解できる投資。投資の知識がなくても、予算と期間を入れるだけでAIが最適な銘柄を提案。専門用語も解説付きで学びながら成長できる。
 
 **デザインイメージ**:
+
 - トーン: 親しみやすい、信頼感のある、落ち着いた
 - カラー: 信頼・安定を表すブルー系ベース、成長・上昇を表すグリーンをアクセント
 - イメージ: 初心者に寄り添うコーチ、一緒に成長するパートナー
@@ -19,6 +20,7 @@ AIに判断を任せながら、理由を理解できる投資。投資の知識
 ### ターゲットユーザー
 
 **投資初心者〜トレーダー志望 - 「学びながら成長したい」人**
+
 - 投資に興味があり、これからトレードしていきたい
 - 専門用語も含めて投資の知識を身につけたい
 - 実践的なスキルを段階的に学びたい
@@ -58,16 +60,19 @@ AIは「良い株を見つける」ことに集中し、「危ない株を止め
 これにより、AIの判断ミスによる損失リスクを軽減し、ユーザーに安心感を提供する。
 
 **ルールベースの強制補正条件（買い推奨をstayに変更）:**
+
 - 急騰銘柄（`weekChangeRate >= 30%`）
 - 赤字 かつ 高ボラティリティ（`isProfitable === false` && `volatility > 50%`）
 
 #### ❌ やってはいけないこと
+
 - 専門用語を解説なしで使う（用語には必ず説明を添える）
 - 選択肢を増やす（銘柄数、リスク許容度の詳細など）
 - ユーザーに判断を委ねすぎる
 - 複雑な機能を追加する
 
 #### ✅ やるべきこと
+
 - 専門用語＋分かりやすい解説をセットで提供（例:「ダブルボトム（2回底を打って反転する買いパターン）」）
 - 自動で最適な提案をする（予算と期間から銘柄数を決定）
 - テクニカル分析の結果を初心者が理解できる形で表示
@@ -83,6 +88,7 @@ AIは「良い株を見つける」ことに集中し、「危ない株を止め
 - ✅ 使いながら自然と専門用語を覚えていける設計
 
 **表示形式の例:**
+
 ```
 シャープレシオ: 1.2
 （リスクに対するリターンの効率。1以上で優秀）
@@ -97,11 +103,13 @@ AIは「良い株を見つける」ことに集中し、「危ない株を止め
 ### 機能方針
 
 #### オンボーディング
+
 - 質問は2つだけ（予算・期間）
 - 銘柄数は自動決定（初心者が迷わないように）
 - 提案は3択（実際に購入/シミュレーション/ウォッチリスト）
 
 #### AI提案ロジック
+
 - 投資期間に応じた分散投資
   - 長期: 4-5銘柄（リスク分散重視）
   - 中期: 3-4銘柄（バランス）
@@ -110,6 +118,7 @@ AIは「良い株を見つける」ことに集中し、「危ない株を止め
 - 初心者向けスコアを重視
 
 #### 制限設計
+
 - ポートフォリオ: 最大100銘柄
 - ウォッチリスト: 最大100銘柄
 - 追跡銘柄: 最大10銘柄
@@ -182,18 +191,18 @@ jobs:
     steps: ...
 
   task-b:
-    needs: task-a  # task-a の完了後に実行
+    needs: task-a # task-a の完了後に実行
     runs-on: ubuntu-latest
     steps: ...
 
   task-c:
-    needs: task-a  # task-b と並列実行可能
+    needs: task-a # task-b と並列実行可能
     runs-on: ubuntu-latest
     steps: ...
 
   notify:
     needs: [task-b, task-c]
-    if: always()  # 前のジョブが失敗しても実行
+    if: always() # 前のジョブが失敗しても実行
     runs-on: ubuntu-latest
     steps: ...
 ```
@@ -220,6 +229,7 @@ jobs:
 #### チェックリスト
 
 新しいワークフロー作成時：
+
 - [ ] 1つのジョブに複数の独立したタスクを詰め込まない
 - [ ] `needs` で依存関係を定義
 - [ ] 通知ジョブは `if: always()` で常に実行
@@ -292,6 +302,7 @@ if __name__ == "__main__":
 ```
 
 **問題点:**
+
 - YAMLパーサーがheredocのクォートを誤解釈
 - エラーハンドリングが困難
 - ログ出力が不十分
@@ -316,28 +327,28 @@ if __name__ == "__main__":
 #### 標準パターン
 
 ```yaml
-      - name: Notify Slack on success
-        if: success()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "✅ [処理名]に成功しました"
-          SLACK_MESSAGE: |
-            処理の詳細メッセージ ✅
-          SLACK_COLOR: good
-          SLACK_FOOTER: "Stock Buddy"
+- name: Notify Slack on success
+  if: success()
+  uses: rtCamp/action-slack-notify@v2
+  env:
+    SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+    SLACK_TITLE: "✅ [処理名]に成功しました"
+    SLACK_MESSAGE: |
+      処理の詳細メッセージ ✅
+    SLACK_COLOR: good
+    SLACK_FOOTER: "Stock Buddy"
 
-      - name: Notify Slack on failure
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: "❌ [処理名]に失敗しました"
-          SLACK_MESSAGE: |
-            処理中にエラーが発生しました
-            詳細はGitHub Actionsログを確認してください
-          SLACK_COLOR: danger
-          SLACK_FOOTER: "Stock Buddy"
+- name: Notify Slack on failure
+  if: failure()
+  uses: rtCamp/action-slack-notify@v2
+  env:
+    SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+    SLACK_TITLE: "❌ [処理名]に失敗しました"
+    SLACK_MESSAGE: |
+      処理中にエラーが発生しました
+      詳細はGitHub Actionsログを確認してください
+    SLACK_COLOR: danger
+    SLACK_FOOTER: "Stock Buddy"
 ```
 
 #### ルール
@@ -351,6 +362,7 @@ if __name__ == "__main__":
 #### チェックリスト
 
 新しいワークフロー作成時：
+
 - [ ] 成功時のSlack通知を追加
 - [ ] 失敗時のSlack通知を追加
 - [ ] タイトルに処理内容を明記
@@ -399,14 +411,14 @@ postgresql://kouheikameyama@localhost:5432/stock_buddy
 
 ```typescript
 // lib/date-utils.ts
-import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
+import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils";
 
 // 今日の日付（JST基準、UTC 00:00として保存）
-const today = getTodayForDB()
+const today = getTodayForDB();
 // 例: JST 2024-06-10 → 2024-06-10T00:00:00.000Z → DB: 2024-06-10
 
 // N日前の日付
-const sevenDaysAgo = getDaysAgoForDB(7)
+const sevenDaysAgo = getDaysAgoForDB(7);
 ```
 
 ```python
@@ -428,7 +440,7 @@ JST 2/19 → new Date("2026-02-19T00:00:00Z") → PostgreSQL date型: 2026-02-19
 ### ✅ 良い例
 
 ```typescript
-import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils"
+import { getTodayForDB, getDaysAgoForDB } from "@/lib/date-utils";
 
 // DB保存
 await prisma.dailyFeaturedStock.create({
@@ -436,35 +448,35 @@ await prisma.dailyFeaturedStock.create({
     date: getTodayForDB(),
     stockId: stock.id,
   },
-})
+});
 
 // DB検索
 const recommendations = await prisma.userDailyRecommendation.findMany({
   where: {
     date: getTodayForDB(),
   },
-})
+});
 
 // 範囲検索
 const recentData = await prisma.purchaseRecommendation.findFirst({
   where: {
     date: { gte: getDaysAgoForDB(7) },
   },
-})
+});
 ```
 
 ### ❌ 悪い例
 
 ```typescript
 // JST→UTC変換してからtoDate() - date型で1日ズレる
-const today = dayjs().tz("Asia/Tokyo").startOf("day").utc().toDate()
+const today = dayjs().tz("Asia/Tokyo").startOf("day").utc().toDate();
 
 // UTC 00:00を使用 - JSTと9時間ずれる
-const today = dayjs.utc().startOf("day").toDate()
+const today = dayjs.utc().startOf("day").toDate();
 
 // 生のDateを使用 - タイムゾーンが曖昧
-const today = new Date()
-today.setHours(0, 0, 0, 0)
+const today = new Date();
+today.setHours(0, 0, 0, 0);
 ```
 
 ### 対象テーブル
@@ -548,6 +560,7 @@ export function StockListSkeleton() {
 ### チェックリスト
 
 新しいページ・コンポーネント作成時：
+
 - [ ] データ取得は別コンポーネントに分離
 - [ ] `Suspense` でラップ
 - [ ] 適切なスケルトンを `fallback` に指定
@@ -609,6 +622,7 @@ text = response.choices[0].message.content  # パースしにくい
 ### チェックリスト
 
 LLM API連携を実装する際：
+
 - [ ] 出力形式をJSON Schemaで定義
 - [ ] `response_format` パラメータで構造化出力を指定
 - [ ] TypeScript側で対応する型定義を作成
@@ -628,7 +642,7 @@ LLM API連携を実装する際：
 ### ✅ 良い例
 
 ```typescript
-import { PORTFOLIO_ANALYSIS } from "@/lib/constants"
+import { PORTFOLIO_ANALYSIS } from "@/lib/constants";
 
 if (daysSincePurchase <= PORTFOLIO_ANALYSIS.RECENT_PURCHASE_DAYS) {
   // ...
@@ -657,11 +671,11 @@ if (daysSincePurchase <= 3) {
 
 ```typescript
 // ❌ 不要: 後方互換性のためのURL変換
-url = url.replace(/^\/watchlist\//, "/my-stocks/")
-url = url.replace(/^\/recommendations\//, "/stocks/")
+url = url.replace(/^\/watchlist\//, "/my-stocks/");
+url = url.replace(/^\/recommendations\//, "/stocks/");
 
 // ✅ 正しい: 新しいURLをそのまま使用
-const url = notification.url
+const url = notification.url;
 ```
 
 ### 理由
@@ -683,23 +697,23 @@ const url = notification.url
 ### TypeScript: p-limitを使用
 
 ```typescript
-import pLimit from "p-limit"
+import pLimit from "p-limit";
 
 // 同時実行数を制限（OpenAI APIなら5程度）
-const limit = pLimit(5)
+const limit = pLimit(5);
 
 // ❌ 悪い例: 順次実行
 for (const item of items) {
-  await processItem(item)
+  await processItem(item);
 }
 
 // ✅ 良い例: 並列実行（同時実行数を制限）
 const tasks = items.map((item) =>
   limit(async () => {
-    await processItem(item)
-  })
-)
-await Promise.all(tasks)
+    await processItem(item);
+  }),
+);
+await Promise.all(tasks);
 ```
 
 ### Python: ThreadPoolExecutorを使用
@@ -723,12 +737,12 @@ with ThreadPoolExecutor(max_workers=AI_CONCURRENCY_LIMIT) as executor:
 
 ### 同時実行数の目安
 
-| 処理タイプ | 推奨同時実行数 | 理由 |
-|-----------|---------------|------|
-| OpenAI API | 3〜5 | レート制限を回避 |
-| DB操作 | 10〜20 | コネクションプール考慮 |
-| 外部API（yfinance等） | 5〜10 | サーバー負荷考慮 |
-| プッシュ通知 | 10 | ネットワーク効率 |
+| 処理タイプ            | 推奨同時実行数 | 理由                   |
+| --------------------- | -------------- | ---------------------- |
+| OpenAI API            | 3〜5           | レート制限を回避       |
+| DB操作                | 10〜20         | コネクションプール考慮 |
+| 外部API（yfinance等） | 5〜10          | サーバー負荷考慮       |
+| プッシュ通知          | 10             | ネットワーク効率       |
 
 ### 定数定義
 
@@ -736,12 +750,13 @@ with ThreadPoolExecutor(max_workers=AI_CONCURRENCY_LIMIT) as executor:
 
 ```typescript
 // AI API同時リクエスト数の制限
-const AI_CONCURRENCY_LIMIT = 5
+const AI_CONCURRENCY_LIMIT = 5;
 ```
 
 ### チェックリスト
 
 コードレビュー時に確認：
+
 - [ ] forループ内にawaitがないか
 - [ ] 並列化可能な処理がPromise.allで実行されているか
 - [ ] 同時実行数が適切に制限されているか
@@ -806,6 +821,12 @@ def main():
 #### チェックリスト
 
 バッチ処理を実装する際：
+
 - [ ] 処理が複数段階に分かれていないか
 - [ ] 各段階を並行実行できないか
 - [ ] `queue.Queue` + `ThreadPoolExecutor` でパイプライン化できないか
+
+## 設計ファイルの扱い
+
+実装前に作成した設計ファイルを参考に実装してください。
+実装された設計ファイルはコミット前に削除してください。
