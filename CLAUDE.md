@@ -126,7 +126,16 @@ AIは「良い株を見つける」ことに集中し、「危ない株を止め
 
 ## 技術ルール
 
-詳細なルールは `.claude/rules/` 配下を参照してください。
+**作業前に必ず `.claude/rules/` 配下の関連ルールを確認してください。**
+
+- デプロイ・DB操作を行う前 → `deploy.md` / `database.md`
+- GitHub Actionsを編集する前 → `github-actions.md`
+- 日付を扱うコードを書く前 → `date-handling.md`
+- フロントエンドのUI実装前 → `frontend.md`
+- LLM API連携を実装する前 → `llm-api.md`
+- コード全般を書く前 → `coding-standards.md`
+
+詳細は `.claude/rules/` 配下を参照してください。
 
 | ファイル | 内容 |
 |---|---|
