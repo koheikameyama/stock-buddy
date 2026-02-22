@@ -14,14 +14,14 @@ export const SCORING_CONFIG = {
   MAX_VOLATILITY: 50,      // ボラティリティ上限（%）
 }
 
-// 赤字 AND 高ボラティリティ銘柄へのスコアペナルティ（リスク許容度別）
+// 赤字 AND 高ボラティリティ銘柄へのスコアペナルティ（投資スタイル別）
 export const RISK_PENALTY: Record<string, number> = {
-  high: -10,
-  medium: -20,
-  low: -30,
+  AGGRESSIVE: -10,  // 積極派: ペナルティ小（リスク許容度高）
+  BALANCED: -20,    // バランス型: 標準ペナルティ
+  CONSERVATIVE: -30, // 慎重派: ペナルティ大（リスク回避）
 }
 
-// 投資スタイル別のスコア配分（period × risk）
+// 投資スタイル別のスコア配分
 type ScoreWeights = {
   weekChangeRate: number
   volumeRatio: number
@@ -30,18 +30,12 @@ type ScoreWeights = {
 }
 
 export const SCORE_WEIGHTS: Record<string, ScoreWeights> = {
-  // 短期
-  "short_high": { weekChangeRate: 40, volumeRatio: 30, volatility: 20, marketCap: 10 },
-  "short_medium": { weekChangeRate: 35, volumeRatio: 25, volatility: 15, marketCap: 25 },
-  "short_low": { weekChangeRate: 25, volumeRatio: 20, volatility: 15, marketCap: 40 },
-  // 中期
-  "medium_high": { weekChangeRate: 30, volumeRatio: 25, volatility: 20, marketCap: 25 },
-  "medium_medium": { weekChangeRate: 25, volumeRatio: 25, volatility: 25, marketCap: 25 },
-  "medium_low": { weekChangeRate: 15, volumeRatio: 15, volatility: 30, marketCap: 40 },
-  // 長期
-  "long_high": { weekChangeRate: 20, volumeRatio: 20, volatility: 25, marketCap: 35 },
-  "long_medium": { weekChangeRate: 15, volumeRatio: 15, volatility: 30, marketCap: 40 },
-  "long_low": { weekChangeRate: 10, volumeRatio: 10, volatility: 35, marketCap: 45 },
+  // 積極派: モメンタム重視、ボラティリティ許容
+  AGGRESSIVE: { weekChangeRate: 35, volumeRatio: 30, volatility: 20, marketCap: 15 },
+  // バランス型: 全要素バランス
+  BALANCED: { weekChangeRate: 25, volumeRatio: 25, volatility: 25, marketCap: 25 },
+  // 慎重派: 安定性重視、時価総額（大型株）優先
+  CONSERVATIVE: { weekChangeRate: 15, volumeRatio: 15, volatility: 30, marketCap: 40 },
 }
 
 // 時間帯別のプロンプト設定
@@ -58,18 +52,6 @@ export const SESSION_PROMPTS: Record<string, { intro: string; focus: string }> =
     intro: "本日の取引を踏まえた明日へのおすすめです。",
     focus: "明日以降に注目したい銘柄",
   },
-}
-
-export const PERIOD_LABELS: Record<string, string> = {
-  short: "短期（1年以内）",
-  medium: "中期（1〜3年）",
-  long: "長期（3年以上）",
-}
-
-export const RISK_LABELS: Record<string, string> = {
-  low: "低い（安定重視）",
-  medium: "普通（バランス）",
-  high: "高い（成長重視）",
 }
 
 export interface StockForScoring {
@@ -133,15 +115,14 @@ function normalizeValues(
  */
 export function calculateStockScores(
   stocks: StockForScoring[],
-  period: string | null,
-  risk: string | null,
+  investmentStyle: string | null,
   sectorTrends?: Record<string, SectorTrendData>
 ): ScoredStock[] {
-  const key = `${period || "medium"}_${risk || "medium"}`
-  const weights = SCORE_WEIGHTS[key] || SCORE_WEIGHTS["medium_medium"]
+  const style = investmentStyle || "BALANCED"
+  const weights = SCORE_WEIGHTS[style] || SCORE_WEIGHTS["BALANCED"]
 
-  // 低リスク志向の場合はvolatilityを反転（低い方が良い）
-  const isLowRisk = risk === "low" || (risk === "medium" && period === "long")
+  // 慎重派の場合はvolatilityを反転（低い方が良い）
+  const isLowRisk = investmentStyle === "CONSERVATIVE"
 
   const normalized = {
     weekChangeRate: normalizeValues(stocks, "weekChangeRate"),
@@ -150,14 +131,14 @@ export function calculateStockScores(
     marketCap: normalizeValues(stocks, "marketCap"),
   }
 
-  const penalty = RISK_PENALTY[risk || "medium"] || -20
+  const penalty = RISK_PENALTY[style] || -20
   const scoredStocks: ScoredStock[] = []
 
-  const isShortTerm = period === "short"
+  const isAggressive = investmentStyle === "AGGRESSIVE"
 
   for (const stock of stocks) {
-    // 異常な急騰（週間+50%超）は除外（短期投資は+80%超のみ除外）
-    const extremeSurgeLimit = isShortTerm ? 80 : 50
+    // 異常な急騰（週間+50%超）は除外（積極派は+80%超のみ除外）
+    const extremeSurgeLimit = isAggressive ? 80 : 50
     if (stock.weekChangeRate !== null && stock.weekChangeRate > extremeSurgeLimit) {
       continue
     }
@@ -185,10 +166,10 @@ export function calculateStockScores(
       scoreBreakdown["riskPenalty"] = penalty
     }
 
-    // 急騰銘柄へのペナルティ（投資期間別）
+    // 急騰銘柄へのペナルティ（投資スタイル別）
     if (stock.weekChangeRate !== null) {
-      if (isShortTerm) {
-        // 短期投資: 急騰ペナルティなし（モメンタム重視）
+      if (isAggressive) {
+        // 積極派: 急騰ペナルティなし（モメンタム重視）
       } else if (stock.weekChangeRate >= 30) {
         totalScore -= 20
         scoreBreakdown["surgePenalty"] = -20
@@ -198,13 +179,14 @@ export function calculateStockScores(
       }
     }
 
-    // 下落トレンドへのペナルティ（投資期間別）
+    // 下落トレンドへのペナルティ（投資スタイル別）
     if (stock.weekChangeRate !== null) {
-      const declineThreshold = isShortTerm
-        ? MOMENTUM.SHORT_TERM_DECLINE_THRESHOLD
-        : period === "long"
-          ? MOMENTUM.LONG_TERM_DECLINE_THRESHOLD
-          : MOMENTUM.MEDIUM_TERM_DECLINE_THRESHOLD
+      const declineThreshold =
+        investmentStyle === "CONSERVATIVE"
+          ? MOMENTUM.CONSERVATIVE_DECLINE_THRESHOLD
+          : investmentStyle === "AGGRESSIVE"
+            ? MOMENTUM.AGGRESSIVE_DECLINE_THRESHOLD
+            : MOMENTUM.BALANCED_DECLINE_THRESHOLD
 
       if (stock.weekChangeRate <= declineThreshold) {
         totalScore += MOMENTUM.STRONG_DECLINE_SCORE_PENALTY
@@ -224,8 +206,8 @@ export function calculateStockScores(
 
     // 移動平均乖離率によるペナルティ/ボーナス
     if (stock.maDeviationRate !== null) {
-      if (stock.maDeviationRate >= MA_DEVIATION.UPPER_THRESHOLD && !isShortTerm) {
-        // 短期投資は過熱圏ペナルティをスキップ（モメンタム重視）
+      if (stock.maDeviationRate >= MA_DEVIATION.UPPER_THRESHOLD && !isAggressive) {
+        // 積極派は過熱圏ペナルティをスキップ（モメンタム重視）
         totalScore += MA_DEVIATION.SCORE_PENALTY
         scoreBreakdown["maDeviationPenalty"] = MA_DEVIATION.SCORE_PENALTY
       } else if (

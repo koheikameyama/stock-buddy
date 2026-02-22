@@ -43,8 +43,6 @@ import {
   filterByBudget,
   SCORING_CONFIG,
   SESSION_PROMPTS,
-  PERIOD_LABELS,
-  RISK_LABELS,
   StockForScoring,
   ScoredStock,
 } from "@/lib/recommendation-scoring";
@@ -112,8 +110,7 @@ export async function POST(request: NextRequest) {
       where: targetUserId ? { userId: targetUserId } : undefined,
       select: {
         userId: true,
-        investmentPeriod: true,
-        riskTolerance: true,
+        investmentStyle: true,
         investmentBudget: true,
       },
     });
@@ -300,8 +297,7 @@ export async function POST(request: NextRequest) {
 async function processUser(
   user: {
     userId: string;
-    investmentPeriod: string | null;
-    riskTolerance: string | null;
+    investmentStyle: string | null;
     investmentBudget: number | null;
   },
   allStocks: Array<{
@@ -335,10 +331,10 @@ async function processUser(
   sectorTrendMap: Record<string, SectorTrendData>,
   sectorTrendContext: string,
 ): Promise<UserResult> {
-  const { userId, investmentPeriod, riskTolerance, investmentBudget } = user;
+  const { userId, investmentStyle, investmentBudget } = user;
 
   console.log(
-    `\n--- User: ${userId} (totalBudget: ${investmentBudget}, remainingBudget: ${remainingBudget}, period: ${investmentPeriod}, risk: ${riskTolerance}) ---`,
+    `\n--- User: ${userId} (totalBudget: ${investmentBudget}, remainingBudget: ${remainingBudget}, style: ${investmentStyle}) ---`,
   );
 
   const stocksForScoring: StockForScoring[] = allStocks.map((s) => ({
@@ -371,8 +367,7 @@ async function processUser(
 
   const scored = calculateStockScores(
     filtered,
-    investmentPeriod,
-    riskTolerance,
+    investmentStyle,
     sectorTrendMap,
   );
   console.log(
@@ -405,8 +400,7 @@ async function processUser(
 
   const recommendations = await selectWithAI(
     userId,
-    investmentPeriod,
-    riskTolerance,
+    investmentStyle,
     investmentBudget,
     remainingBudget,
     session,
@@ -634,8 +628,7 @@ async function buildStockContexts(
 
 async function selectWithAI(
   _userId: string,
-  investmentPeriod: string | null,
-  riskTolerance: string | null,
+  investmentStyle: string | null,
   investmentBudget: number | null,
   remainingBudget: number | null,
   session: string,
@@ -649,8 +642,12 @@ async function selectWithAI(
   investmentTheme: string;
 }> | null> {
   const prompts = SESSION_PROMPTS[session] || SESSION_PROMPTS.evening;
-  const periodLabel = PERIOD_LABELS[investmentPeriod || ""] || "不明";
-  const riskLabel = RISK_LABELS[riskTolerance || ""] || "不明";
+  const styleLabel =
+    investmentStyle === "CONSERVATIVE"
+      ? "慎重派（守り）"
+      : investmentStyle === "AGGRESSIVE"
+        ? "積極派（攻め）"
+        : "バランス型";
   const budgetLabel = investmentBudget
     ? remainingBudget !== null
       ? `${remainingBudget.toLocaleString()}円（残り）/ 合計 ${investmentBudget.toLocaleString()}円`
@@ -676,8 +673,7 @@ ${prompts.intro}
 以下のユーザーの投資スタイルに合った${prompts.focus}を5つ選んでください。
 
 【ユーザーの投資スタイル】
-- 投資期間: ${periodLabel}
-- リスク許容度: ${riskLabel}
+- 投資スタイル: ${styleLabel}
 - 投資資金: ${budgetLabel}
 ${marketContext}${sectorTrendContext}
 【選べる銘柄一覧（詳細分析付き）】
@@ -694,17 +690,36 @@ ${PROMPT_MARKET_SIGNAL_DEFINITION}
 - 直近の決算や材料が良くても、期待が織り込み済みで「材料出尽くし」になるリスクがないか考慮してください
 - 市場全体の地合い（日経平均の動向等）が悪い場合、個別銘柄のシグナルより市場のトレンドを優先してください
 
+■ 投資スタイル別の選定基準:
+${
+  investmentStyle === "CONSERVATIVE"
+    ? `【慎重派（守り）- 資産保護を最優先】
+- 大型株（時価総額が大きい銘柄）を優先してください
+- ボラティリティが低い銘柄（変動が少なく安定している）を選んでください
+- 黒字企業のみを選び、赤字銘柄は避けてください
+- 移動平均乖離率が過熱圏（+20%以上）の銘柄は避けてください
+- 急騰銘柄（週間+25%以上）は天井掴みのリスクがあるため選ばないでください
+- 下落トレンド（週間-10%以下）の銘柄は選ばないでください
+- 安定した業績と配当実績のある銘柄を重視してください`
+    : investmentStyle === "AGGRESSIVE"
+      ? `【積極派（攻め）- 利益の最大化を優先】
+- 小型〜中型株で成長性の高い銘柄を積極的に選んでください
+- 上昇中の銘柄に乗ることが重要です。急騰銘柄でもモメンタムが続く限り有効です
+- 移動平均乖離率が高くても上昇モメンタムが強ければ選んでOKです
+- ボラティリティが高くても、黒字で成長性があれば選んでください
+- ただし、赤字かつ高ボラティリティの銘柄は避けてください
+- 下落トレンド（週間-20%以下）の銘柄は選ばないでください`
+      : `【バランス型 - リスクとリワードのバランス】
+- 時価総額、成長性、安定性をバランスよく評価してください
+- 移動平均乖離率が過熱圏（+20%以上）の銘柄は避けてください
+- 急騰銘柄（週間+35%以上）は天井掴みのリスクがあるため選ばないでください
+- 下落トレンド（週間-15%以下）の銘柄は選ばないでください
+- 黒字企業を優先しつつ、成長性のある赤字企業も条件次第で検討可能です`
+}
+
 ■ モメンタム（トレンドフォロー）重視:
 - 直近で強い下落トレンドの銘柄は選ばないでください（落ちるナイフを掴まない）
-- 特に短期投資では、週間変化率がマイナスの銘柄は慎重に判断してください
 - 上昇トレンドの銘柄はモメンタムが強く、積極的に選んでください
-${
-  investmentPeriod === "short"
-    ? `- 【短期投資向け】上昇中の銘柄に乗ることが重要です。急騰銘柄でもモメンタムが続く限り有効です
-- 【短期投資向け】移動平均乖離率が高くても上昇モメンタムが強ければ選んでOKです`
-    : `- 移動平均乖離率が過熱圏（+20%以上）の銘柄は避けてください
-- 急騰銘柄（週間+30%以上）は天井掴みのリスクがあるため選ばないでください`
-}
 
 【株価変動時の原因分析】
 - 週間変化率がマイナスの銘柄を選ぶ場合、下落の原因（地合い/材料/需給）をreasonで推測してください
@@ -825,12 +840,12 @@ ${PROMPT_NEWS_CONSTRAINTS}
       const s = ctx.stock;
       const volatility = s.volatility !== null ? Number(s.volatility) : null;
 
-      if (isInDecline(ctx.weekChangeRate, investmentPeriod)) {
+      if (isInDecline(ctx.weekChangeRate, investmentStyle)) {
         console.warn(
           `  ⚠️ Safety warning: ${s.tickerCode} is in decline (week: ${ctx.weekChangeRate?.toFixed(0)}%)`,
         );
       }
-      if (isSurgeStock(ctx.weekChangeRate, investmentPeriod)) {
+      if (isSurgeStock(ctx.weekChangeRate, investmentStyle)) {
         console.warn(
           `  ⚠️ Safety warning: ${s.tickerCode} is surge stock (week: +${ctx.weekChangeRate?.toFixed(0)}%)`,
         );
@@ -840,7 +855,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
           `  ⚠️ Safety warning: ${s.tickerCode} is dangerous (unprofitable + high volatility)`,
         );
       }
-      if (isOverheated(ctx.deviationRate, investmentPeriod)) {
+      if (isOverheated(ctx.deviationRate, investmentStyle)) {
         console.warn(
           `  ⚠️ Safety warning: ${s.tickerCode} is overheated (deviation: +${ctx.deviationRate?.toFixed(1)}%)`,
         );

@@ -25,8 +25,7 @@ export async function GET() {
       // デフォルト設定を返す
       return NextResponse.json({
         settings: {
-          investmentPeriod: null,
-          riskTolerance: null,
+          investmentStyle: "BALANCED",
           investmentBudget: null,
           targetReturnRate: 10,
           stopLossRate: -5,
@@ -53,17 +52,25 @@ export async function PUT(request: NextRequest) {
     }
 
     const {
-      investmentPeriod,
-      riskTolerance,
+      investmentStyle,
       investmentBudget,
       targetReturnRate,
       stopLossRate,
     } = await request.json();
 
     // バリデーション
-    if (!investmentPeriod || !riskTolerance) {
+    if (!investmentStyle) {
       return NextResponse.json(
-        { error: "投資期間とリスク許容度を選択してください" },
+        { error: "投資スタイルを選択してください" },
+        { status: 400 },
+      );
+    }
+
+    // 投資スタイルの値チェック
+    const validStyles = ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"];
+    if (!validStyles.includes(investmentStyle)) {
+      return NextResponse.json(
+        { error: "無効な投資スタイルです" },
         { status: 400 },
       );
     }
@@ -111,15 +118,13 @@ export async function PUT(request: NextRequest) {
       where: { userId: user.id },
       create: {
         userId: user.id,
-        investmentPeriod,
-        riskTolerance,
+        investmentStyle,
         investmentBudget: investmentBudget ?? null,
         targetReturnRate: targetReturnRate ?? null,
         stopLossRate: stopLossRate ?? null,
       },
       update: {
-        investmentPeriod,
-        riskTolerance,
+        investmentStyle,
         investmentBudget: investmentBudget ?? null,
         targetReturnRate: targetReturnRate ?? null,
         stopLossRate: stopLossRate ?? null,

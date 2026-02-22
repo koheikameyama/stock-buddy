@@ -111,18 +111,11 @@ export default async function DashboardPage() {
                     <div className="text-xs text-gray-500 mb-1 sm:mb-1.5">あなたの投資スタイル</div>
                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 w-fit">
-                        {user.settings.investmentPeriod === "short"
-                          ? "短期（〜1年）"
-                          : user.settings.investmentPeriod === "medium"
-                          ? "中期（1〜3年）"
-                          : "長期（3年〜）"}
-                      </span>
-                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 w-fit">
-                        {user.settings.riskTolerance === "low"
-                          ? "リスク低（安定重視）"
-                          : user.settings.riskTolerance === "medium"
-                          ? "リスク中（バランス）"
-                          : "リスク高（成長重視）"}
+                        {user.settings.investmentStyle === "CONSERVATIVE"
+                          ? "🛡️ 慎重派（守り）"
+                          : user.settings.investmentStyle === "AGGRESSIVE"
+                          ? "🚀 積極派（攻め）"
+                          : "⚖️ バランス型"}
                       </span>
                       {user.settings.investmentBudget && (
                         <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 w-fit">

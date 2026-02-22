@@ -15,8 +15,7 @@ type PushSubscriptionState = {
 };
 
 type UserSettings = {
-  investmentPeriod: string | null;
-  riskTolerance: string | null;
+  investmentStyle: string | null;
   investmentBudget: number | null;
   targetReturnRate: number | null;
   stopLossRate: number | null;
@@ -37,16 +36,25 @@ const STOP_LOSS_OPTIONS = [
   { value: -20, label: "-20%", description: "長期・変動許容" },
 ];
 
-const INVESTMENT_PERIOD_OPTIONS = [
-  { value: "short", label: "短期", description: "〜1年", icon: "📅" },
-  { value: "medium", label: "中期", description: "1〜3年", icon: "📆" },
-  { value: "long", label: "長期", description: "3年〜", icon: "🗓️" },
-];
-
-const RISK_TOLERANCE_OPTIONS = [
-  { value: "low", label: "低", description: "安定重視", icon: "🛡️" },
-  { value: "medium", label: "中", description: "バランス", icon: "⚖️" },
-  { value: "high", label: "高", description: "成長重視", icon: "🚀" },
+const INVESTMENT_STYLE_OPTIONS = [
+  {
+    value: "CONSERVATIVE",
+    label: "慎重派（守り）",
+    description: "資産保護を最優先。損失を最小限に抑える",
+    icon: "🛡️",
+  },
+  {
+    value: "BALANCED",
+    label: "バランス型",
+    description: "リスクとリワードのバランスを重視",
+    icon: "⚖️",
+  },
+  {
+    value: "AGGRESSIVE",
+    label: "積極派（攻め）",
+    description: "短期の変動を許容し、大きな利益を狙う",
+    icon: "🚀",
+  },
 ];
 
 const BUDGET_OPTIONS = [
@@ -63,8 +71,7 @@ export default function SettingsPage() {
     loading: true,
   });
   const [settings, setSettings] = useState<UserSettings>({
-    investmentPeriod: null,
-    riskTolerance: null,
+    investmentStyle: null,
     investmentBudget: null,
     targetReturnRate: null,
     stopLossRate: null,
@@ -90,8 +97,7 @@ export default function SettingsPage() {
         const data = await response.json();
         if (data.settings) {
           setSettings({
-            investmentPeriod: data.settings.investmentPeriod,
-            riskTolerance: data.settings.riskTolerance,
+            investmentStyle: data.settings.investmentStyle,
             investmentBudget: data.settings.investmentBudget,
             targetReturnRate: data.settings.targetReturnRate,
             stopLossRate: data.settings.stopLossRate,
@@ -163,8 +169,7 @@ export default function SettingsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          investmentPeriod: newSettings.investmentPeriod || "medium",
-          riskTolerance: newSettings.riskTolerance || "medium",
+          investmentStyle: newSettings.investmentStyle || "BALANCED",
           investmentBudget: newSettings.investmentBudget,
           targetReturnRate: newSettings.targetReturnRate,
           stopLossRate: newSettings.stopLossRate,
@@ -371,76 +376,42 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* 投資期間 */}
+                  {/* 投資スタイル */}
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <span className="text-lg">⏱️</span>
-                      <span>投資期間</span>
+                      <span className="text-lg">🎯</span>
+                      <span>投資スタイル</span>
                     </h3>
-                    <div className="grid grid-cols-3 gap-2">
-                      {INVESTMENT_PERIOD_OPTIONS.map((option) => (
+                    <div className="grid grid-cols-1 gap-3">
+                      {INVESTMENT_STYLE_OPTIONS.map((option) => (
                         <button
                           key={option.value}
                           onClick={() =>
-                            saveSettings({ investmentPeriod: option.value })
+                            saveSettings({ investmentStyle: option.value })
                           }
                           disabled={savingSettings}
-                          className={`p-3 rounded-lg border-2 text-center transition-all ${
-                            settings.investmentPeriod === option.value
+                          className={`p-4 rounded-lg border-2 text-left transition-all ${
+                            settings.investmentStyle === option.value
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300 bg-white"
                           } disabled:opacity-50`}
                         >
-                          <div className="text-lg mb-1">{option.icon}</div>
-                          <div
-                            className={`font-bold text-sm ${
-                              settings.investmentPeriod === option.value
-                                ? "text-blue-600"
-                                : "text-gray-900"
-                            }`}
-                          >
-                            {option.label}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {option.description}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* リスク許容度 */}
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <span className="text-lg">📊</span>
-                      <span>リスク許容度</span>
-                    </h3>
-                    <div className="grid grid-cols-3 gap-2">
-                      {RISK_TOLERANCE_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() =>
-                            saveSettings({ riskTolerance: option.value })
-                          }
-                          disabled={savingSettings}
-                          className={`p-3 rounded-lg border-2 text-center transition-all ${
-                            settings.riskTolerance === option.value
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200 hover:border-gray-300 bg-white"
-                          } disabled:opacity-50`}
-                        >
-                          <div className="text-lg mb-1">{option.icon}</div>
-                          <div
-                            className={`font-bold text-sm ${
-                              settings.riskTolerance === option.value
-                                ? "text-blue-600"
-                                : "text-gray-900"
-                            }`}
-                          >
-                            {option.label}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {option.description}
+                          <div className="flex items-center gap-3">
+                            <div className="text-2xl">{option.icon}</div>
+                            <div className="flex-1">
+                              <div
+                                className={`font-bold text-sm ${
+                                  settings.investmentStyle === option.value
+                                    ? "text-blue-600"
+                                    : "text-gray-900"
+                                }`}
+                              >
+                                {option.label}
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                {option.description}
+                              </div>
+                            </div>
                           </div>
                         </button>
                       ))}

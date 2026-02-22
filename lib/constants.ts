@@ -22,6 +22,63 @@ export const STALE_DATA_DAYS = 14;
 // デフォルト値
 export const DEFAULT_INVESTMENT_BUDGET = 100000;
 
+// 投資スタイル（リスク許容度）
+export const INVESTMENT_STYLES = {
+  CONSERVATIVE: "CONSERVATIVE", // 慎重派
+  BALANCED: "BALANCED", // バランス型
+  AGGRESSIVE: "AGGRESSIVE", // 積極派
+} as const;
+
+export type InvestmentStyle =
+  (typeof INVESTMENT_STYLES)[keyof typeof INVESTMENT_STYLES];
+
+// 投資スタイル別の係数（利確・損切り価格計算用）
+export const INVESTMENT_STYLE_COEFFICIENTS = {
+  // 損切り幅の係数（ボラティリティに乗算）
+  STOP_LOSS: {
+    CONSERVATIVE: 1.5, // 極めてタイト
+    BALANCED: 2.5, // 標準的
+    AGGRESSIVE: 4.0, // ワイド（深い）
+  },
+  // 利確目標の係数
+  TAKE_PROFIT: {
+    CONSERVATIVE: 1.0, // 早めに確定
+    BALANCED: 1.5, // 標準的（リスク・リワード 1:2）
+    AGGRESSIVE: 2.0, // 野心的
+  },
+} as const;
+
+// 投資スタイル別の説明文
+export const INVESTMENT_STYLE_DESCRIPTIONS = {
+  CONSERVATIVE: {
+    name: "慎重派（守り）",
+    short: "資産保護を最優先",
+    description:
+      "損失を最小限に抑えることを重視。少しの逆行で即撤退し、早めに利益を確定します。",
+    stopLoss: "ボラティリティの1.5倍程度（極めてタイト）",
+    takeProfit: "手堅い利確。早めに利益を確定し、ドローダウンを避ける",
+    advice: "資産を守ることが最優先。不安要素があれば売却を促す",
+  },
+  BALANCED: {
+    name: "バランス型",
+    short: "リスクとリワードのバランス",
+    description:
+      "リスクとリワードのバランスを重視。市場のノイズは許容し、セオリー通りの投資を目指します。",
+    stopLoss: "ボラティリティの2.5倍程度（標準的）",
+    takeProfit: "標準的。リスク・リワード 1:2 を目指す",
+    advice: "セオリー通りを優先。条件付きの静観をアドバイス",
+  },
+  AGGRESSIVE: {
+    name: "積極派（攻め）",
+    short: "利益の最大化を優先",
+    description:
+      "短期の変動を許容し、大きな利益を狙う。大きな揺さぶりに耐え、トレンドが続く限り最大利益を目指します。",
+    stopLoss: "ボラティリティの4倍程度（ワイド）",
+    takeProfit: "野心的。トレンドが続く限り最大利益を狙う",
+    advice: "利益の最大化が最優先。短期下落は買い増し機会と捉える",
+  },
+} as const;
+
 // テクニカル指標の閾値
 export const RSI_THRESHOLDS = {
   OVERBOUGHT: 70,
@@ -268,18 +325,19 @@ export const MA_DEVIATION = {
 // モメンタム（トレンドフォロー）の閾値
 export const MOMENTUM = {
   // 下落トレンド検出（週間変化率 %）: これ以下で buy → stay
-  SHORT_TERM_DECLINE_THRESHOLD: -10, // 短期投資: -10% で下落判定
-  MEDIUM_TERM_DECLINE_THRESHOLD: -15, // 中期投資: -15% で下落判定
-  LONG_TERM_DECLINE_THRESHOLD: -20, // 長期投資: -20% で下落判定
-  DEFAULT_DECLINE_THRESHOLD: -15, // 投資期間未設定時のデフォルト
+  // 投資スタイル別の閾値
+  CONSERVATIVE_DECLINE_THRESHOLD: -10, // 慎重派: -10% で下落判定（タイト）
+  BALANCED_DECLINE_THRESHOLD: -15, // バランス: -15% で下落判定（標準）
+  AGGRESSIVE_DECLINE_THRESHOLD: -20, // 積極派: -20% で下落判定（寛容）
+  DEFAULT_DECLINE_THRESHOLD: -15, // 投資スタイル未設定時のデフォルト
   DECLINE_CONFIDENCE_PENALTY: -0.1, // 下落トレンド時のconfidenceペナルティ
-  // 急騰銘柄ルールの投資期間別閾値（週間変化率 %）: これ以上で buy → stay
-  SHORT_TERM_SURGE_THRESHOLD: null, // 短期投資: 制限なし（モメンタム重視）
-  MEDIUM_TERM_SURGE_THRESHOLD: 40, // 中期投資: +40% 以上でブロック
-  LONG_TERM_SURGE_THRESHOLD: 30, // 長期投資: +30% 以上でブロック（現行維持）
-  DEFAULT_SURGE_THRESHOLD: 30, // 投資期間未設定時のデフォルト
-  // 過熱圏ルール: 短期投資は無効化
-  SHORT_TERM_SKIP_OVERHEAT: true, // 短期投資: 過熱圏ルールをスキップ
+  // 急騰銘柄ルールの投資スタイル別閾値（週間変化率 %）: これ以上で buy → stay
+  CONSERVATIVE_SURGE_THRESHOLD: 25, // 慎重派: +25% 以上でブロック（タイト）
+  BALANCED_SURGE_THRESHOLD: 35, // バランス: +35% 以上でブロック（標準）
+  AGGRESSIVE_SURGE_THRESHOLD: null, // 積極派: 制限なし（モメンタム重視）
+  DEFAULT_SURGE_THRESHOLD: 30, // 投資スタイル未設定時のデフォルト
+  // 過熱圏ルール: 積極派は無効化
+  AGGRESSIVE_SKIP_OVERHEAT: true, // 積極派: 過熱圏ルールをスキップ
   // おすすめスコアリング用ペナルティ
   DECLINE_SCORE_PENALTY: -15, // 下落銘柄のスコアペナルティ
   STRONG_DECLINE_SCORE_PENALTY: -25, // 強い下落銘柄のスコアペナルティ

@@ -125,8 +125,7 @@ export async function executePurchaseRecommendation(
     ? await prisma.userSettings.findUnique({
         where: { userId },
         select: {
-          investmentPeriod: true,
-          riskTolerance: true,
+          investmentStyle: true,
           investmentBudget: true,
         },
       })
@@ -285,22 +284,16 @@ export async function executePurchaseRecommendation(
   );
 
   // ユーザー設定のコンテキスト
-  const periodMap: Record<string, string> = {
-    short: "短期（数週間〜数ヶ月）",
-    medium: "中期（半年〜1年）",
-    long: "長期（数年以上）",
-  };
-  const riskMap: Record<string, string> = {
-    low: "低リスク（安定重視）",
-    medium: "中リスク（バランス）",
-    high: "高リスク（積極的）",
+  const styleMap: Record<string, string> = {
+    CONSERVATIVE: "慎重派（守り） - 資産保護を最優先",
+    BALANCED: "バランス型 - リスクとリワードのバランス",
+    AGGRESSIVE: "積極派（攻め） - 利益の最大化を優先",
   };
 
   const userContext = userSettings
     ? `
 【ユーザーの投資設定】
-- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
-- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
+- 投資スタイル: ${styleMap[userSettings.investmentStyle] || userSettings.investmentStyle}
 - 投資予算（合計）: ${userSettings.investmentBudget ? `${userSettings.investmentBudget.toLocaleString()}円` : "未設定"}
 - 投資予算（残り）: ${remainingBudget !== null ? `${remainingBudget.toLocaleString()}円` : userSettings.investmentBudget ? "未計算" : "未設定"}
 `
@@ -611,7 +604,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
     result.recommendation = "stay";
   }
 
-  const investmentPeriod = userSettings?.investmentPeriod ?? null;
+  const investmentStyle = userSettings?.investmentStyle ?? null;
 
   // 今日のおすすめ銘柄かどうかを確認
   const isRecommendedToday = await prisma.userDailyRecommendation.findFirst({
@@ -626,10 +619,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
   // （AIがおすすめと判断したのに「気になる」に入れたら即「見送り」になるのを防ぐため）
   const skipSafetyRules = !!isRecommendedToday;
 
-  // 下落トレンドの強制補正（投資期間別）
+  // 下落トレンドの強制補正（投資スタイル別）
   if (
     !skipSafetyRules &&
-    isInDecline(weekChangeRate, investmentPeriod) &&
+    isInDecline(weekChangeRate, investmentStyle) &&
     result.recommendation === "buy"
   ) {
     result.recommendation = "stay";
@@ -642,10 +635,10 @@ ${PROMPT_NEWS_CONSTRAINTS}
       result.buyCondition || "下落トレンドが落ち着いてから検討してください";
   }
 
-  // 急騰銘柄の強制補正（投資期間別：短期は制限なし）
+  // 急騰銘柄の強制補正（投資スタイル別）
   if (
     !skipSafetyRules &&
-    isSurgeStock(weekChangeRate, investmentPeriod) &&
+    isSurgeStock(weekChangeRate, investmentStyle) &&
     result.recommendation === "buy"
   ) {
     result.recommendation = "stay";
@@ -679,7 +672,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
 
   if (
     !skipSafetyRules &&
-    isOverheated(deviationRate, investmentPeriod) &&
+    isOverheated(deviationRate, investmentStyle) &&
     result.recommendation === "buy"
   ) {
     result.recommendation = "stay";

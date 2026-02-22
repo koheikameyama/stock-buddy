@@ -1,8 +1,7 @@
 import { getNikkei225Data, getTrendDescription } from "@/lib/market-index";
 
 interface UserSettings {
-  investmentPeriod: string;
-  riskTolerance: string;
+  investmentStyle: string;
   investmentBudget: number | null;
 }
 
@@ -349,22 +348,15 @@ export async function buildChatSystemPrompt(
 
   // ユーザーの投資スタイル
   if (userSettings) {
-    const periodText =
-      userSettings.investmentPeriod === "short"
-        ? "短期（1年未満）"
-        : userSettings.investmentPeriod === "medium"
-          ? "中期（1-3年）"
-          : "長期（3年以上）";
-    const riskText =
-      userSettings.riskTolerance === "low"
-        ? "低（安定志向）"
-        : userSettings.riskTolerance === "medium"
-          ? "中（バランス）"
-          : "高（積極的）";
+    const styleText =
+      userSettings.investmentStyle === "CONSERVATIVE"
+        ? "慎重派（守り） - 資産保護を最優先"
+        : userSettings.investmentStyle === "AGGRESSIVE"
+          ? "積極派（攻め） - 利益の最大化を優先"
+          : "バランス型 - リスクとリワードのバランス";
 
     sections.push(`\n## ユーザーの投資スタイル
-- 投資期間: ${periodText}
-- リスク許容度: ${riskText}${userSettings.investmentBudget ? `\n- 投資予算: ${userSettings.investmentBudget.toLocaleString()}円` : ""}`);
+- 投資スタイル: ${styleText}${userSettings.investmentBudget ? `\n- 投資予算: ${userSettings.investmentBudget.toLocaleString()}円` : ""}`);
   }
 
   // 回答ルール

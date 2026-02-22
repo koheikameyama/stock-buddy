@@ -9,26 +9,26 @@ import { MA_DEVIATION, MOMENTUM } from "@/lib/constants";
 /** 高ボラティリティの閾値（%） */
 const HIGH_VOLATILITY_THRESHOLD = 50;
 
-/** 急騰銘柄か（投資期間別の閾値で判定） */
+/** 急騰銘柄か（投資スタイル別の閾値で判定） */
 export function isSurgeStock(
   weekChangeRate: number | null,
-  investmentPeriod?: string | null,
+  investmentStyle?: string | null,
 ): boolean {
   if (weekChangeRate === null) return false;
-  const threshold = getSurgeThreshold(investmentPeriod);
-  if (threshold === null) return false; // 短期投資は制限なし
+  const threshold = getSurgeThreshold(investmentStyle);
+  if (threshold === null) return false; // 積極派は制限なし
   return weekChangeRate >= threshold;
 }
 
-/** 投資期間に応じた急騰閾値を取得 */
-function getSurgeThreshold(investmentPeriod?: string | null): number | null {
-  switch (investmentPeriod) {
-    case "short":
-      return MOMENTUM.SHORT_TERM_SURGE_THRESHOLD;
-    case "medium":
-      return MOMENTUM.MEDIUM_TERM_SURGE_THRESHOLD;
-    case "long":
-      return MOMENTUM.LONG_TERM_SURGE_THRESHOLD;
+/** 投資スタイルに応じた急騰閾値を取得 */
+function getSurgeThreshold(investmentStyle?: string | null): number | null {
+  switch (investmentStyle) {
+    case "CONSERVATIVE":
+      return MOMENTUM.CONSERVATIVE_SURGE_THRESHOLD;
+    case "BALANCED":
+      return MOMENTUM.BALANCED_SURGE_THRESHOLD;
+    case "AGGRESSIVE":
+      return MOMENTUM.AGGRESSIVE_SURGE_THRESHOLD;
     default:
       return MOMENTUM.DEFAULT_SURGE_THRESHOLD;
   }
@@ -46,37 +46,37 @@ export function isDangerousStock(
   );
 }
 
-/** 過熱圏か（移動平均乖離率+20%以上、短期投資はスキップ） */
+/** 過熱圏か（移動平均乖離率+20%以上、積極派はスキップ） */
 export function isOverheated(
   deviationRate: number | null,
-  investmentPeriod?: string | null,
+  investmentStyle?: string | null,
 ): boolean {
-  if (investmentPeriod === "short" && MOMENTUM.SHORT_TERM_SKIP_OVERHEAT)
+  if (investmentStyle === "AGGRESSIVE" && MOMENTUM.AGGRESSIVE_SKIP_OVERHEAT)
     return false;
   return (
     deviationRate !== null && deviationRate >= MA_DEVIATION.UPPER_THRESHOLD
   );
 }
 
-/** 下落トレンドか（投資期間別の閾値で判定） */
+/** 下落トレンドか（投資スタイル別の閾値で判定） */
 export function isInDecline(
   weekChangeRate: number | null,
-  investmentPeriod?: string | null,
+  investmentStyle?: string | null,
 ): boolean {
   if (weekChangeRate === null) return false;
-  const threshold = getDeclineThreshold(investmentPeriod);
+  const threshold = getDeclineThreshold(investmentStyle);
   return weekChangeRate <= threshold;
 }
 
-/** 投資期間に応じた下落閾値を取得 */
-function getDeclineThreshold(investmentPeriod?: string | null): number {
-  switch (investmentPeriod) {
-    case "short":
-      return MOMENTUM.SHORT_TERM_DECLINE_THRESHOLD;
-    case "medium":
-      return MOMENTUM.MEDIUM_TERM_DECLINE_THRESHOLD;
-    case "long":
-      return MOMENTUM.LONG_TERM_DECLINE_THRESHOLD;
+/** 投資スタイルに応じた下落閾値を取得 */
+function getDeclineThreshold(investmentStyle?: string | null): number {
+  switch (investmentStyle) {
+    case "CONSERVATIVE":
+      return MOMENTUM.CONSERVATIVE_DECLINE_THRESHOLD;
+    case "BALANCED":
+      return MOMENTUM.BALANCED_DECLINE_THRESHOLD;
+    case "AGGRESSIVE":
+      return MOMENTUM.AGGRESSIVE_DECLINE_THRESHOLD;
     default:
       return MOMENTUM.DEFAULT_DECLINE_THRESHOLD;
   }

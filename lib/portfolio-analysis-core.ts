@@ -346,8 +346,7 @@ export async function executePortfolioAnalysis(
   const userSettings = await prisma.userSettings.findUnique({
     where: { userId },
     select: {
-      investmentPeriod: true,
-      riskTolerance: true,
+      investmentStyle: true,
       targetReturnRate: true,
       stopLossRate: true,
     },
@@ -518,20 +517,14 @@ export async function executePortfolioAnalysis(
   }
 
   // ユーザー設定コンテキスト
-  const periodMap: Record<string, string> = {
-    short: "短期（数週間〜数ヶ月）",
-    medium: "中期（半年〜1年）",
-    long: "長期（数年以上）",
-  };
-  const riskMap: Record<string, string> = {
-    low: "低リスク（安定重視）",
-    medium: "中リスク（バランス）",
-    high: "高リスク（積極的）",
+  const styleMap: Record<string, string> = {
+    CONSERVATIVE: "慎重派（守り） - 資産保護を最優先",
+    BALANCED: "バランス型 - リスクとリワードのバランス",
+    AGGRESSIVE: "積極派（攻め） - 利益の最大化を優先",
   };
   const userContext = userSettings
     ? `\n【ユーザーの投資設定】
-- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
-- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
+- 投資スタイル: ${styleMap[userSettings.investmentStyle] || userSettings.investmentStyle}
 `
     : "";
 
@@ -696,9 +689,9 @@ export async function executePortfolioAnalysis(
   }
 
   // 急騰銘柄の買い増し抑制
-  const investmentPeriod = userSettings?.investmentPeriod ?? null;
+  const investmentStyle = userSettings?.investmentStyle ?? null;
   if (
-    isSurgeStock(weekChangeRate, investmentPeriod) &&
+    isSurgeStock(weekChangeRate, investmentStyle) &&
     result.recommendation === "buy"
   ) {
     result.recommendation = "hold";
@@ -937,8 +930,7 @@ export async function executeSimulatedPortfolioAnalysis(
   const userSettings = await prisma.userSettings.findUnique({
     where: { userId },
     select: {
-      investmentPeriod: true,
-      riskTolerance: true,
+      investmentStyle: true,
       stopLossRate: true,
       targetReturnRate: true,
     },
@@ -1012,20 +1004,14 @@ export async function executeSimulatedPortfolioAnalysis(
     sectorAvgWeekChangeRate,
   );
 
-  const periodMap: Record<string, string> = {
-    short: "短期（数週間〜数ヶ月）",
-    medium: "中期（半年〜1年）",
-    long: "長期（数年以上）",
-  };
-  const riskMap: Record<string, string> = {
-    low: "低リスク（安定重視）",
-    medium: "中リスク（バランス）",
-    high: "高リスク（積極的）",
+  const styleMap: Record<string, string> = {
+    CONSERVATIVE: "慎重派（守り） - 資産保護を最優先",
+    BALANCED: "バランス型 - リスクとリワードのバランス",
+    AGGRESSIVE: "積極派（攻め） - 利益の最大化を優先",
   };
   const userContext = userSettings
     ? `\n【ユーザーの投資設定】
-- 投資期間: ${periodMap[userSettings.investmentPeriod] || userSettings.investmentPeriod}
-- リスク許容度: ${riskMap[userSettings.riskTolerance] || userSettings.riskTolerance}
+- 投資スタイル: ${styleMap[userSettings.investmentStyle] || userSettings.investmentStyle}
 `
     : "";
 
