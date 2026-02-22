@@ -13,6 +13,7 @@ import NikkeiSummary from "./NikkeiSummary";
 import BudgetSummary from "./BudgetSummary";
 import { SectorTrendHeatmap } from "./SectorTrendHeatmap";
 import { getRichStyleLabel } from "@/lib/constants";
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 import { getTranslations } from 'next-intl/server';
 
 export default async function DashboardPage() {
@@ -35,7 +36,12 @@ export default async function DashboardPage() {
         select: { id: true },
       },
       portfolioStocks: {
-        select: { id: true },
+        select: {
+          id: true,
+          transactions: {
+            select: { type: true, quantity: true, price: true },
+          },
+        },
       },
     },
   });
@@ -49,7 +55,10 @@ export default async function DashboardPage() {
     redirect("/terms-acceptance");
   }
 
-  const hasHoldings = user.portfolioStocks.length > 0;
+  const hasHoldings = user.portfolioStocks.some((ps) => {
+    const { quantity } = calculatePortfolioFromTransactions(ps.transactions);
+    return quantity > 0;
+  });
 
   return (
     <>

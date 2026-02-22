@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import webpush from "web-push"
 
 // VAPID設定を初期化（初回リクエスト時のみ実行）
@@ -33,7 +34,13 @@ export async function POST(request: NextRequest) {
         user: {
           include: {
             watchlistStocks: true,
-            portfolioStocks: true,
+            portfolioStocks: {
+              include: {
+                transactions: {
+                  select: { type: true, quantity: true, price: true },
+                },
+              },
+            },
           },
         },
       },
@@ -43,7 +50,10 @@ export async function POST(request: NextRequest) {
     const activeSubscriptions = subscriptions.filter(
       (sub) =>
         sub.user.watchlistStocks.length > 0 ||
-        sub.user.portfolioStocks.length > 0
+        sub.user.portfolioStocks.some((ps) => {
+          const { quantity } = calculatePortfolioFromTransactions(ps.transactions);
+          return quantity > 0;
+        })
     )
 
     const results = {
