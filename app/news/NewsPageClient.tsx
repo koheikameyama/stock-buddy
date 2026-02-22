@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { getRelativeTime, getMarketFlag } from "@/lib/news"
 import type { NewsItem } from "@/lib/news"
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
@@ -11,6 +12,7 @@ export default function NewsPageClient() {
   // ページ訪問時に閲覧済みをマーク
   useMarkPageSeen("news")
 
+  const t = useTranslations('news')
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<MarketFilter>("ALL")
@@ -45,19 +47,19 @@ export default function NewsPageClient() {
           active={filter === "ALL"}
           onClick={() => setFilter("ALL")}
         >
-          すべて
+          {t('filters.all')}
         </FilterButton>
         <FilterButton
           active={filter === "JP"}
           onClick={() => setFilter("JP")}
         >
-          🇯🇵 日本
+          {t('filters.japan')}
         </FilterButton>
         <FilterButton
           active={filter === "US"}
           onClick={() => setFilter("US")}
         >
-          🇺🇸 米国
+          {t('filters.us')}
         </FilterButton>
       </div>
 
@@ -66,13 +68,13 @@ export default function NewsPageClient() {
         <NewsListSkeleton />
       ) : news.length === 0 ? (
         <div className="bg-white rounded-xl p-8 text-center border border-gray-200">
-          <p className="text-gray-500">ニュースがありません</p>
+          <p className="text-gray-500">{t('noNews')}</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="divide-y divide-gray-100">
             {news.map((item) => (
-              <NewsListItem key={item.id} news={item} />
+              <NewsListItem key={item.id} news={item} t={t} />
             ))}
           </div>
         </div>
@@ -104,7 +106,7 @@ function FilterButton({
   )
 }
 
-function NewsListItem({ news }: { news: NewsItem }) {
+function NewsListItem({ news, t }: { news: NewsItem; t: any }) {
   const marketFlag = getMarketFlag(news.market)
   const relativeTime = getRelativeTime(news.publishedAt)
 
@@ -142,7 +144,7 @@ function NewsListItem({ news }: { news: NewsItem }) {
               ))}
               {news.relatedStocks.length > 3 && (
                 <span className="text-xs text-gray-500">
-                  +{news.relatedStocks.length - 3}件
+                  {t('relatedStocks.moreCount', { count: news.relatedStocks.length - 3 })}
                 </span>
               )}
             </div>
@@ -166,10 +168,10 @@ function NewsListItem({ news }: { news: NewsItem }) {
                 }`}
               >
                 {news.sentiment === "positive"
-                  ? "ポジティブ"
+                  ? t('sentiment.positive')
                   : news.sentiment === "negative"
-                  ? "ネガティブ"
-                  : "中立"}
+                  ? t('sentiment.negative')
+                  : t('sentiment.neutral')}
               </span>
             )}
           </div>
