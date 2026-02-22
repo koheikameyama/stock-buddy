@@ -2,24 +2,27 @@
  * チャートパターン検出ライブラリ
  *
  * 複数のローソク足から形成されるチャートパターン（フォーメーション）を検出する。
- * 画像参照の信頼度ランキングに基づき実装:
+ * Thomas Bulkowski『Encyclopedia of Chart Patterns』(30,000+サンプル)の
+ * 実証データに基づくランキング:
  *
- * 【買いシグナル（強い順）】
- * ① 逆三尊（Inverse Head & Shoulders）
- * ② ダブルボトム（Double Bottom）
- * ③ 上昇フラッグ（Bull Flag）
- * ④ 上昇トライアングル（Ascending Triangle）
- * ⑤ トリプルボトム（Triple Bottom）
+ * 【S級 - 勝率85%以上】
+ *   買い: 逆三尊(89%), ダブルボトム(88%)
+ *   売り: 三尊(89%), 下降トライアングル(87%)
  *
- * 【売りシグナル（強い順）】
- * ⑥ ダブルトップ（Double Top）
- * ⑦ 三尊（Head & Shoulders）
- * ⑧ 下降フラッグ（Bear Flag）
- * ⑨ 下降トライアングル（Descending Triangle）
+ * 【A級 - 勝率80〜85%】
+ *   買い: トリプルボトム(87%), 上昇トライアングル(83%)
+ *   売り: (該当なし)
  *
- * 【中立シグナル】
- * - ボックスレンジ（Box Range）
- * - 三角保ち合い（Symmetrical Triangle）
+ * 【B級 - 勝率65〜80%】
+ *   買い: カップウィズハンドル(68%), ソーサーボトム(65%)
+ *   売り: ダブルトップ(73%), 逆カップウィズハンドル(68%), ソーサートップ(65%)
+ *
+ * 【C級 - 勝率50〜65%】
+ *   買い: 下降ウェッジ(58%), 上昇フラッグ(54%)
+ *   売り: 上昇ウェッジ(58%), 下降フラッグ(54%)
+ *
+ * 【D級 - 勝率50%前後】
+ *   中立: ボックスレンジ(55%), 三角保ち合い(55%)
  */
 
 export interface PricePoint {
@@ -31,10 +34,14 @@ export interface PricePoint {
   volume?: number
 }
 
+export type ChartPatternRank = "S" | "A" | "B" | "C" | "D"
+
 export interface ChartPatternResult {
   pattern: string
   patternName: string
   signal: "buy" | "sell" | "neutral"
+  rank: ChartPatternRank
+  winRate: number // Bulkowski研究に基づく参考勝率 (0-100)
   strength: number // 0-100
   confidence: number // 0-1
   description: string
@@ -144,6 +151,8 @@ function detectInverseHeadAndShoulders(prices: PricePoint[]): ChartPatternResult
       pattern: "inverse_head_and_shoulders",
       patternName: "逆三尊（ぎゃくさんぞん）",
       signal: "buy",
+      rank: "S",
+      winRate: 89,
       strength: breakout ? 95 : 80,
       confidence: breakout ? 0.85 : 0.65,
       description: breakout
@@ -201,8 +210,10 @@ function detectDoubleBottom(prices: PricePoint[]): ChartPatternResult | null {
       pattern: "double_bottom",
       patternName: "ダブルボトム",
       signal: "buy",
-      strength: breakout ? 90 : 75,
-      confidence: breakout ? 0.80 : 0.60,
+      rank: "S",
+      winRate: 88,
+      strength: breakout ? 92 : 78,
+      confidence: breakout ? 0.82 : 0.62,
       description: breakout
         ? "ダブルボトムが完成しました。W字型の底打ちから上昇転換が期待できます"
         : "ダブルボトムを形成中です。2回同じ水準で底を打ち、反発が期待できます",
@@ -260,8 +271,10 @@ function detectBullFlag(prices: PricePoint[]): ChartPatternResult | null {
     pattern: "bull_flag",
     patternName: "上昇フラッグ（ブルフラッグ）",
     signal: "buy",
-    strength: 75,
-    confidence: 0.65,
+    rank: "C",
+    winRate: 54,
+    strength: 58,
+    confidence: 0.50,
     description:
       "上昇フラッグを形成中です。急上昇後の小休止で、再上昇の準備段階の可能性があります",
     explanation:
@@ -311,6 +324,8 @@ function detectAscendingTriangle(prices: PricePoint[]): ChartPatternResult | nul
     pattern: "ascending_triangle",
     patternName: "上昇トライアングル（アセンディング・トライアングル）",
     signal: "buy",
+    rank: "A",
+    winRate: 83,
     strength: breakout ? 85 : 70,
     confidence: breakout ? 0.75 : 0.55,
     description: breakout
@@ -364,6 +379,8 @@ function detectTripleBottom(prices: PricePoint[]): ChartPatternResult | null {
       pattern: "triple_bottom",
       patternName: "トリプルボトム",
       signal: "buy",
+      rank: "A",
+      winRate: 87,
       strength: breakout ? 88 : 72,
       confidence: breakout ? 0.78 : 0.58,
       description: breakout
@@ -420,8 +437,10 @@ function detectDoubleTop(prices: PricePoint[]): ChartPatternResult | null {
       pattern: "double_top",
       patternName: "ダブルトップ",
       signal: "sell",
-      strength: breakdown ? 90 : 75,
-      confidence: breakdown ? 0.80 : 0.60,
+      rank: "B",
+      winRate: 73,
+      strength: breakdown ? 78 : 65,
+      confidence: breakdown ? 0.70 : 0.55,
       description: breakdown
         ? "ダブルトップが完成しました。M字型の天井から下落転換が始まっています"
         : "ダブルトップを形成中です。2回同じ高値で跳ね返されており、上値が重い状況です",
@@ -477,6 +496,8 @@ function detectHeadAndShoulders(prices: PricePoint[]): ChartPatternResult | null
       pattern: "head_and_shoulders",
       patternName: "三尊（さんぞん）",
       signal: "sell",
+      rank: "S",
+      winRate: 89,
       strength: breakdown ? 95 : 80,
       confidence: breakdown ? 0.85 : 0.65,
       description: breakdown
@@ -534,8 +555,10 @@ function detectBearFlag(prices: PricePoint[]): ChartPatternResult | null {
     pattern: "bear_flag",
     patternName: "下降フラッグ（ベアフラッグ）",
     signal: "sell",
-    strength: 75,
-    confidence: 0.65,
+    rank: "C",
+    winRate: 54,
+    strength: 58,
+    confidence: 0.50,
     description:
       "下降フラッグを形成中です。急下落後の小反発で、再下落の準備段階の可能性があります",
     explanation:
@@ -584,8 +607,10 @@ function detectDescendingTriangle(prices: PricePoint[]): ChartPatternResult | nu
     pattern: "descending_triangle",
     patternName: "下降トライアングル（ディセンディング・トライアングル）",
     signal: "sell",
-    strength: breakdown ? 85 : 70,
-    confidence: breakdown ? 0.75 : 0.55,
+    rank: "S",
+    winRate: 87,
+    strength: breakdown ? 90 : 75,
+    confidence: breakdown ? 0.82 : 0.60,
     description: breakdown
       ? "下降トライアングルの支持線を下抜けました。下落の勢いが強まっています"
       : "下降トライアングルを形成中。高値が切り下がっており、下放れの可能性があります",
@@ -637,8 +662,10 @@ function detectBoxRange(prices: PricePoint[]): ChartPatternResult | null {
     pattern: "box_range",
     patternName: "ボックスレンジ",
     signal: "neutral",
-    strength: 60,
-    confidence: 0.70,
+    rank: "D",
+    winRate: 55,
+    strength: 55,
+    confidence: 0.55,
     description:
       `ボックスレンジで推移中です。${avgTrough.toLocaleString()}円〜${avgPeak.toLocaleString()}円の間で動いています`,
     explanation:
@@ -689,8 +716,10 @@ function detectSymmetricalTriangle(prices: PricePoint[]): ChartPatternResult | n
     pattern: "symmetrical_triangle",
     patternName: "三角保ち合い（シンメトリカル・トライアングル）",
     signal: "neutral",
-    strength: 65,
-    confidence: 0.60,
+    rank: "D",
+    winRate: 55,
+    strength: 55,
+    confidence: 0.52,
     description:
       "三角保ち合いを形成中です。値幅が狭まっており、近いうちに大きく動く可能性があります",
     explanation:
@@ -746,13 +775,13 @@ export function formatChartPatternsForPrompt(patterns: ChartPatternResult[]): st
     return "チャートパターン: 特に検出されたパターンはありません"
   }
 
-  const lines = ["【チャートパターン分析】"]
+  const lines = ["【チャートパターン分析】（※勝率はBulkowski研究に基づく参考値）"]
 
   for (const p of patterns) {
     const signalLabel =
       p.signal === "buy" ? "買い" : p.signal === "sell" ? "売り" : "様子見"
     lines.push(
-      `- ${p.patternName}: ${signalLabel}シグナル（強さ: ${p.strength}%、信頼度: ${(p.confidence * 100).toFixed(0)}%）`
+      `- ${p.patternName}: ${signalLabel}シグナル（ランク: ${p.rank}級、参考勝率: ${p.winRate}%、強さ: ${p.strength}%）`
     )
     lines.push(`  ${p.description}`)
   }
