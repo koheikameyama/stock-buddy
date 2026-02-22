@@ -18,7 +18,7 @@ interface ImportTransaction {
  * POST /api/import/rakuten-csv
  *
  * 楽天証券の取引履歴CSVをインポートする。
- * 各銘柄のCSV日付範囲内の既存トランザクションを削除して上書きする。
+ * CSVに含まれる銘柄に対して、CSV全体の日付範囲内の既存トランザクションを削除して上書きする。
  */
 export async function POST(request: NextRequest) {
   const { user, error } = await getAuthUser();
@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
     if (!grouped.has(tx.tickerCode)) grouped.set(tx.tickerCode, []);
     grouped.get(tx.tickerCode)!.push(tx);
   }
+
+  // CSV全体のグローバル日付範囲を計算
+  const allDates = transactions.map((tx: ImportTransaction) => new Date(`${tx.date}T00:00:00.000Z`));
+  const globalMinDate = new Date(Math.min(...allDates.map((d: Date) => d.getTime())));
+  const globalMaxDate = new Date(Math.max(...allDates.map((d: Date) => d.getTime())));
 
   const { takeProfitRate, stopLossRate } = await fetchDefaultTpSlRates(userId);
 
@@ -89,16 +94,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // CSVの日付範囲を計算（この銘柄の最小〜最大約定日）
-      const dates = txList.map((tx: ImportTransaction) => new Date(`${tx.date}T00:00:00.000Z`));
-      const minDate = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
-      const maxDate = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
-
-      // 日付範囲内の既存トランザクションを削除（置き換え）
+      // CSV全体の日付範囲内の既存トランザクションを削除（置き換え）
       const { count: deletedCount } = await prisma.transaction.deleteMany({
         where: {
           portfolioStockId: portfolioStock.id,
-          transactionDate: { gte: minDate, lte: maxDate },
+          transactionDate: { gte: globalMinDate, lte: globalMaxDate },
         },
       });
       totalReplaced += deletedCount;
