@@ -105,16 +105,6 @@ export async function executePortfolioAnalysis(
     );
   }
 
-  // ユーザー設定を取得
-  const userSettings = await prisma.userSettings.findUnique({
-    where: { userId },
-    select: {
-      investmentStyle: true,
-      targetReturnRate: true,
-      stopLossRate: true,
-    },
-  });
-
   // 保有数量と平均取得単価を計算
   let quantity = 0;
   let totalBuyCost = 0;
@@ -130,8 +120,26 @@ export async function executePortfolioAnalysis(
     }
   }
 
+  // 保有数ゼロの銘柄は分析スキップ
+  if (quantity <= 0) {
+    throw new AnalysisError(
+      "保有数がゼロの銘柄は分析できません",
+      "NOT_FOUND",
+    );
+  }
+
   const averagePrice =
     totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0;
+
+  // ユーザー設定を取得
+  const userSettings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: {
+      investmentStyle: true,
+      targetReturnRate: true,
+      stopLossRate: true,
+    },
+  });
 
   // staleチェック: 株価データが古すぎる銘柄は分析スキップ
   const { prices: realtimePrices, staleTickers: staleCheck } =
