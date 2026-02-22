@@ -30,6 +30,7 @@ export function buildPortfolioAnalysisPrompt(params: {
   sectorTrendContext: string;
   gapFillContext: string;
   supportResistanceContext: string;
+  trendlineContext: string;
   takeProfitPrice?: number | null;
   stopLossPrice?: number | null;
   takeProfitRate?: number | null;
@@ -62,6 +63,7 @@ export function buildPortfolioAnalysisPrompt(params: {
     sectorTrendContext,
     gapFillContext,
     supportResistanceContext,
+    trendlineContext,
     takeProfitPrice,
     stopLossPrice,
     takeProfitRate,
@@ -101,7 +103,7 @@ ${userContext}${purchaseRecContext}
 【財務指標（初心者向け解説）】
 ${financialMetrics}
 
-【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}${gapFillContext}${supportResistanceContext}
+【テクニカル分析】${weekChangeContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}${gapFillContext}${supportResistanceContext}${trendlineContext}
 【株価データ】
 直近30日の終値: データあり
 ${newsContext}${marketContext}${sectorTrendContext}

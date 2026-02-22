@@ -1,5 +1,7 @@
 // 技術指標計算ライブラリ
 
+import { TRENDLINE } from "@/lib/constants";
+
 interface PriceData {
   close: number;
   high?: number;
@@ -326,4 +328,332 @@ export function findSupportResistance(prices: PriceData[]): {
     supports: levels.filter((l) => l < currentPrice).sort((a, b) => b - a),
     resistances: levels.filter((l) => l > currentPrice).sort((a, b) => a - b),
   };
+}
+
+/**
+ * トレンドラインの1点
+ */
+export interface TrendlinePoint {
+  index: number;
+  date: string;
+  price: number;
+}
+
+/**
+ * トレンドライン（支持線または抵抗線）の結果
+ */
+export interface TrendlineInfo {
+  startPoint: TrendlinePoint;
+  endPoint: TrendlinePoint;
+  slope: number;
+  direction: "up" | "flat" | "down";
+  currentProjectedPrice: number;
+  broken: boolean;
+  touches: number;
+}
+
+/**
+ * トレンドライン検出の結果
+ */
+export interface TrendlineResult {
+  support: TrendlineInfo | null;
+  resistance: TrendlineInfo | null;
+  overallTrend: "uptrend" | "downtrend" | "sideways";
+}
+
+/**
+ * トレンドライン用のOHLCデータ型
+ */
+interface TrendlinePriceData {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+/**
+ * ローカル極値（高値/安値のピーク/トラフ）を検出する
+ */
+function findTrendlineExtremes(
+  prices: TrendlinePriceData[],
+  windowSize: number = TRENDLINE.WINDOW_SIZE,
+): { peaks: number[]; troughs: number[] } {
+  const peaks: number[] = [];
+  const troughs: number[] = [];
+
+  for (let i = windowSize; i < prices.length - windowSize; i++) {
+    let isPeak = true;
+    let isTrough = true;
+
+    for (let j = 1; j <= windowSize; j++) {
+      if (
+        prices[i].high <= prices[i - j].high ||
+        prices[i].high <= prices[i + j].high
+      ) {
+        isPeak = false;
+      }
+      if (
+        prices[i].low >= prices[i - j].low ||
+        prices[i].low >= prices[i + j].low
+      ) {
+        isTrough = false;
+      }
+    }
+
+    if (isPeak) peaks.push(i);
+    if (isTrough) troughs.push(i);
+  }
+
+  return { peaks, troughs };
+}
+
+/**
+ * 2点を通る直線上のインデックス位置での価格を計算する
+ */
+function getProjectedPrice(
+  idx1: number,
+  price1: number,
+  idx2: number,
+  price2: number,
+  targetIdx: number,
+): number {
+  if (idx1 === idx2) return price1;
+  const slope = (price2 - price1) / (idx2 - idx1);
+  return price1 + slope * (targetIdx - idx1);
+}
+
+/**
+ * サポートトレンドライン（安値同士を結ぶ上昇支持線）を検出する
+ *
+ * アルゴリズム:
+ * 1. ローカルの安値（トラフ）を検出
+ * 2. すべてのトラフのペアに対してラインを引く
+ * 3. 各ラインの品質を評価:
+ *    - 接触回数（ラインに近い安値の数）
+ *    - 逸脱回数（ラインを下回る安値の数）
+ * 4. 最も品質の高いラインを選択
+ */
+function detectSupportTrendline(
+  prices: TrendlinePriceData[],
+  troughs: number[],
+): TrendlineInfo | null {
+  if (troughs.length < TRENDLINE.MIN_TOUCHES) return null;
+
+  const minSpan = Math.floor(prices.length * TRENDLINE.MIN_SPAN_RATIO);
+  let bestScore = -Infinity;
+  let bestLine: {
+    i: number;
+    j: number;
+    touches: number;
+    slope: number;
+  } | null = null;
+
+  for (let a = 0; a < troughs.length; a++) {
+    for (let b = a + 1; b < troughs.length; b++) {
+      const idxA = troughs[a];
+      const idxB = troughs[b];
+
+      // スパンが短すぎるラインは除外
+      if (idxB - idxA < minSpan) continue;
+
+      const priceA = prices[idxA].low;
+      const priceB = prices[idxB].low;
+      const slope = (priceB - priceA) / (idxB - idxA);
+      const avgPrice = (priceA + priceB) / 2;
+
+      let touches = 0;
+      let violations = 0;
+
+      for (let k = idxA; k <= Math.min(idxB, prices.length - 1); k++) {
+        const projected = getProjectedPrice(idxA, priceA, idxB, priceB, k);
+        const diff = (prices[k].low - projected) / avgPrice;
+
+        if (Math.abs(diff) <= TRENDLINE.TOUCH_TOLERANCE) {
+          touches++;
+        } else if (diff < -TRENDLINE.TOUCH_TOLERANCE) {
+          violations++;
+        }
+      }
+
+      const totalPoints = idxB - idxA + 1;
+      if (violations / totalPoints > TRENDLINE.MAX_VIOLATION_RATIO) continue;
+      if (touches < TRENDLINE.MIN_TOUCHES) continue;
+
+      // スコア: 接触回数を重視、スパンの長さにボーナス
+      const score = touches * 10 + (idxB - idxA) * 0.1 - violations * 5;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = { i: idxA, j: idxB, touches, slope };
+      }
+    }
+  }
+
+  if (!bestLine) return null;
+
+  const { i, j, touches, slope } = bestLine;
+  const avgPrice =
+    prices.reduce((sum, p) => sum + p.close, 0) / prices.length;
+  const normalizedSlope = slope / avgPrice;
+
+  let direction: "up" | "flat" | "down" = "flat";
+  if (normalizedSlope > TRENDLINE.SIGNIFICANT_SLOPE) direction = "up";
+  else if (normalizedSlope < -TRENDLINE.SIGNIFICANT_SLOPE) direction = "down";
+
+  const lastIdx = prices.length - 1;
+  const currentProjectedPrice = getProjectedPrice(
+    i,
+    prices[i].low,
+    j,
+    prices[j].low,
+    lastIdx,
+  );
+  const latestLow = prices[lastIdx].low;
+  const broken = latestLow < currentProjectedPrice * (1 - TRENDLINE.TOUCH_TOLERANCE);
+
+  return {
+    startPoint: { index: i, date: prices[i].date, price: prices[i].low },
+    endPoint: { index: j, date: prices[j].date, price: prices[j].low },
+    slope,
+    direction,
+    currentProjectedPrice: Math.round(currentProjectedPrice * 100) / 100,
+    broken,
+    touches,
+  };
+}
+
+/**
+ * レジスタンストレンドライン（高値同士を結ぶ抵抗線）を検出する
+ */
+function detectResistanceTrendline(
+  prices: TrendlinePriceData[],
+  peaks: number[],
+): TrendlineInfo | null {
+  if (peaks.length < TRENDLINE.MIN_TOUCHES) return null;
+
+  const minSpan = Math.floor(prices.length * TRENDLINE.MIN_SPAN_RATIO);
+  let bestScore = -Infinity;
+  let bestLine: {
+    i: number;
+    j: number;
+    touches: number;
+    slope: number;
+  } | null = null;
+
+  for (let a = 0; a < peaks.length; a++) {
+    for (let b = a + 1; b < peaks.length; b++) {
+      const idxA = peaks[a];
+      const idxB = peaks[b];
+
+      if (idxB - idxA < minSpan) continue;
+
+      const priceA = prices[idxA].high;
+      const priceB = prices[idxB].high;
+      const slope = (priceB - priceA) / (idxB - idxA);
+      const avgPrice = (priceA + priceB) / 2;
+
+      let touches = 0;
+      let violations = 0;
+
+      for (let k = idxA; k <= Math.min(idxB, prices.length - 1); k++) {
+        const projected = getProjectedPrice(idxA, priceA, idxB, priceB, k);
+        const diff = (prices[k].high - projected) / avgPrice;
+
+        if (Math.abs(diff) <= TRENDLINE.TOUCH_TOLERANCE) {
+          touches++;
+        } else if (diff > TRENDLINE.TOUCH_TOLERANCE) {
+          violations++;
+        }
+      }
+
+      const totalPoints = idxB - idxA + 1;
+      if (violations / totalPoints > TRENDLINE.MAX_VIOLATION_RATIO) continue;
+      if (touches < TRENDLINE.MIN_TOUCHES) continue;
+
+      const score = touches * 10 + (idxB - idxA) * 0.1 - violations * 5;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = { i: idxA, j: idxB, touches, slope };
+      }
+    }
+  }
+
+  if (!bestLine) return null;
+
+  const { i, j, touches, slope } = bestLine;
+  const avgPrice =
+    prices.reduce((sum, p) => sum + p.close, 0) / prices.length;
+  const normalizedSlope = slope / avgPrice;
+
+  let direction: "up" | "flat" | "down" = "flat";
+  if (normalizedSlope > TRENDLINE.SIGNIFICANT_SLOPE) direction = "up";
+  else if (normalizedSlope < -TRENDLINE.SIGNIFICANT_SLOPE) direction = "down";
+
+  const lastIdx = prices.length - 1;
+  const currentProjectedPrice = getProjectedPrice(
+    i,
+    prices[i].high,
+    j,
+    prices[j].high,
+    lastIdx,
+  );
+  const latestHigh = prices[lastIdx].high;
+  const broken = latestHigh > currentProjectedPrice * (1 + TRENDLINE.TOUCH_TOLERANCE);
+
+  return {
+    startPoint: { index: i, date: prices[i].date, price: prices[i].high },
+    endPoint: { index: j, date: prices[j].date, price: prices[j].high },
+    slope,
+    direction,
+    currentProjectedPrice: Math.round(currentProjectedPrice * 100) / 100,
+    broken,
+    touches,
+  };
+}
+
+/**
+ * トレンドライン検出（メインのエントリーポイント）
+ *
+ * 安値同士を結ぶサポートラインと高値同士を結ぶレジスタンスラインを検出し、
+ * 全体のトレンド方向を判定する。
+ *
+ * @param prices - OHLC データ（oldest-first）
+ */
+export function detectTrendlines(
+  prices: TrendlinePriceData[],
+): TrendlineResult {
+  const empty: TrendlineResult = {
+    support: null,
+    resistance: null,
+    overallTrend: "sideways",
+  };
+
+  if (prices.length < TRENDLINE.MIN_DATA_POINTS) return empty;
+
+  const { peaks, troughs } = findTrendlineExtremes(prices);
+
+  const support = detectSupportTrendline(prices, troughs);
+  const resistance = detectResistanceTrendline(prices, peaks);
+
+  // 全体トレンドの判定
+  let overallTrend: "uptrend" | "downtrend" | "sideways" = "sideways";
+
+  if (support && resistance) {
+    // 両方検出された場合、傾きの方向で判定
+    if (support.direction === "up" && resistance.direction === "up") {
+      overallTrend = "uptrend";
+    } else if (support.direction === "down" && resistance.direction === "down") {
+      overallTrend = "downtrend";
+    }
+  } else if (support) {
+    if (support.direction === "up") overallTrend = "uptrend";
+    else if (support.direction === "down") overallTrend = "downtrend";
+  } else if (resistance) {
+    if (resistance.direction === "up") overallTrend = "uptrend";
+    else if (resistance.direction === "down") overallTrend = "downtrend";
+  }
+
+  return { support, resistance, overallTrend };
 }

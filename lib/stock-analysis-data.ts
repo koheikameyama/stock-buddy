@@ -9,7 +9,7 @@
 
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, PricePoint, ChartPatternResult } from "@/lib/chart-patterns"
-import { calculateRSI, calculateMACD } from "@/lib/technical-indicators"
+import { calculateRSI, calculateMACD, detectTrendlines, TrendlineInfo } from "@/lib/technical-indicators"
 import { OHLCVData } from "@/lib/stock-analysis-context"
 
 // =====================================================
@@ -64,6 +64,33 @@ export interface ChartPatternData {
 }
 
 // =====================================================
+// トレンドラインデータ型
+// =====================================================
+
+export interface TrendlinePointData {
+  index: number
+  date: string
+  price: number
+}
+
+export interface TrendlineData {
+  startPoint: TrendlinePointData
+  endPoint: TrendlinePointData
+  direction: "up" | "flat" | "down"
+  currentProjectedPrice: number
+  broken: boolean
+  touches: number
+}
+
+export interface TrendlineAnalysisData {
+  support: TrendlineData | null
+  resistance: TrendlineData | null
+  overallTrend: "uptrend" | "downtrend" | "sideways"
+  trendLabel: string
+  description: string
+}
+
+// =====================================================
 // 統合分析データ型
 // =====================================================
 
@@ -76,6 +103,7 @@ export interface StockAnalysisData {
     label: string
     isWarning: boolean
   } | null
+  trendlines: TrendlineAnalysisData | null
 }
 
 // =====================================================
@@ -269,6 +297,66 @@ export function getWeekChange(prices: OHLCVData[]): {
 }
 
 // =====================================================
+// トレンドライン分析
+// =====================================================
+
+/**
+ * TrendlineInfo → UI用TrendlineData に変換する
+ */
+function toTrendlineData(info: TrendlineInfo): TrendlineData {
+  return {
+    startPoint: info.startPoint,
+    endPoint: info.endPoint,
+    direction: info.direction,
+    currentProjectedPrice: info.currentProjectedPrice,
+    broken: info.broken,
+    touches: info.touches,
+  }
+}
+
+/**
+ * トレンドラインデータを取得する
+ * @param prices - OHLCV データ（oldest-first）
+ */
+export function getTrendlines(prices: OHLCVData[]): TrendlineAnalysisData | null {
+  if (prices.length < 15) return null
+
+  const result = detectTrendlines(prices)
+
+  if (!result.support && !result.resistance) return null
+
+  const trendLabels: Record<string, string> = {
+    uptrend: "上昇トレンド",
+    downtrend: "下降トレンド",
+    sideways: "横ばい（レンジ）",
+  }
+  const trendLabel = trendLabels[result.overallTrend]
+
+  // 説明文を生成
+  const parts: string[] = []
+  if (result.support) {
+    const dirLabel = result.support.direction === "up" ? "上昇" : result.support.direction === "down" ? "下降" : "水平"
+    parts.push(
+      `サポートライン: ${dirLabel}方向（${result.support.touches}回接触${result.support.broken ? "、ブレイクダウン発生" : ""}）`
+    )
+  }
+  if (result.resistance) {
+    const dirLabel = result.resistance.direction === "up" ? "上昇" : result.resistance.direction === "down" ? "下降" : "水平"
+    parts.push(
+      `レジスタンスライン: ${dirLabel}方向（${result.resistance.touches}回接触${result.resistance.broken ? "、ブレイクアウト発生" : ""}）`
+    )
+  }
+
+  return {
+    support: result.support ? toTrendlineData(result.support) : null,
+    resistance: result.resistance ? toTrendlineData(result.resistance) : null,
+    overallTrend: result.overallTrend,
+    trendLabel,
+    description: parts.join("。"),
+  }
+}
+
+// =====================================================
 // 統合関数
 // =====================================================
 
@@ -282,5 +370,6 @@ export function getStockAnalysisData(prices: OHLCVData[]): StockAnalysisData {
     candlestickPattern: getCandlestickPattern(prices),
     chartPatterns: getChartPatterns(prices),
     weekChange: getWeekChange(prices),
+    trendlines: getTrendlines(prices),
   }
 }

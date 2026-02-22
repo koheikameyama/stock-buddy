@@ -348,6 +348,17 @@ export const MARKET_SIGNAL_CONFIG: Record<
   },
 };
 
+// トレンドライン検出の閾値
+export const TRENDLINE = {
+  MIN_DATA_POINTS: 15, // 検出に必要な最小データ点数
+  WINDOW_SIZE: 3, // ローカル極値検出のウィンドウサイズ
+  TOUCH_TOLERANCE: 0.02, // トレンドラインへの「接触」許容幅（2%）
+  MAX_VIOLATION_RATIO: 0.15, // 許容する逸脱点の比率（15%以下）
+  MIN_TOUCHES: 2, // 有効なトレンドラインの最小接触回数
+  SIGNIFICANT_SLOPE: 0.001, // 上昇/下降判定の傾き閾値
+  MIN_SPAN_RATIO: 0.3, // トレンドラインの最小スパン比率（全データの30%以上）
+} as const;
+
 // 移動平均乖離率の閾値
 export const MA_DEVIATION = {
   PERIOD: 25, // 移動平均の期間（日）

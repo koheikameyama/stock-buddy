@@ -20,6 +20,7 @@ import {
   buildWeekChangeContext,
   buildMarketContext,
   buildDeviationRateContext,
+  buildTrendlineContext,
 } from "@/lib/stock-analysis-context";
 import { buildDailyRecommendationPrompt } from "@/lib/prompts/daily-recommendation-prompt";
 import { getRelatedNews, formatNewsForPrompt } from "@/lib/news-rag";
@@ -75,6 +76,7 @@ interface StockContext {
   technicalContext: string;
   candlestickContext: string;
   chartPatternContext: string;
+  trendlineContext: string;
   weekChangeContext: string;
   weekChangeRate: number | null;
   deviationRateContext: string;
@@ -586,6 +588,7 @@ async function buildStockContexts(
     const technicalContext = buildTechnicalContext(ohlcvPrices);
     const candlestickContext = buildCandlestickContext(ohlcvPrices);
     const chartPatternContext = buildChartPatternContext(ohlcvPrices);
+    const trendlineContext = buildTrendlineContext(ohlcvPrices);
     const { text: weekChangeContext, rate: weekChangeRate } =
       buildWeekChangeContext(ohlcvPrices, "watchlist");
     const deviationRateContext = buildDeviationRateContext(ohlcvPrices);
@@ -616,6 +619,7 @@ async function buildStockContexts(
       technicalContext,
       candlestickContext,
       chartPatternContext,
+      trendlineContext,
       weekChangeContext,
       weekChangeRate,
       deviationRateContext,
@@ -660,7 +664,7 @@ async function selectWithAI(
 - スコア: ${s.score}点
 
 ${ctx.financialMetrics}
-${ctx.technicalContext}${ctx.candlestickContext}${ctx.chartPatternContext}${ctx.weekChangeContext}${ctx.deviationRateContext}${ctx.predictionContext}`;
+${ctx.technicalContext}${ctx.candlestickContext}${ctx.chartPatternContext}${ctx.trendlineContext}${ctx.weekChangeContext}${ctx.deviationRateContext}${ctx.predictionContext}`;
     })
     .join("\n\n");
 

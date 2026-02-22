@@ -16,6 +16,7 @@ import {
   buildDelistingContext,
   buildVolumeAnalysisContext,
   buildRelativeStrengthContext,
+  buildTrendlineContext,
 } from "@/lib/stock-analysis-context";
 import { buildPurchaseRecommendationPrompt } from "@/lib/prompts/purchase-recommendation-prompt";
 import { MA_DEVIATION, SELL_TIMING, MOMENTUM } from "@/lib/constants";
@@ -191,6 +192,9 @@ export async function executePurchaseRecommendation(
   // 出来高分析
   const volumeAnalysisContext = buildVolumeAnalysisContext(prices);
 
+  // トレンドライン
+  const trendlineContext = buildTrendlineContext(prices);
+
   // 関連ニュースを取得
   const tickerCode = stock.tickerCode.replace(".T", "");
   const news = await getRelatedNews({
@@ -319,6 +323,7 @@ export async function executePurchaseRecommendation(
     deviationRateContext,
     volumeAnalysisContext,
     relativeStrengthContext,
+    trendlineContext,
     newsContext,
     hasPrediction,
     prediction: analysis
