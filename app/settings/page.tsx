@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import Footer from "@/app/components/Footer";
 import BottomNavigation from "@/app/components/BottomNavigation";
 import BackButton from "@/app/components/BackButton";
@@ -21,50 +22,60 @@ type UserSettings = {
   stopLossRate: number | null;
 };
 
-const TARGET_RETURN_OPTIONS = [
-  { value: 5, label: "+5%", description: "安定志向" },
-  { value: 10, label: "+10%", description: "バランス型" },
-  { value: 15, label: "+15%", description: "やや積極的" },
-  { value: 20, label: "+20%", description: "積極的" },
-  { value: 30, label: "+30%", description: "長期・ハイリターン" },
-];
-
-const STOP_LOSS_OPTIONS = [
-  { value: -5, label: "-5%", description: "慎重派" },
-  { value: -10, label: "-10%", description: "バランス型" },
-  { value: -15, label: "-15%", description: "中長期" },
-  { value: -20, label: "-20%", description: "長期・変動許容" },
-];
-
-const INVESTMENT_STYLE_OPTIONS = [
-  {
-    value: "CONSERVATIVE",
-    label: "慎重派（守り）",
-    description: "資産保護を最優先。損失を最小限に抑える",
-    icon: "🛡️",
-  },
-  {
-    value: "BALANCED",
-    label: "バランス型",
-    description: "リスクとリワードのバランスを重視",
-    icon: "⚖️",
-  },
-  {
-    value: "AGGRESSIVE",
-    label: "積極派（攻め）",
-    description: "短期の変動を許容し、大きな利益を狙う",
-    icon: "🚀",
-  },
-];
-
-const BUDGET_OPTIONS = [
-  { value: 100000, label: "10万円", description: "少額から" },
-  { value: 300000, label: "30万円", description: "手軽に" },
-  { value: 500000, label: "50万円", description: "しっかり" },
-  { value: 1000000, label: "100万円", description: "本格的に" },
-];
-
 export default function SettingsPage() {
+  const tPage = useTranslations('settings.page');
+  const tPush = useTranslations('settings.pushNotifications');
+  const tSchedule = useTranslations('settings.notificationSchedule');
+  const tStyle = useTranslations('settings.investmentStyleSection');
+  const tBudget = useTranslations('settings.investmentBudget');
+  const tSales = useTranslations('settings.salesTargets');
+  const tTarget = useTranslations('settings.targetReturn');
+  const tStopLoss = useTranslations('settings.stopLoss');
+  const tToast = useTranslations('settings.toast');
+
+  const TARGET_RETURN_OPTIONS = [
+    { value: 5, label: tTarget('5.label'), description: tTarget('5.description') },
+    { value: 10, label: tTarget('10.label'), description: tTarget('10.description') },
+    { value: 15, label: tTarget('15.label'), description: tTarget('15.description') },
+    { value: 20, label: tTarget('20.label'), description: tTarget('20.description') },
+    { value: 30, label: tTarget('30.label'), description: tTarget('30.description') },
+  ];
+
+  const STOP_LOSS_OPTIONS = [
+    { value: -5, label: tStopLoss('-5.label'), description: tStopLoss('-5.description') },
+    { value: -10, label: tStopLoss('-10.label'), description: tStopLoss('-10.description') },
+    { value: -15, label: tStopLoss('-15.label'), description: tStopLoss('-15.description') },
+    { value: -20, label: tStopLoss('-20.label'), description: tStopLoss('-20.description') },
+  ];
+
+  const INVESTMENT_STYLE_OPTIONS = [
+    {
+      value: "CONSERVATIVE",
+      label: tStyle('conservative.label'),
+      description: tStyle('conservative.description'),
+      icon: tStyle('conservative.icon'),
+    },
+    {
+      value: "BALANCED",
+      label: tStyle('balanced.label'),
+      description: tStyle('balanced.description'),
+      icon: tStyle('balanced.icon'),
+    },
+    {
+      value: "AGGRESSIVE",
+      label: tStyle('aggressive.label'),
+      description: tStyle('aggressive.description'),
+      icon: tStyle('aggressive.icon'),
+    },
+  ];
+
+  const BUDGET_OPTIONS = [
+    { value: 100000, label: tBudget('100k.label'), description: tBudget('100k.description') },
+    { value: 300000, label: tBudget('300k.label'), description: tBudget('300k.description') },
+    { value: 500000, label: tBudget('500k.label'), description: tBudget('500k.description') },
+    { value: 1000000, label: tBudget('1m.label'), description: tBudget('1m.description') },
+  ];
+
   const [pushState, setPushState] = useState<PushSubscriptionState>({
     supported: false,
     subscribed: false,
@@ -178,13 +189,13 @@ export default function SettingsPage() {
 
       if (response.ok) {
         setSettings(newSettings);
-        toast.success("設定を保存しました");
+        toast.success(tToast('saveSuccess'));
       } else {
-        toast.error("設定の保存に失敗しました");
+        toast.error(tToast('saveError'));
       }
     } catch (error) {
       console.error("Error saving settings:", error);
-      toast.error("設定の保存に失敗しました");
+      toast.error(tToast('saveError'));
     } finally {
       setSavingSettings(false);
     }
@@ -233,7 +244,7 @@ export default function SettingsPage() {
           });
         }
         setPushState({ ...pushState, subscribed: false, loading: false });
-        toast.success("プッシュ通知をオフにしました");
+        toast.success(tPush('successOff'));
       } else {
         // Subscribe
         const response = await fetch("/api/push/subscribe");
@@ -251,11 +262,11 @@ export default function SettingsPage() {
         });
 
         setPushState({ ...pushState, subscribed: true, loading: false });
-        toast.success("プッシュ通知をオンにしました");
+        toast.success(tPush('successOn'));
       }
     } catch (error) {
       console.error("Error toggling push notifications:", error);
-      toast.error("プッシュ通知の設定に失敗しました");
+      toast.error(tPush('error'));
       setPushState({ ...pushState, loading: false });
     }
   };
@@ -269,7 +280,7 @@ export default function SettingsPage() {
             <Link href="/dashboard" className="flex items-center gap-2">
               <span className="text-2xl">📊</span>
               <span className="text-xl font-bold text-gray-900">
-                Stock Buddy
+                {tPage('appName')}
               </span>
             </Link>
           </div>
@@ -278,13 +289,13 @@ export default function SettingsPage() {
 
       <div className="py-8 sm:py-12 px-4">
         <div className="max-w-3xl mx-auto">
-          <BackButton href="/dashboard" label="ダッシュボードに戻る" />
+          <BackButton href="/dashboard" label={tPage('backButton')} />
           <div className="mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-              設定
+              {tPage('title')}
             </h1>
             <p className="text-sm sm:text-base text-gray-600">
-              投資目標と通知の設定ができます
+              {tPage('description')}
             </p>
           </div>
 
@@ -292,27 +303,27 @@ export default function SettingsPage() {
             {/* プッシュ通知設定 */}
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
-                プッシュ通知
+                {tPush('title')}
               </h2>
               <p className="text-sm text-gray-600 mb-4">
-                毎日の分析結果や注目銘柄の更新をお知らせします
+                {tPush('description')}
               </p>
               {!pushState.supported ? (
                 <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50">
                   <p className="text-gray-600 text-sm sm:text-base">
-                    このブラウザではプッシュ通知がサポートされていません
+                    {tPush('notSupported')}
                   </p>
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-5 rounded-xl border-2 border-gray-200 bg-gray-50">
                   <div>
                     <div className="font-semibold text-gray-900 text-base sm:text-lg">
-                      {pushState.subscribed ? "✅ オン" : "🔕 オフ"}
+                      {pushState.subscribed ? tPush('statusOn') : tPush('statusOff')}
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
                       {pushState.subscribed
-                        ? "レポート準備完了時に通知します"
-                        : "通知を受け取りません"}
+                        ? tPush('statusOnDescription')
+                        : tPush('statusOffDescription')}
                     </div>
                   </div>
                   <button
@@ -325,10 +336,10 @@ export default function SettingsPage() {
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {pushState.loading
-                      ? "処理中..."
+                      ? tPage('saving')
                       : pushState.subscribed
-                        ? "オフにする"
-                        : "オンにする"}
+                        ? tPush('turnOff')
+                        : tPush('turnOn')}
                   </button>
                 </div>
               )}
@@ -338,21 +349,21 @@ export default function SettingsPage() {
             <div className="bg-blue-50 rounded-xl p-4 sm:p-5">
               <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <span className="text-lg sm:text-xl">📅</span>
-                <span className="text-sm sm:text-base">通知スケジュール</span>
+                <span className="text-sm sm:text-base">{tSchedule('title')}</span>
               </h3>
               <ul className="space-y-2 text-sm sm:text-base text-gray-700">
                 <li className="flex items-start gap-2">
                   <span>•</span>
                   <span>
                     <strong>{UPDATE_SCHEDULES.STOCK_ANALYSIS}</strong> -
-                    ポートフォリオ分析・購入レコメンド（平日）
+                    {tSchedule('stockAnalysis')}
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span>•</span>
                   <span>
                     <strong>{UPDATE_SCHEDULES.PERSONAL_RECOMMENDATIONS}</strong>{" "}
-                    - あなたへのおすすめ更新（平日）
+                    - {tSchedule('personalRecommendations')}
                   </span>
                 </li>
               </ul>
@@ -364,15 +375,15 @@ export default function SettingsPage() {
             {/* 投資スタイル設定 */}
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
-                投資スタイル
+                {tStyle('title')}
               </h2>
               <p className="text-sm text-gray-600 mb-4">
-                あなたに合った銘柄をおすすめするために使います
+                {tStyle('description')}
               </p>
 
               {settingsLoading ? (
                 <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50 text-center">
-                  <p className="text-gray-600">読み込み中...</p>
+                  <p className="text-gray-600">{tPage('loading')}</p>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -380,7 +391,7 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <span className="text-lg">🎯</span>
-                      <span>投資スタイル</span>
+                      <span>{tStyle('sectionTitle')}</span>
                     </h3>
                     <div className="grid grid-cols-1 gap-3">
                       {INVESTMENT_STYLE_OPTIONS.map((option) => (
@@ -422,7 +433,7 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <span className="text-lg">💰</span>
-                      <span>投資にまわせる資金</span>
+                      <span>{tBudget('title')}</span>
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {BUDGET_OPTIONS.map((option) => (
@@ -479,9 +490,9 @@ export default function SettingsPage() {
                         <div
                           className={`font-bold text-sm ${showCustomBudget ? "text-blue-600" : "text-gray-900"}`}
                         >
-                          その他
+                          {tBudget('custom.label')}
                         </div>
-                        <div className="text-xs text-gray-500">金額を入力</div>
+                        <div className="text-xs text-gray-500">{tBudget('custom.description')}</div>
                       </button>
                       <button
                         onClick={() => {
@@ -497,10 +508,10 @@ export default function SettingsPage() {
                         } disabled:opacity-50`}
                       >
                         <div className="font-bold text-sm text-gray-600">
-                          未定
+                          {tBudget('undecided.label')}
                         </div>
                         <div className="text-xs text-gray-500">
-                          あとで決める
+                          {tBudget('undecided.description')}
                         </div>
                       </button>
                     </div>
@@ -519,11 +530,11 @@ export default function SettingsPage() {
                             onKeyDown={(e) =>
                               e.key === "Enter" && handleCustomBudgetSave()
                             }
-                            placeholder="例: 150"
+                            placeholder={tBudget('customInput.placeholder')}
                             className="flex-1 outline-none text-sm font-semibold text-gray-900 bg-transparent min-w-0"
                           />
                           <span className="text-sm text-gray-500 shrink-0">
-                            万円
+                            {tBudget('customInput.unit')}
                           </span>
                         </div>
                         <button
@@ -535,7 +546,7 @@ export default function SettingsPage() {
                           }
                           className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
                         >
-                          設定
+                          {tBudget('customInput.button')}
                         </button>
                       </div>
                     )}
@@ -550,15 +561,15 @@ export default function SettingsPage() {
             {/* 売却目標設定 */}
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
-                売却目標設定
+                {tSales('title')}
               </h2>
               <p className="text-sm text-gray-600 mb-4">
-                利益確定と損切りの目安を設定できます。AIが売却タイミングを提案する際に参考にします。
+                {tSales('description')}
               </p>
 
               {settingsLoading ? (
                 <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50 text-center">
-                  <p className="text-gray-600">読み込み中...</p>
+                  <p className="text-gray-600">{tPage('loading')}</p>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -566,7 +577,7 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <span className="text-lg">📈</span>
-                      <span>目標利益率（利確ライン）</span>
+                      <span>{tTarget('title')}</span>
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {TARGET_RETURN_OPTIONS.map((option) => (
@@ -625,9 +636,9 @@ export default function SettingsPage() {
                               : "text-gray-900"
                           }`}
                         >
-                          その他
+                          {tTarget('custom.label')}
                         </div>
-                        <div className="text-xs text-gray-500">数値を入力</div>
+                        <div className="text-xs text-gray-500">{tTarget('custom.description')}</div>
                       </button>
                       <button
                         onClick={() => {
@@ -642,8 +653,8 @@ export default function SettingsPage() {
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
-                        <div className="font-bold text-gray-600">設定なし</div>
-                        <div className="text-xs text-gray-500">通知しない</div>
+                        <div className="font-bold text-gray-600">{tTarget('none.label')}</div>
+                        <div className="text-xs text-gray-500">{tTarget('none.description')}</div>
                       </button>
                     </div>
                     {/* カスタム利確ライン入力欄 */}
@@ -665,11 +676,11 @@ export default function SettingsPage() {
                               e.key === "Enter" &&
                               handleCustomTargetReturnSave()
                             }
-                            placeholder="例: 12"
+                            placeholder={tTarget('customInput.placeholder')}
                             className="flex-1 outline-none text-sm font-semibold text-gray-900 bg-transparent min-w-0"
                           />
                           <span className="text-sm text-gray-500 shrink-0">
-                            %
+                            {tTarget('customInput.unit')}
                           </span>
                         </div>
                         <button
@@ -681,7 +692,7 @@ export default function SettingsPage() {
                           }
                           className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
                         >
-                          設定
+                          {tTarget('customInput.button')}
                         </button>
                       </div>
                     )}
@@ -691,7 +702,7 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <span className="text-lg">📉</span>
-                      <span>損切りライン（逆指値目安）</span>
+                      <span>{tStopLoss('title')}</span>
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {STOP_LOSS_OPTIONS.map((option) => (
@@ -750,9 +761,9 @@ export default function SettingsPage() {
                               : "text-gray-900"
                           }`}
                         >
-                          その他
+                          {tStopLoss('custom.label')}
                         </div>
-                        <div className="text-xs text-gray-500">数値を入力</div>
+                        <div className="text-xs text-gray-500">{tStopLoss('custom.description')}</div>
                       </button>
                       <button
                         onClick={() => {
@@ -766,8 +777,8 @@ export default function SettingsPage() {
                             : "border-gray-200 hover:border-gray-300 bg-white"
                         } disabled:opacity-50`}
                       >
-                        <div className="font-bold text-gray-600">設定なし</div>
-                        <div className="text-xs text-gray-500">通知しない</div>
+                        <div className="font-bold text-gray-600">{tStopLoss('none.label')}</div>
+                        <div className="text-xs text-gray-500">{tStopLoss('none.description')}</div>
                       </button>
                     </div>
                     {/* カスタム損切りライン入力欄 */}
@@ -788,11 +799,11 @@ export default function SettingsPage() {
                             onKeyDown={(e) =>
                               e.key === "Enter" && handleCustomStopLossSave()
                             }
-                            placeholder="例: 8"
+                            placeholder={tStopLoss('customInput.placeholder')}
                             className="flex-1 outline-none text-sm font-semibold text-gray-900 bg-transparent min-w-0"
                           />
                           <span className="text-sm text-gray-500 shrink-0">
-                            %
+                            {tStopLoss('customInput.unit')}
                           </span>
                         </div>
                         <button
@@ -804,7 +815,7 @@ export default function SettingsPage() {
                           }
                           className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
                         >
-                          設定
+                          {tStopLoss('customInput.button')}
                         </button>
                       </div>
                     )}
@@ -813,8 +824,7 @@ export default function SettingsPage() {
                   {/* 説明 */}
                   <div className="bg-amber-50 rounded-xl p-4">
                     <p className="text-sm text-amber-800">
-                      💡
-                      設定した目標は全銘柄に適用されます。銘柄ごとに変更したい場合は、マイ銘柄の詳細画面から個別に設定できます。
+                      {tSales('notice')}
                     </p>
                   </div>
                 </div>

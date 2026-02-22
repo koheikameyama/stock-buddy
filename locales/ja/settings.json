@@ -1,5 +1,161 @@
 {
   "title": "設定",
+  "page": {
+    "title": "設定",
+    "description": "投資目標と通知の設定ができます",
+    "backButton": "ダッシュボードに戻る",
+    "loading": "読み込み中...",
+    "saving": "処理中...",
+    "appName": "Stock Buddy"
+  },
+  "pushNotifications": {
+    "title": "プッシュ通知",
+    "description": "毎日の分析結果や注目銘柄の更新をお知らせします",
+    "notSupported": "このブラウザではプッシュ通知がサポートされていません",
+    "statusOn": "✅ オン",
+    "statusOff": "🔕 オフ",
+    "statusOnDescription": "レポート準備完了時に通知します",
+    "statusOffDescription": "通知を受け取りません",
+    "turnOn": "オンにする",
+    "turnOff": "オフにする",
+    "successOn": "プッシュ通知をオンにしました",
+    "successOff": "プッシュ通知をオフにしました",
+    "error": "プッシュ通知の設定に失敗しました"
+  },
+  "notificationSchedule": {
+    "title": "通知スケジュール",
+    "stockAnalysis": "ポートフォリオ分析・購入レコメンド（平日）",
+    "personalRecommendations": "あなたへのおすすめ更新（平日）"
+  },
+  "investmentStyleSection": {
+    "title": "投資スタイル",
+    "description": "あなたに合った銘柄をおすすめするために使います",
+    "sectionTitle": "投資スタイル",
+    "conservative": {
+      "label": "慎重派（守り）",
+      "description": "資産保護を最優先。損失を最小限に抑える",
+      "icon": "🛡️"
+    },
+    "balanced": {
+      "label": "バランス型",
+      "description": "リスクとリワードのバランスを重視",
+      "icon": "⚖️"
+    },
+    "aggressive": {
+      "label": "積極派（攻め）",
+      "description": "短期の変動を許容し、大きな利益を狙う",
+      "icon": "🚀"
+    }
+  },
+  "investmentBudget": {
+    "title": "投資にまわせる資金",
+    "100k": {
+      "label": "10万円",
+      "description": "少額から"
+    },
+    "300k": {
+      "label": "30万円",
+      "description": "手軽に"
+    },
+    "500k": {
+      "label": "50万円",
+      "description": "しっかり"
+    },
+    "1m": {
+      "label": "100万円",
+      "description": "本格的に"
+    },
+    "custom": {
+      "label": "その他",
+      "description": "金額を入力"
+    },
+    "undecided": {
+      "label": "未定",
+      "description": "あとで決める"
+    },
+    "customInput": {
+      "placeholder": "例: 150",
+      "unit": "万円",
+      "button": "設定"
+    }
+  },
+  "salesTargets": {
+    "title": "売却目標設定",
+    "description": "利益確定と損切りの目安を設定できます。AIが売却タイミングを提案する際に参考にします。",
+    "notice": "💡 設定した目標は全銘柄に適用されます。銘柄ごとに変更したい場合は、マイ銘柄の詳細画面から個別に設定できます。"
+  },
+  "targetReturn": {
+    "title": "目標利益率（利確ライン）",
+    "5": {
+      "label": "+5%",
+      "description": "安定志向"
+    },
+    "10": {
+      "label": "+10%",
+      "description": "バランス型"
+    },
+    "15": {
+      "label": "+15%",
+      "description": "やや積極的"
+    },
+    "20": {
+      "label": "+20%",
+      "description": "積極的"
+    },
+    "30": {
+      "label": "+30%",
+      "description": "長期・ハイリターン"
+    },
+    "custom": {
+      "label": "その他",
+      "description": "数値を入力"
+    },
+    "none": {
+      "label": "設定なし",
+      "description": "通知しない"
+    },
+    "customInput": {
+      "placeholder": "例: 12",
+      "unit": "%",
+      "button": "設定"
+    }
+  },
+  "stopLoss": {
+    "title": "損切りライン（逆指値目安）",
+    "-5": {
+      "label": "-5%",
+      "description": "慎重派"
+    },
+    "-10": {
+      "label": "-10%",
+      "description": "バランス型"
+    },
+    "-15": {
+      "label": "-15%",
+      "description": "中長期"
+    },
+    "-20": {
+      "label": "-20%",
+      "description": "長期・変動許容"
+    },
+    "custom": {
+      "label": "その他",
+      "description": "数値を入力"
+    },
+    "none": {
+      "label": "設定なし",
+      "description": "通知しない"
+    },
+    "customInput": {
+      "placeholder": "例: 8",
+      "unit": "%",
+      "button": "設定"
+    }
+  },
+  "toast": {
+    "saveSuccess": "設定を保存しました",
+    "saveError": "設定の保存に失敗しました"
+  },
   "account": {
     "title": "アカウント",
     "email": "メールアドレス",

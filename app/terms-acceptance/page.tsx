@@ -3,8 +3,10 @@
 import { useState } from "react"
 import { signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 
 export default function TermsAcceptancePage() {
+  const t = useTranslations('auth.termsAcceptance')
   const router = useRouter()
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
@@ -13,7 +15,7 @@ export default function TermsAcceptancePage() {
 
   const handleAccept = async () => {
     if (!termsAccepted || !privacyAccepted || !disclaimerAccepted) {
-      alert("すべての項目に同意してください")
+      alert(t('allRequired'))
       return
     }
 
@@ -25,20 +27,20 @@ export default function TermsAcceptancePage() {
       })
 
       if (!response.ok) {
-        throw new Error("同意の保存に失敗しました")
+        throw new Error(t('error'))
       }
 
       router.push("/dashboard")
     } catch (error) {
       console.error("Error accepting terms:", error)
-      alert("エラーが発生しました。もう一度お試しください。")
+      alert(t('error'))
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleDecline = async () => {
-    if (confirm("同意しない場合、サービスを利用できません。ログアウトしますか？")) {
+    if (confirm(t('declineConfirm'))) {
       await signOut({ callbackUrl: "/login" })
     }
   }
@@ -47,10 +49,10 @@ export default function TermsAcceptancePage() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-2">
-          利用規約への同意
+          {t('title')}
         </h1>
         <p className="text-sm text-gray-600 mb-6">
-          サービスを利用するには、以下に同意してください
+          {t('description')}
         </p>
 
         {/* チェックボックス */}
@@ -69,9 +71,9 @@ export default function TermsAcceptancePage() {
                 rel="noopener noreferrer"
                 className="text-red-600 hover:underline font-medium"
               >
-                免責事項
+                {t('disclaimerLink')}
               </a>
-              に同意する
+              {t('agreeToTerms')}
             </span>
           </label>
 
@@ -89,9 +91,9 @@ export default function TermsAcceptancePage() {
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:underline font-medium"
               >
-                利用規約
+                {t('termsLink')}
               </a>
-              に同意する
+              {t('agreeToTerms')}
             </span>
           </label>
 
@@ -109,9 +111,9 @@ export default function TermsAcceptancePage() {
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:underline font-medium"
               >
-                プライバシーポリシー
+                {t('privacyLink')}
               </a>
-              に同意する
+              {t('agreeToTerms')}
             </span>
           </label>
         </div>
@@ -123,14 +125,14 @@ export default function TermsAcceptancePage() {
             disabled={!termsAccepted || !privacyAccepted || !disclaimerAccepted || isSubmitting}
             className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isSubmitting ? "処理中..." : "同意して始める"}
+            {isSubmitting ? t('processing') : t('submit')}
           </button>
           <button
             onClick={handleDecline}
             disabled={isSubmitting}
             className="w-full px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 transition-colors"
           >
-            同意しない
+            {t('decline')}
           </button>
         </div>
       </div>
