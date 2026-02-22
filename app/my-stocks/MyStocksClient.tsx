@@ -98,6 +98,12 @@ export default function MyStocksClient() {
   const [newlyAddedStock, setNewlyAddedStock] = useState<UserStock | null>(
     null,
   );
+  // 全株売却後の選択モーダル用
+  const [zeroStockTarget, setZeroStockTarget] = useState<UserStock | null>(
+    null,
+  );
+  const [zeroStockActionInProgress, setZeroStockActionInProgress] =
+    useState(false);
   // Fetch all data on initial load
   useEffect(() => {
     async function fetchData() {
@@ -435,6 +441,84 @@ export default function MyStocksClient() {
     }
   };
 
+  // 全株売却後: ウォッチリストに追加
+  const handleZeroStockToWatchlist = async () => {
+    if (!zeroStockTarget) return;
+    setZeroStockActionInProgress(true);
+    try {
+      const response = await fetch("/api/user-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerCode: zeroStockTarget.stock.tickerCode,
+          type: "watchlist",
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to add to watchlist");
+      }
+      const newStock = await response.json();
+      setUserStocks((prev) => [...prev, newStock]);
+      // 売却済みリストを更新
+      const updatedSoldStocks = await fetchSoldStocks().catch(() => []);
+      setSoldStocks(updatedSoldStocks);
+      invalidatePortfolioSummary();
+      setZeroStockTarget(null);
+      setActiveTab("watchlist");
+      toast.success(t("zeroStockOptions.addedToWatchlist"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "追加に失敗しました");
+    } finally {
+      setZeroStockActionInProgress(false);
+    }
+  };
+
+  // 全株売却後: 追跡に追加
+  const handleZeroStockToTracked = async () => {
+    if (!zeroStockTarget) return;
+    setZeroStockActionInProgress(true);
+    try {
+      const response = await fetch("/api/tracked-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerCode: zeroStockTarget.stock.tickerCode,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "追跡に失敗しました");
+      }
+      const newTracked = await response.json();
+      setTrackedStocks((prev) => [
+        ...prev,
+        newTracked as unknown as TrackedStock,
+      ]);
+      // 売却済みリストを更新
+      const updatedSoldStocks = await fetchSoldStocks().catch(() => []);
+      setSoldStocks(updatedSoldStocks);
+      invalidatePortfolioSummary();
+      setZeroStockTarget(null);
+      setActiveTab("tracked");
+      toast.success(t("zeroStockOptions.addedToTracked"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "追跡に失敗しました");
+    } finally {
+      setZeroStockActionInProgress(false);
+    }
+  };
+
+  // 全株売却後: 何もしない（過去の保有に移動）
+  const handleZeroStockDismiss = async () => {
+    // 売却済みリストを更新
+    const updatedSoldStocks = await fetchSoldStocks().catch(() => []);
+    setSoldStocks(updatedSoldStocks);
+    invalidatePortfolioSummary();
+    setZeroStockTarget(null);
+    toast.success(t("zeroStockOptions.movedToSold"));
+  };
+
   const handleStockAdded = (newStock: UserStock) => {
     setUserStocks((prev) => [...prev, newStock]);
     setShowAddDialog(false);
@@ -456,6 +540,15 @@ export default function MyStocksClient() {
     );
     setShowTransactionDialog(false);
     setSelectedStock(null);
+
+    // 全株売却時は選択モーダルを表示
+    if (
+      updatedStock.type === "portfolio" &&
+      (updatedStock.quantity ?? 0) === 0
+    ) {
+      setZeroStockTarget(updatedStock);
+      return;
+    }
 
     // 購入の場合、利確・損切り価格が設定されていれば設定モーダルを表示
     if (
@@ -1058,6 +1151,113 @@ export default function MyStocksClient() {
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 {trackingInProgress ? "処理中..." : "追跡する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 全株売却後の選択モーダル */}
+      {zeroStockTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              {t("zeroStockOptions.title")}
+            </h3>
+            <p className="text-sm text-gray-600 mb-2">
+              <span className="font-semibold">
+                {zeroStockTarget.stock.name}
+              </span>
+            </p>
+            <p className="text-sm text-gray-500 mb-5">
+              {t("zeroStockOptions.description")}
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={handleZeroStockToWatchlist}
+                disabled={zeroStockActionInProgress}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors disabled:opacity-50 text-left"
+              >
+                <svg
+                  className="w-5 h-5 text-blue-600 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {t("zeroStockOptions.watchlist")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {t("zeroStockOptions.watchlistDescription")}
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={handleZeroStockToTracked}
+                disabled={zeroStockActionInProgress}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors disabled:opacity-50 text-left"
+              >
+                <svg
+                  className="w-5 h-5 text-green-600 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {t("zeroStockOptions.track")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {t("zeroStockOptions.trackDescription")}
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={handleZeroStockDismiss}
+                disabled={zeroStockActionInProgress}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 text-left"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {t("zeroStockOptions.dismiss")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {t("zeroStockOptions.dismissDescription")}
+                  </p>
+                </div>
               </button>
             </div>
           </div>

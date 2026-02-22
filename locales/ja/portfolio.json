@@ -81,6 +81,19 @@
     "title": "追加購入",
     "success": "追加購入を記録しました"
   },
+  "zeroStockOptions": {
+    "title": "全株売却しました",
+    "description": "この銘柄を引き続きどうしますか？",
+    "watchlist": "気になるリストに追加",
+    "watchlistDescription": "AI分析付きで株価を監視します",
+    "track": "追跡に追加",
+    "trackDescription": "AI分析なしで株価だけ追います",
+    "dismiss": "何もしない",
+    "dismissDescription": "過去の保有に移動します",
+    "addedToWatchlist": "気になるリストに追加しました",
+    "addedToTracked": "追跡に追加しました",
+    "movedToSold": "過去の保有に移動しました"
+  },
   "analysis": {
     "title": "ポートフォリオ分析",
     "overallAnalysis": "総合分析",
