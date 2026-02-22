@@ -18,6 +18,7 @@ import {
   buildRelativeStrengthContext,
   buildGapFillContext,
   buildSupportResistanceContext,
+  buildTrendlineContext,
 } from "@/lib/stock-analysis-context";
 import { buildPortfolioAnalysisPrompt } from "@/lib/prompts/portfolio-analysis-prompt";
 import { getNikkei225Data } from "@/lib/market-index";
@@ -196,6 +197,9 @@ export async function executePortfolioAnalysis(
   // 支持線・抵抗線
   const supportResistanceContext = buildSupportResistanceContext(prices);
 
+  // トレンドライン
+  const trendlineContext = buildTrendlineContext(prices);
+
   // 関連ニュースを取得
   const tickerCodeSlug = portfolioStock.stock.tickerCode.replace(".T", "");
   const news = await getRelatedNews({
@@ -324,6 +328,7 @@ export async function executePortfolioAnalysis(
     sectorTrendContext,
     gapFillContext,
     supportResistanceContext,
+    trendlineContext,
     takeProfitRate: portfolioStock.takeProfitRate
       ? Number(portfolioStock.takeProfitRate)
       : null,
@@ -788,6 +793,7 @@ export async function executeSimulatedPortfolioAnalysis(
 
   const gapFillContext = buildGapFillContext(prices);
   const supportResistanceContext = buildSupportResistanceContext(prices);
+  const trendlineContext = buildTrendlineContext(prices);
 
   const prompt = buildPortfolioAnalysisPrompt({
     stockName: stock.name,
@@ -813,6 +819,7 @@ export async function executeSimulatedPortfolioAnalysis(
     sectorTrendContext,
     gapFillContext,
     supportResistanceContext,
+    trendlineContext,
     isSimulation: true,
   });
 

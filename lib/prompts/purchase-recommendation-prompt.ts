@@ -22,6 +22,7 @@ export function buildPurchaseRecommendationPrompt(params: {
   deviationRateContext: string;
   volumeAnalysisContext: string;
   relativeStrengthContext: string;
+  trendlineContext: string;
   newsContext: string;
   hasPrediction: boolean;
   prediction: {
@@ -52,6 +53,7 @@ export function buildPurchaseRecommendationPrompt(params: {
     deviationRateContext,
     volumeAnalysisContext,
     relativeStrengthContext,
+    trendlineContext,
     newsContext,
     hasPrediction,
     prediction,
@@ -73,7 +75,7 @@ ${financialMetrics}
 ${userContext}${predictionContext}
 【株価データ】
 直近30日の終値: ${pricesCount}件のデータあり
-${delistingContext}${weekChangeContext}${marketContext}${sectorTrendContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}${newsContext}
+${delistingContext}${weekChangeContext}${marketContext}${sectorTrendContext}${patternContext}${technicalContext}${chartPatternContext}${deviationRateContext}${volumeAnalysisContext}${relativeStrengthContext}${trendlineContext}${newsContext}
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 ${hasPrediction ? "※ 価格帯予測は【AI予測データ】の値をそのまま使用してください。" : ""}

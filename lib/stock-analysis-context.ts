@@ -22,6 +22,7 @@ import {
   calculateDeviationRate,
   detectGaps,
   findSupportResistance,
+  detectTrendlines,
 } from "@/lib/technical-indicators";
 import {
   MA_DEVIATION,
@@ -680,5 +681,66 @@ export function buildSupportResistanceContext(prices: OHLCVData[]): string {
 - 下値支持線（サポート）: ${supportText}
 - 上値抵抗線（レジスタンス）: ${resistanceText}
 - 解説: これらの価格帯は過去に売買が集中しており、反発や反落の目安になりやすい重要な水準です。
+`;
+}
+
+/**
+ * トレンドライン分析コンテキスト文字列を生成する
+ * @param prices - OHLCV データ（oldest-first）
+ */
+export function buildTrendlineContext(prices: OHLCVData[]): string {
+  if (prices.length < 15) return "";
+
+  const result = detectTrendlines(prices);
+
+  if (!result.support && !result.resistance) return "";
+
+  const trendLabels: Record<string, string> = {
+    uptrend: "上昇トレンド",
+    downtrend: "下降トレンド",
+    sideways: "横ばい（レンジ）",
+  };
+
+  const lines: string[] = [];
+  lines.push(`- 全体トレンド: ${trendLabels[result.overallTrend]}`);
+
+  if (result.support) {
+    const dirLabel =
+      result.support.direction === "up"
+        ? "上昇"
+        : result.support.direction === "down"
+          ? "下降"
+          : "水平";
+    lines.push(
+      `- サポートライン: ${dirLabel}方向（${result.support.touches}回接触、現在の予測価格: ${result.support.currentProjectedPrice.toLocaleString()}円）`,
+    );
+    if (result.support.broken) {
+      lines.push(
+        `  → サポートラインを下回りました。下落圧力が強まっている可能性があります`,
+      );
+    }
+  }
+
+  if (result.resistance) {
+    const dirLabel =
+      result.resistance.direction === "up"
+        ? "上昇"
+        : result.resistance.direction === "down"
+          ? "下降"
+          : "水平";
+    lines.push(
+      `- レジスタンスライン: ${dirLabel}方向（${result.resistance.touches}回接触、現在の予測価格: ${result.resistance.currentProjectedPrice.toLocaleString()}円）`,
+    );
+    if (result.resistance.broken) {
+      lines.push(
+        `  → レジスタンスラインを突破しました。上昇の勢いが強まっている可能性があります`,
+      );
+    }
+  }
+
+  return `
+【トレンドライン分析】
+${lines.join("\n")}
+- 解説: トレンドラインは安値同士・高値同士を結んだ直線で、価格の方向性を示します。サポートラインを割り込むと下落加速、レジスタンスラインを突破すると上昇加速の傾向があります。
 `;
 }

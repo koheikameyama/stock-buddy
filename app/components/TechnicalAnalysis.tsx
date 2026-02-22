@@ -5,6 +5,7 @@ import type {
   TechnicalIndicators,
   CandlestickPatternData,
   ChartPatternData,
+  TrendlineAnalysisData,
   SignalType,
 } from "@/lib/stock-analysis-data"
 
@@ -17,6 +18,7 @@ interface TechnicalAnalysisData {
     label: string
     isWarning: boolean
   } | null
+  trendlines: TrendlineAnalysisData | null
 }
 
 interface Props {
@@ -112,7 +114,7 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
     )
   }
 
-  const { technicalIndicators, candlestickPattern, chartPatterns, weekChange } = data
+  const { technicalIndicators, candlestickPattern, chartPatterns, weekChange, trendlines } = data
 
   return (
     <div className={embedded ? "" : "bg-white rounded-xl shadow-md p-4 sm:p-6"}>
@@ -247,6 +249,83 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* トレンドライン */}
+        {trendlines && (
+          <div className="border-b border-gray-100 pb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">トレンドライン</span>
+                <span className="text-xs text-gray-500">(価格の方向性)</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                  trendlines.overallTrend === "uptrend"
+                    ? "bg-green-100 text-green-700"
+                    : trendlines.overallTrend === "downtrend"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {trendlines.trendLabel}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {trendlines.support && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold text-green-700">
+                      サポートライン（下値支持線）
+                    </span>
+                    {trendlines.support.broken && (
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">
+                        割れ
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 mb-1">
+                    安値同士を結んだ{trendlines.support.direction === "up" ? "上昇" : trendlines.support.direction === "down" ? "下降" : "水平"}ライン
+                    （{trendlines.support.touches}回接触）
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    現在の予測価格: {trendlines.support.currentProjectedPrice.toLocaleString()}円
+                    {trendlines.support.broken
+                      ? " - サポートを下回っており、下落圧力が強まっています"
+                      : " - この水準がサポートとして機能しています"}
+                  </p>
+                </div>
+              )}
+              {trendlines.resistance && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold text-red-700">
+                      レジスタンスライン（上値抵抗線）
+                    </span>
+                    {trendlines.resistance.broken && (
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+                        突破
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 mb-1">
+                    高値同士を結んだ{trendlines.resistance.direction === "up" ? "上昇" : trendlines.resistance.direction === "down" ? "下降" : "水平"}ライン
+                    （{trendlines.resistance.touches}回接触）
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    現在の予測価格: {trendlines.resistance.currentProjectedPrice.toLocaleString()}円
+                    {trendlines.resistance.broken
+                      ? " - レジスタンスを突破しており、上昇の勢いが強まっています"
+                      : " - この水準が上値の壁として機能しています"}
+                  </p>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              トレンドラインは過去の値動きから導出された参考ラインです。
+              サポートを割ると下落加速、レジスタンスを突破すると上昇加速の傾向があります。
+            </p>
           </div>
         )}
 

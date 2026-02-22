@@ -67,6 +67,29 @@ interface NikkeiHistoricalData {
   close: number
 }
 
+interface TrendlinePointData {
+  index: number
+  date: string
+  price: number
+}
+
+interface TrendlineData {
+  startPoint: TrendlinePointData
+  endPoint: TrendlinePointData
+  direction: "up" | "flat" | "down"
+  currentProjectedPrice: number
+  broken: boolean
+  touches: number
+}
+
+interface TrendlineAnalysis {
+  support: TrendlineData | null
+  resistance: TrendlineData | null
+  overallTrend: "uptrend" | "downtrend" | "sideways"
+  trendLabel: string
+  description: string
+}
+
 interface StockChartProps {
   stockId: string
   embedded?: boolean
@@ -78,11 +101,13 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
   const [data, setData] = useState<ChartData[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
   const [patterns, setPatterns] = useState<PatternsData | null>(null)
+  const [trendlines, setTrendlines] = useState<TrendlineAnalysis | null>(null)
   const [period, setPeriod] = useState<Period>("1m")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"price" | "rsi" | "macd">("price")
   const [showLearning, setShowLearning] = useState(false)
+  const [showTrendlines, setShowTrendlines] = useState(true)
   const [showNikkeiComparison, setShowNikkeiComparison] = useState(false)
   const [nikkeiData, setNikkeiData] = useState<NikkeiHistoricalData[]>([])
   const [nikkeiLoading, setNikkeiLoading] = useState(false)
@@ -101,6 +126,7 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
         setData(result.data)
         setSummary(result.summary)
         setPatterns(result.patterns || null)
+        setTrendlines(result.technicalAnalysis?.trendlines || null)
       } catch (err) {
         console.error("Error fetching chart data:", err)
         setError(err instanceof Error ? err.message : "データの取得に失敗しました")
@@ -153,6 +179,35 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
         }
       })
     : null
+
+  // トレンドラインデータを各データポイントに付加
+  const chartDataWithTrendlines = showTrendlines && trendlines && !showNikkeiComparison
+    ? data.map((d, idx) => {
+        let supportTrendline: number | null = null
+        let resistanceTrendline: number | null = null
+
+        if (trendlines.support) {
+          const { startPoint, endPoint } = trendlines.support
+          // startPoint.indexからendPoint.index（+最新まで延長）の範囲でラインを描画
+          const lastIdx = Math.min(data.length - 1, endPoint.index + Math.floor((endPoint.index - startPoint.index) * 0.3))
+          if (idx >= startPoint.index && idx <= lastIdx) {
+            const slope = (endPoint.price - startPoint.price) / (endPoint.index - startPoint.index)
+            supportTrendline = Math.round((startPoint.price + slope * (idx - startPoint.index)) * 100) / 100
+          }
+        }
+
+        if (trendlines.resistance) {
+          const { startPoint, endPoint } = trendlines.resistance
+          const lastIdx = Math.min(data.length - 1, endPoint.index + Math.floor((endPoint.index - startPoint.index) * 0.3))
+          if (idx >= startPoint.index && idx <= lastIdx) {
+            const slope = (endPoint.price - startPoint.price) / (endPoint.index - startPoint.index)
+            resistanceTrendline = Math.round((startPoint.price + slope * (idx - startPoint.index)) * 100) / 100
+          }
+        }
+
+        return { ...d, supportTrendline, resistanceTrendline }
+      })
+    : data.map(d => ({ ...d, supportTrendline: null as number | null, resistanceTrendline: null as number | null }))
 
   const periodLabels: Record<Period, string> = {
     "1m": "1ヶ月",
@@ -270,8 +325,29 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
       {/* Price Chart - Candlestick */}
       {activeTab === "price" && (
         <>
-          {/* 日経平均比較トグル */}
-          <div className="flex items-center justify-end mb-3">
+          {/* トグルボタン群 */}
+          <div className="flex items-center justify-end gap-2 mb-3 flex-wrap">
+            {/* トレンドライン表示トグル */}
+            {trendlines && (
+              <button
+                onClick={() => setShowTrendlines(!showTrendlines)}
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                  showTrendlines
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <span className="w-3 h-3 rounded-full border-2 flex items-center justify-center" style={{
+                  borderColor: showTrendlines ? "#7c3aed" : "#9ca3af",
+                }}>
+                  {showTrendlines && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                  )}
+                </span>
+                トレンドライン
+              </button>
+            )}
+            {/* 日経平均比較トグル */}
             <button
               onClick={() => setShowNikkeiComparison(!showNikkeiComparison)}
               className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
@@ -362,7 +438,7 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
           ) : (
           <div className="h-64 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+              <ComposedChart data={chartDataWithTrendlines} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="date"
@@ -397,6 +473,16 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
                           <p className={`font-medium ${isUp ? "text-green-600" : "text-red-600"}`}>
                             終値: {formatPrice(d.close)}
                           </p>
+                          {d.supportTrendline && (
+                            <p className="text-green-500 mt-1">
+                              サポート: {formatPrice(d.supportTrendline)}
+                            </p>
+                          )}
+                          {d.resistanceTrendline && (
+                            <p className="text-red-500">
+                              レジスタンス: {formatPrice(d.resistanceTrendline)}
+                            </p>
+                          )}
                           {signal && (
                             <p
                               className={`mt-1 pt-1 border-t border-gray-100 font-medium ${
@@ -467,6 +553,34 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
                     )
                   }}
                 />
+                {/* トレンドライン: サポート（緑） */}
+                {showTrendlines && trendlines?.support && (
+                  <Line
+                    type="linear"
+                    dataKey="supportTrendline"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    dot={false}
+                    connectNulls
+                    yAxisId="price"
+                    isAnimationActive={false}
+                  />
+                )}
+                {/* トレンドライン: レジスタンス（赤） */}
+                {showTrendlines && trendlines?.resistance && (
+                  <Line
+                    type="linear"
+                    dataKey="resistanceTrendline"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    dot={false}
+                    connectNulls
+                    yAxisId="price"
+                    isAnimationActive={false}
+                  />
+                )}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -483,6 +597,55 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
                 <div className="w-3 h-0.5 bg-orange-500"></div>
                 <span className="text-gray-600">日経平均</span>
               </div>
+            </div>
+          )}
+
+          {/* トレンドラインの凡例・情報 */}
+          {showTrendlines && trendlines && !showNikkeiComparison && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-semibold text-gray-900">トレンドライン分析</span>
+                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                  trendlines.overallTrend === "uptrend"
+                    ? "bg-green-100 text-green-700"
+                    : trendlines.overallTrend === "downtrend"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-700"
+                }`}>
+                  {trendlines.trendLabel}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-xs mb-2">
+                {trendlines.support && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-0 border-t-2 border-dashed border-green-500"></div>
+                    <span className="text-gray-600">
+                      サポート {formatPrice(trendlines.support.currentProjectedPrice)}
+                      {trendlines.support.broken && (
+                        <span className="text-red-500 ml-1">割れ</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+                {trendlines.resistance && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-0 border-t-2 border-dashed border-red-500"></div>
+                    <span className="text-gray-600">
+                      レジスタンス {formatPrice(trendlines.resistance.currentProjectedPrice)}
+                      {trendlines.resistance.broken && (
+                        <span className="text-green-500 ml-1">突破</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500">
+                {trendlines.overallTrend === "uptrend"
+                  ? "安値が切り上がっており、上昇トレンドが形成されています"
+                  : trendlines.overallTrend === "downtrend"
+                  ? "高値が切り下がっており、下降トレンドが形成されています"
+                  : "明確なトレンドは確認されず、レンジ内で推移しています"}
+              </p>
             </div>
           )}
 
