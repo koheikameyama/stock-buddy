@@ -48,36 +48,76 @@ export const INVESTMENT_STYLE_COEFFICIENTS = {
   },
 } as const;
 
-// 投資スタイル別の説明文
-export const INVESTMENT_STYLE_DESCRIPTIONS = {
+// 投資スタイル別の表示設定（他の設定と形式を統一）
+export const INVESTMENT_STYLE_CONFIG: Record<
+  string,
+  {
+    text: string;
+    icon: string;
+    short: string;
+    description: string;
+    color: string;
+    bg: string;
+  }
+> = {
   CONSERVATIVE: {
-    name: "慎重派（守り）",
+    text: "慎重派（守り）",
+    icon: "🛡️",
     short: "資産保護を最優先",
     description:
       "損失を最小限に抑えることを重視。少しの逆行で即撤退し、早めに利益を確定します。",
-    stopLoss: "ボラティリティの1.5倍程度（極めてタイト）",
-    takeProfit: "手堅い利確。早めに利益を確定し、ドローダウンを避ける",
-    advice: "資産を守ることが最優先。不安要素があれば売却を促す",
+    color: "text-blue-800",
+    bg: "bg-blue-100",
   },
   BALANCED: {
-    name: "バランス型",
+    text: "バランス型",
+    icon: "⚖️",
     short: "リスクとリワードのバランス",
     description:
       "リスクとリワードのバランスを重視。市場のノイズは許容し、セオリー通りの投資を目指します。",
-    stopLoss: "ボラティリティの2.5倍程度（標準的）",
-    takeProfit: "標準的。リスク・リワード 1:2 を目指す",
-    advice: "セオリー通りを優先。条件付きの静観をアドバイス",
+    color: "text-gray-800",
+    bg: "bg-gray-100",
   },
   AGGRESSIVE: {
-    name: "積極派（攻め）",
+    text: "積極派（攻め）",
+    icon: "🚀",
     short: "利益の最大化を優先",
     description:
       "短期の変動を許容し、大きな利益を狙う。大きな揺さぶりに耐え、トレンドが続く限り最大利益を目指します。",
-    stopLoss: "ボラティリティの4倍程度（ワイド）",
-    takeProfit: "野心的。トレンドが続く限り最大利益を狙う",
-    advice: "利益の最大化が最優先。短期下落は買い増し機会と捉える",
+    color: "text-red-800",
+    bg: "bg-red-100",
   },
-} as const;
+};
+
+/**
+ * 投資スタイルに応じた基本ラベル ("慎重派（守り）" 等) を取得します。
+ */
+export function getStyleLabel(style: string | null): string {
+  return (
+    INVESTMENT_STYLE_CONFIG[style as keyof typeof INVESTMENT_STYLE_CONFIG]
+      ?.text || "バランス型"
+  );
+}
+
+/**
+ * 投資スタイルに応じたリッチラベル ("🛡️ 慎重派（守り）" 等) を取得します。
+ */
+export function getRichStyleLabel(style: string | null): string {
+  const config =
+    INVESTMENT_STYLE_CONFIG[style as keyof typeof INVESTMENT_STYLE_CONFIG] ||
+    INVESTMENT_STYLE_CONFIG.BALANCED;
+  return `${config.icon} ${config.text}`;
+}
+
+/**
+ * 投資スタイルに応じたプロンプト用ラベル ("慎重派（守り） - 資産保護を最優先" 等) を取得します。
+ */
+export function getPromptStyleLabel(style: string | null): string {
+  const config =
+    INVESTMENT_STYLE_CONFIG[style as keyof typeof INVESTMENT_STYLE_CONFIG] ||
+    INVESTMENT_STYLE_CONFIG.BALANCED;
+  return `${config.text} - ${config.short}`;
+}
 
 // テクニカル指標の閾値
 export const RSI_THRESHOLDS = {

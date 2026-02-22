@@ -1,23 +1,24 @@
-import { auth } from "@/auth"
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import { prisma } from "@/lib/prisma"
-import Header from "@/app/components/Header"
-import BottomNavigation from "@/app/components/BottomNavigation"
-import DashboardClient from "./DashboardClient"
-import FeaturedStocksByCategory from "./FeaturedStocksByCategory"
-import PortfolioSummary from "./PortfolioSummary"
-import PortfolioHistoryChart from "./PortfolioHistoryChart"
-import PortfolioCompositionChart from "./PortfolioCompositionChart"
-import NikkeiSummary from "./NikkeiSummary"
-import BudgetSummary from "./BudgetSummary"
-import { SectorTrendHeatmap } from "./SectorTrendHeatmap"
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import Header from "@/app/components/Header";
+import BottomNavigation from "@/app/components/BottomNavigation";
+import DashboardClient from "./DashboardClient";
+import FeaturedStocksByCategory from "./FeaturedStocksByCategory";
+import PortfolioSummary from "./PortfolioSummary";
+import PortfolioHistoryChart from "./PortfolioHistoryChart";
+import PortfolioCompositionChart from "./PortfolioCompositionChart";
+import NikkeiSummary from "./NikkeiSummary";
+import BudgetSummary from "./BudgetSummary";
+import { SectorTrendHeatmap } from "./SectorTrendHeatmap";
+import { getRichStyleLabel } from "@/lib/constants";
 
 export default async function DashboardPage() {
-  const session = await auth()
+  const session = await auth();
 
   if (!session?.user?.email) {
-    redirect("/login")
+    redirect("/login");
   }
 
   // ユーザー情報を取得
@@ -35,18 +36,18 @@ export default async function DashboardPage() {
         select: { id: true },
       },
     },
-  })
+  });
 
   if (!user) {
-    redirect("/login")
+    redirect("/login");
   }
 
   // 利用規約・プライバシーポリシー未同意の場合は同意ページへリダイレクト
   if (!user.termsAccepted || !user.privacyPolicyAccepted) {
-    redirect("/terms-acceptance")
+    redirect("/terms-acceptance");
   }
 
-  const hasHoldings = user.portfolioStocks.length > 0
+  const hasHoldings = user.portfolioStocks.length > 0;
 
   return (
     <>
@@ -59,7 +60,9 @@ export default async function DashboardPage() {
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
               おはようございます、{session.user.name?.split(" ")[0]}さん！
             </h1>
-            <p className="text-xs sm:text-base text-gray-600 mt-1">今日も一緒に投資を見守りましょう</p>
+            <p className="text-xs sm:text-base text-gray-600 mt-1">
+              今日も一緒に投資を見守りましょう
+            </p>
           </div>
 
           {/* 投資スタイル未設定の場合のプロンプト */}
@@ -108,33 +111,45 @@ export default async function DashboardPage() {
                     <span className="text-lg sm:text-xl">📊</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 mb-1 sm:mb-1.5">あなたの投資スタイル</div>
+                    <div className="text-xs text-gray-500 mb-1 sm:mb-1.5">
+                      あなたの投資スタイル
+                    </div>
                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 w-fit">
-                        {user.settings.investmentStyle === "CONSERVATIVE"
-                          ? "🛡️ 慎重派（守り）"
-                          : user.settings.investmentStyle === "AGGRESSIVE"
-                          ? "🚀 積極派（攻め）"
-                          : "⚖️ バランス型"}
+                        {getRichStyleLabel(user.settings.investmentStyle)}
                       </span>
                       {user.settings.investmentBudget && (
                         <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 w-fit">
-                          資金 {(user.settings.investmentBudget / 10000).toLocaleString()}万円
+                          資金{" "}
+                          {(
+                            user.settings.investmentBudget / 10000
+                          ).toLocaleString()}
+                          万円
                         </span>
                       )}
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold w-fit ${
-                        user.settings.targetReturnRate
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-gray-100 text-gray-600"
-                      }`}>
-                        利確 {user.settings.targetReturnRate ? `+${user.settings.targetReturnRate}%` : "AIお任せ"}
+                      <span
+                        className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold w-fit ${
+                          user.settings.targetReturnRate
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        利確{" "}
+                        {user.settings.targetReturnRate
+                          ? `+${user.settings.targetReturnRate}%`
+                          : "AIお任せ"}
                       </span>
-                      <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold w-fit ${
-                        user.settings.stopLossRate
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-600"
-                      }`}>
-                        損切り {user.settings.stopLossRate ? `${user.settings.stopLossRate}%` : "AIお任せ"}
+                      <span
+                        className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold w-fit ${
+                          user.settings.stopLossRate
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        損切り{" "}
+                        {user.settings.stopLossRate
+                          ? `${user.settings.stopLossRate}%`
+                          : "AIお任せ"}
                       </span>
                     </div>
                   </div>
@@ -192,9 +207,9 @@ export default async function DashboardPage() {
           <div className="mt-4 sm:mt-6">
             <FeaturedStocksByCategory />
           </div>
-      </div>
-    </main>
+        </div>
+      </main>
       <BottomNavigation />
     </>
-  )
+  );
 }

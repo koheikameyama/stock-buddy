@@ -1,4 +1,5 @@
 import { getNikkei225Data, getTrendDescription } from "@/lib/market-index";
+import { getPromptStyleLabel } from "@/lib/constants";
 
 interface UserSettings {
   investmentStyle: string;
@@ -348,12 +349,7 @@ export async function buildChatSystemPrompt(
 
   // ユーザーの投資スタイル
   if (userSettings) {
-    const styleText =
-      userSettings.investmentStyle === "CONSERVATIVE"
-        ? "慎重派（守り） - 資産保護を最優先"
-        : userSettings.investmentStyle === "AGGRESSIVE"
-          ? "積極派（攻め） - 利益の最大化を優先"
-          : "バランス型 - リスクとリワードのバランス";
+    const styleText = getPromptStyleLabel(userSettings.investmentStyle);
 
     sections.push(`\n## ユーザーの投資スタイル
 - 投資スタイル: ${styleText}${userSettings.investmentBudget ? `\n- 投資予算: ${userSettings.investmentBudget.toLocaleString()}円` : ""}`);

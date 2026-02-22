@@ -30,7 +30,12 @@ import {
   type SectorTrendData,
 } from "@/lib/sector-trend";
 import { calculateDeviationRate } from "@/lib/technical-indicators";
-import { MA_DEVIATION } from "@/lib/constants";
+import {
+  MA_DEVIATION,
+  STALE_DATA_DAYS,
+  INVESTMENT_THEMES,
+  getStyleLabel,
+} from "@/lib/constants";
 import {
   isSurgeStock,
   isDangerousStock,
@@ -46,7 +51,6 @@ import {
   StockForScoring,
   ScoredStock,
 } from "@/lib/recommendation-scoring";
-import { STALE_DATA_DAYS, INVESTMENT_THEMES } from "@/lib/constants";
 import { insertRecommendationOutcome } from "@/lib/outcome-utils";
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 
@@ -642,12 +646,7 @@ async function selectWithAI(
   investmentTheme: string;
 }> | null> {
   const prompts = SESSION_PROMPTS[session] || SESSION_PROMPTS.evening;
-  const styleLabel =
-    investmentStyle === "CONSERVATIVE"
-      ? "慎重派（守り）"
-      : investmentStyle === "AGGRESSIVE"
-        ? "積極派（攻め）"
-        : "バランス型";
+  const styleLabel = getStyleLabel(investmentStyle);
   const budgetLabel = investmentBudget
     ? remainingBudget !== null
       ? `${remainingBudget.toLocaleString()}円（残り）/ 合計 ${investmentBudget.toLocaleString()}円`
