@@ -857,9 +857,15 @@ export default function MyStocksClient() {
                     onAddToWatchlist={handleSoldToWatchlist}
                     onRepurchase={handleSoldToRepurchase}
                     onTransactionUpdated={async () => {
-                      const updatedSoldStocks = await fetchSoldStocks().catch(
-                        () => [],
-                      );
+                      invalidateSoldStocks();
+                      invalidateUserStocks();
+                      invalidatePortfolioSummary();
+                      const [updatedStocks, updatedSoldStocks] =
+                        await Promise.all([
+                          fetchUserStocks().catch(() => []),
+                          fetchSoldStocks().catch(() => []),
+                        ]);
+                      setUserStocks(updatedStocks);
                       setSoldStocks(updatedSoldStocks);
                     }}
                   />
@@ -990,7 +996,18 @@ export default function MyStocksClient() {
                         : undefined
                     }
                     onDelete={() => handleDeleteUserStock(stock)}
-                    onTransactionUpdated={() => fetchUserStocks()}
+                    onTransactionUpdated={async () => {
+                      invalidateUserStocks();
+                      invalidateSoldStocks();
+                      invalidatePortfolioSummary();
+                      const [updatedStocks, updatedSoldStocks] =
+                        await Promise.all([
+                          fetchUserStocks(),
+                          fetchSoldStocks().catch(() => []),
+                        ]);
+                      setUserStocks(updatedStocks);
+                      setSoldStocks(updatedSoldStocks);
+                    }}
                   />
                 ))}
               </div>
