@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
 
 interface ConfidenceData {
   bucket: string
@@ -53,27 +54,35 @@ function formatPercent(value: number | null): string {
   return `${sign}${value.toFixed(1)}%`
 }
 
-function formatPrediction(prediction: string): string {
-  const labels: Record<string, string> = {
-    buy: "買い",
-    stay: "様子見",
-    remove: "見送り",
-    up: "上昇",
-    down: "下落",
-    neutral: "横ばい",
-  }
-  return labels[prediction] || prediction
-}
-
 export default function AnalysisTab() {
+  const t = useTranslations('analysis.analysisTab')
+  const tPredictions = useTranslations('analysis.outcomesTab.predictions')
+  const tErrors = useTranslations('analysis.aiReport')
+  const tConfidence = useTranslations('analysis.analysisTab.confidenceCalibration')
+  const tSector = useTranslations('analysis.analysisTab.sectorPerformance')
+  const tPredictionPerf = useTranslations('analysis.analysisTab.predictionPerformance')
+  const tTimeHorizon = useTranslations('analysis.analysisTab.timeHorizon')
+  const tBenchmark = useTranslations('analysis.analysisTab.benchmark')
   const [data, setData] = useState<AnalysisResponse | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const formatPrediction = (prediction: string): string => {
+    const labels: Record<string, string> = {
+      buy: tPredictions('buy'),
+      stay: tPredictions('stay'),
+      remove: tPredictions('remove'),
+      up: tPredictions('up'),
+      down: tPredictions('down'),
+      neutral: tPredictions('neutral'),
+    }
+    return labels[prediction] || prediction
+  }
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await fetch("/api/reports/recommendation-outcomes/analysis?days=30")
-        if (!response.ok) throw new Error("データの取得に失敗しました")
+        if (!response.ok) throw new Error(tErrors('fetchError'))
         const result = await response.json()
         setData(result)
       } catch (err) {
@@ -84,7 +93,7 @@ export default function AnalysisTab() {
     }
 
     fetchData()
-  }, [])
+  }, [tErrors])
 
   if (loading) {
     return (
@@ -100,8 +109,8 @@ export default function AnalysisTab() {
     return (
       <div className="text-center py-12 text-gray-500">
         <span className="text-4xl mb-4 block">📈</span>
-        <p>{data?.message || "まだ分析データがありません"}</p>
-        <p className="text-sm mt-2">データが2週間程度溜まると分析が表示されます</p>
+        <p>{data?.message || t('noData')}</p>
+        <p className="text-sm mt-2">{t('noDataDescription')}</p>
       </div>
     )
   }
@@ -111,18 +120,18 @@ export default function AnalysisTab() {
       {/* 信頼度キャリブレーション */}
       {data.byConfidence.length > 0 && (
         <div className="bg-white rounded-xl p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">信頼度キャリブレーション</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">{tConfidence('title')}</h3>
           <p className="text-sm text-gray-500 mb-4">
-            AIが自信を持っている時ほど本当に当たっているか？
+            {tConfidence('description')}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2 text-gray-600">信頼度</th>
-                  <th className="text-right py-2 px-2 text-gray-600">件数</th>
-                  <th className="text-right py-2 px-2 text-gray-600">成功率（7日後）</th>
-                  <th className="text-right py-2 px-2 text-gray-600">平均リターン</th>
+                  <th className="text-left py-2 px-2 text-gray-600">{tConfidence('confidence')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tConfidence('count')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tConfidence('successRate7Days')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tConfidence('avgReturn')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,19 +158,19 @@ export default function AnalysisTab() {
       {/* セクター別 */}
       {data.bySector.length > 0 && (
         <div className="bg-white rounded-xl p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">セクター別パフォーマンス</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">{tSector('title')}</h3>
           <p className="text-sm text-gray-500 mb-4">
-            得意/不得意なセクターはあるか？
+            {tSector('description')}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2 text-gray-600">セクター</th>
-                  <th className="text-right py-2 px-2 text-gray-600">件数</th>
-                  <th className="text-right py-2 px-2 text-gray-600">成功率（7日後）</th>
-                  <th className="text-right py-2 px-2 text-gray-600">平均リターン</th>
-                  <th className="text-right py-2 px-2 text-gray-600">vs日経</th>
+                  <th className="text-left py-2 px-2 text-gray-600">{tSector('sector')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tSector('count')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tSector('successRate7Days')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tSector('avgReturn')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tSector('vsNikkei')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -195,18 +204,18 @@ export default function AnalysisTab() {
       {/* 予測種類別 */}
       {data.byPrediction.length > 0 && (
         <div className="bg-white rounded-xl p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">予測種類別パフォーマンス</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">{tPredictionPerf('title')}</h3>
           <p className="text-sm text-gray-500 mb-4">
-            どの判断が当たりやすいか？
+            {tPredictionPerf('description')}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2 text-gray-600">予測</th>
-                  <th className="text-right py-2 px-2 text-gray-600">件数</th>
-                  <th className="text-right py-2 px-2 text-gray-600">成功率（7日後）</th>
-                  <th className="text-right py-2 px-2 text-gray-600">平均リターン</th>
+                  <th className="text-left py-2 px-2 text-gray-600">{tPredictionPerf('prediction')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tPredictionPerf('count')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tPredictionPerf('successRate7Days')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tPredictionPerf('avgReturn')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,18 +242,18 @@ export default function AnalysisTab() {
       {/* 時間枠別 */}
       {data.byTimeHorizon.length > 0 && (
         <div className="bg-white rounded-xl p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">時間枠別パフォーマンス</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">{tTimeHorizon('title')}</h3>
           <p className="text-sm text-gray-500 mb-4">
-            短期と中期どちらの精度が高いか？
+            {tTimeHorizon('description')}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2 text-gray-600">時間枠</th>
-                  <th className="text-right py-2 px-2 text-gray-600">評価済み件数</th>
-                  <th className="text-right py-2 px-2 text-gray-600">成功率</th>
-                  <th className="text-right py-2 px-2 text-gray-600">平均リターン</th>
+                  <th className="text-left py-2 px-2 text-gray-600">{tTimeHorizon('horizon')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tTimeHorizon('evaluatedCount')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tTimeHorizon('successRate')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tTimeHorizon('avgReturn')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -277,18 +286,18 @@ export default function AnalysisTab() {
       {/* ベンチマーク比較 */}
       {data.benchmark.length > 0 && data.benchmark.some(b => b.aiReturn !== null) && (
         <div className="bg-white rounded-xl p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">ベンチマーク比較</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">{tBenchmark('title')}</h3>
           <p className="text-sm text-gray-500 mb-4">
-            AI推薦は市場平均（日経225）に勝っているか？
+            {tBenchmark('description')}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2 text-gray-600">期間</th>
-                  <th className="text-right py-2 px-2 text-gray-600">AI推薦平均</th>
-                  <th className="text-right py-2 px-2 text-gray-600">日経225</th>
-                  <th className="text-right py-2 px-2 text-gray-600">超過リターン</th>
+                  <th className="text-left py-2 px-2 text-gray-600">{tBenchmark('period')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tBenchmark('aiAverage')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tBenchmark('nikkei225')}</th>
+                  <th className="text-right py-2 px-2 text-gray-600">{tBenchmark('excessReturn')}</th>
                 </tr>
               </thead>
               <tbody>
