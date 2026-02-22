@@ -135,6 +135,33 @@ AIは「良い株を見つける」ことに集中し、「危ない株を止め
 - LLM API連携を実装する前 → `llm-api.md`
 - コード全般を書く前 → `coding-standards.md`
 
+### 仕様書の管理
+
+**機能の追加・変更時は必ず `docs/specs/` の仕様書を更新してください。**
+
+- **新機能追加時**: 該当する仕様書に機能を追記。新しい機能カテゴリの場合は仕様書ファイルを新規作成し、`main.md` の機能一覧にもリンクを追加
+- **既存機能の変更時**: 該当する仕様書の記載内容を実装に合わせて更新
+- **API追加・変更時**: エンドポイント、リクエスト/レスポンス仕様を更新
+- **データモデル変更時**: 該当する仕様書のデータモデルセクションを更新
+- **バッチ処理追加・変更時**: `batch-processing.md` のワークフロー一覧とデータフローを更新
+
+| 仕様書 | 内容 |
+|--------|------|
+| [main.md](docs/specs/main.md) | メイン仕様書（サービス概要、技術スタック、データモデル概要、機能一覧） |
+| [dashboard.md](docs/specs/dashboard.md) | ダッシュボード |
+| [my-stocks.md](docs/specs/my-stocks.md) | マイ株（ポートフォリオ・ウォッチリスト・追跡・売却済み） |
+| [portfolio-analysis.md](docs/specs/portfolio-analysis.md) | ポートフォリオ分析 |
+| [stock-detail.md](docs/specs/stock-detail.md) | 銘柄詳細 |
+| [ai-recommendations.md](docs/specs/ai-recommendations.md) | AIレコメンド |
+| [market-movers.md](docs/specs/market-movers.md) | 市場ランキング |
+| [news.md](docs/specs/news.md) | ニュース・セクタートレンド |
+| [ai-report.md](docs/specs/ai-report.md) | AIレポート |
+| [ai-chat.md](docs/specs/ai-chat.md) | AIチャット |
+| [notifications.md](docs/specs/notifications.md) | 通知 |
+| [settings.md](docs/specs/settings.md) | 設定・認証 |
+| [batch-processing.md](docs/specs/batch-processing.md) | バッチ処理 |
+| [admin.md](docs/specs/admin.md) | 管理画面 |
+
 詳細は `.claude/rules/` 配下を参照してください。
 
 ### 記憶・ルールの保存
