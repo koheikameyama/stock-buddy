@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { getRelativeTime, getMarketFlag } from "@/lib/news"
-import type { NewsItem } from "@/lib/news"
+import { getRelativeTime, getMarketFlag } from "@/lib/news-utils"
+import type { NewsItem } from "@/lib/news-utils"
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 
 type MarketFilter = "ALL" | "JP" | "US"

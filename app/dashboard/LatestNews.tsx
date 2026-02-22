@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { getRelativeTime, getMarketFlag } from "@/lib/news"
-import type { NewsItem } from "@/lib/news"
+import { getRelativeTime, getMarketFlag } from "@/lib/news-utils"
+import type { NewsItem } from "@/lib/news-utils"
 
 interface LatestNewsProps {
   userId: string
