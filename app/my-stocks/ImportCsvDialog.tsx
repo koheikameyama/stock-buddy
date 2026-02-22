@@ -231,7 +231,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
           ) : (
             /* プレビュー画面 */
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-1">
                 <p className="text-sm text-gray-700">
                   {t("foundTransactions", { count: transactions.length, tickers: uniqueTickers })}
                 </p>
@@ -240,7 +240,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
                     setTransactions([]);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
-                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                  className="text-xs text-gray-400 hover:text-gray-600 underline self-start sm:self-auto"
                 >
                   {t("changeFile")}
                 </button>
