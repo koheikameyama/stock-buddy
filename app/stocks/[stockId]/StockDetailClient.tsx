@@ -17,6 +17,13 @@ import Tabs from "@/app/components/Tabs";
 import TechnicalAnalysis from "@/app/components/TechnicalAnalysis";
 import { useStockPrice } from "@/app/hooks/useStockPrice";
 import { useChatContext } from "@/app/contexts/ChatContext";
+import { EARNINGS_DATE_BADGE } from "@/lib/constants";
+import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 interface StockData {
   id: string;
@@ -43,6 +50,7 @@ interface StockData {
   weekChangeRate: number | null;
   fetchFailCount: number;
   isDelisted: boolean;
+  nextEarningsDate: string | null;
 }
 
 interface RecommendationData {
@@ -268,6 +276,28 @@ export default function StockDetailClient({
         isDelisted={stock.isDelisted}
         fetchFailCount={stock.fetchFailCount}
       />
+
+      {/* 決算発表日バッジ */}
+      {!stock.isDelisted && stock.nextEarningsDate && (() => {
+        const today = dayjs().tz("Asia/Tokyo").startOf("day");
+        const earningsDay = dayjs(stock.nextEarningsDate).tz("Asia/Tokyo").startOf("day");
+        const daysUntil = earningsDay.diff(today, "day");
+        if (daysUntil < 0 || daysUntil > EARNINGS_DATE_BADGE.INFO_DAYS) return null;
+        let color = "text-gray-600", bg = "bg-gray-100", border = "border-gray-200";
+        if (daysUntil <= EARNINGS_DATE_BADGE.URGENT_DAYS) {
+          color = "text-red-700"; bg = "bg-red-100"; border = "border-red-200";
+        } else if (daysUntil <= EARNINGS_DATE_BADGE.WARNING_DAYS) {
+          color = "text-yellow-700"; bg = "bg-yellow-100"; border = "border-yellow-200";
+        }
+        const text = daysUntil === 0 ? "本日決算発表予定" : `${daysUntil}日後に決算発表予定`;
+        return (
+          <div className="mb-3">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold border ${bg} ${color} ${border}`}>
+              📅 {text}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Current Price Section */}
       <CurrentPriceCard

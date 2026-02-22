@@ -131,6 +131,26 @@ def fetch_earnings_data(ticker_code: str) -> dict | None:
             else:
                 profit_trend = "stable"
 
+        # 次回決算発表日を取得（stock.calendar から）
+        next_earnings_date = None
+        try:
+            calendar = stock.calendar
+            if calendar is not None:
+                if isinstance(calendar, dict) and "Earnings Date" in calendar:
+                    dates = calendar["Earnings Date"]
+                    if dates:
+                        val = dates[0]
+                        if hasattr(val, "date"):
+                            next_earnings_date = val.date()
+                        elif hasattr(val, "to_pydatetime"):
+                            next_earnings_date = val.to_pydatetime().date()
+                elif hasattr(calendar, "loc") and "Earnings Date" in calendar.index:
+                    val = calendar.loc["Earnings Date"].iloc[0]
+                    if hasattr(val, "date"):
+                        next_earnings_date = val.date()
+        except Exception:
+            pass
+
         return {
             "latestRevenue": latest_revenue,
             "latestNetIncome": latest_net_income,
@@ -139,6 +159,7 @@ def fetch_earnings_data(ticker_code: str) -> dict | None:
             "eps": eps,
             "isProfitable": is_profitable,
             "profitTrend": profit_trend,
+            "nextEarningsDate": next_earnings_date,
         }
 
     except Exception as e:
@@ -160,6 +181,7 @@ def update_earnings_data(conn, stock_id: str, data: dict | None):
                     "eps" = %s,
                     "isProfitable" = %s,
                     "profitTrend" = %s,
+                    "nextEarningsDate" = %s,
                     "earningsUpdatedAt" = NOW()
                 WHERE id = %s
             ''', (
@@ -170,6 +192,7 @@ def update_earnings_data(conn, stock_id: str, data: dict | None):
                 data.get("eps"),
                 data.get("isProfitable"),
                 data.get("profitTrend"),
+                data.get("nextEarningsDate"),
                 stock_id,
             ))
         else:

@@ -122,6 +122,7 @@ async function StockDetailContent({
     weekChangeRate: stock.weekChangeRate ? Number(stock.weekChangeRate) : null,
     fetchFailCount: stock.fetchFailCount,
     isDelisted: stock.isDelisted,
+    nextEarningsDate: stock.nextEarningsDate?.toISOString() ?? null,
   };
 
   // 売却済み情報を計算

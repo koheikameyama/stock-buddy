@@ -435,6 +435,13 @@ export const SECTOR_TREND = {
   STRONG_DOWN_PENALTY: -10, // compositeScore <= -40 → -10点
 } as const;
 
+// 決算発表日バッジの閾値（日数）
+export const EARNINGS_DATE_BADGE = {
+  URGENT_DAYS: 3, // 3日以内: 赤
+  WARNING_DAYS: 7, // 7日以内: 黄
+  INFO_DAYS: 14, // 14日以内: グレー（14日超は非表示）
+} as const;
+
 // 10セクターの定義
 export const SECTORS = [
   "半導体・電子部品",

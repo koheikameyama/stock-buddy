@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
-import { FETCH_FAIL_WARNING_THRESHOLD } from "@/lib/constants"
+import { FETCH_FAIL_WARNING_THRESHOLD, EARNINGS_DATE_BADGE } from "@/lib/constants"
+import dayjs from "dayjs"
+import timezone from "dayjs/plugin/timezone"
+import utc from "dayjs/plugin/utc"
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 import DelistedWarning from "@/app/components/DelistedWarning"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
@@ -18,6 +24,7 @@ interface TrackedStock {
     market: string
     fetchFailCount?: number
     isDelisted?: boolean
+    nextEarningsDate?: string | null
   }
   currentPrice: number | null
   change: number | null
@@ -65,6 +72,22 @@ export default function TrackedStockCard({ trackedStock, isStale = false, priceL
     fetchSignal()
   }, [trackedStock.stockId])
 
+  // 決算発表日バッジを計算
+  const getEarningsBadge = (nextEarningsDate: string | null | undefined) => {
+    if (!nextEarningsDate) return null
+    const today = dayjs().tz("Asia/Tokyo").startOf("day")
+    const earningsDay = dayjs(nextEarningsDate).tz("Asia/Tokyo").startOf("day")
+    const daysUntil = earningsDay.diff(today, "day")
+    if (daysUntil < 0 || daysUntil > EARNINGS_DATE_BADGE.INFO_DAYS) return null
+    if (daysUntil <= EARNINGS_DATE_BADGE.URGENT_DAYS) {
+      return { text: daysUntil === 0 ? "本日決算" : `${daysUntil}日後に決算`, color: "text-red-700", bg: "bg-red-100", border: "border-red-200" }
+    }
+    if (daysUntil <= EARNINGS_DATE_BADGE.WARNING_DAYS) {
+      return { text: `${daysUntil}日後に決算`, color: "text-yellow-700", bg: "bg-yellow-100", border: "border-yellow-200" }
+    }
+    return { text: `${daysUntil}日後に決算`, color: "text-gray-600", bg: "bg-gray-100", border: "border-gray-200" }
+  }
+
   // staleまたは上場廃止の銘柄は詳細遷移・バッジを無効化
   const isDisabled = isStale || stock.isDelisted === true
   // 価格未取得時もリンクを無効化（stale判定が終わるまで遷移させない）
@@ -90,6 +113,19 @@ export default function TrackedStockCard({ trackedStock, isStale = false, priceL
           {signal.signal === "neutral" && "様子見"}
         </span>
       )}
+
+      {/* 決算発表日バッジ（無効化時は非表示） */}
+      {!isDisabled && (() => {
+        const badge = getEarningsBadge(stock.nextEarningsDate)
+        if (!badge) return null
+        return (
+          <div className="mb-2">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${badge.bg} ${badge.color} ${badge.border}`}>
+              📅 {badge.text}
+            </span>
+          </div>
+        )
+      })()}
 
       {/* Header */}
       <div className="flex items-start justify-between mb-3">

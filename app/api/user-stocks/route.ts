@@ -63,6 +63,7 @@ export interface UserStockResponse {
     currentPrice: number | null;
     fetchFailCount?: number;
     isDelisted?: boolean;
+    nextEarningsDate?: string | null;
   };
   createdAt: string;
   updatedAt: string;
@@ -110,6 +111,7 @@ export async function GET(request: NextRequest) {
                 market: true;
                 fetchFailCount: true;
                 isDelisted: true;
+                nextEarningsDate: true;
               };
             };
           };
@@ -157,6 +159,7 @@ export async function GET(request: NextRequest) {
               market: true,
               fetchFailCount: true,
               isDelisted: true,
+              nextEarningsDate: true,
             },
           },
         },
@@ -215,6 +218,7 @@ export async function GET(request: NextRequest) {
           currentPrice: null, // クライアント側で非同期取得
           fetchFailCount: ws.stock.fetchFailCount,
           isDelisted: ws.stock.isDelisted,
+          nextEarningsDate: ws.stock.nextEarningsDate?.toISOString() ?? null,
         },
         createdAt: ws.createdAt.toISOString(),
         updatedAt: ws.updatedAt.toISOString(),

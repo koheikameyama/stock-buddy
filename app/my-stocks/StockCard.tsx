@@ -14,7 +14,14 @@ import {
   PURCHASE_JUDGMENT_CONFIG,
   FETCH_FAIL_WARNING_THRESHOLD,
   INVESTMENT_THEME_CONFIG,
+  EARNINGS_DATE_BADGE,
 } from "@/lib/constants";
+import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import DelistedWarning from "@/app/components/DelistedWarning";
 import CopyableTicker from "@/app/components/CopyableTicker";
 import EditTransactionDialog from "./EditTransactionDialog";
@@ -53,6 +60,7 @@ interface UserStock {
     currentPrice: number | null;
     fetchFailCount?: number;
     isDelisted?: boolean;
+    nextEarningsDate?: string | null;
   };
 }
 
@@ -147,6 +155,22 @@ export default function StockCard({
 
   const aiJudgment = isWatchlist ? getAIPurchaseJudgment() : getAIStatusBadge();
 
+  // 決算発表日バッジを計算
+  const getEarningsBadge = (nextEarningsDate: string | null | undefined) => {
+    if (!nextEarningsDate) return null;
+    const today = dayjs().tz("Asia/Tokyo").startOf("day");
+    const earningsDay = dayjs(nextEarningsDate).tz("Asia/Tokyo").startOf("day");
+    const daysUntil = earningsDay.diff(today, "day");
+    if (daysUntil < 0 || daysUntil > EARNINGS_DATE_BADGE.INFO_DAYS) return null;
+    if (daysUntil <= EARNINGS_DATE_BADGE.URGENT_DAYS) {
+      return { text: daysUntil === 0 ? "本日決算" : `${daysUntil}日後に決算`, color: "text-red-700", bg: "bg-red-100", border: "border-red-200" };
+    }
+    if (daysUntil <= EARNINGS_DATE_BADGE.WARNING_DAYS) {
+      return { text: `${daysUntil}日後に決算`, color: "text-yellow-700", bg: "bg-yellow-100", border: "border-yellow-200" };
+    }
+    return { text: `${daysUntil}日後に決算`, color: "text-gray-600", bg: "bg-gray-100", border: "border-gray-200" };
+  };
+
   // staleまたは上場廃止の銘柄は詳細遷移・バッジ・AI分析を無効化
   const isDisabled = isStale || stock.stock.isDelisted === true;
   // 価格未取得時もリンクを無効化（stale判定が終わるまで遷移させない）
@@ -214,6 +238,19 @@ export default function StockCard({
               </span>
             </div>
           )}
+
+        {/* 決算発表日バッジ（無効化時は非表示） */}
+        {!isDisabled && (() => {
+          const badge = getEarningsBadge(stock.stock.nextEarningsDate);
+          if (!badge) return null;
+          return (
+            <div className="mb-2">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${badge.bg} ${badge.color} ${badge.border}`}>
+                📅 {badge.text}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* Stock Header */}
         <div className="mb-3 sm:mb-4 pr-20">
