@@ -25,21 +25,30 @@ export async function GET() {
     const todayUTC = getTodayForDB()
 
     // ユーザーの銘柄IDを取得（UserStock.idも含める）
-    const [watchlist, portfolio, tracked] = await Promise.all([
+    const [watchlist, allPortfolio, tracked] = await Promise.all([
       prisma.watchlistStock.findMany({
         where: { userId },
         select: { id: true, stockId: true },
       }),
       prisma.portfolioStock.findMany({
-        where: { userId, quantity: { gt: 0 } },
-        select: { id: true, stockId: true },
+        where: { userId },
+        select: {
+          id: true,
+          stockId: true,
+          transactions: { select: { type: true, quantity: true } },
+        },
       }),
       prisma.trackedStock.findMany({
         where: { userId },
         select: { id: true, stockId: true },
       }),
     ])
-    // 保有中 = ポートフォリオにあり、かつ保有数 > 0 の銘柄（DBクエリで絞り込み済み）
+    // 保有中 = Transactionから計算して保有数 > 0 の銘柄
+    const portfolio = allPortfolio.filter((ps) => {
+      const qty = ps.transactions.reduce((sum, t) =>
+        sum + (t.type === "buy" ? t.quantity : -t.quantity), 0);
+      return qty > 0;
+    });
     const portfolioStockIds = portfolio.map((s) => s.stockId)
     const portfolioMap = new Map(portfolio.map((s) => [s.stockId, s.id]))
     // ウォッチリスト = 気になる銘柄

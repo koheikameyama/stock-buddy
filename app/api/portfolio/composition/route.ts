@@ -56,8 +56,11 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // 保有中の銘柄のみフィルタ
-    const holdingStocks = user.portfolioStocks.filter((ps) => ps.quantity > 0)
+    // 保有中の銘柄のみフィルタ（Transactionから計算）
+    const holdingStocks = user.portfolioStocks.filter((ps) => {
+      const { quantity } = calculatePortfolioFromTransactions(ps.transactions)
+      return quantity > 0
+    })
 
     if (holdingStocks.length === 0) {
       return NextResponse.json({

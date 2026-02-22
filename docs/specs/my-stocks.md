@@ -12,7 +12,7 @@
 
 保有中の銘柄一覧。AI分析結果と取引機能を提供します。
 
-**表示条件**: `PortfolioStock.quantity > 0`
+**表示条件**: Transactionから計算した保有数量 > 0
 
 **ソート順**:
 1. 売り推奨銘柄を優先（損益率が悪い順）
@@ -76,7 +76,7 @@ AI分析なしで株価だけ追いたい銘柄。上限10銘柄。
 
 全量売却した銘柄の履歴。
 
-**表示条件**: `PortfolioStock.quantity = 0`
+**表示条件**: Transactionから計算した保有数量 = 0
 
 **カード表示項目**:
 - 銘柄名、証券コード
@@ -189,7 +189,7 @@ AI分析なしで株価だけ追いたい銘柄。上限10銘柄。
 }
 ```
 
-**副作用**: PortfolioStock.quantity を再計算（`syncPortfolioStockQuantity`）。
+**副作用**: なし（保有数量はTransactionから都度計算）。
 
 #### `DELETE /api/transactions/[id]`
 
@@ -284,7 +284,6 @@ AI分析なしで株価だけ追いたい銘柄。上限10銘柄。
 |--------|-----|------|
 | userId | String | ユーザーID |
 | stockId | String | 銘柄ID |
-| quantity | Int | 現在の保有数量（Transactionから同期） |
 | lastAnalysis | DateTime? | 最終分析日時 |
 | shortTerm | Text? | 短期分析テキスト |
 | mediumTerm | Text? | 中期分析テキスト |

@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import {
-  calculatePortfolioFromTransactions,
-  syncPortfolioStockQuantity,
-} from "@/lib/portfolio-calculator";
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 import { fetchStockPrices } from "@/lib/stock-price-fetcher";
 
 export async function POST(
@@ -117,9 +114,6 @@ export async function POST(
         transactionDate: new Date(purchaseDate),
       },
     });
-
-    // PortfolioStock の quantity を同期
-    await syncPortfolioStockQuantity(portfolioStock.id);
 
     // 更新後のデータを取得（Transactionを含む）
     let result = await prisma.portfolioStock.findUnique({

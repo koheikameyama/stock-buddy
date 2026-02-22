@@ -11,9 +11,9 @@ export async function GET() {
   if (error) return error;
 
   try {
-    // 売却済み（quantity=0）のPortfolioStockを取得（Transactionを含む）
-    const portfolioStocks = await prisma.portfolioStock.findMany({
-      where: { userId: user.id, quantity: 0 },
+    // 全PortfolioStockを取得し、Transactionから計算して売却済み（quantity=0）を抽出
+    const allPortfolioStocks = await prisma.portfolioStock.findMany({
+      where: { userId: user.id },
       include: {
         stock: {
           select: {
@@ -28,6 +28,10 @@ export async function GET() {
           orderBy: { transactionDate: "asc" },
         },
       },
+    });
+    const portfolioStocks = allPortfolioStocks.filter((ps) => {
+      const { quantity } = calculatePortfolioFromTransactions(ps.transactions);
+      return quantity === 0;
     });
 
     // 売却済み銘柄をマッピング（ウォッチリストの状態に関わらず全件表示）
