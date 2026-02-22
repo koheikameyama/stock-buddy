@@ -131,7 +131,6 @@ export async function createPortfolioStockWithTransaction(
     data: {
       userId,
       stockId,
-      quantity, // 初回購入数量を設定
       takeProfitRate: takeProfitRate ? new Decimal(takeProfitRate) : null,
       stopLossRate: stopLossRate ? new Decimal(stopLossRate) : null,
     },

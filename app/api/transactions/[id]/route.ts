@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
-import { syncPortfolioStockQuantity } from "@/lib/portfolio-calculator"
+
 
 interface UpdateTransactionRequest {
   quantity?: number
@@ -93,11 +93,6 @@ export async function PATCH(
       data: updateData,
     })
 
-    // PortfolioStock の quantity を同期
-    if (transaction.portfolioStockId) {
-      await syncPortfolioStockQuantity(transaction.portfolioStockId)
-    }
-
     return NextResponse.json({
       id: updatedTransaction.id,
       type: updatedTransaction.type,
@@ -166,8 +161,6 @@ export async function DELETE(
         await prisma.portfolioStock.delete({
           where: { id: portfolioStockId },
         })
-      } else {
-        await syncPortfolioStockQuantity(portfolioStockId)
       }
     }
 

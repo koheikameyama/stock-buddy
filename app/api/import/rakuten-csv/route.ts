@@ -3,7 +3,6 @@ import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { searchAndAddStock } from "@/lib/stock-fetcher";
 import { Decimal } from "@prisma/client/runtime/library";
-import { syncPortfolioStockQuantity } from "@/lib/portfolio-calculator";
 import { fetchDefaultTpSlRates } from "@/lib/portfolio-stock-utils";
 
 interface ImportTransaction {
@@ -87,7 +86,6 @@ export async function POST(request: NextRequest) {
           data: {
             userId,
             stockId: stock.id,
-            quantity: 0,
             takeProfitRate: takeProfitRate ? new Decimal(takeProfitRate) : null,
             stopLossRate: stopLossRate ? new Decimal(stopLossRate) : null,
           },
@@ -117,9 +115,6 @@ export async function POST(request: NextRequest) {
 
       await prisma.transaction.createMany({ data: newTxData });
       totalImported += newTxData.length;
-
-      // 全トランザクションから数量を再計算してPortfolioStockを更新
-      await syncPortfolioStockQuantity(portfolioStock.id);
     } catch (err) {
       console.error(`Failed to import ticker ${tickerCode}:`, err);
       failed.push({ tickerCode, reason: "インポートに失敗しました" });

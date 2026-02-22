@@ -168,8 +168,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (mode === "portfolio" || mode === "all") {
-      portfolioStocks = await prisma.portfolioStock.findMany({
-        where: { userId, quantity: { gt: 0 } },
+      const allPortfolioStocks = await prisma.portfolioStock.findMany({
+        where: { userId },
         include: {
           stock: {
             select: {
@@ -196,6 +196,11 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: "desc" },
+      });
+      // Transactionから保有数を計算し、保有中（quantity > 0）のみに絞る
+      portfolioStocks = allPortfolioStocks.filter((ps) => {
+        const { quantity } = calculatePortfolioFromTransactions(ps.transactions);
+        return quantity > 0;
       });
     }
 
@@ -448,10 +453,20 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      // portfolio の場合（保有中の銘柄のみカウント）
-      const portfolioCount = await prisma.portfolioStock.count({
-        where: { userId, quantity: { gt: 0 } },
+      // portfolio の場合（保有中の銘柄のみカウント - Transactionから計算）
+      const allPortfolioForCount = await prisma.portfolioStock.findMany({
+        where: { userId },
+        include: {
+          transactions: {
+            select: { type: true, quantity: true },
+          },
+        },
       });
+      const portfolioCount = allPortfolioForCount.filter((ps) => {
+        const qty = ps.transactions.reduce((sum, t) =>
+          sum + (t.type === "buy" ? t.quantity : -t.quantity), 0);
+        return qty > 0;
+      }).length;
       // ウォッチリストからポートフォリオへの移行の場合は新規追加ではないのでチェック不要
       if (!existingWatchlist && portfolioCount >= MAX_PORTFOLIO_STOCKS) {
         return NextResponse.json(
@@ -597,11 +612,10 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // PortfolioStock の quantity と価格設定を更新
+        // PortfolioStock の価格設定を更新
         await prisma.portfolioStock.update({
           where: { id: existingPortfolio.id },
           data: {
-            quantity: { increment: quantity },
             takeProfitRate: takeProfitPriceCalc
               ? new Decimal(takeProfitPriceCalc)
               : existingPortfolio.takeProfitRate,

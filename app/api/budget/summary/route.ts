@@ -20,7 +20,7 @@ export async function GET() {
       select: { investmentBudget: true },
     }),
     prisma.portfolioStock.findMany({
-      where: { userId: user.id, quantity: { gt: 0 } },
+      where: { userId: user.id },
       select: {
         transactions: {
           select: { type: true, quantity: true, price: true, transactionDate: true },
