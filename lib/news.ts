@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -99,6 +100,9 @@ export async function getNewsWithRelatedStocks(
     where: { userId },
     include: {
       stock: true,
+      transactions: {
+        select: { type: true, quantity: true, price: true },
+      },
     },
   })
 
@@ -110,9 +114,15 @@ export async function getNewsWithRelatedStocks(
     },
   })
 
+  // 保有数が0の銘柄を除外
+  const activePortfolioStocks = portfolioStocks.filter((ps) => {
+    const { quantity } = calculatePortfolioFromTransactions(ps.transactions);
+    return quantity > 0;
+  })
+
   // 全銘柄のセクターを収集
   const userStocks = [
-    ...portfolioStocks.map((ps) => ps.stock),
+    ...activePortfolioStocks.map((ps) => ps.stock),
     ...watchlistStocks.map((w) => w.stock),
   ]
 

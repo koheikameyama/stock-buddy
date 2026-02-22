@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
+import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
 export async function GET(request: NextRequest) {
   const { user, error } = await getAuthUser()
@@ -89,7 +90,12 @@ async function getMyStocksBadge(
   const [portfolioStocks, watchlistStocks] = await Promise.all([
     prisma.portfolioStock.findMany({
       where: { userId },
-      select: { stockId: true },
+      select: {
+        stockId: true,
+        transactions: {
+          select: { type: true, quantity: true, price: true },
+        },
+      },
     }),
     prisma.watchlistStock.findMany({
       where: { userId },
@@ -97,8 +103,14 @@ async function getMyStocksBadge(
     }),
   ])
 
+  // 保有数が0の銘柄を除外
+  const activePortfolioStocks = portfolioStocks.filter((ps) => {
+    const { quantity } = calculatePortfolioFromTransactions(ps.transactions);
+    return quantity > 0;
+  })
+
   const stockIds = [
-    ...portfolioStocks.map((p) => p.stockId),
+    ...activePortfolioStocks.map((p) => p.stockId),
     ...watchlistStocks.map((w) => w.stockId),
   ]
 
