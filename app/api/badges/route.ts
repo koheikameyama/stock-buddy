@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
-    const userId = session.user.id
+  try {
+    const userId = user.id
 
     // クエリパラメータから最終閲覧時刻を取得
     const searchParams = request.nextUrl.searchParams

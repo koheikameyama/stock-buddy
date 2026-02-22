@@ -5,7 +5,7 @@ import {
   type UIMessage,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { createChatTools } from "@/lib/chat-tools";
 import {
@@ -30,11 +30,8 @@ interface StockContext {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const { user, error } = await getAuthUser();
+  if (error) return error;
 
   const { messages, stockContext } = (await request.json()) as {
     messages: UIMessage[];
@@ -59,7 +56,7 @@ export async function POST(request: Request) {
 
   // 軽量な静的コンテキスト取得
   const userSettings = await prisma.userSettings.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
   });
 
   // 個別銘柄ページではすべての銘柄情報を事前取得
@@ -107,7 +104,7 @@ export async function POST(request: Request) {
           stockContext.type === "portfolio"
             ? prisma.portfolioStock.findFirst({
                 where: {
-                  userId: session.user.id,
+                  userId: user.id,
                   stockId: stockContext.stockId,
                 },
                 select: {
@@ -269,7 +266,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const tools = createChatTools(session.user.id, stockContext);
+  const tools = createChatTools(user.id, stockContext);
 
   const modelMessages = await convertToModelMessages(messages);
 

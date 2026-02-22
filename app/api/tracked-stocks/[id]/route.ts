@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 
 /**
@@ -10,13 +10,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
   const { id } = await params
-  const userId = session.user.id
+  const userId = user.id
 
   try {
     // 自分の追跡銘柄か確認

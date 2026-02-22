@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { fetchStockPrices } from "@/lib/stock-price-fetcher";
 import { prepareTickerForDB } from "@/lib/ticker-utils";
@@ -8,13 +8,10 @@ import { prepareTickerForDB } from "@/lib/ticker-utils";
  * 銘柄リクエストを作成する
  */
 export async function POST(request: NextRequest) {
+  const { user, error } = await getAuthUser();
+  if (error) return error;
+
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
     const body = await request.json();
     const { tickerCode, name, market, reason } = body;
 
@@ -76,7 +73,7 @@ export async function POST(request: NextRequest) {
     // 同じユーザーが同じティッカーコードで既にリクエストしているかチェック
     const existingRequest = await prisma.stockRequest.findFirst({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         tickerCode: finalTicker,
         status: {
           in: ["pending", "approved"],
@@ -97,7 +94,7 @@ export async function POST(request: NextRequest) {
     // リクエストを作成
     const stockRequest = await prisma.stockRequest.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         tickerCode: finalTicker,
         name: name?.trim() || null,
         market: market?.trim() || null,
@@ -127,19 +124,16 @@ export async function POST(request: NextRequest) {
  * ユーザーの銘柄リクエスト一覧を取得する
  */
 export async function GET(request: NextRequest) {
+  const { user, error: getError } = await getAuthUser();
+  if (getError) return getError;
+
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const limit = parseInt(searchParams.get("limit") || "20");
 
     const where: { userId: string; status?: string } = {
-      userId: session.user.id,
+      userId: user.id,
     };
 
     if (status) {

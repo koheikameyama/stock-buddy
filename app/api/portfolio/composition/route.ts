@@ -1,4 +1,4 @@
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { fetchStockPrices } from "@/lib/stock-price-fetcher"
@@ -33,15 +33,12 @@ const SECTOR_COLORS: Record<string, string> = {
 }
 
 export async function GET() {
+  const { user: authUser, error } = await getAuthUser()
+  if (error) return error
+
   try {
-    const session = await auth()
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: authUser.id },
       select: {
         id: true,
         portfolioStocks: {

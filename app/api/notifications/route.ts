@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 
 /**
@@ -7,12 +7,10 @@ import { prisma } from "@/lib/prisma"
  * 通知一覧を取得（ページネーション対応）
  */
 export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
-    }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
+  try {
     const { searchParams } = new URL(request.url)
     const unreadOnly = searchParams.get("unreadOnly") === "true"
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50)
@@ -21,7 +19,7 @@ export async function GET(request: NextRequest) {
     // 通知一覧を取得
     const notifications = await prisma.notification.findMany({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         ...(unreadOnly && { isRead: false }),
       },
       include: {
@@ -50,7 +48,7 @@ export async function GET(request: NextRequest) {
     // 未読件数を取得
     const unreadCount = await prisma.notification.count({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         isRead: false,
       },
     })

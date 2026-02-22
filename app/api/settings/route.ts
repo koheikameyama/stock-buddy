@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 // GET: ユーザー設定を取得
 export async function GET() {
-  try {
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const { user: authUser, error: getError } = await getAuthUser();
+  if (getError) return getError;
 
+  try {
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: authUser.id },
       include: {
         settings: true,
       },
@@ -45,12 +43,10 @@ export async function GET() {
 
 // PUT: ユーザー設定を更新
 export async function PUT(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const { user: putUser, error: putError } = await getAuthUser();
+  if (putError) return putError;
 
+  try {
     const {
       investmentStyle,
       investmentBudget,
@@ -101,23 +97,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // ユーザー情報を取得
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: {
-        settings: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
     // ユーザー設定を更新
     const updatedSettings = await prisma.userSettings.upsert({
-      where: { userId: user.id },
+      where: { userId: putUser.id },
       create: {
-        userId: user.id,
+        userId: putUser.id,
         investmentStyle,
         investmentBudget: investmentBudget ?? null,
         targetReturnRate: targetReturnRate ?? null,

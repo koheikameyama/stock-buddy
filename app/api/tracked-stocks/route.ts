@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 import { MAX_TRACKED_STOCKS } from "@/lib/constants"
 
@@ -8,12 +8,10 @@ import { MAX_TRACKED_STOCKS } from "@/lib/constants"
  * ユーザーの追跡銘柄一覧を取得
  */
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
-  const userId = session.user.id
+  const userId = user.id
 
   try {
     const trackedStocks = await prisma.trackedStock.findMany({
@@ -68,12 +66,10 @@ export async function GET() {
  * 銘柄を追跡リストに追加
  */
 export async function POST(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
-  const userId = session.user.id
+  const userId = user.id
 
   try {
     const body = await request.json()

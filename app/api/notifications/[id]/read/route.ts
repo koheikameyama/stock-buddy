@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 
 /**
@@ -10,12 +10,10 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
-    }
+  const { user, error: authError } = await getAuthUser()
+  if (authError) return authError
 
+  try {
     const { id } = await params
 
     // 通知を取得して所有者確認
@@ -27,7 +25,7 @@ export async function PATCH(
       return NextResponse.json({ error: "通知が見つかりません" }, { status: 404 })
     }
 
-    if (notification.userId !== session.user.id) {
+    if (notification.userId !== user.id) {
       return NextResponse.json({ error: "アクセス権限がありません" }, { status: 403 })
     }
 

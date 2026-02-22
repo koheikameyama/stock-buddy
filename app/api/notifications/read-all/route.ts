@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 
 /**
@@ -7,16 +7,14 @@ import { prisma } from "@/lib/prisma"
  * すべての通知を既読にする
  */
 export async function POST() {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
-    }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
+  try {
     // すべての未読通知を既読にする
     const result = await prisma.notification.updateMany({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         isRead: false,
       },
       data: {

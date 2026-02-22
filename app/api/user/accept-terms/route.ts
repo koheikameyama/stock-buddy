@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 
 export async function POST() {
+  const { user, error } = await getAuthUser()
+  if (error) return error
+
   try {
-    const session = await auth()
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     // ユーザーの同意フラグを更新
     await prisma.user.update({
-      where: { email: session.user.email },
+      where: { id: user.id },
       data: {
         termsAccepted: true,
         termsAcceptedAt: new Date(),

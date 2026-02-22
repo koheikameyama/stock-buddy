@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 
 export async function POST(request: NextRequest) {
+  const { user, error } = await getAuthUser()
+  if (error) return error
+
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
     const subscription = await request.json()
 
     // 既存の購読があれば更新、なければ作成
@@ -45,25 +35,15 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const { user: deleteUser, error: deleteError } = await getAuthUser()
+  if (deleteError) return deleteError
+
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
     const { endpoint } = await request.json()
 
     await prisma.pushSubscription.deleteMany({
       where: {
-        userId: user.id,
+        userId: deleteUser.id,
         endpoint,
       },
     })

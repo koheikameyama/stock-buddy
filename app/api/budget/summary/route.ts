@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 
@@ -11,19 +11,8 @@ import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
  * 売却済みの株は含まない。売れば予算に戻ってくる。
  */
 export async function GET() {
-  const session = await auth()
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 })
-  }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
   const [userSettings, portfolioStocks] = await Promise.all([
     prisma.userSettings.findUnique({

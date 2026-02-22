@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { searchAndAddStock } from "@/lib/stock-fetcher";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -88,14 +88,11 @@ interface CreateUserStockRequest {
  * - mode: "portfolio" | "watchlist" | "all" (default: "all")
  */
 export async function GET(request: NextRequest) {
-  try {
-    // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const { user, error } = await getAuthUser();
+  if (error) return error;
 
-    const userId = session.user.id;
+  try {
+    const userId = user.id;
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode") || "all";
 
@@ -311,14 +308,11 @@ export async function GET(request: NextRequest) {
  * - portfolio: quantity, averagePurchasePrice, purchaseDate?
  */
 export async function POST(request: NextRequest) {
-  try {
-    // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const { user, error: postError } = await getAuthUser();
+  if (postError) return postError;
 
-    const userId = session.user.id;
+  try {
+    const userId = user.id;
     const body: CreateUserStockRequest = await request.json();
     const { tickerCode, type, quantity, averagePurchasePrice, purchaseDate } =
       body;

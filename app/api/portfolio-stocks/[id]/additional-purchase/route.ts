@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import {
@@ -12,24 +12,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const { user, error } = await getAuthUser();
+  if (error) return error;
+
   try {
-    // 認証チェック
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "ユーザーが見つかりません" },
-        { status: 404 },
-      );
-    }
-
     // paramsをawait
     const { id } = await params;
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { getAuthUser } from "@/lib/auth-utils"
 import { prisma } from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
 import { syncPortfolioStockQuantity } from "@/lib/portfolio-calculator"
@@ -18,12 +18,10 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
-    }
+  const { user, error } = await getAuthUser()
+  if (error) return error
 
+  try {
     const { id } = await params
     const body: UpdateTransactionRequest = await request.json()
     const { quantity, price, transactionDate } = body
@@ -42,7 +40,7 @@ export async function PATCH(
     }
 
     // 所有者チェック
-    if (transaction.userId !== session.user.id) {
+    if (transaction.userId !== user.id) {
       return NextResponse.json(
         { error: "この取引履歴にアクセスする権限がありません" },
         { status: 403 }
@@ -125,12 +123,10 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
-    }
+  const { user: deleteUser, error: deleteError } = await getAuthUser()
+  if (deleteError) return deleteError
 
+  try {
     const { id } = await params
 
     // Transactionを取得
@@ -146,7 +142,7 @@ export async function DELETE(
     }
 
     // 所有者チェック
-    if (transaction.userId !== session.user.id) {
+    if (transaction.userId !== deleteUser.id) {
       return NextResponse.json(
         { error: "この取引履歴にアクセスする権限がありません" },
         { status: 403 }

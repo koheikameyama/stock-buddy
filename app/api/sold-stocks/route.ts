@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 import { fetchStockPrices } from "@/lib/stock-price-fetcher";
@@ -7,23 +7,10 @@ import { removeTickerSuffix } from "@/lib/ticker-utils";
 import { Decimal } from "@prisma/client/runtime/library";
 
 export async function GET() {
+  const { user, error } = await getAuthUser();
+  if (error) return error;
+
   try {
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "ユーザーが見つかりません" },
-        { status: 404 },
-      );
-    }
-
     // 売却済み（quantity=0）のPortfolioStockを取得（Transactionを含む）
     const portfolioStocks = await prisma.portfolioStock.findMany({
       where: { userId: user.id, quantity: 0 },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 import { UserStockResponse } from "../route";
@@ -36,13 +36,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const { user, error } = await getAuthUser();
+  if (error) return error;
 
-    const userId = session.user.id;
+  try {
+    const userId = user.id;
     const body = await request.json();
 
     // Check if this is a conversion request
@@ -375,13 +373,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const { user: deleteUser, error: deleteError } = await getAuthUser();
+  if (deleteError) return deleteError;
 
-    const userId = session.user.id;
+  try {
+    const userId = deleteUser.id;
 
     // Find in both tables
     const [watchlistStock, portfolioStock] = await Promise.all([
