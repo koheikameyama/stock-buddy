@@ -52,6 +52,8 @@ export default function MyStocksClient() {
     staleTickers,
     updateUserStock,
     removeTrackedStock,
+    invalidateUserStocks,
+    invalidateSoldStocks,
     invalidatePortfolioSummary,
   } = useAppStore();
 
@@ -459,8 +461,13 @@ export default function MyStocksClient() {
         throw new Error(data.error || "Failed to add to watchlist");
       }
       const newStock = await response.json();
-      setUserStocks((prev) => [...prev, newStock]);
+      // 0株のポートフォリオ銘柄を除去し、ウォッチリストとして追加
+      setUserStocks((prev) => [
+        ...prev.filter((s) => s.id !== zeroStockTarget.id),
+        newStock,
+      ]);
       // 売却済みリストを更新
+      invalidateSoldStocks();
       const updatedSoldStocks = await fetchSoldStocks().catch(() => []);
       setSoldStocks(updatedSoldStocks);
       invalidatePortfolioSummary();
@@ -491,11 +498,16 @@ export default function MyStocksClient() {
         throw new Error(data.error || "追跡に失敗しました");
       }
       const newTracked = await response.json();
+      // 0株のポートフォリオ銘柄を除去
+      setUserStocks((prev) =>
+        prev.filter((s) => s.id !== zeroStockTarget.id),
+      );
       setTrackedStocks((prev) => [
         ...prev,
         newTracked as unknown as TrackedStock,
       ]);
       // 売却済みリストを更新
+      invalidateSoldStocks();
       const updatedSoldStocks = await fetchSoldStocks().catch(() => []);
       setSoldStocks(updatedSoldStocks);
       invalidatePortfolioSummary();
@@ -511,7 +523,14 @@ export default function MyStocksClient() {
 
   // 全株売却後: 何もしない（過去の保有に移動）
   const handleZeroStockDismiss = async () => {
+    // 0株のポートフォリオ銘柄をローカル状態から除去
+    if (zeroStockTarget) {
+      setUserStocks((prev) =>
+        prev.filter((s) => s.id !== zeroStockTarget.id),
+      );
+    }
     // 売却済みリストを更新
+    invalidateSoldStocks();
     const updatedSoldStocks = await fetchSoldStocks().catch(() => []);
     setSoldStocks(updatedSoldStocks);
     invalidatePortfolioSummary();
@@ -541,11 +560,15 @@ export default function MyStocksClient() {
     setShowTransactionDialog(false);
     setSelectedStock(null);
 
+    // ストアのキャッシュを無効化（次回ページ遷移時に最新データを取得するため）
+    invalidateUserStocks();
+
     // 全株売却時は選択モーダルを表示
     if (
       updatedStock.type === "portfolio" &&
       (updatedStock.quantity ?? 0) === 0
     ) {
+      invalidateSoldStocks();
       setZeroStockTarget(updatedStock);
       return;
     }
