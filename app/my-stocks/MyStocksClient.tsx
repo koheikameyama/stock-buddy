@@ -23,6 +23,7 @@ import type {
   StockPrice,
 } from "@/store/types";
 import { MyStocksSkeleton } from "@/components/skeletons/my-stocks-skeleton";
+import { useTranslations } from 'next-intl';
 
 interface PurchaseRecommendation {
   recommendation: "buy" | "stay" | "avoid";
@@ -39,6 +40,7 @@ type TabType = "portfolio" | "watchlist" | "tracked" | "sold";
 export default function MyStocksClient() {
   const router = useRouter();
   useMarkPageSeen("my-stocks");
+  const t = useTranslations('portfolio');
 
   // ストアから取得
   const {
@@ -561,7 +563,7 @@ export default function MyStocksClient() {
             />
           </svg>
           <span className="text-sm sm:text-base font-semibold">
-            ダッシュボードに戻る
+            {t('backToDashboard')}
           </span>
         </button>
       </div>
@@ -571,10 +573,10 @@ export default function MyStocksClient() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
-              マイ銘柄
+              {t('myStocks')}
             </h1>
             <p className="text-xs sm:text-base text-gray-600 mt-1">
-              気になる銘柄と保有銘柄を一覧管理
+              {t('description')}
             </p>
           </div>
           <button
@@ -594,7 +596,7 @@ export default function MyStocksClient() {
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            <span>総評</span>
+            <span>{t('overallAnalysisButton')}</span>
           </button>
         </div>
       </div>
@@ -617,7 +619,7 @@ export default function MyStocksClient() {
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            保有中 ({portfolioStocks.length})
+            {t('tabs.holdings')} ({portfolioStocks.length})
           </button>
           <button
             onClick={() => setActiveTab("watchlist")}
@@ -627,7 +629,7 @@ export default function MyStocksClient() {
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            気になる ({watchlistStocks.length})
+            {t('tabs.watchlistAlt')} ({watchlistStocks.length})
           </button>
           <button
             onClick={() => setActiveTab("tracked")}
@@ -637,7 +639,7 @@ export default function MyStocksClient() {
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            追跡 ({trackedStocks.length})
+            {t('tabs.trackedAlt')} ({trackedStocks.length})
           </button>
           <button
             onClick={() => setActiveTab("sold")}
@@ -647,7 +649,7 @@ export default function MyStocksClient() {
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            過去の保有 ({soldStocks.length})
+            {t('tabs.soldAlt')} ({soldStocks.length})
           </button>
         </div>
         {/* スクロール可能インジケーター（スマホのみ） */}
@@ -662,7 +664,7 @@ export default function MyStocksClient() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
               <div>
                 <p className="text-xs sm:text-sm text-gray-500">
-                  AI分析なしで株価を追跡
+                  {t('tracked.description')}
                 </p>
               </div>
               <button
@@ -682,22 +684,22 @@ export default function MyStocksClient() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                追跡銘柄を追加
+                {t('tracked.addButton')}
               </button>
             </div>
             {trackedStocks.length === 0 ? (
               <div className="bg-white rounded-xl p-6 sm:p-12 text-center shadow-sm">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                  追跡中の銘柄はありません
+                  {t('tracked.emptyTitle')}
                 </h3>
                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-                  AI分析なしで株価だけ追いたい銘柄を追加しましょう
+                  {t('tracked.emptyDescription')}
                 </p>
                 <button
                   onClick={() => setShowAddDialog(true)}
                   className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors"
                 >
-                  銘柄を追加する
+                  {t('tracked.addStockButton')}
                 </button>
               </div>
             ) : (

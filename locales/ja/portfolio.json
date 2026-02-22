@@ -1,6 +1,9 @@
 {
   "title": "ポートフォリオ",
   "myStocks": "マイ銘柄",
+  "description": "気になる銘柄と保有銘柄を一覧管理",
+  "backToDashboard": "ダッシュボードに戻る",
+  "overallAnalysisButton": "総評",
   "summary": {
     "title": "サマリー",
     "totalValue": "評価額合計",
@@ -17,8 +20,18 @@
   "tabs": {
     "holdings": "保有中",
     "watchlist": "ウォッチリスト",
+    "watchlistAlt": "気になる",
     "sold": "売却済み",
-    "tracked": "追跡銘柄"
+    "soldAlt": "過去の保有",
+    "tracked": "追跡銘柄",
+    "trackedAlt": "追跡"
+  },
+  "tracked": {
+    "description": "AI分析なしで株価を追跡",
+    "addButton": "追跡銘柄を追加",
+    "emptyTitle": "追跡中の銘柄はありません",
+    "emptyDescription": "AI分析なしで株価だけ追いたい銘柄を追加しましょう",
+    "addStockButton": "銘柄を追加する"
   },
   "addStock": {
     "title": "銘柄を追加",
