@@ -9,6 +9,7 @@ import SoldStockCard from "./SoldStockCard";
 import AddStockDialog from "./AddStockDialog";
 import AdditionalPurchaseDialog from "./AdditionalPurchaseDialog";
 import IndividualSettingsModal from "./IndividualSettingsModal";
+import ImportCsvDialog from "./ImportCsvDialog";
 import {
   UPDATE_SCHEDULES,
   MAX_PORTFOLIO_STOCKS,
@@ -70,6 +71,7 @@ export default function MyStocksClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
   const [selectedStock, setSelectedStock] = useState<UserStock | null>(null);
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy");
@@ -761,33 +763,57 @@ export default function MyStocksClient() {
                   AI分析更新 {UPDATE_SCHEDULES.STOCK_ANALYSIS}（平日）
                 </p>
               </div>
-              <button
-                onClick={handleAddStock}
-                disabled={
-                  displayStocks.length >=
-                  (activeTab === "portfolio"
-                    ? MAX_PORTFOLIO_STOCKS
-                    : MAX_WATCHLIST_STOCKS)
-                }
-                className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4 sm:w-5 sm:h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {activeTab === "portfolio" && (
+                  <button
+                    onClick={() => setShowImportDialog(true)}
+                    className="px-3 py-2 sm:py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 flex-shrink-0"
+                    title={t("importCsv.buttonLabel")}
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 11l3 3m0 0l3-3m-3 3V4"
+                      />
+                    </svg>
+                    <span className="hidden sm:inline">{t("importCsv.buttonLabel")}</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleAddStock}
+                  disabled={
+                    displayStocks.length >=
+                    (activeTab === "portfolio"
+                      ? MAX_PORTFOLIO_STOCKS
+                      : MAX_WATCHLIST_STOCKS)
+                  }
+                  className="flex-1 sm:flex-none w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                {activeTab === "portfolio"
-                  ? "保有銘柄を追加"
-                  : "気になる銘柄を追加"}
-              </button>
+                  <svg
+                    className="w-4 h-4 sm:w-5 sm:h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  {activeTab === "portfolio"
+                    ? "保有銘柄を追加"
+                    : "気になる銘柄を追加"}
+                </button>
+              </div>
             </div>
 
             {displayStocks.length === 0 ? (
@@ -944,6 +970,19 @@ export default function MyStocksClient() {
         }
         onSuccess={handleTransactionSuccess}
         transactionType={transactionType}
+      />
+
+      <ImportCsvDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={async () => {
+          const [stocksData, soldData] = await Promise.all([
+            fetchUserStocks().catch(() => []),
+            fetchSoldStocks().catch(() => []),
+          ]);
+          setUserStocks(stocksData);
+          setSoldStocks(soldData);
+        }}
       />
 
       {/* Tracking Confirmation Modal */}

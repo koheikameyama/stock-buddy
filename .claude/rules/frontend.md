@@ -65,3 +65,45 @@ export function StockListSkeleton() {
 - [ ] `Suspense` でラップ
 - [ ] 適切なスケルトンを `fallback` に指定
 - [ ] スケルトンのサイズは実コンテンツと同じにする
+
+## 文言の国際化（i18n）
+
+**フロントエンドに表示する文言はすべて i18n に定義し、呼び出して使用してください。**
+
+- コンポーネント内にハードコードしない
+- 翻訳ファイルから呼び出す
+
+### ✅ 良い例
+
+```typescript
+import { useTranslations } from "next-intl"
+
+export function StockCard() {
+  const t = useTranslations("StockCard")
+  return <p>{t("noData")}</p>
+}
+```
+
+```json
+// messages/ja.json
+{
+  "StockCard": {
+    "noData": "データがありません"
+  }
+}
+```
+
+### ❌ 悪い例
+
+```typescript
+// 文言をコンポーネントにハードコード
+export function StockCard() {
+  return <p>データがありません</p>
+}
+```
+
+### チェックリスト
+
+- [ ] 表示文言は i18n ファイル（`messages/`）に定義
+- [ ] コンポーネントでは `useTranslations` / `getTranslations` で呼び出す
+- [ ] 文言を直接コンポーネントに書かない
