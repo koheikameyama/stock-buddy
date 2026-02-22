@@ -13,9 +13,11 @@ import NikkeiSummary from "./NikkeiSummary";
 import BudgetSummary from "./BudgetSummary";
 import { SectorTrendHeatmap } from "./SectorTrendHeatmap";
 import { getRichStyleLabel } from "@/lib/constants";
+import { getTranslations } from 'next-intl/server';
 
 export default async function DashboardPage() {
   const session = await auth();
+  const t = await getTranslations('dashboard');
 
   if (!session?.user?.email) {
     redirect("/login");
@@ -58,10 +60,10 @@ export default async function DashboardPage() {
           {/* ページタイトル */}
           <div className="mb-4 sm:mb-8">
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
-              おはようございます、{session.user.name?.split(" ")[0]}さん！
+              {t('greeting', { name: session.user.name?.split(" ")[0] || "" })}
             </h1>
             <p className="text-xs sm:text-base text-gray-600 mt-1">
-              今日も一緒に投資を見守りましょう
+              {t('subtitle')}
             </p>
           </div>
 
@@ -77,10 +79,10 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-white font-bold text-base sm:text-lg mb-1">
-                    投資スタイルを登録しましょう
+                    {t('investmentStyle.setupPrompt.title')}
                   </div>
                   <div className="text-blue-100 text-xs sm:text-sm">
-                    あなたに合った銘柄をおすすめするために、投資期間とリスク許容度を教えてください
+                    {t('investmentStyle.setupPrompt.description')}
                   </div>
                 </div>
                 <div className="shrink-0">
@@ -112,7 +114,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-gray-500 mb-1 sm:mb-1.5">
-                      あなたの投資スタイル
+                      {t('investmentStyle.label')}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 w-fit">
@@ -120,11 +122,11 @@ export default async function DashboardPage() {
                       </span>
                       {user.settings.investmentBudget && (
                         <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 w-fit">
-                          資金{" "}
+                          {t('investmentStyle.budget')}{" "}
                           {(
                             user.settings.investmentBudget / 10000
                           ).toLocaleString()}
-                          万円
+                          {t('investmentStyle.budgetUnit')}
                         </span>
                       )}
                       <span
@@ -134,10 +136,10 @@ export default async function DashboardPage() {
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        利確{" "}
+                        {t('investmentStyle.takeProfit')}{" "}
                         {user.settings.targetReturnRate
                           ? `+${user.settings.targetReturnRate}%`
-                          : "AIお任せ"}
+                          : t('investmentStyle.aiManaged')}
                       </span>
                       <span
                         className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-semibold w-fit ${
@@ -146,10 +148,10 @@ export default async function DashboardPage() {
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        損切り{" "}
+                        {t('investmentStyle.stopLoss')}{" "}
                         {user.settings.stopLossRate
                           ? `${user.settings.stopLossRate}%`
-                          : "AIお任せ"}
+                          : t('investmentStyle.aiManaged')}
                       </span>
                     </div>
                   </div>
@@ -157,7 +159,7 @@ export default async function DashboardPage() {
                 <Link
                   href="/settings"
                   className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 transition-colors shrink-0"
-                  title="投資スタイルを編集"
+                  title={t('investmentStyle.edit')}
                 >
                   <svg
                     className="w-4 h-4 sm:w-5 sm:h-5"

@@ -6,6 +6,7 @@ import notifications from './notifications.json';
 import settings from './settings.json';
 import auth from './auth.json';
 import news from './news.json';
+import dashboard from './dashboard.json';
 
 export default {
   common,
@@ -16,4 +17,5 @@ export default {
   settings,
   auth,
   news,
+  dashboard,
 };
