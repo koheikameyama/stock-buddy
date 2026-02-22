@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 interface ParsedTransaction {
   date: string; // "2026-02-05"
@@ -87,6 +88,7 @@ interface Props {
 }
 
 export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: Props) {
+  const t = useTranslations("portfolio.importCsv");
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -108,7 +110,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
       setResult(null);
 
       if (parsed.length === 0) {
-        toast.error("現物取引が見つかりませんでした。楽天証券の取引履歴CSVを選択してください。");
+        toast.error(t("noTransactionsFound"));
       }
     };
     reader.readAsArrayBuffer(file);
@@ -125,7 +127,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "インポートに失敗しました");
+        toast.error(data.error || t("importFailed"));
         return;
       }
       setResult(data);
@@ -133,7 +135,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
         onImportComplete();
       }
     } catch {
-      toast.error("インポートに失敗しました");
+      toast.error(t("importFailed"));
     } finally {
       setImporting(false);
     }
@@ -153,7 +155,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b flex-shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">楽天証券CSVをインポート</h2>
+          <h2 className="text-lg font-bold text-gray-900">{t("dialogTitle")}</h2>
           <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -172,17 +174,17 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
                 </svg>
               </div>
               <p className="text-xl font-bold text-gray-900 mb-1">
-                {result.imported}件をインポートしました
+                {t("successTitle", { count: result.imported })}
               </p>
               {result.replaced > 0 && (
                 <p className="text-sm text-gray-500 mb-1">
-                  同期間の既存データ {result.replaced} 件を置き換えました
+                  {t("replaced", { count: result.replaced })}
                 </p>
               )}
               {result.failed.length > 0 && (
                 <div className="mt-4 text-left bg-red-50 rounded-lg p-4">
                   <p className="text-sm font-medium text-red-700 mb-2">
-                    以下の銘柄は取り込めませんでした：
+                    {t("failedTitle")}
                   </p>
                   {result.failed.map((f) => (
                     <p key={f.tickerCode} className="text-sm text-red-600">
@@ -196,8 +198,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
             /* ファイル選択画面 */
             <div>
               <p className="text-sm text-gray-600 mb-4">
-                楽天証券の「取引履歴（国内株式）」CSVをアップロードしてください。
-                現物取引のみ取り込みます。CSVの日付範囲内のデータは上書きされます。
+                {t("description")}
               </p>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -216,8 +217,8 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                   />
                 </svg>
-                <p className="text-sm font-medium text-gray-700">CSVファイルを選択</p>
-                <p className="text-xs text-gray-400 mt-1">.csv（Shift-JIS形式）</p>
+                <p className="text-sm font-medium text-gray-700">{t("selectFile")}</p>
+                <p className="text-xs text-gray-400 mt-1">{t("fileHint")}</p>
               </button>
               <input
                 ref={fileInputRef}
@@ -232,8 +233,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-gray-700">
-                  <span className="font-semibold text-blue-600">{transactions.length}件</span>
-                  の現物取引が見つかりました（{uniqueTickers}銘柄）
+                  {t("foundTransactions", { count: transactions.length, tickers: uniqueTickers })}
                 </p>
                 <button
                   onClick={() => {
@@ -242,18 +242,18 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
                   }}
                   className="text-xs text-gray-400 hover:text-gray-600 underline"
                 >
-                  ファイルを変更
+                  {t("changeFile")}
                 </button>
               </div>
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">約定日</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">銘柄</th>
-                      <th className="px-3 py-2 text-center font-medium text-gray-600">売買</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-600">数量</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-600">単価</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">{t("tableDate")}</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">{t("tableStock")}</th>
+                      <th className="px-3 py-2 text-center font-medium text-gray-600">{t("tableBuySell")}</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-600">{t("tableQuantity")}</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-600">{t("tablePrice")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -272,7 +272,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
                                 : "bg-red-100 text-red-700"
                             }`}
                           >
-                            {tx.type === "buy" ? "買" : "売"}
+                            {tx.type === "buy" ? t("buy") : t("sell")}
                           </span>
                         </td>
                         <td className="px-3 py-1.5 text-right text-gray-700">
@@ -287,7 +287,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
                 </table>
                 {transactions.length > 20 && (
                   <div className="text-center py-2 text-xs text-gray-400 bg-gray-50 border-t">
-                    他 {transactions.length - 20} 件...
+                    {t("moreItems", { count: transactions.length - 20 })}
                   </div>
                 )}
               </div>
@@ -302,7 +302,7 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
               onClick={handleClose}
               className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
             >
-              閉じる
+              {t("close")}
             </button>
           ) : (
             <>
@@ -310,15 +310,15 @@ export default function ImportCsvDialog({ isOpen, onClose, onImportComplete }: P
                 onClick={handleClose}
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
-                キャンセル
+                {t("cancel")}
               </button>
               {transactions.length > 0 && (
                 <button
                   onClick={handleImport}
                   disabled={importing}
-                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  className="px-5 py2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  {importing ? "インポート中..." : `${transactions.length}件をインポート`}
+                  {importing ? t("importing") : t("importButton", { count: transactions.length })}
                 </button>
               )}
             </>

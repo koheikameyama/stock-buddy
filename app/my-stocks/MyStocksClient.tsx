@@ -768,7 +768,7 @@ export default function MyStocksClient() {
                   <button
                     onClick={() => setShowImportDialog(true)}
                     className="px-3 py-2 sm:py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 flex-shrink-0"
-                    title="楽天証券CSVをインポート"
+                    title={t("importCsv.buttonLabel")}
                   >
                     <svg
                       className="w-4 h-4"
@@ -783,7 +783,7 @@ export default function MyStocksClient() {
                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 11l3 3m0 0l3-3m-3 3V4"
                       />
                     </svg>
-                    <span className="hidden sm:inline">CSVインポート</span>
+                    <span className="hidden sm:inline">{t("importCsv.buttonLabel")}</span>
                   </button>
                 )}
                 <button

@@ -98,5 +98,31 @@
     "portfolioMax": "ポートフォリオは最大{max}銘柄まで追加できます",
     "watchlistMax": "ウォッチリストは最大{max}銘柄まで追加できます",
     "trackedMax": "追跡銘柄は最大{max}銘柄まで追加できます"
+  },
+  "importCsv": {
+    "buttonLabel": "CSVインポート",
+    "dialogTitle": "楽天証券CSVをインポート",
+    "description": "楽天証券の「取引履歴（国内株式）」CSVをアップロードしてください。現物取引のみ取り込みます。CSVの日付範囲内のデータは上書きされます。",
+    "selectFile": "CSVファイルを選択",
+    "fileHint": ".csv（Shift-JIS形式）",
+    "changeFile": "ファイルを変更",
+    "foundTransactions": "{count}件の現物取引が見つかりました（{tickers}銘柄）",
+    "importButton": "{count}件をインポート",
+    "importing": "インポート中...",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "successTitle": "{count}件をインポートしました",
+    "replaced": "同期間の既存データ {count} 件を置き換えました",
+    "failedTitle": "以下の銘柄は取り込めませんでした：",
+    "moreItems": "他 {count} 件...",
+    "noTransactionsFound": "現物取引が見つかりませんでした。楽天証券の取引履歴CSVを選択してください。",
+    "importFailed": "インポートに失敗しました",
+    "tableDate": "約定日",
+    "tableStock": "銘柄",
+    "tableBuySell": "売買",
+    "tableQuantity": "数量",
+    "tablePrice": "単価",
+    "buy": "買",
+    "sell": "売"
   }
 }
