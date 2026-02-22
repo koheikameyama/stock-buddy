@@ -102,7 +102,7 @@
   "importCsv": {
     "buttonLabel": "CSVインポート",
     "dialogTitle": "楽天証券CSVをインポート",
-    "description": "楽天証券の「取引履歴（国内株式）」CSVをアップロードしてください。現物取引のみ取り込みます。CSVの日付範囲内のデータは上書きされます。",
+    "description": "楽天証券の「取引履歴（国内株式）」CSVをアップロードしてください。現物取引のみ対象です。\n\n⚠️ CSVに含まれる期間の取引履歴はすべてCSVの内容で上書きされます。期間外のデータは保持されます。",
     "selectFile": "CSVファイルを選択",
     "fileHint": ".csv（Shift-JIS形式）",
     "changeFile": "ファイルを変更",
