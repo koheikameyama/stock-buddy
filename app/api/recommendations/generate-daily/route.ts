@@ -400,6 +400,7 @@ async function processUser(
   const { contexts: stockContexts, newsContext } = await buildStockContexts(
     topCandidates,
     allStocks,
+    investmentStyle,
   );
 
   const recommendations = await selectWithAI(
@@ -451,6 +452,7 @@ async function buildStockContexts(
     isDelisted: boolean;
     fetchFailCount: number;
   }>,
+  investmentStyle?: string | null,
 ): Promise<{ contexts: StockContext[]; newsContext: string }> {
   console.log(
     `  Fetching detailed data for ${candidates.length} candidates...`,
@@ -587,7 +589,10 @@ async function buildStockContexts(
 
     const technicalContext = buildTechnicalContext(ohlcvPrices);
     const candlestickContext = buildCandlestickContext(ohlcvPrices);
-    const chartPatternContext = buildChartPatternContext(ohlcvPrices);
+    const chartPatternContext = buildChartPatternContext(
+      ohlcvPrices,
+      investmentStyle,
+    );
     const trendlineContext = buildTrendlineContext(ohlcvPrices);
     const { text: weekChangeContext, rate: weekChangeRate } =
       buildWeekChangeContext(ohlcvPrices, "watchlist");

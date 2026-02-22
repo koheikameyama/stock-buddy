@@ -179,7 +179,10 @@ export async function executePortfolioAnalysis(
   const technicalContext = buildTechnicalContext(prices);
 
   // チャートパターン（複数足フォーメーション）の検出
-  const chartPatternContext = buildChartPatternContext(prices);
+  const chartPatternContext = buildChartPatternContext(
+    prices,
+    userSettings?.investmentStyle,
+  );
 
   // 週間変化率
   const { text: weekChangeContext, rate: weekChangeRate } =
@@ -739,7 +742,10 @@ export async function executeSimulatedPortfolioAnalysis(
 
   const patternContext = buildCandlestickContext(prices);
   const technicalContext = buildTechnicalContext(prices);
-  const chartPatternContext = buildChartPatternContext(prices);
+  const chartPatternContext = buildChartPatternContext(
+    prices,
+    userSettings?.investmentStyle,
+  );
   const { text: weekChangeContext, rate: weekChangeRate } =
     buildWeekChangeContext(prices, "portfolio");
   const deviationRateContext = buildDeviationRateContext(prices);
