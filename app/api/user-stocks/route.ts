@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
 
     if (mode === "portfolio" || mode === "all") {
       portfolioStocks = await prisma.portfolioStock.findMany({
-        where: { userId },
+        where: { userId, quantity: { gt: 0 } },
         include: {
           stock: {
             select: {
