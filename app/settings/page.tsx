@@ -69,6 +69,12 @@ export default function SettingsPage() {
     },
   ];
 
+  const INVESTMENT_STYLE_DEFAULTS: Record<string, { stopLossRate: number; targetReturnRate: number }> = {
+    CONSERVATIVE: { stopLossRate: -5, targetReturnRate: 5 },
+    BALANCED: { stopLossRate: -10, targetReturnRate: 10 },
+    AGGRESSIVE: { stopLossRate: -20, targetReturnRate: 20 },
+  };
+
   const BUDGET_OPTIONS = [
     { value: 100000, label: tBudget('100k.label'), description: tBudget('100k.description') },
     { value: 300000, label: tBudget('300k.label'), description: tBudget('300k.description') },
@@ -397,9 +403,12 @@ export default function SettingsPage() {
                       {INVESTMENT_STYLE_OPTIONS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() =>
-                            saveSettings({ investmentStyle: option.value })
-                          }
+                          onClick={() => {
+                            const defaults = INVESTMENT_STYLE_DEFAULTS[option.value];
+                            setShowCustomTargetReturn(false);
+                            setShowCustomStopLoss(false);
+                            saveSettings({ investmentStyle: option.value, ...defaults });
+                          }}
                           disabled={savingSettings}
                           className={`p-4 rounded-lg border-2 text-left transition-all ${
                             settings.investmentStyle === option.value
