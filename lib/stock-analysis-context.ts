@@ -323,8 +323,12 @@ export function buildDeviationRateContext(prices: OHLCVData[]): string {
 /**
  * チャートパターン（複数足フォーメーション）コンテキスト文字列を生成する
  * @param prices - OHLCV データ（oldest-first）
+ * @param investmentStyle - ユーザーの投資スタイル（任意）。指定するとスタイル別の重み付け指示が付加される
  */
-export function buildChartPatternContext(prices: OHLCVData[]): string {
+export function buildChartPatternContext(
+  prices: OHLCVData[],
+  investmentStyle?: string | null,
+): string {
   if (prices.length < 15) return "";
 
   const pricePoints: PricePoint[] = prices.map((p) => ({
@@ -337,7 +341,7 @@ export function buildChartPatternContext(prices: OHLCVData[]): string {
   const chartPatterns = detectChartPatterns(pricePoints);
   if (chartPatterns.length === 0) return "";
 
-  return "\n" + formatChartPatternsForPrompt(chartPatterns);
+  return "\n" + formatChartPatternsForPrompt(chartPatterns, investmentStyle);
 }
 
 /**

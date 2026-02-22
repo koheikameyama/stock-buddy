@@ -184,7 +184,10 @@ export async function executePurchaseRecommendation(
   const technicalContext = buildTechnicalContext(prices);
 
   // チャートパターン（複数足フォーメーション）の検出
-  const chartPatternContext = buildChartPatternContext(prices);
+  const chartPatternContext = buildChartPatternContext(
+    prices,
+    userSettings?.investmentStyle,
+  );
 
   // 移動平均乖離率
   const deviationRateContext = buildDeviationRateContext(prices);
