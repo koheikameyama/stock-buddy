@@ -1,0 +1,59 @@
+{
+  "title": "設定",
+  "account": {
+    "title": "アカウント",
+    "email": "メールアドレス",
+    "name": "名前",
+    "avatar": "アバター",
+    "logout": "ログアウト"
+  },
+  "notifications": {
+    "title": "通知設定",
+    "push": "プッシュ通知",
+    "email": "メール通知",
+    "priceAlerts": "価格アラート",
+    "recommendations": "推奨通知",
+    "news": "ニュース",
+    "reports": "レポート"
+  },
+  "preferences": {
+    "title": "表示設定",
+    "language": "言語",
+    "theme": "テーマ",
+    "currency": "通貨",
+    "timezone": "タイムゾーン"
+  },
+  "portfolio": {
+    "title": "ポートフォリオ設定",
+    "defaultTakeProfitRate": "デフォルト利確率",
+    "defaultStopLossRate": "デフォルト損切率",
+    "riskTolerance": "リスク許容度",
+    "investmentStyle": "投資スタイル"
+  },
+  "investmentStyle": {
+    "conservative": "保守的",
+    "balanced": "バランス",
+    "aggressive": "積極的",
+    "dayTrader": "デイトレーダー",
+    "swingTrader": "スイングトレーダー",
+    "longTerm": "長期投資"
+  },
+  "privacy": {
+    "title": "プライバシー",
+    "dataUsage": "データ使用",
+    "analytics": "分析",
+    "cookies": "Cookie"
+  },
+  "about": {
+    "title": "このアプリについて",
+    "version": "バージョン",
+    "terms": "利用規約",
+    "privacy": "プライバシーポリシー",
+    "disclaimer": "免責事項",
+    "contact": "お問い合わせ"
+  },
+  "save": {
+    "success": "設定を保存しました",
+    "failed": "設定の保存に失敗しました"
+  }
+}

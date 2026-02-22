@@ -1,0 +1,96 @@
+{
+  "title": "銘柄情報",
+  "details": "銘柄詳細",
+  "search": "銘柄を検索",
+  "price": "{value}円",
+  "priceYen": "{value}円",
+  "change": "前日比 {value}円 ({rate}%)",
+  "changePositive": "+{value}円 (+{rate}%)",
+  "changeNegative": "{value}円 ({rate}%)",
+  "volume": "出来高",
+  "marketCap": "時価総額",
+  "high": "高値",
+  "low": "安値",
+  "open": "始値",
+  "close": "終値",
+  "previousClose": "前日終値",
+  "ticker": "ティッカー",
+  "name": "銘柄名",
+  "sector": "セクター",
+  "industry": "業種",
+  "description": "概要",
+  "recommendation": {
+    "buy": "買い推奨",
+    "sell": "売り推奨",
+    "hold": "様子見",
+    "strongBuy": "強い買い推奨",
+    "strongSell": "強い売り推奨"
+  },
+  "analysis": {
+    "title": "分析",
+    "technical": "テクニカル分析",
+    "fundamental": "ファンダメンタル分析",
+    "aiAnalysis": "AI分析",
+    "summary": "分析サマリー",
+    "strength": "強み",
+    "weakness": "弱み",
+    "opportunity": "機会",
+    "threat": "脅威"
+  },
+  "tabs": {
+    "overview": "概要",
+    "chart": "チャート",
+    "news": "ニュース",
+    "financials": "財務",
+    "technical": "テクニカル"
+  },
+  "chart": {
+    "title": "株価チャート",
+    "period1d": "1日",
+    "period5d": "5日",
+    "period1m": "1ヶ月",
+    "period3m": "3ヶ月",
+    "period6m": "6ヶ月",
+    "period1y": "1年",
+    "periodMax": "最大"
+  },
+  "financials": {
+    "revenue": "売上高",
+    "profit": "利益",
+    "eps": "EPS",
+    "per": "PER",
+    "pbr": "PBR",
+    "roe": "ROE",
+    "dividendYield": "配当利回り",
+    "debtRatio": "負債比率"
+  },
+  "technical": {
+    "rsi": "RSI",
+    "macd": "MACD",
+    "sma": "単純移動平均",
+    "ema": "指数移動平均",
+    "bollingerBands": "ボリンジャーバンド",
+    "support": "サポートライン",
+    "resistance": "レジスタンスライン"
+  },
+  "actions": {
+    "addToPortfolio": "ポートフォリオに追加",
+    "addToWatchlist": "ウォッチリストに追加",
+    "removeFromPortfolio": "ポートフォリオから削除",
+    "removeFromWatchlist": "ウォッチリストから削除",
+    "track": "追跡する",
+    "untrack": "追跡を解除"
+  },
+  "delisted": {
+    "warning": "この銘柄は上場廃止になりました",
+    "date": "上場廃止日"
+  },
+  "priceUnavailable": "価格情報を取得できません",
+  "featured": {
+    "title": "今日の注目銘柄",
+    "buyOpportunity": "今日の買いチャンス",
+    "sellAlert": "売却検討",
+    "highGrowth": "高成長期待",
+    "undervalued": "割安銘柄"
+  }
+}

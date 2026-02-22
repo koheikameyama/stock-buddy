@@ -1,0 +1,29 @@
+{
+  "title": "通知",
+  "noNotifications": "通知はありません",
+  "markAllAsRead": "すべて既読にする",
+  "markAsRead": "既読にする",
+  "unread": "未読",
+  "types": {
+    "priceAlert": "価格アラート",
+    "recommendation": "推奨",
+    "news": "ニュース",
+    "system": "システム",
+    "portfolio": "ポートフォリオ"
+  },
+  "push": {
+    "title": "プッシュ通知",
+    "enable": "プッシュ通知を有効にする",
+    "disable": "プッシュ通知を無効にする",
+    "enablePrompt": "プッシュ通知を有効にしますか？",
+    "enableDescription": "重要な更新をリアルタイムで受け取れます",
+    "notSupported": "お使いのブラウザはプッシュ通知に対応していません"
+  },
+  "settings": {
+    "priceAlerts": "価格アラート",
+    "recommendations": "推奨通知",
+    "news": "ニュース通知",
+    "dailyReport": "日次レポート",
+    "weeklyReport": "週次レポート"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "title": "ニュース",
+  "latest": "最新ニュース",
+  "marketNews": "マーケットニュース",
+  "stockNews": "個別銘柄ニュース",
+  "relatedNews": "関連ニュース",
+  "noNews": "ニュースがありません",
+  "readMore": "続きを読む",
+  "source": "配信元",
+  "publishedAt": "公開日時",
+  "categories": {
+    "all": "すべて",
+    "market": "マーケット",
+    "economy": "経済",
+    "stocks": "個別銘柄",
+    "earnings": "決算",
+    "analysis": "分析"
+  },
+  "filters": {
+    "category": "カテゴリー",
+    "date": "日付",
+    "relevance": "関連度"
+  }
+}
