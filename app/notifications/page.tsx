@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 import Footer from "@/app/components/Footer"
 import BottomNavigation from "@/app/components/BottomNavigation"
 
@@ -26,31 +27,37 @@ type Notification = {
   readAt: string | null
 }
 
-const typeConfig: Record<string, { icon: string; color: string; label: string }> = {
-  ideal_entry_price: { icon: "💰", color: "bg-green-100 text-green-800", label: "買い時" },
-  buy_recommendation: { icon: "📊", color: "bg-green-100 text-green-800", label: "買い推奨" },
-  surge: { icon: "📈", color: "bg-blue-100 text-blue-800", label: "急騰" },
-  plunge: { icon: "📉", color: "bg-red-100 text-red-800", label: "急落" },
-  sell_target: { icon: "🎯", color: "bg-purple-100 text-purple-800", label: "目標到達" },
-  stop_loss: { icon: "⚠️", color: "bg-orange-100 text-orange-800", label: "逆指値" },
-}
-
-// タイトルから銘柄の所属（保有/気になる）を判断
-const getSourceBadge = (title: string, type: string) => {
-  if (type === "sell_target" || type === "stop_loss") {
-    return { label: "保有", color: "bg-gray-100 text-gray-600" }
-  }
-  if (title.includes("保有銘柄")) {
-    return { label: "保有", color: "bg-gray-100 text-gray-600" }
-  }
-  if (title.includes("注目銘柄")) {
-    return { label: "気になる", color: "bg-yellow-100 text-yellow-700" }
-  }
-  return null
-}
-
 export default function NotificationsPage() {
+  const t = useTranslations('notifications')
+  const tTypes = useTranslations('notifications.notificationTypes')
+  const tBadges = useTranslations('notifications.sourceBadges')
+  const tFilters = useTranslations('notifications.filters')
+  const tToast = useTranslations('notifications.toast')
+  const tTime = useTranslations('notifications.timeFormat')
   const router = useRouter()
+
+  const typeConfig: Record<string, { icon: string; color: string; label: string }> = {
+    ideal_entry_price: { icon: tTypes('ideal_entry_price.icon'), color: "bg-green-100 text-green-800", label: tTypes('ideal_entry_price.label') },
+    buy_recommendation: { icon: tTypes('buy_recommendation.icon'), color: "bg-green-100 text-green-800", label: tTypes('buy_recommendation.label') },
+    surge: { icon: tTypes('surge.icon'), color: "bg-blue-100 text-blue-800", label: tTypes('surge.label') },
+    plunge: { icon: tTypes('plunge.icon'), color: "bg-red-100 text-red-800", label: tTypes('plunge.label') },
+    sell_target: { icon: tTypes('sell_target.icon'), color: "bg-purple-100 text-purple-800", label: tTypes('sell_target.label') },
+    stop_loss: { icon: tTypes('stop_loss.icon'), color: "bg-orange-100 text-orange-800", label: tTypes('stop_loss.label') },
+  }
+
+  // タイトルから銘柄の所属（保有/気になる）を判断
+  const getSourceBadge = (title: string, type: string) => {
+    if (type === "sell_target" || type === "stop_loss") {
+      return { label: tBadges('portfolio'), color: "bg-gray-100 text-gray-600" }
+    }
+    if (title.includes("保有銘柄")) {
+      return { label: tBadges('portfolio'), color: "bg-gray-100 text-gray-600" }
+    }
+    if (title.includes("注目銘柄")) {
+      return { label: tBadges('watchlist'), color: "bg-yellow-100 text-yellow-700" }
+    }
+    return null
+  }
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [unreadOnly, setUnreadOnly] = useState(false)
@@ -81,11 +88,11 @@ export default function NotificationsPage() {
       setUnreadCount(data.unreadCount)
     } catch (error) {
       console.error("Error fetching notifications:", error)
-      toast.error("通知の取得に失敗しました")
+      toast.error(tToast('fetchError'))
     } finally {
       setLoading(false)
     }
-  }, [unreadOnly, cursor])
+  }, [unreadOnly, cursor, tToast])
 
   useEffect(() => {
     setLoading(true)
@@ -123,10 +130,10 @@ export default function NotificationsPage() {
         prev.map((n) => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
       )
       setUnreadCount(0)
-      toast.success("すべて既読にしました")
+      toast.success(tToast('markAllSuccess'))
     } catch (error) {
       console.error("Error marking all as read:", error)
-      toast.error("既読処理に失敗しました")
+      toast.error(tToast('markAllError'))
     }
   }
 
@@ -147,10 +154,10 @@ export default function NotificationsPage() {
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
-    if (diffMinutes < 1) return "たった今"
-    if (diffMinutes < 60) return `${diffMinutes}分前`
-    if (diffHours < 24) return `${diffHours}時間前`
-    if (diffDays < 7) return `${diffDays}日前`
+    if (diffMinutes < 1) return tTime('justNow')
+    if (diffMinutes < 60) return tTime('minutesAgo', { minutes: diffMinutes })
+    if (diffHours < 24) return tTime('hoursAgo', { hours: diffHours })
+    if (diffDays < 7) return tTime('daysAgo', { days: diffDays })
     return date.toLocaleDateString("ja-JP", { month: "short", day: "numeric" })
   }
 
@@ -160,13 +167,13 @@ export default function NotificationsPage() {
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">通知</h1>
+            <h1 className="text-xl font-bold">{t('title')}</h1>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
                 className="text-sm text-blue-600 hover:text-blue-800"
               >
-                すべて既読にする
+                {t('markAllAsRead')}
               </button>
             )}
           </div>
@@ -181,7 +188,7 @@ export default function NotificationsPage() {
                   : "bg-gray-100 text-gray-600"
               }`}
             >
-              すべて
+              {tFilters('all')}
             </button>
             <button
               onClick={() => setUnreadOnly(true)}
@@ -191,7 +198,7 @@ export default function NotificationsPage() {
                   : "bg-gray-100 text-gray-600"
               }`}
             >
-              未読 {unreadCount > 0 && `(${unreadCount})`}
+              {tFilters('unread')} {unreadCount > 0 && `(${unreadCount})`}
             </button>
           </div>
         </div>
@@ -220,13 +227,13 @@ export default function NotificationsPage() {
           <div className="text-center py-12">
             <div className="text-4xl mb-4">🔔</div>
             <p className="text-gray-500">
-              {unreadOnly ? "未読の通知はありません" : "通知はありません"}
+              {unreadOnly ? t('noUnreadNotifications') : t('noNotifications')}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {notifications.map((notification) => {
-              const config = typeConfig[notification.type] || { icon: "🔔", color: "bg-gray-100 text-gray-800", label: "通知" }
+              const config = typeConfig[notification.type] || { icon: tTypes('default.icon'), color: "bg-gray-100 text-gray-800", label: tTypes('default.label') }
               const sourceBadge = getSourceBadge(notification.title, notification.type)
 
               return (
@@ -296,7 +303,7 @@ export default function NotificationsPage() {
                 onClick={() => fetchNotifications()}
                 className="w-full py-3 text-blue-600 hover:text-blue-800 text-sm"
               >
-                もっと読み込む
+                {t('loadMore')}
               </button>
             )}
           </div>

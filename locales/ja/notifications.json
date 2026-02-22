@@ -1,9 +1,62 @@
 {
   "title": "通知",
   "noNotifications": "通知はありません",
+  "noUnreadNotifications": "未読の通知はありません",
   "markAllAsRead": "すべて既読にする",
   "markAsRead": "既読にする",
   "unread": "未読",
+  "unreadCount": "未読 ({count})",
+  "all": "すべて",
+  "loadMore": "もっと読み込む",
+  "filters": {
+    "all": "すべて",
+    "unread": "未読"
+  },
+  "toast": {
+    "fetchError": "通知の取得に失敗しました",
+    "markAllSuccess": "すべて既読にしました",
+    "markAllError": "既読処理に失敗しました"
+  },
+  "timeFormat": {
+    "justNow": "たった今",
+    "minutesAgo": "{minutes}分前",
+    "hoursAgo": "{hours}時間前",
+    "daysAgo": "{days}日前"
+  },
+  "notificationTypes": {
+    "ideal_entry_price": {
+      "label": "買い時",
+      "icon": "💰"
+    },
+    "buy_recommendation": {
+      "label": "買い推奨",
+      "icon": "📊"
+    },
+    "surge": {
+      "label": "急騰",
+      "icon": "📈"
+    },
+    "plunge": {
+      "label": "急落",
+      "icon": "📉"
+    },
+    "sell_target": {
+      "label": "目標到達",
+      "icon": "🎯"
+    },
+    "stop_loss": {
+      "label": "逆指値",
+      "icon": "⚠️"
+    },
+    "default": {
+      "label": "通知",
+      "icon": "🔔"
+    }
+  },
+  "sourceBadges": {
+    "portfolio": "保有",
+    "watchlist": "気になる"
+  },
   "types": {
     "priceAlert": "価格アラート",
     "recommendation": "推奨",
