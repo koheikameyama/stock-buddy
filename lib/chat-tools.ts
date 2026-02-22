@@ -26,12 +26,18 @@ export function createChatTools(userId: string, stockContext?: StockContext) {
         "ユーザーの保有銘柄一覧を取得します。銘柄名、保有株数、平均取得単価、現在価格、損益を含みます。ポートフォリオ全体について質問された時に使ってください。",
       inputSchema: z.object({}),
       execute: async () => {
-        const portfolioStocks = await prisma.portfolioStock.findMany({
+        const allPortfolioStocks = await prisma.portfolioStock.findMany({
           where: { userId },
           include: {
             stock: true,
             transactions: { orderBy: { transactionDate: "asc" } },
           },
+        })
+
+        // 保有中（quantity > 0）のみに絞る
+        const portfolioStocks = allPortfolioStocks.filter((ps) => {
+          const { quantity } = calculatePortfolioFromTransactions(ps.transactions)
+          return quantity > 0
         })
 
         if (portfolioStocks.length === 0) {
