@@ -123,6 +123,117 @@ async function StockDetailContent({
         }
       : undefined;
 
+  // Watchlist: fetch portfolio data for purchase simulation
+  let purchaseSimulationData:
+    | {
+        holdingsWithGains: {
+          stockId: string;
+          tickerCode: string;
+          name: string;
+          sector: string;
+          quantity: number;
+          averagePrice: number;
+          currentPrice: number;
+          unrealizedGain: number;
+          unrealizedGainPercent: number;
+        }[];
+        currentSectors: { sector: string; value: number; percent: number }[];
+        totalPortfolioValue: number;
+        remainingBudget: number | null;
+      }
+    | undefined;
+
+  if (watchlistStock && !portfolioStock) {
+    const [allPortfolioStocks, userSettings] = await Promise.all([
+      prisma.portfolioStock.findMany({
+        where: { userId: user.id },
+        include: {
+          stock: true,
+          transactions: {
+            orderBy: { transactionDate: "asc" },
+          },
+        },
+      }),
+      prisma.userSettings.findUnique({
+        where: { userId: user.id },
+        select: { investmentBudget: true },
+      }),
+    ]);
+
+    let totalPortfolioValue = 0;
+    let holdingsCost = 0;
+    const sectorMap = new Map<string, number>();
+    const holdingsWithGains: typeof purchaseSimulationData extends
+      | { holdingsWithGains: infer T }
+      | undefined
+      ? T
+      : never = [];
+
+    for (const ps of allPortfolioStocks) {
+      const { quantity, averagePurchasePrice } =
+        calculatePortfolioFromTransactions(ps.transactions);
+      if (quantity <= 0) continue;
+
+      const currentPrice = ps.stock.latestPrice
+        ? Number(ps.stock.latestPrice)
+        : null;
+      if (currentPrice == null) continue;
+
+      const totalCost = averagePurchasePrice.toNumber() * quantity;
+      const currentValue = currentPrice * quantity;
+      const unrealizedGain = currentValue - totalCost;
+      const unrealizedGainPercent =
+        totalCost > 0 ? (unrealizedGain / totalCost) * 100 : 0;
+
+      totalPortfolioValue += currentValue;
+      holdingsCost += totalCost;
+
+      const sector = ps.stock.sector || "その他";
+      sectorMap.set(sector, (sectorMap.get(sector) || 0) + currentValue);
+
+      if (unrealizedGain > 0) {
+        holdingsWithGains.push({
+          stockId: ps.stockId,
+          tickerCode: ps.stock.tickerCode,
+          name: ps.stock.name,
+          sector,
+          quantity,
+          averagePrice: averagePurchasePrice.toNumber(),
+          currentPrice,
+          unrealizedGain,
+          unrealizedGainPercent,
+        });
+      }
+    }
+
+    holdingsWithGains.sort((a, b) => b.unrealizedGain - a.unrealizedGain);
+
+    const currentSectors = Array.from(sectorMap.entries())
+      .map(([sector, value]) => ({
+        sector,
+        value,
+        percent:
+          totalPortfolioValue > 0
+            ? Math.round((value / totalPortfolioValue) * 1000) / 10
+            : 0,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    const totalBudget = userSettings?.investmentBudget ?? null;
+    const remainingBudget =
+      totalBudget !== null ? Math.max(0, totalBudget - holdingsCost) : null;
+
+    // Show section if there are portfolio stocks (for sector balance) or holdings with gains
+    if (currentSectors.length > 0) {
+      purchaseSimulationData = {
+        holdingsWithGains,
+        currentSectors,
+        totalPortfolioValue,
+        remainingBudget,
+      };
+    }
+  }
+
   const stockData = {
     id: userStock.id,
     stockId: userStock.stockId,
@@ -203,6 +314,7 @@ async function StockDetailContent({
     <MyStockDetailClient
       stock={stockData}
       portfolioDetails={portfolioDetails}
+      purchaseSimulationData={purchaseSimulationData}
     />
   );
 }

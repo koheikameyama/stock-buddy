@@ -13,6 +13,9 @@ export const MAX_PASSED_STOCKS_RETRIEVE = 20;
 // 株価取得のバッチサイズ（1リクエストあたりの銘柄数）
 export const STOCK_PRICE_BATCH_SIZE = 10;
 
+// 単元株数（日本株の最小取引単位）
+export const UNIT_SHARES = 100;
+
 // 株価取得失敗の警告閾値（上場廃止の可能性）
 export const FETCH_FAIL_WARNING_THRESHOLD = 3;
 

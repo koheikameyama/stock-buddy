@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useChatContext } from "@/app/contexts/ChatContext";
 import { useStockPrice } from "@/app/hooks/useStockPrice";
 import IndividualSettingsModal from "../IndividualSettingsModal";
+import PurchaseSimulation from "@/app/components/PurchaseSimulation";
 
 interface Transaction {
   id: string;
@@ -78,6 +79,23 @@ interface Stock {
   };
 }
 
+interface PurchaseSimulationData {
+  holdingsWithGains: {
+    stockId: string;
+    tickerCode: string;
+    name: string;
+    sector: string;
+    quantity: number;
+    averagePrice: number;
+    currentPrice: number;
+    unrealizedGain: number;
+    unrealizedGainPercent: number;
+  }[];
+  currentSectors: { sector: string; value: number; percent: number }[];
+  totalPortfolioValue: number;
+  remainingBudget: number | null;
+}
+
 interface Props {
   stock: Stock;
   portfolioDetails?: {
@@ -86,11 +104,13 @@ interface Props {
     profit: number;
     profitPercent: number;
   };
+  purchaseSimulationData?: PurchaseSimulationData;
 }
 
 export default function MyStockDetailClient({
   stock,
   portfolioDetails,
+  purchaseSimulationData,
 }: Props) {
   const router = useRouter();
   const t = useTranslations('stocks.detail');
@@ -606,6 +626,18 @@ export default function MyStockDetailClient({
               </button>
             }
           />
+
+          {/* Purchase Simulation Section */}
+          {purchaseSimulationData && currentPrice > 0 && (
+            <PurchaseSimulation
+              currentPrice={currentPrice}
+              stockSector={stock.stock.sector}
+              holdingsWithGains={purchaseSimulationData.holdingsWithGains}
+              currentSectors={purchaseSimulationData.currentSectors}
+              totalPortfolioValue={purchaseSimulationData.totalPortfolioValue}
+              remainingBudget={purchaseSimulationData.remainingBudget}
+            />
+          )}
 
           {/* AI Purchase Recommendation Section */}
           <div className="flex justify-end mb-2">

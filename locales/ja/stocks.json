@@ -155,6 +155,25 @@
     "saving": "保存中...",
     "buyAlertNote": "※ 取引時間中に15分間隔でチェック",
     "confirmDelete": "{name}を削除しますか？",
-    "confirmDeleteTransaction": "この取引履歴を削除しますか？保有数量と平均単価が再計算されます。"
+    "confirmDeleteTransaction": "この取引履歴を削除しますか？保有数量と平均単価が再計算されます。",
+    "purchaseSimulation": {
+      "title": "この銘柄を買うには",
+      "subtitle": "100株購入した場合の概算",
+      "estimatedCost": "購入概算額",
+      "unitShares": "100株 × 現在価格",
+      "remainingBudget": "残り予算",
+      "budgetSufficient": "残り予算で購入可能です",
+      "budgetInsufficient": "残り予算が不足しています（不足額: ¥{shortage}）",
+      "budgetNotSet": "投資予算が未設定です",
+      "profitableHoldings": "含み益のある保有銘柄",
+      "profitableHoldingsHint": "利確で購入資金を確保できる可能性がある銘柄",
+      "unrealizedGain": "含み益",
+      "shares": "株",
+      "sectorBalance": "セクターバランス",
+      "sectorBalanceHint": "この銘柄を追加した場合のポートフォリオ構成",
+      "currentPortfolio": "現在",
+      "afterPurchase": "購入後",
+      "newSector": "NEW"
+    }
   }
 }
