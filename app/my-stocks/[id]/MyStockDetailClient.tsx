@@ -442,8 +442,12 @@ export default function MyStockDetailClient({
               onApplyAIPrices={async ({ takeProfitPrice, stopLossPrice, averagePurchasePrice: avgPrice }) => {
                 const updates: { takeProfitRate?: number | null; stopLossRate?: number | null } = {};
 
-                if (takeProfitPrice != null && avgPrice > 0) {
-                  updates.takeProfitRate = Math.round(((takeProfitPrice - avgPrice) / avgPrice) * 1000) / 10;
+                // 利確: suggestedSellPriceがない or avgPrice以下なら現在価格→それもダメなら平均取得単価(rate=0)
+                const effectiveTpPrice = takeProfitPrice != null && takeProfitPrice > avgPrice
+                  ? takeProfitPrice
+                  : currentPrice > avgPrice ? currentPrice : avgPrice;
+                if (avgPrice > 0) {
+                  updates.takeProfitRate = Math.round(((effectiveTpPrice - avgPrice) / avgPrice) * 1000) / 10;
                 }
                 if (stopLossPrice != null && avgPrice > 0) {
                   updates.stopLossRate = Math.round(((stopLossPrice - avgPrice) / avgPrice) * 1000) / 10;
