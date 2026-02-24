@@ -63,13 +63,13 @@ export default function InvestmentStyleTabs({
           >
             <span className="flex items-center gap-0.5">
               <span>{config.icon}</span>
+              <span className="truncate leading-tight">
+                <span className="hidden sm:inline">{config.text}</span>
+                <span className="sm:hidden">{t(`tabs.${style}`)}</span>
+              </span>
               {isDefault && (
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
               )}
-            </span>
-            <span className="truncate w-full text-center leading-tight">
-              <span className="hidden sm:inline">{config.text}</span>
-              <span className="sm:hidden">{t(`tabs.${style}`)}</span>
             </span>
             {styleResult &&
               RECOMMENDATION_LABELS.includes(
