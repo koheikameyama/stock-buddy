@@ -45,7 +45,8 @@ import {
 import {
   calculateStockScores,
   applySectorDiversification,
-  filterByBudget,
+  filterByLooseBudget,
+  narrowByBudget,
   SCORING_CONFIG,
   StockForScoring,
   ScoredStock,
@@ -355,13 +356,13 @@ async function processUser(
     maDeviationRate: s.maDeviationRate ? Number(s.maDeviationRate) : null,
   }));
 
-  // 残り予算でフィルタ（総予算からすでに投資した金額を引いた範囲内で購入可能な銘柄のみ）
-  const filtered = filterByBudget(stocksForScoring, remainingBudget);
+  // 予算の1.5倍までの緩いフィルタ（候補を広めに取る）
+  const looseFiltered = filterByLooseBudget(stocksForScoring, remainingBudget);
   console.log(
-    `  Stocks after budget filter: ${filtered.length}/${stocksForScoring.length}`,
+    `  Stocks after loose budget filter: ${looseFiltered.length}/${stocksForScoring.length}`,
   );
 
-  if (filtered.length === 0) {
+  if (looseFiltered.length === 0) {
     return {
       userId,
       success: false,
@@ -370,7 +371,7 @@ async function processUser(
   }
 
   const scored = calculateStockScores(
-    filtered,
+    looseFiltered,
     investmentStyle,
     sectorTrendMap,
   );
@@ -392,7 +393,14 @@ async function processUser(
     }
   }
 
-  const topCandidates = diversified.slice(
+  // 予算内の銘柄を優先し、5件未満なら予算超も追加
+  const budgetResult = narrowByBudget(diversified, remainingBudget);
+  const isBudgetExceeded = budgetResult.isBudgetExceeded;
+  if (isBudgetExceeded) {
+    console.log(`  Budget exceeded: including over-budget stocks`);
+  }
+
+  const topCandidates = budgetResult.stocks.slice(
     0,
     SCORING_CONFIG.MAX_CANDIDATES_FOR_AI,
   );
@@ -413,6 +421,7 @@ async function processUser(
     marketContext,
     newsContext,
     sectorTrendContext,
+    isBudgetExceeded,
   );
 
   if (!recommendations || recommendations.length === 0) {
@@ -647,17 +656,21 @@ async function selectWithAI(
   marketContext: string,
   newsContext: string,
   sectorTrendContext: string,
+  isBudgetExceeded: boolean = false,
 ): Promise<Array<{
   tickerCode: string;
   reason: string;
   investmentTheme: string;
 }> | null> {
   const styleLabel = getStyleLabel(investmentStyle);
-  const budgetLabel = investmentBudget
+  let budgetLabel = investmentBudget
     ? remainingBudget !== null
       ? `${remainingBudget.toLocaleString()}円（残り）/ 合計 ${investmentBudget.toLocaleString()}円`
       : `${investmentBudget.toLocaleString()}円`
     : "未設定";
+  if (isBudgetExceeded) {
+    budgetLabel += "（※予算内で購入可能な銘柄がないため、予算に近い銘柄を候補にしています。おすすめ理由に予算を超えている旨を含めてください）";
+  }
 
   const stockSummaries = stockContexts
     .map((ctx, idx) => {

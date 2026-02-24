@@ -6,6 +6,12 @@
 
 import { MA_DEVIATION, MOMENTUM } from "@/lib/constants"
 import { getSectorScoreBonus, type SectorTrendData } from "@/lib/sector-trend"
+import {
+  isDangerousStock,
+  isInDecline,
+  isOverheated,
+  isSurgeStock,
+} from "@/lib/stock-safety-rules"
 
 // 設定
 export const SCORING_CONFIG = {
@@ -143,6 +149,19 @@ export function calculateStockScores(
       continue
     }
 
+    // 購入判断で強制補正（buy→stay）される銘柄を除外
+    const volatilityNum = stock.volatility !== null ? Number(stock.volatility) : null
+    const weekChange = stock.weekChangeRate !== null ? Number(stock.weekChangeRate) : null
+    const maDeviation = stock.maDeviationRate !== null ? Number(stock.maDeviationRate) : null
+    if (
+      isDangerousStock(stock.isProfitable, volatilityNum) ||
+      isSurgeStock(weekChange, style) ||
+      isInDecline(weekChange, style) ||
+      isOverheated(maDeviation, style)
+    ) {
+      continue
+    }
+
     let totalScore = 0
     const scoreBreakdown: Record<string, number> = {}
 
@@ -262,15 +281,46 @@ export function applySectorDiversification(stocks: ScoredStock[]): ScoredStock[]
   return diversified
 }
 
-/**
- * 予算でフィルタ（100株購入を前提）
- */
-export function filterByBudget(
+/** 予算の1.5倍までの緩いフィルタ（スコアリング前の候補絞り込み用） */
+const BUDGET_MARGIN = 1.5
+
+export function filterByLooseBudget(
   stocks: StockForScoring[],
   budget: number | null
 ): StockForScoring[] {
   if (!budget) return stocks
+  const looseBudget = budget * BUDGET_MARGIN
   return stocks.filter(s =>
+    s.latestPrice !== null && s.latestPrice * 100 <= looseBudget
+  )
+}
+
+/**
+ * スコアリング後の最終予算絞り込み
+ * 予算内の銘柄を優先し、5件未満なら予算超の銘柄も安い順に追加
+ */
+const MIN_RECOMMENDATIONS = 5
+
+export function narrowByBudget(
+  stocks: ScoredStock[],
+  budget: number | null
+): { stocks: ScoredStock[]; isBudgetExceeded: boolean } {
+  if (!budget) return { stocks, isBudgetExceeded: false }
+
+  const withinBudget = stocks.filter(s =>
     s.latestPrice !== null && s.latestPrice * 100 <= budget
   )
+
+  if (withinBudget.length >= MIN_RECOMMENDATIONS) {
+    return { stocks: withinBudget, isBudgetExceeded: false }
+  }
+
+  // 予算内が5件未満: 予算超の銘柄を安い順に追加
+  const overBudgetIds = new Set(withinBudget.map(s => s.id))
+  const overBudget = stocks
+    .filter(s => !overBudgetIds.has(s.id) && s.latestPrice !== null)
+    .sort((a, b) => (a.latestPrice ?? Infinity) - (b.latestPrice ?? Infinity))
+
+  const combined = [...withinBudget, ...overBudget].slice(0, SCORING_CONFIG.MAX_CANDIDATES_FOR_AI)
+  return { stocks: combined, isBudgetExceeded: combined.some(s => s.latestPrice !== null && s.latestPrice * 100 > budget) }
 }
