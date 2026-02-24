@@ -121,7 +121,7 @@ ${newsContext}${marketContext}${sectorTrendContext}
   "suggestedSellPercent": 推奨売却割合（25, 50, 75, 100のいずれか。一部利確なら25-75、全売却なら100）,
   "sellReason": "具体的なシグナルや指標名を挙げて売却理由を説明する（例：「RSI（売られすぎ・買われすぎの指標）が70超の買われすぎ水準で、レジスタンスラインに到達」）",
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
-  "sellCondition": "どの指標がどの水準になったら売るかを具体的に記述（例：「RSIが再び70を超えたら追加売却、MACDがデッドクロスしたら全売却」）",
+  "sellCondition": "どの指標がどの水準になったら売るかを具体的に記述。価格に言及する場合はsuggestedStopLossPriceと同じ値を使うこと（例：「RSIが再び70を超えたら追加売却、または価格がXXX円を下回った場合は全売却を検討」）",
   "shortTermTrend": "up" | "neutral" | "down",
   "shortTermPriceLow": 短期予測の下限価格（数値のみ）,
   "shortTermPriceHigh": 短期予測の上限価格（数値のみ）,
@@ -170,7 +170,7 @@ ${PROMPT_NEWS_CONSTRAINTS}
 - longTerm: 主に事業展望・財務状況を根拠として、長期継続の判断を必ず結論に含める
 - suggestedSellPrice: 現在価格と平均取得単価の両方を考慮し、適切な売却目標価格を提案
 - suggestedStopLossPrice: 平均取得単価を基準に、現在の含み益/含み損を考慮した適切な損切りラインを提案
-- sellCondition: どの指標がどの水準になったら売るかを具体的に記述する
+- sellCondition: どの指標がどの水準になったら売るかを具体的に記述する。価格に言及する場合はsuggestedStopLossPriceと同じ値を使い、整合性を保つこと
 - 損切りも重要な選択肢: 損失が大きく、回復の見込みが薄い場合は損切りを提案する
 
 【利確・損切りラインの指針】
