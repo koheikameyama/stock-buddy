@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import AnalysisTimestamp from "./AnalysisTimestamp";
-import { UPDATE_SCHEDULES, INVESTMENT_STYLE_CONFIG } from "@/lib/constants";
+import { UPDATE_SCHEDULES } from "@/lib/constants";
 import { useTranslations } from "next-intl";
+import InvestmentStyleTabs from "./InvestmentStyleTabs";
 
 interface PurchaseRecommendationProps {
   stockId: string;
@@ -119,8 +120,6 @@ function AvoidSellTimingSection({
 
   return null;
 }
-
-const STYLE_KEYS = ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"] as const;
 
 export default function PurchaseRecommendation({
   stockId,
@@ -699,47 +698,13 @@ export default function PurchaseRecommendation({
   const StyleTabs = () => {
     if (!hasStyleAnalyses) return null;
     return (
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-3">
-        {STYLE_KEYS.map((style) => {
-          const config = INVESTMENT_STYLE_CONFIG[style];
-          const isSelected = selectedStyle === style;
-          const isDefault = userInvestmentStyle === style;
-          const styleResult = data.styleAnalyses?.[style];
-          return (
-            <button
-              key={style}
-              onClick={() => setSelectedStyle(style)}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all ${
-                isSelected
-                  ? "bg-white shadow-sm text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <span>{config.icon}</span>
-              <span className="hidden sm:inline">{config.text}</span>
-              <span className="sm:hidden">{t(`tabs.${style}`)}</span>
-              {isDefault && (
-                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
-              )}
-              {styleResult && (
-                <span className={`ml-0.5 text-[10px] font-bold ${
-                  styleResult.recommendation === "buy"
-                    ? "text-green-600"
-                    : styleResult.recommendation === "stay" || styleResult.recommendation === "hold"
-                      ? "text-yellow-600"
-                      : "text-red-600"
-                }`}>
-                  {styleResult.recommendation === "buy" ? t("labels.buy") :
-                   styleResult.recommendation === "stay" ? t("labels.stay") :
-                   styleResult.recommendation === "hold" ? t("labels.hold") :
-                   styleResult.recommendation === "avoid" ? t("labels.avoid") :
-                   styleResult.recommendation === "sell" ? t("labels.sell") : ""}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <InvestmentStyleTabs
+        selectedStyle={selectedStyle}
+        onSelectStyle={setSelectedStyle}
+        userInvestmentStyle={userInvestmentStyle}
+        styleResults={data.styleAnalyses ?? undefined}
+        className="mb-3"
+      />
     );
   };
 
