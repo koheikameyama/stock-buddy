@@ -662,6 +662,15 @@ export default function PurchaseRecommendation({
           <p className="text-sm text-gray-700">
             移動平均線に近く、過熱感もありません。現在の価格帯での購入が検討できます。
           </p>
+          {effectiveData.dipTargetPrice && (
+            <p className="text-sm text-gray-600 mt-2">
+              💡 指値で狙うなら
+              <span className="font-bold">
+                ¥{formatPrice(effectiveData.dipTargetPrice)}
+              </span>
+              付近がおすすめです。
+            </p>
+          )}
         </div>
       );
     }
@@ -676,16 +685,16 @@ export default function PurchaseRecommendation({
           </div>
           {effectiveData.dipTargetPrice && (
             <p className="text-sm text-gray-700 mb-2">
-              25日移動平均線の
+              AI推奨価格の
               <span className="font-bold">
-                ¥{formatPrice(effectiveData.dipTargetPrice!)}
+                ¥{formatPrice(effectiveData.dipTargetPrice)}
               </span>
               付近まで待つとより有利です。
             </p>
           )}
           <p className="text-xs text-gray-500">
             💡
-            押し目買いとは、上昇トレンドの銘柄が一時的に下落したタイミングで購入する戦略です。移動平均線は過去25日間の平均価格で、株価の基準となる指標です。
+            押し目買いとは、上昇トレンドの銘柄が一時的に下落したタイミングで購入する戦略です。サポートライン（支持線）や移動平均線などを参考に、AIが推奨価格を算出しています。
           </p>
         </div>
       );

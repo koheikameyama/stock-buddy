@@ -404,6 +404,7 @@ export async function executePurchaseRecommendation(
             periodFit: { type: ["boolean", "null"] },
             riskFit: { type: ["boolean", "null"] },
             personalizedReason: { type: ["string", "null"] },
+            suggestedDipPrice: { type: ["number", "null"] },
           },
           required: [
             "marketSignal",
@@ -434,6 +435,7 @@ export async function executePurchaseRecommendation(
             "periodFit",
             "riskFit",
             "personalizedReason",
+            "suggestedDipPrice",
           ],
           additionalProperties: false,
         },
@@ -587,6 +589,8 @@ export async function executePurchaseRecommendation(
       deviationRate,
       rsi: rsiForTiming,
       sma25: sma25ForTiming,
+      aiSuggestedDipPrice: result.suggestedDipPrice ?? null,
+      currentPrice,
     },
     sellTimingParams: {
       deviationRate,

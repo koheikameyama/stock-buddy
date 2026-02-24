@@ -46,6 +46,26 @@ export interface PortfolioStyleAnalysis {
 /** 全3スタイルの分析結果マップ */
 export type StyleAnalysesMap<T> = Record<InvestmentStyle, T>;
 
+/**
+ * AI推奨押し目価格のバリデーション
+ * 異常値の場合はSMA25にフォールバック
+ */
+function validateDipPrice(
+  aiPrice: number | null,
+  currentPrice: number,
+  sma25: number | null,
+): number | null {
+  if (aiPrice !== null && aiPrice > 0 && aiPrice < currentPrice) {
+    const deviationFromCurrent = ((currentPrice - aiPrice) / currentPrice) * 100;
+    // 現在価格から30%以上乖離していなければAI推奨価格を採用
+    if (deviationFromCurrent <= 30) {
+      return aiPrice;
+    }
+  }
+  // フォールバック: SMA25
+  return sma25;
+}
+
 const ALL_STYLES: InvestmentStyle[] = [
   INVESTMENT_STYLES.CONSERVATIVE,
   INVESTMENT_STYLES.BALANCED,
@@ -74,6 +94,8 @@ export function applyPurchaseStyleCorrections(params: {
     deviationRate: number | null;
     rsi: number | null;
     sma25: number | null;
+    aiSuggestedDipPrice: number | null;
+    currentPrice: number;
   };
   sellTimingParams: {
     deviationRate: number | null;
@@ -145,7 +167,7 @@ export function applyPurchaseStyleCorrections(params: {
 
     // 購入タイミング判断
     if (styleResult.recommendation === "buy") {
-      const { deviationRate: devRate, rsi, sma25 } = buyTimingParams;
+      const { deviationRate: devRate, rsi, sma25, aiSuggestedDipPrice, currentPrice } = buyTimingParams;
       const isHighDeviation =
         devRate !== null && devRate > MA_DEVIATION.DIP_BUY_THRESHOLD;
       const isOverboughtRSI =
@@ -153,10 +175,11 @@ export function applyPurchaseStyleCorrections(params: {
 
       if (isHighDeviation || isOverboughtRSI) {
         styleResult.buyTiming = "dip";
-        styleResult.dipTargetPrice = sma25;
       } else {
         styleResult.buyTiming = "market";
       }
+      // AI推奨押し目価格は常に設定（buyTiming問わず）
+      styleResult.dipTargetPrice = validateDipPrice(aiSuggestedDipPrice, currentPrice, sma25);
     }
 
     // 売りタイミング判定（avoid推奨時のみ）
