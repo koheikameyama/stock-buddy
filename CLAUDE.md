@@ -124,6 +124,34 @@ AIは「良い株を見つける」ことに集中し、「危ない株を止め
 - 追跡銘柄: 最大10銘柄
 - 制限値は `lib/constants.ts` で一元管理
 
+### 銘柄管理の定数
+
+**銘柄管理に関する制限値は `lib/constants.ts` で一元管理されています。**
+
+#### 定数一覧
+
+```typescript
+import {
+  MAX_PORTFOLIO_STOCKS,    // 100 - ポートフォリオ上限
+  MAX_WATCHLIST_STOCKS,    // 100 - ウォッチリスト上限
+  MAX_TRACKED_STOCKS,      // 10  - 追跡銘柄上限
+} from "@/lib/constants"
+```
+
+#### 銘柄登録API
+
+銘柄登録は `/api/user-stocks` で実装されています。
+
+- **ポートフォリオ**: `POST /api/user-stocks` with `type: "portfolio"`
+- **ウォッチリスト**: `POST /api/user-stocks` with `type: "watchlist"`
+- **追跡銘柄**: `POST /api/tracked-stocks`
+
+#### チェックリスト
+
+制限値を変更する場合：
+- [ ] `lib/constants.ts` の値を変更
+- [ ] 関連するAPIやUIが正しく動作するか確認
+
 ## 技術ルール
 
 **作業前に必ず `.claude/rules/` 配下の関連ルールを確認してください。**
