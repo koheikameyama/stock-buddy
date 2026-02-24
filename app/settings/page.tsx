@@ -8,6 +8,7 @@ import Footer from "@/app/components/Footer";
 import BottomNavigation from "@/app/components/BottomNavigation";
 import BackButton from "@/app/components/BackButton";
 import { UPDATE_SCHEDULES } from "@/lib/constants";
+import TermTooltip from "@/app/components/TermTooltip";
 
 type PushSubscriptionState = {
   supported: boolean;
@@ -32,6 +33,7 @@ export default function SettingsPage() {
   const tTarget = useTranslations('settings.targetReturn');
   const tStopLoss = useTranslations('settings.stopLoss');
   const tToast = useTranslations('settings.toast');
+  const tTooltip = useTranslations('settings.tooltips');
 
   const TARGET_RETURN_OPTIONS = [
     { value: 5, label: tTarget('5.label'), description: tTarget('5.description') },
@@ -397,7 +399,10 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <span className="text-lg">🎯</span>
-                      <span>{tStyle('sectionTitle')}</span>
+                      <span className="flex items-center">
+                        {tStyle('sectionTitle')}
+                        <TermTooltip id="investment-style" text={tTooltip('investmentStyle')} />
+                      </span>
                     </h3>
                     <div className="grid grid-cols-1 gap-3">
                       {INVESTMENT_STYLE_OPTIONS.map((option) => (
@@ -428,8 +433,11 @@ export default function SettingsPage() {
                               >
                                 {option.label}
                               </div>
-                              <div className="text-xs text-gray-600 mt-1">
+                              <div className="text-xs text-gray-600 mt-1 flex items-center flex-wrap">
                                 {option.description}
+                                {option.value === "BALANCED" && (
+                                  <TermTooltip id="risk-reward" text={tTooltip('riskAndReward')} />
+                                )}
                               </div>
                             </div>
                           </div>
@@ -586,7 +594,10 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <span className="text-lg">📈</span>
-                      <span>{tTarget('title')}</span>
+                      <span className="flex items-center">
+                        {tTarget('title')}
+                        <TermTooltip id="target-return" text={tTooltip('targetReturn')} />
+                      </span>
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {TARGET_RETURN_OPTIONS.map((option) => (
@@ -711,7 +722,11 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <span className="text-lg">📉</span>
-                      <span>{tStopLoss('title')}</span>
+                      <span className="flex items-center">
+                        {tStopLoss('title')}
+                        <TermTooltip id="stop-loss" text={tTooltip('stopLossLine')} />
+                        <TermTooltip id="reverse-stop" text={tTooltip('reverseStopOrder')} />
+                      </span>
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {STOP_LOSS_OPTIONS.map((option) => (

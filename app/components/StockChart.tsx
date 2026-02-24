@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
+import TermTooltip from "@/app/components/TermTooltip"
 import {
   LineChart,
   Line,
@@ -98,6 +100,7 @@ interface StockChartProps {
 type Period = "1m" | "3m" | "1y"
 
 export default function StockChart({ stockId, embedded = false }: StockChartProps) {
+  const tTooltip = useTranslations('stocks.tooltips')
   const [data, setData] = useState<ChartData[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
   const [patterns, setPatterns] = useState<PatternsData | null>(null)
@@ -760,7 +763,10 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
           <div className="mb-3 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-sm text-gray-600">RSI (14日)</span>
+                <span className="text-sm text-gray-600 flex items-center">
+                  RSI (14日)
+                  <TermTooltip id="chart-rsi" text={tTooltip('rsi')} />
+                </span>
                 <p className="text-xl font-bold text-gray-900">
                   {summary?.rsi?.toFixed(1) ?? "-"}
                 </p>
@@ -816,7 +822,10 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
           <div className="mb-3 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-sm text-gray-600">MACD</span>
+                <span className="text-sm text-gray-600 flex items-center">
+                  MACD
+                  <TermTooltip id="chart-macd" text={tTooltip('macd')} />
+                </span>
                 <p className="text-xl font-bold text-gray-900">
                   {summary?.macd?.toFixed(2) ?? "-"}
                 </p>

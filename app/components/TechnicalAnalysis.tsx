@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
+import TermTooltip from "@/app/components/TermTooltip"
 import type {
   TechnicalIndicators,
   CandlestickPatternData,
@@ -26,22 +28,22 @@ interface Props {
   embedded?: boolean
 }
 
-function SignalBadge({ signal, size = "sm" }: { signal: SignalType; size?: "sm" | "md" }) {
+function SignalBadge({ signal, size = "sm", t }: { signal: SignalType; size?: "sm" | "md"; t: (key: string) => string }) {
   const colors = {
     buy: "bg-green-100 text-green-700",
     sell: "bg-red-100 text-red-700",
     neutral: "bg-gray-100 text-gray-700",
   }
-  const labels = {
-    buy: "買い",
-    sell: "売り",
-    neutral: "中立",
+  const labelKeys = {
+    buy: "signal.buy",
+    sell: "signal.sell",
+    neutral: "signal.neutral",
   }
   const sizeClass = size === "md" ? "px-2.5 py-1 text-sm" : "px-2 py-0.5 text-xs"
 
   return (
     <span className={`${colors[signal]} ${sizeClass} font-semibold rounded-full`}>
-      {labels[signal]}
+      {t(labelKeys[signal])}
     </span>
   )
 }
@@ -67,6 +69,8 @@ function StrengthBar({ value, max = 100 }: { value: number; max?: number }) {
 }
 
 export default function TechnicalAnalysis({ stockId, embedded = false }: Props) {
+  const tTooltip = useTranslations('stocks.tooltips')
+  const t = useTranslations('stocks.technicalAnalysis')
   const [data, setData] = useState<TechnicalAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,19 +81,19 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
         setLoading(true)
         const response = await fetch(`/api/stocks/${stockId}/historical-prices?period=3m`)
         if (!response.ok) {
-          throw new Error("データの取得に失敗しました")
+          throw new Error(t('errorFetch'))
         }
         const result = await response.json()
         setData(result.technicalAnalysis)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "エラーが発生しました")
+        setError(err instanceof Error ? err.message : t('errorGeneral'))
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [stockId])
+  }, [stockId, t])
 
   if (loading) {
     return (
@@ -109,19 +113,27 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
   if (error || !data) {
     return (
       <div className={embedded ? "" : "bg-white rounded-xl shadow-md p-4 sm:p-6"}>
-        <p className="text-sm text-gray-500">テクニカル分析データを取得できませんでした</p>
+        <p className="text-sm text-gray-500">{t('errorNoData')}</p>
       </div>
     )
   }
 
   const { technicalIndicators, candlestickPattern, chartPatterns, weekChange, trendlines } = data
 
+  const getDirectionLabel = (direction: string) => {
+    if (direction === "up") return t('trendline.directionUp')
+    if (direction === "down") return t('trendline.directionDown')
+    return t('trendline.directionFlat')
+  }
+
   return (
     <div className={embedded ? "" : "bg-white rounded-xl shadow-md p-4 sm:p-6"}>
       {!embedded && (
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">📊</span>
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">テクニカル分析</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center">
+            {t('title')}
+          </h2>
         </div>
       )}
 
@@ -132,9 +144,10 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-900">RSI</span>
-                <span className="text-xs text-gray-500">(相対力指数)</span>
+                <span className="text-xs text-gray-500">({t('rsi.subtitle')})</span>
+                <TermTooltip id="ta-rsi" text={tTooltip('rsi')} />
               </div>
-              <SignalBadge signal={technicalIndicators.rsi.signal} />
+              <SignalBadge signal={technicalIndicators.rsi.signal} t={t} />
             </div>
             <div className="flex items-center gap-3">
               <span className="text-2xl font-bold text-gray-900">
@@ -154,8 +167,8 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
                 />
               </div>
               <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>売られすぎ</span>
-                <span>買われすぎ</span>
+                <span>{t('rsi.oversold')}</span>
+                <span>{t('rsi.overbought')}</span>
               </div>
             </div>
           </div>
@@ -167,7 +180,8 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-900">MACD</span>
-                <span className="text-xs text-gray-500">(トレンド指標)</span>
+                <span className="text-xs text-gray-500">({t('macd.subtitle')})</span>
+                <TermTooltip id="ta-macd" text={tTooltip('macd')} />
               </div>
               <span
                 className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
@@ -178,13 +192,13 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
                     : "bg-gray-100 text-gray-700"
                 }`}
               >
-                {technicalIndicators.macd.trend === "bullish" ? "上昇" : technicalIndicators.macd.trend === "bearish" ? "下落" : "横ばい"}
+                {technicalIndicators.macd.trend === "bullish" ? t('macd.bullish') : technicalIndicators.macd.trend === "bearish" ? t('macd.bearish') : t('macd.sideways')}
               </span>
             </div>
             <p className="text-sm text-gray-600">{technicalIndicators.macd.label}</p>
             {technicalIndicators.macd.histogram !== null && (
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-gray-500">ヒストグラム:</span>
+                <span className="text-xs text-gray-500">{t('macd.histogram')}</span>
                 <span
                   className={`text-sm font-semibold ${
                     technicalIndicators.macd.histogram > 0 ? "text-green-600" : "text-red-600"
@@ -203,23 +217,24 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
           <div className="border-b border-gray-100 pb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-900">ローソク足パターン</span>
+                <span className="text-sm font-semibold text-gray-900">{t('candlestick.label')}</span>
+                <TermTooltip id="ta-candlestick" text={tTooltip('candlestickPattern')} />
               </div>
-              <SignalBadge signal={candlestickPattern.signal} />
+              <SignalBadge signal={candlestickPattern.signal} t={t} />
             </div>
             <p className="text-sm text-gray-700 mb-2">{candlestickPattern.description}</p>
             <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span>信頼度:</span>
+              <span>{t('candlestick.strength')}</span>
               <div className="flex-1 max-w-32">
                 <StrengthBar value={candlestickPattern.strength} />
               </div>
             </div>
             <div className="flex gap-4 mt-2 text-xs">
               <span className="text-green-600">
-                直近5日の買いシグナル: {candlestickPattern.recentBuySignals}回
+                {t('candlestick.recentBuySignals', { count: candlestickPattern.recentBuySignals })}
               </span>
               <span className="text-red-600">
-                売りシグナル: {candlestickPattern.recentSellSignals}回
+                {t('candlestick.recentSellSignals', { count: candlestickPattern.recentSellSignals })}
               </span>
             </div>
           </div>
@@ -229,19 +244,20 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
         {chartPatterns.length > 0 && (
           <div className="border-b border-gray-100 pb-4">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm font-semibold text-gray-900">チャートパターン</span>
-              <span className="text-xs text-gray-500">(複数足フォーメーション)</span>
+              <span className="text-sm font-semibold text-gray-900">{t('chartPattern.label')}</span>
+              <span className="text-xs text-gray-500">({t('chartPattern.subtitle')})</span>
+              <TermTooltip id="ta-chart-pattern" text={tTooltip('chartPattern')} />
             </div>
             <div className="space-y-3">
               {chartPatterns.map((pattern, index) => (
                 <div key={index} className="bg-gray-50 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-semibold text-gray-900">{pattern.name}</span>
-                    <SignalBadge signal={pattern.signal} />
+                    <SignalBadge signal={pattern.signal} t={t} />
                   </div>
                   <p className="text-xs text-gray-600 mb-2">{pattern.description}</p>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span>信頼度:</span>
+                    <span>{t('chartPattern.strength')}</span>
                     <div className="flex-1 max-w-24">
                       <StrengthBar value={pattern.reliability} />
                     </div>
@@ -257,8 +273,9 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
           <div className="border-b border-gray-100 pb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-900">トレンドライン</span>
-                <span className="text-xs text-gray-500">(価格の方向性)</span>
+                <span className="text-sm font-semibold text-gray-900">{t('trendline.label')}</span>
+                <span className="text-xs text-gray-500">({t('trendline.subtitle')})</span>
+                <TermTooltip id="ta-trendline" text={tTooltip('trendline')} />
               </div>
               <span
                 className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
@@ -276,55 +293,60 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
               {trendlines.support && (
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold text-green-700">
-                      サポートライン（下値支持線）
+                    <span className="text-sm font-semibold text-green-700 flex items-center">
+                      {t('trendline.supportLine')}
+                      <TermTooltip id="ta-support" text={tTooltip('supportLine')} />
                     </span>
                     {trendlines.support.broken && (
                       <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">
-                        割れ
+                        {t('trendline.broken')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-gray-600 mb-1">
-                    安値同士を結んだ{trendlines.support.direction === "up" ? "上昇" : trendlines.support.direction === "down" ? "下降" : "水平"}ライン
-                    （{trendlines.support.touches}回接触）
+                    {t('trendline.supportDescription', {
+                      direction: getDirectionLabel(trendlines.support.direction),
+                      touches: trendlines.support.touches,
+                    })}
                   </p>
                   <p className="text-xs text-gray-500">
-                    現在の予測価格: {trendlines.support.currentProjectedPrice.toLocaleString()}円
+                    {t('trendline.projectedPrice', { price: trendlines.support.currentProjectedPrice.toLocaleString() })}
                     {trendlines.support.broken
-                      ? " - サポートを下回っており、下落圧力が強まっています"
-                      : " - この水準がサポートとして機能しています"}
+                      ? t('trendline.supportBroken')
+                      : t('trendline.supportHolding')}
                   </p>
                 </div>
               )}
               {trendlines.resistance && (
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold text-red-700">
-                      レジスタンスライン（上値抵抗線）
+                    <span className="text-sm font-semibold text-red-700 flex items-center">
+                      {t('trendline.resistanceLine')}
+                      <TermTooltip id="ta-resistance" text={tTooltip('resistanceLine')} />
                     </span>
                     {trendlines.resistance.broken && (
                       <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">
-                        突破
+                        {t('trendline.breakout')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-gray-600 mb-1">
-                    高値同士を結んだ{trendlines.resistance.direction === "up" ? "上昇" : trendlines.resistance.direction === "down" ? "下降" : "水平"}ライン
-                    （{trendlines.resistance.touches}回接触）
+                    {t('trendline.resistanceDescription', {
+                      direction: getDirectionLabel(trendlines.resistance.direction),
+                      touches: trendlines.resistance.touches,
+                    })}
                   </p>
                   <p className="text-xs text-gray-500">
-                    現在の予測価格: {trendlines.resistance.currentProjectedPrice.toLocaleString()}円
+                    {t('trendline.projectedPrice', { price: trendlines.resistance.currentProjectedPrice.toLocaleString() })}
                     {trendlines.resistance.broken
-                      ? " - レジスタンスを突破しており、上昇の勢いが強まっています"
-                      : " - この水準が上値の壁として機能しています"}
+                      ? t('trendline.resistanceBroken')
+                      : t('trendline.resistanceHolding')}
                   </p>
                 </div>
               )}
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              トレンドラインは過去の値動きから導出された参考ラインです。
-              サポートを割ると下落加速、レジスタンスを突破すると上昇加速の傾向があります。
+              {t('trendline.disclaimer')}
             </p>
           </div>
         )}
@@ -333,10 +355,13 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
         {weekChange && (
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-900">週間変化率</span>
+              <span className="text-sm font-semibold text-gray-900 flex items-center">
+                {t('weeklyChange.label')}
+                <TermTooltip id="ta-weekly-change" text={tTooltip('weeklyChange')} />
+              </span>
               {weekChange.isWarning && (
                 <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
-                  注意
+                  {t('weeklyChange.warning')}
                 </span>
               )}
             </div>
@@ -356,7 +381,7 @@ export default function TechnicalAnalysis({ stockId, embedded = false }: Props) 
 
         {/* データがない場合 */}
         {!technicalIndicators.rsi && !technicalIndicators.macd && !candlestickPattern && chartPatterns.length === 0 && (
-          <p className="text-sm text-gray-500">分析に必要なデータが不足しています</p>
+          <p className="text-sm text-gray-500">{t('insufficientData')}</p>
         )}
       </div>
     </div>
