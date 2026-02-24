@@ -1006,6 +1006,39 @@ export async function executeSimulatedPortfolioAnalysis(
     }
   }
 
+  // --- 投資スタイル別の補正を全3スタイル分生成 ---
+  const volatility = stock.volatility ? Number(stock.volatility) : null;
+  const styleAnalyses = applyPortfolioStyleCorrections({
+    baseResult: {
+      recommendation: result.recommendation,
+      confidence: result.confidence || 0.7,
+      statusType,
+      marketSignal: result.marketSignal || "neutral",
+      advice: result.advice || "",
+      shortTerm: result.shortTerm || "",
+      sellReason: result.sellReason || null,
+      sellCondition: result.sellCondition || null,
+      suggestedSellPercent: result.suggestedSellPercent || null,
+    },
+    weekChangeRate,
+    isProfitable: stock.isProfitable,
+    volatility,
+    sma25,
+    sellTimingBase: sellTiming,
+    sellTargetPriceBase: sellTargetPrice,
+  });
+
+  // ユーザーの選択スタイルの結果をメインのresultに反映
+  const investmentStyle = userSettings?.investmentStyle ?? null;
+  const userStyle = (investmentStyle || "BALANCED") as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
+  const userStyleResult = styleAnalyses[userStyle];
+
+  // 急騰銘柄補正はスタイル依存のため、userStyleResultから反映
+  if (userStyleResult.recommendation !== result.recommendation) {
+    result.recommendation = userStyleResult.recommendation;
+    result.shortTerm = userStyleResult.shortTerm;
+  }
+
   const now = dayjs.utc().toDate();
 
   return {
@@ -1015,7 +1048,7 @@ export async function executeSimulatedPortfolioAnalysis(
     midTermText: result.mediumTerm,
     longTerm: result.longTerm,
     longTermText: result.longTerm,
-    statusType,
+    statusType: userStyleResult.statusType,
     marketSignal: result.marketSignal || null,
     suggestedSellPrice: result.suggestedSellPrice || null,
     suggestedSellPercent: result.suggestedSellPercent || null,
@@ -1052,5 +1085,6 @@ export async function executeSimulatedPortfolioAnalysis(
     limitPrice: result.suggestedSellPrice,
     stopLossPrice: result.suggestedStopLossPrice,
     analyzedAt: now.toISOString(),
+    styleAnalyses,
   };
 }
