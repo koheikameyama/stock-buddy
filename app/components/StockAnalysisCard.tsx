@@ -785,6 +785,14 @@ export default function StockAnalysisCard({
                           成行での売却を検討
                         </span>
                       </div>
+                      {effectiveAnalysis.suggestedSellPrice && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-500">AI推奨売却価格:</span>
+                          <span className="font-bold text-gray-800">
+                            {effectiveAnalysis.suggestedSellPrice.toLocaleString()}円
+                          </span>
+                        </div>
+                      )}
                       {(() => {
                         const currentPrice = effectiveAnalysis.currentPrice;
                         const avgPrice = effectiveAnalysis.averagePurchasePrice;
