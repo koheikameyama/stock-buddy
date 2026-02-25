@@ -484,7 +484,7 @@ export default function PurchaseRecommendation({
     );
   };
 
-  // AI推奨価格セクション（ウォッチリスト：指値 + 購入後の損切りライン）
+  // AI推奨価格セクション（ウォッチリスト：指値 + 購入後の撤退ライン）
   const AIPriceSection = () => {
     // 指値も損切りもない場合は非表示
     if (!effectiveData?.limitPrice && !effectiveData?.stopLossPrice) return null;
@@ -527,14 +527,14 @@ export default function PurchaseRecommendation({
               )}
             </div>
           )}
-          {/* 損切りライン（購入後の参考） */}
+          {/* 撤退ライン（購入後の参考） */}
           {stopLossPriceNum && (
             <div>
-              <p className="text-xs text-gray-500">損切りライン</p>
+              <p className="text-xs text-gray-500">撤退ライン</p>
               <p className="text-base font-bold text-red-600">
                 {stopLossPriceNum.toLocaleString()}円
               </p>
-              <p className="text-xs text-gray-400">購入後の逆指値目安</p>
+              <p className="text-xs text-gray-400">購入後の撤退目安</p>
             </div>
           )}
         </div>

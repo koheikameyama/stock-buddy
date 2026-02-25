@@ -515,11 +515,11 @@ export default function StockAnalysisCard({
             // sell推奨時は「AI推奨価格」セクションを非表示（「売却検討」セクションに統合）
             if (effectiveAnalysis.recommendation === "sell") return null;
 
-            // buy → 指値 + 逆指値、hold → 利確目標 + 逆指値
+            // buy → 指値 + 撤退ライン、hold → 売却目標 + 撤退ライン
             const showLimitPrice =
               effectiveAnalysis.recommendation === "buy" ||
               effectiveAnalysis.recommendation === "hold";
-            const showStopLossPrice = true; // buy/holdで逆指値を表示
+            const showStopLossPrice = true; // buy/holdで撤退ラインを表示
             const hasPrice =
               (showLimitPrice && effectiveAnalysis.limitPrice) ||
               (showStopLossPrice && effectiveAnalysis.stopLossPrice);
@@ -577,8 +577,8 @@ export default function StockAnalysisCard({
                             </>
                           );
                         } else {
-                          // hold推奨時: 利確目標
-                          // 含み損がある場合は「成行で売却OK」を表示しない（利確は含み益があってこそ意味がある）
+                          // hold推奨時: 売却目標
+                          // 含み損がある場合は「成行で売却OK」を表示しない（売却目標は含み益がある場合のみ目標到達と判定）
                           const avgPrice = effectiveAnalysis.averagePurchasePrice;
                           const hasLoss =
                             avgPrice && currentPrice && currentPrice < avgPrice;
@@ -600,7 +600,7 @@ export default function StockAnalysisCard({
 
                           return (
                             <>
-                              <p className="text-xs text-gray-500">利確目標</p>
+                              <p className="text-xs text-gray-500">売却目標</p>
                               <p className="text-base font-bold text-green-600">
                                 {`${formatPrice(limitPriceNum)}円`}
                               </p>
@@ -646,7 +646,7 @@ export default function StockAnalysisCard({
                         return (
                           <>
                             <p className="text-xs text-gray-500">
-                              逆指値（損切り）
+                              撤退ライン
                             </p>
                             <p className="text-base font-bold text-red-600">
                               {formatPrice(stopLossPriceNum)}円
@@ -679,7 +679,7 @@ export default function StockAnalysisCard({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    AI推奨価格を設定に反映
+                    AI売却目標を利確・損切りラインに反映
                   </button>
                 )}
               </div>
@@ -856,7 +856,7 @@ export default function StockAnalysisCard({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        AI推奨価格を設定に反映
+                        AI売却目標を利確・損切りラインに反映
                       </button>
                     );
                   })()

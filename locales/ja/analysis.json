@@ -134,7 +134,7 @@
     "reason": "理由",
     "confidence": "信頼度",
     "targetPrice": "目標価格",
-    "stopLoss": "損切りライン",
+    "stopLoss": "撤退ライン",
     "timeframe": "期間"
   },
   "performance": {

@@ -45,7 +45,7 @@
       "icon": "🎯"
     },
     "stop_loss": {
-      "label": "逆指値",
+      "label": "損切り",
       "icon": "⚠️"
     },
     "default": {

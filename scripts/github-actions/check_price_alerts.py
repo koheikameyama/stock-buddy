@@ -495,7 +495,7 @@ def main():
                 "userId": alert["userId"],
                 "type": "stop_loss",
                 "stockId": alert["stockId"],
-                "title": f"⚠️ {alert['stockName']}が逆指値に到達",
+                "title": f"⚠️ {alert['stockName']}が損切りラインに到達",
                 "body": body,
                 "url": f"/my-stocks/{alert['userStockId']}",
                 "triggerPrice": alert["latestPrice"],
