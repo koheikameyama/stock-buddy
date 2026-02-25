@@ -472,17 +472,10 @@ export default function MyStockDetailClient({
                   stopLossRate?: number | null;
                 } = {};
 
-                // 利確: suggestedSellPriceがない or avgPrice以下なら現在価格→それもダメなら平均取得単価(rate=0)
-                const effectiveTpPrice =
-                  takeProfitPrice != null && takeProfitPrice > avgPrice
-                    ? takeProfitPrice
-                    : currentPrice > avgPrice
-                      ? currentPrice
-                      : avgPrice;
-                if (avgPrice > 0) {
+                if (takeProfitPrice != null && avgPrice > 0) {
                   updates.takeProfitRate =
                     Math.round(
-                      ((effectiveTpPrice - avgPrice) / avgPrice) * 1000,
+                      ((takeProfitPrice - avgPrice) / avgPrice) * 1000,
                     ) / 10;
                 }
                 if (stopLossPrice != null && avgPrice > 0) {
