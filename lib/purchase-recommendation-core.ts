@@ -19,7 +19,7 @@ import {
   buildTrendlineContext,
 } from "@/lib/stock-analysis-context";
 import { buildPurchaseRecommendationPrompt } from "@/lib/prompts/purchase-recommendation-prompt";
-import { MA_DEVIATION, SELL_TIMING, MOMENTUM } from "@/lib/constants";
+import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants";
 import {
   calculateDeviationRate,
   calculateSMA,
@@ -29,13 +29,10 @@ import {
 import { getTodayForDB } from "@/lib/date-utils";
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils";
 import { getNikkei225Data, MarketIndexData } from "@/lib/market-index";
-import { applyPurchaseStyleCorrections, type StyleAnalysesMap, type PurchaseStyleAnalysis } from "@/lib/style-analysis";
+import { applyPurchaseStyleSafetyRules, type StyleAnalysesMap, type PurchaseStyleAnalysis } from "@/lib/style-analysis";
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 import {
-  isSurgeStock,
   isDangerousStock,
-  isOverheated,
-  isInDecline,
 } from "@/lib/stock-safety-rules";
 import { getSectorTrend, formatSectorTrendForPrompt } from "@/lib/sector-trend";
 import { AnalysisError } from "@/lib/portfolio-analysis-core";
@@ -355,7 +352,7 @@ export async function executePurchaseRecommendation(
       { role: "user", content: prompt },
     ],
     temperature: 0.4,
-    max_tokens: 1200,
+    max_tokens: 2000,
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -367,16 +364,6 @@ export async function executePurchaseRecommendation(
             marketSignal: {
               type: "string",
               enum: ["bullish", "neutral", "bearish"],
-            },
-            statusType: {
-              type: "string",
-              enum: [
-                "即時売却",
-                "戻り売り",
-                "ホールド",
-                "押し目買い",
-                "全力買い",
-              ],
             },
             shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             shortTermPriceLow: { type: "number" },
@@ -390,25 +377,78 @@ export async function executePurchaseRecommendation(
             longTermPriceLow: { type: "number" },
             longTermPriceHigh: { type: "number" },
             longTermText: { type: "string" },
-            advice: { type: "string" },
-            recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
-            confidence: { type: "number" },
-            reason: { type: "string" },
-            caution: { type: "string" },
             positives: { type: ["string", "null"] },
             concerns: { type: ["string", "null"] },
             suitableFor: { type: ["string", "null"] },
-            buyCondition: { type: ["string", "null"] },
+            styleAnalyses: {
+              type: "object",
+              properties: {
+                CONSERVATIVE: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
+                    confidence: { type: "number" },
+                    statusType: {
+                      type: "string",
+                      enum: ["即時売却", "戻り売り", "ホールド", "押し目買い", "全力買い"],
+                    },
+                    advice: { type: "string" },
+                    reason: { type: "string" },
+                    caution: { type: "string" },
+                    buyCondition: { type: ["string", "null"] },
+                    suggestedDipPrice: { type: ["number", "null"] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "reason", "caution", "buyCondition", "suggestedDipPrice"],
+                  additionalProperties: false,
+                },
+                BALANCED: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
+                    confidence: { type: "number" },
+                    statusType: {
+                      type: "string",
+                      enum: ["即時売却", "戻り売り", "ホールド", "押し目買い", "全力買い"],
+                    },
+                    advice: { type: "string" },
+                    reason: { type: "string" },
+                    caution: { type: "string" },
+                    buyCondition: { type: ["string", "null"] },
+                    suggestedDipPrice: { type: ["number", "null"] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "reason", "caution", "buyCondition", "suggestedDipPrice"],
+                  additionalProperties: false,
+                },
+                AGGRESSIVE: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "stay", "avoid"] },
+                    confidence: { type: "number" },
+                    statusType: {
+                      type: "string",
+                      enum: ["即時売却", "戻り売り", "ホールド", "押し目買い", "全力買い"],
+                    },
+                    advice: { type: "string" },
+                    reason: { type: "string" },
+                    caution: { type: "string" },
+                    buyCondition: { type: ["string", "null"] },
+                    suggestedDipPrice: { type: ["number", "null"] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "reason", "caution", "buyCondition", "suggestedDipPrice"],
+                  additionalProperties: false,
+                },
+              },
+              required: ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"],
+              additionalProperties: false,
+            },
             userFitScore: { type: ["number", "null"] },
             budgetFit: { type: ["boolean", "null"] },
             periodFit: { type: ["boolean", "null"] },
             riskFit: { type: ["boolean", "null"] },
             personalizedReason: { type: ["string", "null"] },
-            suggestedDipPrice: { type: ["number", "null"] },
           },
           required: [
             "marketSignal",
-            "statusType",
             "shortTermTrend",
             "shortTermPriceLow",
             "shortTermPriceHigh",
@@ -421,21 +461,15 @@ export async function executePurchaseRecommendation(
             "longTermPriceLow",
             "longTermPriceHigh",
             "longTermText",
-            "advice",
-            "recommendation",
-            "confidence",
-            "reason",
-            "caution",
             "positives",
             "concerns",
             "suitableFor",
-            "buyCondition",
+            "styleAnalyses",
             "userFitScore",
             "budgetFit",
             "periodFit",
             "riskFit",
             "personalizedReason",
-            "suggestedDipPrice",
           ],
           additionalProperties: false,
         },
@@ -486,23 +520,6 @@ export async function executePurchaseRecommendation(
     chartPatterns,
   );
 
-  // テクニカル判定が sell で強さが 70% 以上の場合は、buy を禁止する
-  if (combinedTechnical.signal === "sell" && combinedTechnical.strength >= 70) {
-    if (result.recommendation === "buy") {
-      result.recommendation = "stay";
-      result.confidence = Math.max(0.5, combinedTechnical.strength / 100);
-      result.reason = `テクニカル指標で強い下落シグナル（${combinedTechnical.reasons.join("、")}）が出ているため、購入は下げ止まりを確認してからを推奨します。 ${result.reason}`;
-      result.caution = `最新のローソク足パターン等が強い下落（強さ${combinedTechnical.strength}%）を示しています。ポートフォリオ分析との一貫性を保つため、様子見を推奨します。${result.caution}`;
-      result.buyCondition =
-        "テクニカルシグナルが好転し、下げ止まりを確認できたら検討してください";
-    }
-  }
-
-  // "avoid" は confidence >= 0.8 の場合のみ許可
-  if (result.recommendation === "avoid" && result.confidence < 0.8) {
-    result.recommendation = "stay";
-  }
-
   const investmentStyle = userSettings?.investmentStyle ?? null;
 
   // 今日のおすすめ銘柄かどうかを確認
@@ -518,24 +535,8 @@ export async function executePurchaseRecommendation(
   // （AIがおすすめと判断したのに「気になる」に入れたら即「見送り」になるのを防ぐため）
   const skipSafetyRules = !!isRecommendedToday;
 
-  // 危険銘柄の強制補正（スタイル非依存）
+  // 危険銘柄の強制補正用
   const volatility = stock.volatility ? Number(stock.volatility) : null;
-  if (
-    !skipSafetyRules &&
-    isDangerousStock(stock.isProfitable, volatility) &&
-    result.recommendation === "buy"
-  ) {
-    result.recommendation = "stay";
-    result.caution = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、様子見を推奨します。${result.caution}`;
-  }
-
-  // 市場急落時の強制補正（スタイル非依存）
-  if (marketData?.isMarketCrash && result.recommendation === "buy") {
-    result.recommendation = "stay";
-    result.reason = `市場全体が急落しているため、様子見をおすすめします。${result.reason}`;
-    result.buyCondition =
-      result.buyCondition || "市場が落ち着いてから検討してください";
-  }
 
   // 移動平均乖離率の計算
   const deviationRate = calculateDeviationRate(
@@ -543,53 +544,68 @@ export async function executePurchaseRecommendation(
     MA_DEVIATION.PERIOD,
   );
 
-  // 下方乖離ボーナス（スタイル非依存）
+  // 下方乖離ボーナス用
   const isLowVolatility =
     volatility !== null && volatility <= MA_DEVIATION.LOW_VOLATILITY_THRESHOLD;
-  if (
-    deviationRate !== null &&
-    deviationRate <= MA_DEVIATION.LOWER_THRESHOLD &&
-    stock.isProfitable === true &&
-    isLowVolatility
-  ) {
-    result.confidence = Math.min(
-      1.0,
-      result.confidence + MA_DEVIATION.CONFIDENCE_BONUS,
-    );
+
+  // --- 強制補正ロジックを全3スタイルに適用 ---
+  const ALL_STYLE_KEYS = ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"] as const;
+  for (const styleKey of ALL_STYLE_KEYS) {
+    const sa = result.styleAnalyses[styleKey];
+
+    // テクニカル総合判定ブレーキ
+    if (combinedTechnical.signal === "sell" && combinedTechnical.strength >= 70) {
+      if (sa.recommendation === "buy") {
+        sa.recommendation = "stay";
+        sa.confidence = Math.max(0.5, combinedTechnical.strength / 100);
+        sa.reason = `テクニカル指標で強い下落シグナル（${combinedTechnical.reasons.join("、")}）が出ているため、購入は下げ止まりを確認してからを推奨します。 ${sa.reason}`;
+        sa.caution = `最新のローソク足パターン等が強い下落（強さ${combinedTechnical.strength}%）を示しています。${sa.caution}`;
+        sa.buyCondition = "テクニカルシグナルが好転し、下げ止まりを確認できたら検討してください";
+      }
+    }
+
+    // avoid は confidence >= 0.8 の場合のみ許可
+    if (sa.recommendation === "avoid" && sa.confidence < 0.8) {
+      sa.recommendation = "stay";
+    }
+
+    // 危険銘柄の強制補正
+    if (!skipSafetyRules && isDangerousStock(stock.isProfitable, volatility) && sa.recommendation === "buy") {
+      sa.recommendation = "stay";
+      sa.caution = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、様子見を推奨します。${sa.caution}`;
+    }
+
+    // 市場急落時の強制補正
+    if (marketData?.isMarketCrash && sa.recommendation === "buy") {
+      sa.recommendation = "stay";
+      sa.reason = `市場全体が急落しているため、様子見をおすすめします。${sa.reason}`;
+      sa.buyCondition = sa.buyCondition || "市場が落ち着いてから検討してください";
+    }
+
+    // 下方乖離ボーナス
+    if (deviationRate !== null && deviationRate <= MA_DEVIATION.LOWER_THRESHOLD && stock.isProfitable === true && isLowVolatility) {
+      sa.confidence = Math.min(1.0, sa.confidence + MA_DEVIATION.CONFIDENCE_BONUS);
+    }
+
+    // パニック売り防止
+    if (deviationRate !== null && deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD && sa.recommendation === "avoid") {
+      sa.recommendation = "stay";
+      sa.caution = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており売られすぎです。大底で見送るのはもったいないため、様子見を推奨します。${sa.caution}`;
+    }
   }
 
-  // パニック売り防止（avoid→stay）（スタイル非依存）
-  if (
-    deviationRate !== null &&
-    deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
-    result.recommendation === "avoid"
-  ) {
-    result.recommendation = "stay";
-    result.caution = `25日移動平均線から${deviationRate.toFixed(1)}%下方乖離しており売られすぎです。大底で見送るのはもったいないため、様子見を推奨します。${result.caution}`;
-  }
-
-  // --- 投資スタイル別の補正を全3スタイル分生成 ---
+  // --- 投資スタイル別のセーフティルール・タイミング判定を適用 ---
   const rsiForTiming = calculateRSI(pricesNewestFirst, 14);
   const sma25ForTiming = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
 
-  const styleAnalyses = applyPurchaseStyleCorrections({
-    baseResult: {
-      recommendation: result.recommendation,
-      confidence: result.confidence,
-      statusType: result.statusType,
-      marketSignal: result.marketSignal,
-      advice: result.advice,
-      reason: result.reason,
-      caution: result.caution,
-      buyCondition: result.buyCondition || null,
-    },
+  const styleAnalyses = applyPurchaseStyleSafetyRules({
+    styleAnalyses: result.styleAnalyses,
     weekChangeRate,
     deviationRate,
     buyTimingParams: {
       deviationRate,
       rsi: rsiForTiming,
       sma25: sma25ForTiming,
-      aiSuggestedDipPrice: result.suggestedDipPrice ?? null,
       currentPrice,
     },
     sellTimingParams: {
@@ -600,13 +616,9 @@ export async function executePurchaseRecommendation(
     skipSafetyRules,
   });
 
-  // ユーザーの選択スタイルの結果をメインのresultに反映
+  // ユーザーの選択スタイルの結果を取得
   const userStyle = (investmentStyle || "BALANCED") as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
   const userStyleResult = styleAnalyses[userStyle];
-  result.recommendation = userStyleResult.recommendation;
-  result.confidence = userStyleResult.confidence;
-  result.caution = userStyleResult.caution;
-  result.buyCondition = userStyleResult.buyCondition;
 
   // 購入タイミング・売りタイミングはユーザースタイルの結果を使用
   const buyTiming = userStyleResult.buyTiming;
@@ -626,15 +638,15 @@ export async function executePurchaseRecommendation(
     },
     update: {
       marketSignal: result.marketSignal || null,
-      recommendation: result.recommendation,
-      confidence: result.confidence,
-      reason: result.reason,
-      caution: result.caution,
+      recommendation: userStyleResult.recommendation,
+      confidence: userStyleResult.confidence,
+      reason: userStyleResult.reason,
+      caution: userStyleResult.caution,
       positives: result.positives || null,
       concerns: result.concerns || null,
       suitableFor: result.suitableFor || null,
       buyCondition:
-        result.recommendation === "stay" ? result.buyCondition || null : null,
+        userStyleResult.recommendation === "stay" ? userStyleResult.buyCondition || null : null,
       buyTiming: buyTiming,
       dipTargetPrice: dipTargetPrice,
       sellTiming: sellTiming,
@@ -651,15 +663,15 @@ export async function executePurchaseRecommendation(
       stockId,
       date: today,
       marketSignal: result.marketSignal || null,
-      recommendation: result.recommendation,
-      confidence: result.confidence,
-      reason: result.reason,
-      caution: result.caution,
+      recommendation: userStyleResult.recommendation,
+      confidence: userStyleResult.confidence,
+      reason: userStyleResult.reason,
+      caution: userStyleResult.caution,
       positives: result.positives || null,
       concerns: result.concerns || null,
       suitableFor: result.suitableFor || null,
       buyCondition:
-        result.recommendation === "stay" ? result.buyCondition || null : null,
+        userStyleResult.recommendation === "stay" ? userStyleResult.buyCondition || null : null,
       buyTiming: buyTiming,
       dipTargetPrice: dipTargetPrice,
       sellTiming: sellTiming,
@@ -691,20 +703,20 @@ export async function executePurchaseRecommendation(
       longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
       longTermText: result.longTermText || "",
       recommendation:
-        result.recommendation === "buy"
+        userStyleResult.recommendation === "buy"
           ? "buy"
-          : result.recommendation === "avoid"
+          : userStyleResult.recommendation === "avoid"
             ? "sell"
             : "hold",
       statusType:
-        result.statusType ||
-        (result.recommendation === "buy"
+        userStyleResult.statusType ||
+        (userStyleResult.recommendation === "buy"
           ? "押し目買い"
-          : result.recommendation === "avoid"
+          : userStyleResult.recommendation === "avoid"
             ? "即時売却"
             : "ホールド"),
-      advice: result.advice || result.reason || "",
-      confidence: result.confidence || 0.7,
+      advice: userStyleResult.advice || userStyleResult.reason || "",
+      confidence: userStyleResult.confidence || 0.7,
       limitPrice: null,
       stopLossPrice: null,
       styleAnalyses: styleAnalyses ? JSON.parse(JSON.stringify(styleAnalyses)) : undefined,
@@ -727,8 +739,8 @@ export async function executePurchaseRecommendation(
     sector: stock.sector,
     recommendedAt: new Date(),
     priceAtRec: currentPrice,
-    prediction: predictionMap[result.recommendation] || "stay",
-    confidence: result.confidence,
+    prediction: predictionMap[userStyleResult.recommendation] || "stay",
+    confidence: userStyleResult.confidence,
     volatility: volatility,
     marketCap: stock.marketCap
       ? BigInt(Number(stock.marketCap) * 100_000_000)
@@ -753,16 +765,16 @@ export async function executePurchaseRecommendation(
     longTermPriceLow: result.longTermPriceLow || null,
     longTermPriceHigh: result.longTermPriceHigh || null,
     longTermText: result.longTermText || null,
-    advice: result.advice || null,
-    recommendation: result.recommendation,
-    confidence: result.confidence,
-    reason: result.reason,
-    caution: result.caution,
+    advice: userStyleResult.advice || null,
+    recommendation: userStyleResult.recommendation,
+    confidence: userStyleResult.confidence,
+    reason: userStyleResult.reason,
+    caution: userStyleResult.caution,
     positives: result.positives || null,
     concerns: result.concerns || null,
     suitableFor: result.suitableFor || null,
     buyCondition:
-      result.recommendation === "stay" ? result.buyCondition || null : null,
+      userStyleResult.recommendation === "stay" ? userStyleResult.buyCondition || null : null,
     buyTiming: buyTiming,
     dipTargetPrice: dipTargetPrice,
     sellTiming: sellTiming,

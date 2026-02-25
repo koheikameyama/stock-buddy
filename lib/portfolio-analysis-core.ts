@@ -35,9 +35,9 @@ import {
   PORTFOLIO_ANALYSIS,
 } from "@/lib/constants";
 import { getDaysAgoForDB } from "@/lib/date-utils";
-import { isSurgeStock, isDangerousStock } from "@/lib/stock-safety-rules";
+import { isDangerousStock } from "@/lib/stock-safety-rules";
 import { insertRecommendationOutcome, Prediction } from "@/lib/outcome-utils";
-import { applyPortfolioStyleCorrections, type StyleAnalysesMap, type PortfolioStyleAnalysis } from "@/lib/style-analysis";
+import { applyPortfolioStyleSafetyRules, type StyleAnalysesMap, type PortfolioStyleAnalysis } from "@/lib/style-analysis";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -357,7 +357,7 @@ export async function executePortfolioAnalysis(
       { role: "user", content: prompt },
     ],
     temperature: 0.3,
-    max_tokens: 800,
+    max_tokens: 1400,
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -374,13 +374,7 @@ export async function executePortfolioAnalysis(
             mediumTerm: { type: "string" },
             longTerm: { type: "string" },
             suggestedSellPrice: { type: ["number", "null"] },
-            suggestedSellPercent: {
-              type: ["integer", "null"],
-              enum: [25, 50, 75, 100, null],
-            },
-            sellReason: { type: ["string", "null"] },
             suggestedStopLossPrice: { type: ["number", "null"] },
-            sellCondition: { type: ["string", "null"] },
             shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             shortTermPriceLow: { type: "number" },
             shortTermPriceHigh: { type: "number" },
@@ -390,7 +384,6 @@ export async function executePortfolioAnalysis(
             longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             longTermPriceLow: { type: "number" },
             longTermPriceHigh: { type: "number" },
-            recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
             isCriticalChange: {
               type: "boolean",
               description:
@@ -401,8 +394,58 @@ export async function executePortfolioAnalysis(
               description:
                 "前回（購入時）の判断と今回の判断が異なる場合の誠実な釈明や理由の説明",
             },
-            advice: { type: "string" },
-            confidence: { type: "number" },
+            styleAnalyses: {
+              type: "object",
+              properties: {
+                CONSERVATIVE: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+                    confidence: { type: "number" },
+                    statusType: { type: "string" },
+                    advice: { type: "string" },
+                    shortTerm: { type: "string" },
+                    sellReason: { type: ["string", "null"] },
+                    sellCondition: { type: ["string", "null"] },
+                    suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "shortTerm", "sellReason", "sellCondition", "suggestedSellPercent"],
+                  additionalProperties: false,
+                },
+                BALANCED: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+                    confidence: { type: "number" },
+                    statusType: { type: "string" },
+                    advice: { type: "string" },
+                    shortTerm: { type: "string" },
+                    sellReason: { type: ["string", "null"] },
+                    sellCondition: { type: ["string", "null"] },
+                    suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "shortTerm", "sellReason", "sellCondition", "suggestedSellPercent"],
+                  additionalProperties: false,
+                },
+                AGGRESSIVE: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+                    confidence: { type: "number" },
+                    statusType: { type: "string" },
+                    advice: { type: "string" },
+                    shortTerm: { type: "string" },
+                    sellReason: { type: ["string", "null"] },
+                    sellCondition: { type: ["string", "null"] },
+                    suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "shortTerm", "sellReason", "sellCondition", "suggestedSellPercent"],
+                  additionalProperties: false,
+                },
+              },
+              required: ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"],
+              additionalProperties: false,
+            },
           },
           required: [
             "marketSignal",
@@ -410,10 +453,7 @@ export async function executePortfolioAnalysis(
             "mediumTerm",
             "longTerm",
             "suggestedSellPrice",
-            "suggestedSellPercent",
-            "sellReason",
             "suggestedStopLossPrice",
-            "sellCondition",
             "shortTermTrend",
             "shortTermPriceLow",
             "shortTermPriceHigh",
@@ -423,11 +463,9 @@ export async function executePortfolioAnalysis(
             "longTermTrend",
             "longTermPriceLow",
             "longTermPriceHigh",
-            "recommendation",
             "isCriticalChange",
             "reconciliationMessage",
-            "advice",
-            "confidence",
+            "styleAnalyses",
           ],
           additionalProperties: false,
         },
@@ -449,107 +487,110 @@ export async function executePortfolioAnalysis(
   const rsiValue = calculateRSI(pricesNewestFirst);
   const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
 
-  // 強制補正: 乖離率-20%以下 → sell→hold
-  if (
-    deviationRate !== null &&
-    deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
-    result.recommendation === "sell"
-  ) {
-    result.recommendation = "hold";
-    result.sellReason = null;
-    result.suggestedSellPercent = null;
-    result.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%の下方乖離で「売られすぎ」の状態です。AIは売却を検討しましたが、大底で売るリスクを避けるため、自律反発を待つ様子見（リバウンド待ち）を推奨します。`;
-    result.shortTerm = `【一旦様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、今すぐの売却は避け、数日中の反発を待つことを推奨します。AIの当初分析: ${result.shortTerm}`;
-    result.advice = `異常な「売られすぎ」によるパニック状態です。大底での売却を避けるため、自律反発を待つ様子見を優先しましょう。`;
-  }
-
-  // 上場廃止銘柄の強制補正
-  if (stock.isDelisted) {
-    result.recommendation = "sell";
-    result.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${result.shortTerm}`;
-  }
-
-  // 危険銘柄の買い増し抑制（スタイル非依存）
+  // --- スタイル非依存の補正を全3スタイルにループ適用 ---
+  const ALL_STYLE_KEYS = ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"] as const;
   const volatility = stock.volatility ? Number(stock.volatility) : null;
-  if (
-    isDangerousStock(stock.isProfitable, volatility) &&
-    result.recommendation === "buy"
-  ) {
-    result.recommendation = "hold";
-    result.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${result.shortTerm}`;
-  }
 
-  // 中長期トレンドによる売り保護（重大な変化がない場合のみ）（スタイル非依存）
-  if (
-    result.recommendation === "sell" &&
-    !result.isCriticalChange &&
-    (result.midTermTrend === "up" || result.longTermTrend === "up") &&
-    (profitPercent === null ||
-      profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
-  ) {
-    const trendInfoArr = [
-      result.midTermTrend === "up" ? "中期" : null,
-      result.longTermTrend === "up" ? "長期" : null,
-    ].filter(Boolean);
-    const trendInfo = trendInfoArr.join("・");
-    result.recommendation = "hold";
-    result.sellReason = null;
-    result.suggestedSellPercent = null;
-    result.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.reconciliationMessage ? `（補足: ${result.reconciliationMessage}）` : ""}`;
-    result.shortTerm = `【一旦様子見を推奨】${trendInfo}のトレンドは引き続き上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を優先して一旦ホールドを推奨します。${result.reconciliationMessage ? `分析の変化: ${result.reconciliationMessage}` : ""}`;
-    result.advice = `${trendInfo}のトレンドは依然として良好です。短期的な変動に惑わされず、中長期での回復を待つ方針を優先しましょう。`;
-  }
+  for (const styleKey of ALL_STYLE_KEYS) {
+    const sa = result.styleAnalyses[styleKey];
 
-  // 購入直後の保護（重大な変化がない場合のみ）（スタイル非依存）
-  if (
-    isRecentlyPurchased &&
-    result.recommendation === "sell" &&
-    !result.isCriticalChange &&
-    profitPercent !== null &&
-    profitPercent > PORTFOLIO_ANALYSIS.FORCE_SELL_LOSS_THRESHOLD
-  ) {
-    result.recommendation = "hold";
-    result.sellReason = null;
-    result.suggestedSellPercent = null;
-    result.sellCondition = `購入から日が浅く、重大な状況変化も確認できないため、目先の値動きによる売却は見送りました。${result.reconciliationMessage || ""}`;
-    result.shortTerm = `【購入直後のため様子見】直近で買い推奨したばかりであり、現時点で前提を覆すほどの悪材料はありません。一時的な調整と判断しホールドを推奨します。AIの当初分析: ${result.shortTerm}`;
-    result.advice = `購入直後の小幅な変動です。当初の投資ストーリーに変更がない限り、目先の動きで売却せず、しばらく様子を見るのが健全です。`;
-  }
+    // パニック売り防止: 乖離率-20%以下 → sell→hold
+    if (
+      deviationRate !== null &&
+      deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
+      sa.recommendation === "sell"
+    ) {
+      sa.recommendation = "hold";
+      sa.sellReason = null;
+      sa.suggestedSellPercent = null;
+      sa.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%の下方乖離で「売られすぎ」の状態です。AIは売却を検討しましたが、大底で売るリスクを避けるため、自律反発を待つ様子見（リバウンド待ち）を推奨します。`;
+      sa.shortTerm = `【一旦様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、今すぐの売却は避け、数日中の反発を待つことを推奨します。AIの当初分析: ${sa.shortTerm}`;
+      sa.advice = `異常な「売られすぎ」によるパニック状態です。大底での売却を避けるため、自律反発を待つ様子見を優先しましょう。`;
+    }
 
-  // 相対強度による売り保護（スタイル非依存）
-  if (
-    result.recommendation === "sell" &&
-    weekChangeRate !== null &&
-    weekChangeRate < 0 &&
-    marketData?.weekChangeRate != null &&
-    (profitPercent === null ||
-      profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
-  ) {
-    const relVsMarket = weekChangeRate - marketData.weekChangeRate;
-    if (relVsMarket >= RELATIVE_STRENGTH.OUTPERFORM_SELL_PROTECTION) {
-      result.recommendation = "hold";
-      result.sellReason = null;
-      result.suggestedSellPercent = null;
-      result.sellCondition = `市場（日経平均${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%）に対して+${relVsMarket.toFixed(1)}%のアウトパフォームで、下落は地合い要因とみられます。${result.sellCondition || ""}`;
-      result.shortTerm = `【様子見を推奨】市場全体が${marketData.weekChangeRate.toFixed(1)}%下落する中、この銘柄は相対的に+${relVsMarket.toFixed(1)}%強く、地合い要因による下落と判断しました。AIの短期分析: ${result.shortTerm}`;
-      result.advice = `市場全体の下落（日経平均${marketData.weekChangeRate.toFixed(1)}%）に対してアウトパフォームしており、地合い要因の下落とみられます。様子見を推奨します。`;
+    // 上場廃止銘柄の強制補正
+    if (stock.isDelisted) {
+      sa.recommendation = "sell";
+      sa.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${sa.shortTerm}`;
+    }
+
+    // 危険銘柄の買い増し抑制
+    if (
+      isDangerousStock(stock.isProfitable, volatility) &&
+      sa.recommendation === "buy"
+    ) {
+      sa.recommendation = "hold";
+      sa.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${sa.shortTerm}`;
+    }
+
+    // 中長期トレンドによる売り保護（重大な変化がない場合のみ）
+    if (
+      sa.recommendation === "sell" &&
+      !result.isCriticalChange &&
+      (result.midTermTrend === "up" || result.longTermTrend === "up") &&
+      (profitPercent === null ||
+        profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+    ) {
+      const trendInfoArr = [
+        result.midTermTrend === "up" ? "中期" : null,
+        result.longTermTrend === "up" ? "長期" : null,
+      ].filter(Boolean);
+      const trendInfo = trendInfoArr.join("・");
+      sa.recommendation = "hold";
+      sa.sellReason = null;
+      sa.suggestedSellPercent = null;
+      sa.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.reconciliationMessage ? `（補足: ${result.reconciliationMessage}）` : ""}`;
+      sa.shortTerm = `【一旦様子見を推奨】${trendInfo}のトレンドは引き続き上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を優先して一旦ホールドを推奨します。${result.reconciliationMessage ? `分析の変化: ${result.reconciliationMessage}` : ""}`;
+      sa.advice = `${trendInfo}のトレンドは依然として良好です。短期的な変動に惑わされず、中長期での回復を待つ方針を優先しましょう。`;
+    }
+
+    // 購入直後の保護（重大な変化がない場合のみ）
+    if (
+      isRecentlyPurchased &&
+      sa.recommendation === "sell" &&
+      !result.isCriticalChange &&
+      profitPercent !== null &&
+      profitPercent > PORTFOLIO_ANALYSIS.FORCE_SELL_LOSS_THRESHOLD
+    ) {
+      sa.recommendation = "hold";
+      sa.sellReason = null;
+      sa.suggestedSellPercent = null;
+      sa.sellCondition = `購入から日が浅く、重大な状況変化も確認できないため、目先の値動きによる売却は見送りました。${result.reconciliationMessage || ""}`;
+      sa.shortTerm = `【購入直後のため様子見】直近で買い推奨したばかりであり、現時点で前提を覆すほどの悪材料はありません。一時的な調整と判断しホールドを推奨します。AIの当初分析: ${sa.shortTerm}`;
+      sa.advice = `購入直後の小幅な変動です。当初の投資ストーリーに変更がない限り、目先の動きで売却せず、しばらく様子を見るのが健全です。`;
+    }
+
+    // 相対強度による売り保護
+    if (
+      sa.recommendation === "sell" &&
+      weekChangeRate !== null &&
+      weekChangeRate < 0 &&
+      marketData?.weekChangeRate != null &&
+      (profitPercent === null ||
+        profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+    ) {
+      const relVsMarket = weekChangeRate - marketData.weekChangeRate;
+      if (relVsMarket >= RELATIVE_STRENGTH.OUTPERFORM_SELL_PROTECTION) {
+        sa.recommendation = "hold";
+        sa.sellReason = null;
+        sa.suggestedSellPercent = null;
+        sa.sellCondition = `市場（日経平均${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%）に対して+${relVsMarket.toFixed(1)}%のアウトパフォームで、下落は地合い要因とみられます。${sa.sellCondition || ""}`;
+        sa.shortTerm = `【様子見を推奨】市場全体が${marketData.weekChangeRate.toFixed(1)}%下落する中、この銘柄は相対的に+${relVsMarket.toFixed(1)}%強く、地合い要因による下落と判断しました。AIの短期分析: ${sa.shortTerm}`;
+        sa.advice = `市場全体の下落（日経平均${marketData.weekChangeRate.toFixed(1)}%）に対してアウトパフォームしており、地合い要因の下落とみられます。様子見を推奨します。`;
+      }
     }
   }
 
-  // statusType（AIの出力を優先、スタイル非依存補正後の値を使用）
-  const statusType =
-    result.statusType ||
-    (result.recommendation === "sell"
-      ? "即時売却"
-      : result.recommendation === "buy"
-        ? "押し目買い"
-        : "ホールド");
+  // ユーザーの選択スタイルの結果を取得
+  const investmentStyle = userSettings?.investmentStyle ?? null;
+  const userStyle = (investmentStyle || "BALANCED") as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
+  const userStyleResult = result.styleAnalyses[userStyle];
 
-  // 売りタイミング判定（スタイル非依存）
+  // 売りタイミング判定（ユーザースタイルの recommendation を基準に判定）
   let sellTiming: string | null = null;
   let sellTargetPrice: number | null = null;
 
-  if (result.recommendation === "sell") {
+  if (userStyleResult.recommendation === "sell") {
     if (
       profitPercent !== null &&
       profitPercent <= SELL_TIMING.STOP_LOSS_THRESHOLD
@@ -578,6 +619,15 @@ export async function executePortfolioAnalysis(
     }
   }
 
+  // statusType（ユーザースタイルの値を使用）
+  const statusType =
+    userStyleResult.statusType ||
+    (userStyleResult.recommendation === "sell"
+      ? "即時売却"
+      : userStyleResult.recommendation === "buy"
+        ? "押し目買い"
+        : "ホールド");
+
   // 戻り売りステータスの場合、sellTimingとsellTargetPriceを強制設定
   if (statusType === "戻り売り") {
     if (sellTiming !== "rebound") {
@@ -588,37 +638,21 @@ export async function executePortfolioAnalysis(
     }
   }
 
-  // --- 投資スタイル別の補正を全3スタイル分生成 ---
-  const styleAnalyses = applyPortfolioStyleCorrections({
-    baseResult: {
-      recommendation: result.recommendation,
-      confidence: result.confidence || 0.7,
-      statusType,
-      marketSignal: result.marketSignal || "neutral",
-      advice: result.advice || "",
-      shortTerm: result.shortTerm || "",
-      sellReason: result.sellReason || null,
-      sellCondition: result.sellCondition || null,
-      suggestedSellPercent: result.suggestedSellPercent || null,
-    },
+  // --- 投資スタイル別のセーフティルールを適用 ---
+  const styleAnalyses = applyPortfolioStyleSafetyRules({
+    styleAnalyses: Object.fromEntries(
+      ALL_STYLE_KEYS.map((key) => [key, {
+        ...result.styleAnalyses[key],
+        marketSignal: result.marketSignal || "neutral",
+        sellTiming: null,
+        sellTargetPrice: null,
+      }])
+    ) as StyleAnalysesMap<PortfolioStyleAnalysis>,
     weekChangeRate,
-    isProfitable: stock.isProfitable,
-    volatility,
     sma25,
     sellTimingBase: sellTiming,
     sellTargetPriceBase: sellTargetPrice,
   });
-
-  // ユーザーの選択スタイルの結果をメインのresultに反映
-  const investmentStyle = userSettings?.investmentStyle ?? null;
-  const userStyle = (investmentStyle || "BALANCED") as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
-  const userStyleResult = styleAnalyses[userStyle];
-
-  // 急騰銘柄補正はスタイル依存のため、userStyleResultから反映
-  if (userStyleResult.recommendation !== result.recommendation) {
-    result.recommendation = userStyleResult.recommendation;
-    result.shortTerm = userStyleResult.shortTerm;
-  }
 
   // 保存
   const now = dayjs.utc().toDate();
@@ -627,15 +661,15 @@ export async function executePortfolioAnalysis(
     prisma.portfolioStock.update({
       where: { id: portfolioStock.id },
       data: {
-        shortTerm: result.shortTerm,
+        shortTerm: userStyleResult.shortTerm,
         mediumTerm: result.mediumTerm,
         longTerm: result.longTerm,
         statusType,
         marketSignal: result.marketSignal || null,
         suggestedSellPrice: result.suggestedSellPrice || null,
-        suggestedSellPercent: result.suggestedSellPercent || null,
-        sellReason: result.sellReason || null,
-        sellCondition: result.sellCondition || null,
+        suggestedSellPercent: userStyleResult.suggestedSellPercent || null,
+        sellReason: userStyleResult.sellReason || null,
+        sellCondition: userStyleResult.sellCondition || null,
         sellTiming,
         sellTargetPrice,
         lastAnalysis: now,
@@ -648,7 +682,7 @@ export async function executePortfolioAnalysis(
         shortTermTrend: result.shortTermTrend || "neutral",
         shortTermPriceLow: result.shortTermPriceLow || currentPrice || 0,
         shortTermPriceHigh: result.shortTermPriceHigh || currentPrice || 0,
-        shortTermText: result.shortTerm || null,
+        shortTermText: userStyleResult.shortTerm || null,
         midTermTrend: result.midTermTrend || "neutral",
         midTermPriceLow: result.midTermPriceLow || currentPrice || 0,
         midTermPriceHigh: result.midTermPriceHigh || currentPrice || 0,
@@ -657,13 +691,13 @@ export async function executePortfolioAnalysis(
         longTermPriceLow: result.longTermPriceLow || currentPrice || 0,
         longTermPriceHigh: result.longTermPriceHigh || currentPrice || 0,
         longTermText: result.longTerm || null,
-        recommendation: result.recommendation,
-        advice: result.advice || result.shortTerm || "",
-        confidence: result.confidence || 0.7,
+        recommendation: userStyleResult.recommendation,
+        advice: userStyleResult.advice || userStyleResult.shortTerm || "",
+        confidence: userStyleResult.confidence || 0.7,
         limitPrice: result.suggestedSellPrice || null,
         stopLossPrice: result.suggestedStopLossPrice || null,
         statusType: statusType || null,
-        sellCondition: result.sellCondition || null,
+        sellCondition: userStyleResult.sellCondition || null,
         styleAnalyses: styleAnalyses ? JSON.parse(JSON.stringify(styleAnalyses)) : undefined,
         analyzedAt: now,
       },
@@ -686,7 +720,7 @@ export async function executePortfolioAnalysis(
     recommendedAt: now,
     priceAtRec: currentPrice || 0,
     prediction: trendToPrediction[result.shortTermTrend] || "neutral",
-    confidence: result.confidence || 0.7,
+    confidence: userStyleResult.confidence || 0.7,
     volatility: stock.volatility ? Number(stock.volatility) : null,
     marketCap: stock.marketCap
       ? BigInt(Number(stock.marketCap) * 100_000_000)
@@ -694,8 +728,8 @@ export async function executePortfolioAnalysis(
   });
 
   return {
-    shortTerm: result.shortTerm,
-    shortTermText: result.shortTerm,
+    shortTerm: userStyleResult.shortTerm,
+    shortTermText: userStyleResult.shortTerm,
     mediumTerm: result.mediumTerm,
     midTermText: result.mediumTerm,
     longTerm: result.longTerm,
@@ -703,12 +737,12 @@ export async function executePortfolioAnalysis(
     statusType,
     marketSignal: result.marketSignal || null,
     suggestedSellPrice: result.suggestedSellPrice || null,
-    suggestedSellPercent: result.suggestedSellPercent || null,
-    sellReason: result.sellReason || null,
-    sellCondition: result.sellCondition || null,
+    suggestedSellPercent: userStyleResult.suggestedSellPercent || null,
+    sellReason: userStyleResult.sellReason || null,
+    sellCondition: userStyleResult.sellCondition || null,
     sellTiming,
     sellTargetPrice,
-    recommendation: result.recommendation || null,
+    recommendation: userStyleResult.recommendation || null,
     lastAnalysis: now.toISOString(),
     isToday: true,
     styleAnalyses,
@@ -866,7 +900,7 @@ export async function executeSimulatedPortfolioAnalysis(
       { role: "user", content: prompt },
     ],
     temperature: 0.3,
-    max_tokens: 800,
+    max_tokens: 1400,
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -879,27 +913,11 @@ export async function executeSimulatedPortfolioAnalysis(
               type: "string",
               enum: ["bullish", "neutral", "bearish"],
             },
-            statusType: {
-              type: "string",
-              enum: [
-                "即時売却",
-                "戻り売り",
-                "ホールド",
-                "押し目買い",
-                "全力買い",
-              ],
-            },
             shortTerm: { type: "string" },
             mediumTerm: { type: "string" },
             longTerm: { type: "string" },
             suggestedSellPrice: { type: ["number", "null"] },
-            suggestedSellPercent: {
-              type: ["integer", "null"],
-              enum: [25, 50, 75, 100, null],
-            },
-            sellReason: { type: ["string", "null"] },
             suggestedStopLossPrice: { type: ["number", "null"] },
-            sellCondition: { type: ["string", "null"] },
             shortTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             shortTermPriceLow: { type: "number" },
             shortTermPriceHigh: { type: "number" },
@@ -909,23 +927,68 @@ export async function executeSimulatedPortfolioAnalysis(
             longTermTrend: { type: "string", enum: ["up", "neutral", "down"] },
             longTermPriceLow: { type: "number" },
             longTermPriceHigh: { type: "number" },
-            recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
-            advice: { type: "string" },
-            confidence: { type: "number" },
             isCriticalChange: { type: "boolean" },
             reconciliationMessage: { type: ["string", "null"] },
+            styleAnalyses: {
+              type: "object",
+              properties: {
+                CONSERVATIVE: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+                    confidence: { type: "number" },
+                    statusType: { type: "string" },
+                    advice: { type: "string" },
+                    shortTerm: { type: "string" },
+                    sellReason: { type: ["string", "null"] },
+                    sellCondition: { type: ["string", "null"] },
+                    suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "shortTerm", "sellReason", "sellCondition", "suggestedSellPercent"],
+                  additionalProperties: false,
+                },
+                BALANCED: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+                    confidence: { type: "number" },
+                    statusType: { type: "string" },
+                    advice: { type: "string" },
+                    shortTerm: { type: "string" },
+                    sellReason: { type: ["string", "null"] },
+                    sellCondition: { type: ["string", "null"] },
+                    suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "shortTerm", "sellReason", "sellCondition", "suggestedSellPercent"],
+                  additionalProperties: false,
+                },
+                AGGRESSIVE: {
+                  type: "object",
+                  properties: {
+                    recommendation: { type: "string", enum: ["buy", "hold", "sell"] },
+                    confidence: { type: "number" },
+                    statusType: { type: "string" },
+                    advice: { type: "string" },
+                    shortTerm: { type: "string" },
+                    sellReason: { type: ["string", "null"] },
+                    sellCondition: { type: ["string", "null"] },
+                    suggestedSellPercent: { type: ["integer", "null"], enum: [25, 50, 75, 100, null] },
+                  },
+                  required: ["recommendation", "confidence", "statusType", "advice", "shortTerm", "sellReason", "sellCondition", "suggestedSellPercent"],
+                  additionalProperties: false,
+                },
+              },
+              required: ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"],
+              additionalProperties: false,
+            },
           },
           required: [
             "marketSignal",
-            "statusType",
             "shortTerm",
             "mediumTerm",
             "longTerm",
             "suggestedSellPrice",
-            "suggestedSellPercent",
-            "sellReason",
             "suggestedStopLossPrice",
-            "sellCondition",
             "shortTermTrend",
             "shortTermPriceLow",
             "shortTermPriceHigh",
@@ -935,11 +998,9 @@ export async function executeSimulatedPortfolioAnalysis(
             "longTermTrend",
             "longTermPriceLow",
             "longTermPriceHigh",
-            "recommendation",
             "isCriticalChange",
             "reconciliationMessage",
-            "advice",
-            "confidence",
+            "styleAnalyses",
           ],
           additionalProperties: false,
         },
@@ -960,18 +1021,93 @@ export async function executeSimulatedPortfolioAnalysis(
   const rsiValue = calculateRSI(pricesNewestFirst);
   const sma25 = calculateSMA(pricesNewestFirst, MA_DEVIATION.PERIOD);
 
-  // statusType（AIの出力を優先）
-  const statusType =
-    result.statusType ||
-    (result.recommendation === "sell"
-      ? "即時売却"
-      : result.recommendation === "buy"
-        ? "押し目買い"
-        : "ホールド");
+  // --- スタイル非依存の補正を全3スタイルにループ適用 ---
+  const ALL_STYLE_KEYS_SIM = ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"] as const;
+  const volatility = stock.volatility ? Number(stock.volatility) : null;
 
+  for (const styleKey of ALL_STYLE_KEYS_SIM) {
+    const sa = result.styleAnalyses[styleKey];
+
+    // パニック売り防止: 乖離率-20%以下 → sell→hold
+    if (
+      deviationRate !== null &&
+      deviationRate <= SELL_TIMING.PANIC_SELL_THRESHOLD &&
+      sa.recommendation === "sell"
+    ) {
+      sa.recommendation = "hold";
+      sa.sellReason = null;
+      sa.suggestedSellPercent = null;
+      sa.sellCondition = `25日移動平均線から${deviationRate.toFixed(1)}%の下方乖離で「売られすぎ」の状態です。AIは売却を検討しましたが、大底で売るリスクを避けるため、自律反発を待つ様子見（リバウンド待ち）を推奨します。`;
+      sa.shortTerm = `【一旦様子見を推奨】移動平均線から${Math.abs(deviationRate).toFixed(1)}%の異常な売られすぎ水準のため、今すぐの売却は避け、数日中の反発を待つことを推奨します。AIの当初分析: ${sa.shortTerm}`;
+      sa.advice = `異常な「売られすぎ」によるパニック状態です。大底での売却を避けるため、自律反発を待つ様子見を優先しましょう。`;
+    }
+
+    // 上場廃止銘柄の強制補正
+    if (stock.isDelisted) {
+      sa.recommendation = "sell";
+      sa.shortTerm = `この銘柄は上場廃止されています。保有している場合は証券会社に確認してください。${sa.shortTerm}`;
+    }
+
+    // 危険銘柄の買い増し抑制
+    if (
+      isDangerousStock(stock.isProfitable, volatility) &&
+      sa.recommendation === "buy"
+    ) {
+      sa.recommendation = "hold";
+      sa.shortTerm = `業績が赤字かつボラティリティが${volatility?.toFixed(0)}%と高いため、買い増しは慎重に検討してください。${sa.shortTerm}`;
+    }
+
+    // 中長期トレンドによる売り保護（重大な変化がない場合のみ）
+    if (
+      sa.recommendation === "sell" &&
+      !result.isCriticalChange &&
+      (result.midTermTrend === "up" || result.longTermTrend === "up") &&
+      (profitPercent === null ||
+        profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+    ) {
+      const trendInfoArr = [
+        result.midTermTrend === "up" ? "中期" : null,
+        result.longTermTrend === "up" ? "長期" : null,
+      ].filter(Boolean);
+      const trendInfo = trendInfoArr.join("・");
+      sa.recommendation = "hold";
+      sa.sellReason = null;
+      sa.suggestedSellPercent = null;
+      sa.sellCondition = `${trendInfo}の見通しが上昇のため、短期的な売りシグナルでの即売却は見送りを推奨します。${result.reconciliationMessage ? `（補足: ${result.reconciliationMessage}）` : ""}`;
+      sa.shortTerm = `【一旦様子見を推奨】${trendInfo}のトレンドは引き続き上昇見通しです。短期の売りシグナルが出ていますが、中長期の回復を優先して一旦ホールドを推奨します。${result.reconciliationMessage ? `分析の変化: ${result.reconciliationMessage}` : ""}`;
+      sa.advice = `${trendInfo}のトレンドは依然として良好です。短期的な変動に惑わされず、中長期での回復を待つ方針を優先しましょう。`;
+    }
+
+    // 相対強度による売り保護
+    if (
+      sa.recommendation === "sell" &&
+      weekChangeRate !== null &&
+      weekChangeRate < 0 &&
+      marketData?.weekChangeRate != null &&
+      (profitPercent === null ||
+        profitPercent > SELL_TIMING.TREND_OVERRIDE_LOSS_THRESHOLD)
+    ) {
+      const relVsMarket = weekChangeRate - marketData.weekChangeRate;
+      if (relVsMarket >= RELATIVE_STRENGTH.OUTPERFORM_SELL_PROTECTION) {
+        sa.recommendation = "hold";
+        sa.sellReason = null;
+        sa.suggestedSellPercent = null;
+        sa.sellCondition = `市場（日経平均${marketData.weekChangeRate >= 0 ? "+" : ""}${marketData.weekChangeRate.toFixed(1)}%）に対して+${relVsMarket.toFixed(1)}%のアウトパフォームで、下落は地合い要因とみられます。${sa.sellCondition || ""}`;
+        sa.shortTerm = `【様子見を推奨】市場全体が${marketData.weekChangeRate.toFixed(1)}%下落する中、この銘柄は相対的に+${relVsMarket.toFixed(1)}%強く、地合い要因による下落と判断しました。AIの短期分析: ${sa.shortTerm}`;
+        sa.advice = `市場全体の下落（日経平均${marketData.weekChangeRate.toFixed(1)}%）に対してアウトパフォームしており、地合い要因の下落とみられます。様子見を推奨します。`;
+      }
+    }
+  }
+
+  // ユーザーの選択スタイルの結果を取得
+  const investmentStyle = userSettings?.investmentStyle ?? null;
+  const userStyle = (investmentStyle || "BALANCED") as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
+  const userStyleResult = result.styleAnalyses[userStyle];
+
+  // 売りタイミング判定（ユーザースタイルの recommendation を基準に判定）
   let sellTiming: string | null = null;
   let sellTargetPrice: number | null = null;
-  if (result.recommendation === "sell") {
+  if (userStyleResult.recommendation === "sell") {
     if (
       profitPercent !== null &&
       profitPercent <= SELL_TIMING.STOP_LOSS_THRESHOLD
@@ -996,6 +1132,15 @@ export async function executeSimulatedPortfolioAnalysis(
     }
   }
 
+  // statusType（ユーザースタイルの値を使用）
+  const statusType =
+    userStyleResult.statusType ||
+    (userStyleResult.recommendation === "sell"
+      ? "即時売却"
+      : userStyleResult.recommendation === "buy"
+        ? "押し目買い"
+        : "ホールド");
+
   // 戻り売りステータスの場合、sellTimingとsellTargetPriceを強制設定
   if (statusType === "戻り売り") {
     if (sellTiming !== "rebound") {
@@ -1006,57 +1151,40 @@ export async function executeSimulatedPortfolioAnalysis(
     }
   }
 
-  // --- 投資スタイル別の補正を全3スタイル分生成 ---
-  const volatility = stock.volatility ? Number(stock.volatility) : null;
-  const styleAnalyses = applyPortfolioStyleCorrections({
-    baseResult: {
-      recommendation: result.recommendation,
-      confidence: result.confidence || 0.7,
-      statusType,
-      marketSignal: result.marketSignal || "neutral",
-      advice: result.advice || "",
-      shortTerm: result.shortTerm || "",
-      sellReason: result.sellReason || null,
-      sellCondition: result.sellCondition || null,
-      suggestedSellPercent: result.suggestedSellPercent || null,
-    },
+  // --- 投資スタイル別のセーフティルールを適用 ---
+  const styleAnalyses = applyPortfolioStyleSafetyRules({
+    styleAnalyses: Object.fromEntries(
+      ALL_STYLE_KEYS_SIM.map((key) => [key, {
+        ...result.styleAnalyses[key],
+        marketSignal: result.marketSignal || "neutral",
+        sellTiming: null,
+        sellTargetPrice: null,
+      }])
+    ) as StyleAnalysesMap<PortfolioStyleAnalysis>,
     weekChangeRate,
-    isProfitable: stock.isProfitable,
-    volatility,
     sma25,
     sellTimingBase: sellTiming,
     sellTargetPriceBase: sellTargetPrice,
   });
 
-  // ユーザーの選択スタイルの結果をメインのresultに反映
-  const investmentStyle = userSettings?.investmentStyle ?? null;
-  const userStyle = (investmentStyle || "BALANCED") as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
-  const userStyleResult = styleAnalyses[userStyle];
-
-  // 急騰銘柄補正はスタイル依存のため、userStyleResultから反映
-  if (userStyleResult.recommendation !== result.recommendation) {
-    result.recommendation = userStyleResult.recommendation;
-    result.shortTerm = userStyleResult.shortTerm;
-  }
-
   const now = dayjs.utc().toDate();
 
   return {
-    shortTerm: result.shortTerm,
-    shortTermText: result.shortTerm,
+    shortTerm: userStyleResult.shortTerm,
+    shortTermText: userStyleResult.shortTerm,
     mediumTerm: result.mediumTerm,
     midTermText: result.mediumTerm,
     longTerm: result.longTerm,
     longTermText: result.longTerm,
-    statusType: userStyleResult.statusType,
+    statusType,
     marketSignal: result.marketSignal || null,
     suggestedSellPrice: result.suggestedSellPrice || null,
-    suggestedSellPercent: result.suggestedSellPercent || null,
-    sellReason: result.sellReason || null,
-    sellCondition: result.sellCondition || null,
+    suggestedSellPercent: userStyleResult.suggestedSellPercent || null,
+    sellReason: userStyleResult.sellReason || null,
+    sellCondition: userStyleResult.sellCondition || null,
     sellTiming,
     sellTargetPrice,
-    recommendation: result.recommendation || null,
+    recommendation: userStyleResult.recommendation || null,
     lastAnalysis: now.toISOString(),
     isToday: true,
     currentPrice,
@@ -1080,8 +1208,8 @@ export async function executeSimulatedPortfolioAnalysis(
     longTermTrend: result.longTermTrend,
     longTermPriceLow: result.longTermPriceLow,
     longTermPriceHigh: result.longTermPriceHigh,
-    advice: result.advice,
-    confidence: result.confidence,
+    advice: userStyleResult.advice,
+    confidence: userStyleResult.confidence,
     limitPrice: result.suggestedSellPrice,
     stopLossPrice: result.suggestedStopLossPrice,
     analyzedAt: now.toISOString(),

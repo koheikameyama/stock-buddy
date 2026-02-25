@@ -61,7 +61,15 @@
 
 **投資スタイル別分析（styleAnalyses）**:
 
-AIの出力に対して、非スタイル依存の安全補正（上記テーブルの大半）を適用した後、3つの投資スタイル（慎重派/バランス型/積極派）ごとにスタイル依存の補正を適用し、スタイル別の分析結果を生成します。
+AIが1回のAPIコールで3つの投資スタイル（慎重派/バランス型/積極派）ごとに異なる判断（recommendation/confidence/advice/shortTerm/statusType/sellReason/sellCondition/suggestedSellPercent）を直接生成します。各スタイルの判断傾向:
+
+| スタイル | 判断傾向 |
+|----------|----------|
+| 慎重派（CONSERVATIVE） | 早めの利確・損切り、suggestedSellPercent は高め（75-100%） |
+| バランス型（BALANCED） | 中期トレンドで判断、部分利確でバランスを取る |
+| 積極派（AGGRESSIVE） | 利益最大化、suggestedSellPercent は低め（25-50%）、買い増しも積極的 |
+
+AI生成後、非スタイル依存の安全補正（上記テーブルの大半）を全スタイルに適用し、さらにスタイル依存のセーフティルールを適用:
 
 | スタイル依存補正 | 条件（スタイルにより閾値が異なる） | 動作 |
 |------------------|--------------------------------------|------|
@@ -266,6 +274,6 @@ PortfolioSnapshot テーブルからの時系列データ。
 - `app/api/portfolio/history/route.ts` - 資産推移 API
 - `lib/portfolio-analysis-core.ts` - 個別分析ロジック
 - `lib/portfolio-calculator.ts` - 計算ロジック
-- `lib/style-analysis.ts` - 投資スタイル別補正ロジック
+- `lib/style-analysis.ts` - 投資スタイル別セーフティルール
 - `lib/prompts/portfolio-analysis-prompt.ts` - 個別分析プロンプト
 - `lib/prompts/portfolio-overall-analysis-prompt.ts` - 総評プロンプト

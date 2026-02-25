@@ -1,8 +1,8 @@
 /**
- * 投資スタイル別分析の型定義と共通ロジック
+ * 投資スタイル別分析の型定義とセーフティルール
  *
- * 1つの銘柄に対して、3つの投資スタイル（慎重派/バランス型/積極派）での
- * 分析結果を生成し、比較できるようにする。
+ * AIが3つの投資スタイル（慎重派/バランス型/積極派）ごとに
+ * 個別の分析結果を生成する前提で、セーフティルールとタイミング判定のみを適用する。
  */
 import { INVESTMENT_STYLES, type InvestmentStyle } from "@/lib/constants";
 import {
@@ -73,28 +73,17 @@ const ALL_STYLES: InvestmentStyle[] = [
 ];
 
 /**
- * 購入判断の投資スタイル別補正を適用
- * AIの生成結果 + 非スタイル依存補正の済んだ結果を受け取り、
- * 3スタイル分の結果を返す
+ * 購入判断のセーフティルールを適用
+ * AI生成済みの3スタイル結果に対して、セーフティルールとタイミング判定のみを適用する
  */
-export function applyPurchaseStyleCorrections(params: {
-  baseResult: {
-    recommendation: string;
-    confidence: number;
-    statusType: string;
-    marketSignal: string;
-    advice: string;
-    reason: string;
-    caution: string;
-    buyCondition: string | null;
-  };
+export function applyPurchaseStyleSafetyRules(params: {
+  styleAnalyses: StyleAnalysesMap<PurchaseStyleAnalysis>;
   weekChangeRate: number | null;
   deviationRate: number | null;
   buyTimingParams: {
     deviationRate: number | null;
     rsi: number | null;
     sma25: number | null;
-    aiSuggestedDipPrice: number | null;
     currentPrice: number;
   };
   sellTimingParams: {
@@ -104,28 +93,15 @@ export function applyPurchaseStyleCorrections(params: {
   };
   skipSafetyRules: boolean;
 }): StyleAnalysesMap<PurchaseStyleAnalysis> {
-  const { baseResult, weekChangeRate, deviationRate, buyTimingParams, sellTimingParams, skipSafetyRules } = params;
+  const { styleAnalyses, weekChangeRate, deviationRate, buyTimingParams, sellTimingParams, skipSafetyRules } = params;
 
   const result = {} as StyleAnalysesMap<PurchaseStyleAnalysis>;
 
   for (const style of ALL_STYLES) {
-    // ベース結果をディープコピー
-    const styleResult = {
-      recommendation: baseResult.recommendation,
-      confidence: baseResult.confidence,
-      statusType: baseResult.statusType,
-      marketSignal: baseResult.marketSignal,
-      advice: baseResult.advice,
-      reason: baseResult.reason,
-      caution: baseResult.caution,
-      buyCondition: baseResult.buyCondition,
-      buyTiming: null as string | null,
-      dipTargetPrice: null as number | null,
-      sellTiming: null as string | null,
-      sellTargetPrice: null as number | null,
-    };
+    // AI生成済みの結果をコピー（元のオブジェクトを変更しないため）
+    const styleResult = { ...styleAnalyses[style] };
 
-    // スタイル依存の補正を適用
+    // セーフティルールを適用
     if (!skipSafetyRules) {
       // 下落トレンドの強制補正
       if (
@@ -167,7 +143,7 @@ export function applyPurchaseStyleCorrections(params: {
 
     // 購入タイミング判断
     if (styleResult.recommendation === "buy") {
-      const { deviationRate: devRate, rsi, sma25, aiSuggestedDipPrice, currentPrice } = buyTimingParams;
+      const { deviationRate: devRate, rsi, sma25, currentPrice } = buyTimingParams;
       const isHighDeviation =
         devRate !== null && devRate > MA_DEVIATION.DIP_BUY_THRESHOLD;
       const isOverboughtRSI =
@@ -178,8 +154,8 @@ export function applyPurchaseStyleCorrections(params: {
       } else {
         styleResult.buyTiming = "market";
       }
-      // AI推奨押し目価格は常に設定（buyTiming問わず）
-      styleResult.dipTargetPrice = validateDipPrice(aiSuggestedDipPrice, currentPrice, sma25);
+      // AI推奨押し目価格のバリデーション（各スタイルのAI生成値を検証）
+      styleResult.dipTargetPrice = validateDipPrice(styleResult.dipTargetPrice, currentPrice, sma25);
     }
 
     // 売りタイミング判定（avoid推奨時のみ）
@@ -204,45 +180,31 @@ export function applyPurchaseStyleCorrections(params: {
 }
 
 /**
- * ポートフォリオ分析の投資スタイル別補正を適用
+ * ポートフォリオ分析のセーフティルールを適用
+ * AI生成済みの3スタイル結果に対して、急騰抑制と戻り売り強制設定のみを適用する
  */
-export function applyPortfolioStyleCorrections(params: {
-  baseResult: {
-    recommendation: string;
-    confidence: number;
-    statusType: string;
-    marketSignal: string;
-    advice: string;
-    shortTerm: string;
-    sellReason: string | null;
-    sellCondition: string | null;
-    suggestedSellPercent: number | null;
-  };
+export function applyPortfolioStyleSafetyRules(params: {
+  styleAnalyses: StyleAnalysesMap<PortfolioStyleAnalysis>;
   weekChangeRate: number | null;
-  isProfitable: boolean | null;
-  volatility: number | null;
   sma25: number | null;
   sellTimingBase: string | null;
   sellTargetPriceBase: number | null;
 }): StyleAnalysesMap<PortfolioStyleAnalysis> {
-  const { baseResult, weekChangeRate, isProfitable, volatility, sma25, sellTimingBase, sellTargetPriceBase } = params;
+  const { styleAnalyses, weekChangeRate, sma25, sellTimingBase, sellTargetPriceBase } = params;
 
   const result = {} as StyleAnalysesMap<PortfolioStyleAnalysis>;
 
   for (const style of ALL_STYLES) {
-    const styleResult = {
-      recommendation: baseResult.recommendation,
-      confidence: baseResult.confidence,
-      statusType: baseResult.statusType,
-      marketSignal: baseResult.marketSignal,
-      advice: baseResult.advice,
-      shortTerm: baseResult.shortTerm,
-      sellReason: baseResult.sellReason,
-      sellCondition: baseResult.sellCondition,
-      suggestedSellPercent: baseResult.suggestedSellPercent,
-      sellTiming: sellTimingBase,
-      sellTargetPrice: sellTargetPriceBase,
-    };
+    // AI生成済みの結果をコピー（元のオブジェクトを変更しないため）
+    const styleResult = { ...styleAnalyses[style] };
+
+    // sellTiming/sellTargetPriceのベース値がAI結果に含まれていない場合はベース値を設定
+    if (styleResult.sellTiming === null && sellTimingBase !== null) {
+      styleResult.sellTiming = sellTimingBase;
+    }
+    if (styleResult.sellTargetPrice === null && sellTargetPriceBase !== null) {
+      styleResult.sellTargetPrice = sellTargetPriceBase;
+    }
 
     // 急騰銘柄の買い増し抑制（スタイル依存）
     if (

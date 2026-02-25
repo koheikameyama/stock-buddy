@@ -120,7 +120,15 @@ Stock Buddyの中核機能であるAI推奨システムです。3種類の推奨
 
 **投資スタイル別分析（styleAnalyses）**:
 
-非スタイル依存の安全補正を適用した後、3つの投資スタイル（慎重派/バランス型/積極派）ごとにスタイル依存の補正を適用し、スタイル別の分析結果を生成。結果は `PurchaseRecommendation.styleAnalyses` と `StockAnalysis.styleAnalyses` に JSON として保存。
+AIが1回のAPIコールで3つの投資スタイル（慎重派/バランス型/積極派）ごとに異なる判断（recommendation/confidence/advice/reason/caution/statusType）を直接生成します。各スタイルは短期/中期/長期の予測トレンドに対する重み付けが異なります:
+
+| スタイル | 重視するトレンド | 判断傾向 |
+|----------|------------------|----------|
+| 慎重派（CONSERVATIVE） | 長期 | 長期下落なら原則 stay/avoid |
+| バランス型（BALANCED） | 中期 | 中期で判断、短期・長期で補正 |
+| 積極派（AGGRESSIVE） | 短期 | 短期上昇ならモメンタムを活かして buy |
+
+AI生成後、非スタイル依存の安全補正（テクニカルブレーキ、危険銘柄、市場急落等）を全スタイルに適用し、さらにスタイル依存のセーフティルールを適用:
 
 | スタイル依存補正 | 条件（スタイルにより閾値が異なる） | 動作 |
 |------------------|--------------------------------------|------|
@@ -128,7 +136,7 @@ Stock Buddyの中核機能であるAI推奨システムです。3種類の推奨
 | 急騰ロック | `isSurgeStock(weekChangeRate, style)` | buy → stay |
 | 過熱チェック | `isOverheated(deviationRate, style)` | buy → stay |
 
-フロントエンドでタブ切り替えにより3スタイルの結果を比較表示できます。
+結果は `PurchaseRecommendation.styleAnalyses` と `StockAnalysis.styleAnalyses` に JSON として保存。フロントエンドでタブ切り替えにより3スタイルの結果を比較表示できます。
 
 **API**: `POST /api/stocks/[stockId]/purchase-recommendation`
 
@@ -195,7 +203,7 @@ Stock Buddyの中核機能であるAI推奨システムです。3種類の推奨
 - `app/api/recommendations/generate-daily/route.ts` - 日次おすすめ生成
 - `app/api/featured-stocks/route.ts` - おすすめ銘柄取得
 - `lib/purchase-recommendation-core.ts` - 購入判断ロジック
-- `lib/style-analysis.ts` - 投資スタイル別補正ロジック
+- `lib/style-analysis.ts` - 投資スタイル別セーフティルール
 - `lib/recommendation-scoring.ts` - スコアリング
 - `lib/stock-safety-rules.ts` - 安全ルール
 - `lib/outcome-utils.ts` - 結果追跡ユーティリティ

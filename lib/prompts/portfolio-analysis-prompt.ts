@@ -85,7 +85,7 @@ export function buildPortfolioAnalysisPrompt(params: {
 - すべての判断に具体的な根拠（テクニカル指標・ニュース・市場環境・財務指標）を必ず1つ以上挙げる
 - 文章は必ず「〇〇な理由で → △△な判断」の順番で書く
 - 専門用語を使う場合は必ず括弧内に解説を添える（例: RSI（売られすぎ・買われすぎの指標））
-- ステータス（statusType）は、現在の地合いとテクニカルを総合し、後述の5つから必ず1つ選択してください。
+- 各スタイルのステータス（statusType）は、現在の地合いとテクニカルを総合し、後述の5つから必ず1つ選択してください。
 
 【銘柄情報】${isSimulation ? "（※これは購入を検討しているユーザーのシミュレーションデータです）" : ""}
 - 名前: ${stockName}
@@ -108,20 +108,38 @@ ${financialMetrics}
 直近30日の終値: データあり
 ${newsContext}${marketContext}${sectorTrendContext}
 
+【投資スタイル別の判断基準 - 最重要】
+短期/中期/長期の予測を先に出した上で、3つの投資スタイルそれぞれの視点で判断を出してください。
+各スタイルは同じ銘柄データを見ていますが、「どのトレンドを重視するか」が異なります。
+
+■ 慎重派（CONSERVATIVE）: 早めの利確・損切りを重視
+- 短期テクニカルが悪化 → sell 検討を早めに
+- 含み益があれば早めの利確を提案
+- suggestedSellPercent は高め（75-100%）
+- 迷ったら sell で資産保護
+
+■ バランス型（BALANCED）: 中期トレンドで判断
+- 短期悪化でも中期上昇なら hold 継続
+- 部分利確でリスクとリターンのバランスを取る
+
+■ 積極派（AGGRESSIVE）: 利益最大化を重視
+- 短期下落でも中長期が上昇なら hold 継続
+- 利確は遅め、suggestedSellPercent は低め（25-50%）
+- 上昇トレンドなら buy（買い増し）も積極的に
+
+【重要】3スタイルで recommendation が全て同じになることは避けてください。
+予測トレンドが混在（例: 短期down + 中期up）している場合は、必ずスタイル間で異なる判断を出してください。
+
 【回答形式】
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください。
 
 {
   "marketSignal": "bullish" | "neutral" | "bearish",
-  "statusType": "即時売却" | "戻り売り" | "ホールド" | "押し目買い" | "全力買い",
   "shortTerm": "【必須】テクニカル指標・ニュース等の具体的な根拠を1-2文で述べた後、今週の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "mediumTerm": "【必須】ファンダメンタル・中期トレンドの根拠を1-2文で述べた後、今月の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "longTerm": "【必須】事業展望・財務状況の根拠を1-2文で述べた後、長期継続の判断を1文で結論づける。合計2-3文。感情的な励ましは書かない。",
   "suggestedSellPrice": 売却目標価格（数値のみ、円単位、現在価格・平均取得単価・市場分析を総合的に考慮）,
-  "suggestedSellPercent": 推奨売却割合（25, 50, 75, 100のいずれか。一部利確なら25-75、全売却なら100）,
-  "sellReason": "具体的なシグナルや指標名を挙げて売却理由を説明する（例：「RSI（売られすぎ・買われすぎの指標）が70超の買われすぎ水準で、レジスタンスラインに到達」）",
   "suggestedStopLossPrice": 損切りライン価格（数値のみ、円単位、現在価格と平均取得単価を考慮した適切な水準）,
-  "sellCondition": "どの指標がどの水準になったら売るかを具体的に記述。価格に言及する場合はsuggestedStopLossPriceと同じ値を使うこと（例：「RSIが再び70を超えたら追加売却、または価格がXXX円を下回った場合は全売却を検討」）",
   "shortTermTrend": "up" | "neutral" | "down",
   "shortTermPriceLow": 短期予測の下限価格（数値のみ）,
   "shortTermPriceHigh": 短期予測の上限価格（数値のみ）,
@@ -131,9 +149,38 @@ ${newsContext}${marketContext}${sectorTrendContext}
   "longTermTrend": "up" | "neutral" | "down",
   "longTermPriceLow": 長期予測の下限価格（数値のみ）,
   "longTermPriceHigh": 長期予測の上限価格（数値のみ）,
-  "recommendation": "buy" | "hold" | "sell",
-  "advice": "テクニカル・ファンダメンタルの根拠に基づく具体的なアドバイス（100文字以内）",
-  "confidence": 0.0〜1.0の信頼度
+  "styleAnalyses": {
+    "CONSERVATIVE": {
+      "recommendation": "buy" | "hold" | "sell",
+      "confidence": 0.0〜1.0の信頼度,
+      "statusType": "即時売却" | "戻り売り" | "ホールド" | "押し目買い" | "全力買い",
+      "advice": "慎重派視点でのアドバイス（100文字以内）",
+      "shortTerm": "慎重派視点での今週の判断（2-3文）",
+      "sellReason": "売却理由（sellの場合のみ、holdやbuyの場合はnull）",
+      "sellCondition": "売却条件（sellの場合のみ、holdやbuyの場合はnull）",
+      "suggestedSellPercent": 推奨売却割合（25, 50, 75, 100のいずれか。sellの場合のみ、holdやbuyの場合はnull）
+    },
+    "BALANCED": {
+      "recommendation": "buy" | "hold" | "sell",
+      "confidence": 0.0〜1.0の信頼度,
+      "statusType": "即時売却" | "戻り売り" | "ホールド" | "押し目買い" | "全力買い",
+      "advice": "バランス型視点でのアドバイス（100文字以内）",
+      "shortTerm": "バランス型視点での今週の判断（2-3文）",
+      "sellReason": "売却理由（sellの場合のみ、holdやbuyの場合はnull）",
+      "sellCondition": "売却条件（sellの場合のみ、holdやbuyの場合はnull）",
+      "suggestedSellPercent": 推奨売却割合（25, 50, 75, 100のいずれか。sellの場合のみ、holdやbuyの場合はnull）
+    },
+    "AGGRESSIVE": {
+      "recommendation": "buy" | "hold" | "sell",
+      "confidence": 0.0〜1.0の信頼度,
+      "statusType": "即時売却" | "戻り売り" | "ホールド" | "押し目買い" | "全力買い",
+      "advice": "積極派視点でのアドバイス（100文字以内）",
+      "shortTerm": "積極派視点での今週の判断（2-3文）",
+      "sellReason": "売却理由（sellの場合のみ、holdやbuyの場合はnull）",
+      "sellCondition": "売却条件（sellの場合のみ、holdやbuyの場合はnull）",
+      "suggestedSellPercent": 推奨売却割合（25, 50, 75, 100のいずれか。sellの場合のみ、holdやbuyの場合はnull）
+    }
+  }
 }
 
 ${PROMPT_MARKET_SIGNAL_DEFINITION}
@@ -188,9 +235,9 @@ ${PROMPT_NEWS_CONSTRAINTS}
   - 75%: 大部分を利確、少量残して様子見
   - 100%: 全売却推奨
 - sellReason: テクニカル・ファンダメンタルに基づく具体的な売却理由を記載（指標名と数値を必ず含める）
-- statusType はシステムが recommendation から自動決定するため、気にしなくてよい
-- recommendation が "sell" の場合は sellReason に理由を記載する
-- recommendation が "hold" または "buy" の場合は sellReason と suggestedSellPercent は null にする
+- 各スタイルの statusType はシステムが recommendation から自動決定するため、気にしなくてよい
+- 各スタイルの recommendation が "sell" の場合は sellReason に理由を記載する
+- 各スタイルの recommendation が "hold" または "buy" の場合は sellReason と suggestedSellPercent は null にする
 
 【相対強度・出来高を考慮した下落の性質判断 - 重要】
 ■ 相対強度（銘柄 vs 市場/セクター）で下落の原因を分類してください:
