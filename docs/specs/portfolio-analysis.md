@@ -250,6 +250,48 @@ PortfolioSnapshot テーブルからの時系列データ。
 | metricsAnalysis | Json | 各指標の評価 |
 | actionSuggestions | Json | 推奨アクションリスト |
 | watchlistSimulation | Json? | ウォッチリスト追加シミュレーション |
+| dailyCommentary | Json? | 日次コメンタリー |
+
+**dailyCommentary JSON構造**:
+
+```json
+{
+  "marketSummary": "今日の市場概況とポートフォリオへの影響",
+  "portfolioDailyReturn": "+1.2%",
+  "stockHighlights": [
+    {
+      "stockName": "銘柄名",
+      "tickerCode": "7203.T",
+      "sector": "輸送用機器",
+      "dailyChangeRate": -2.3,
+      "weekChangeRate": 1.5,
+      "analysis": "下落理由の分析",
+      "technicalContext": "テクニカル指標のコンテキスト"
+    }
+  ],
+  "soldStocksAnalysis": [
+    {
+      "stockName": "銘柄名",
+      "tickerCode": "6758.T",
+      "sellPrice": 15000,
+      "averagePurchasePrice": 12000,
+      "profitLossPercent": 25.0,
+      "holdingDays": 45,
+      "timingEvaluation": "売却タイミングの評価"
+    }
+  ],
+  "sectorHighlights": [
+    {
+      "sector": "半導体",
+      "avgDailyChange": -3.1,
+      "trendDirection": "down",
+      "compositeScore": -25,
+      "commentary": "セクター動向のコメント"
+    }
+  ],
+  "tomorrowWatchpoints": ["注目ポイント1", "注目ポイント2"]
+}
+```
 
 ### PortfolioSnapshot
 

@@ -547,6 +547,7 @@ model PortfolioOverallAnalysis {
   metricsAnalysis     Json // 各指標の解説・評価・アクション提案
   actionSuggestions   Json // 推奨アクションリスト
   watchlistSimulation Json? // ウォッチリスト銘柄追加時の予測
+  dailyCommentary     Json? // 日次コメンタリー（市場概況・銘柄値動き・売却評価・セクター動向・注目ポイント）
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

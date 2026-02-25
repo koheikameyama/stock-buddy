@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import type {
   MetricsAnalysis,
   ActionSuggestion,
   WatchlistSimulation,
+  DailyCommentary,
 } from "@/lib/portfolio-overall-analysis"
 import CopyableTicker from "@/app/components/CopyableTicker"
 import { OVERALL_STATUS_CONFIG, EVALUATION_BADGE_CONFIG } from "@/lib/constants"
@@ -31,6 +33,7 @@ interface OverallAnalysisData {
   metricsAnalysis?: MetricsAnalysis
   actionSuggestions?: ActionSuggestion[]
   watchlistSimulation?: WatchlistSimulation | null
+  dailyCommentary?: DailyCommentary | null
 }
 
 interface Props {
@@ -50,6 +53,14 @@ function getEvaluationBadgeStyle(evaluationType: string | undefined) {
   if (!evaluationType) return "bg-gray-100 text-gray-700"
   const config = EVALUATION_BADGE_CONFIG[evaluationType]
   return config ? `${config.bg} ${config.color}` : "bg-gray-100 text-gray-700"
+}
+
+function formatChangeRate(rate: number): { text: string; color: string } {
+  const sign = rate >= 0 ? "+" : ""
+  return {
+    text: `${sign}${rate.toFixed(1)}%`,
+    color: rate > 0 ? "text-red-600" : rate < 0 ? "text-blue-600" : "text-gray-600",
+  }
 }
 
 function MetricCard({
@@ -156,6 +167,146 @@ function WatchlistSimulationCard({
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function DailyCommentarySection({ commentary }: { commentary: DailyCommentary }) {
+  const t = useTranslations("dashboard.dailyCommentary")
+
+  return (
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 sm:p-4 mb-4">
+      {/* ヘッダー + ポートフォリオ日次リターン */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">📰</span>
+          <span className="text-sm font-semibold text-gray-900">
+            {t("title")}
+          </span>
+        </div>
+        {commentary.portfolioDailyReturn && (
+          <span className={`text-sm font-bold ${
+            commentary.portfolioDailyReturn.startsWith("+") || commentary.portfolioDailyReturn.startsWith("＋")
+              ? "text-red-600"
+              : commentary.portfolioDailyReturn.startsWith("-") || commentary.portfolioDailyReturn.startsWith("−")
+                ? "text-blue-600"
+                : "text-gray-600"
+          }`}>
+            {commentary.portfolioDailyReturn}
+          </span>
+        )}
+      </div>
+
+      {/* 市場概況 */}
+      <p className="text-sm text-gray-700 mb-4 whitespace-pre-wrap">
+        {commentary.marketSummary}
+      </p>
+
+      {/* 保有銘柄の値動き */}
+      {commentary.stockHighlights.length > 0 && (
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-gray-500 mb-2">
+            {t("stockMovements.title")}
+          </div>
+          <div className="space-y-2">
+            {commentary.stockHighlights.map((stock) => {
+              const daily = formatChangeRate(stock.dailyChangeRate)
+              const weekly = formatChangeRate(stock.weekChangeRate)
+              return (
+                <div key={stock.tickerCode} className="bg-white/80 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{stock.stockName}</span>
+                      <span className="text-xs text-gray-400">(<CopyableTicker tickerCode={stock.tickerCode} />)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${daily.color}`}>{daily.text}</span>
+                      <span className={`text-xs ${weekly.color}`}>{t("stockMovements.weekChange")} {weekly.text}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-1">{stock.analysis}</p>
+                  {stock.technicalContext && (
+                    <p className="text-[10px] text-gray-400">{stock.technicalContext}</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 本日の売却評価 */}
+      {commentary.soldStocksAnalysis.length > 0 && (
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-gray-500 mb-2">
+            {t("soldStocks.title")}
+          </div>
+          <div className="space-y-2">
+            {commentary.soldStocksAnalysis.map((stock) => {
+              const pl = formatChangeRate(stock.profitLossPercent)
+              return (
+                <div key={stock.tickerCode} className="bg-white/80 rounded-lg p-3 border border-amber-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{stock.stockName}</span>
+                      <span className="text-xs text-gray-400">(<CopyableTicker tickerCode={stock.tickerCode} />)</span>
+                    </div>
+                    <span className={`text-sm font-bold ${pl.color}`}>{pl.text}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
+                    <span>¥{stock.sellPrice.toLocaleString()} → ¥{stock.averagePurchasePrice.toLocaleString()}</span>
+                    <span>{t("soldStocks.holdingDays", { days: stock.holdingDays })}</span>
+                  </div>
+                  <p className="text-xs text-gray-600">{stock.timingEvaluation}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* セクター動向 */}
+      {commentary.sectorHighlights.length > 0 && (
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-gray-500 mb-2">
+            {t("sectorDynamics.title")}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {commentary.sectorHighlights.map((sector) => {
+              const change = formatChangeRate(sector.avgDailyChange)
+              const arrow = sector.trendDirection === "up" ? "▲" : sector.trendDirection === "down" ? "▼" : "▶"
+              return (
+                <div key={sector.sector} className="bg-white/80 rounded-lg px-3 py-2 border border-blue-100 flex-1 min-w-[140px]">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-900">{sector.sector}</span>
+                    <span className={`text-xs font-bold ${change.color}`}>{arrow} {change.text}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500">{sector.commentary}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 明日の注目ポイント */}
+      {commentary.tomorrowWatchpoints.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold text-gray-500 mb-2">
+            {t("tomorrowWatchpoints.title")}
+          </div>
+          <div className="bg-white/80 rounded-lg p-3 border border-blue-100">
+            <ul className="space-y-1">
+              {commentary.tomorrowWatchpoints.map((point, i) => (
+                <li key={i} className="text-xs text-gray-700 flex items-start gap-1.5">
+                  <span className="text-blue-500 shrink-0 mt-0.5">•</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -285,6 +436,11 @@ export default function PortfolioOverallAnalysis({
           </span>
         )}
       </div>
+
+      {/* 日次コメンタリー（最も目立つ位置） */}
+      {data.dailyCommentary && (
+        <DailyCommentarySection commentary={data.dailyCommentary} />
+      )}
 
       {/* 総評サマリー */}
       {data.overallSummary && (

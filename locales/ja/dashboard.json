@@ -1,6 +1,28 @@
 {
   "greeting": "おはようございます、{name}さん！",
   "subtitle": "今日も一緒に投資を見守りましょう",
+  "dailyCommentary": {
+    "title": "今日の総評",
+    "marketSummary": "市場概況",
+    "stockMovements": {
+      "title": "保有銘柄の値動き",
+      "dailyChange": "前日比",
+      "weekChange": "週間"
+    },
+    "soldStocks": {
+      "title": "本日の売却評価",
+      "sellPrice": "売却価格",
+      "avgPurchasePrice": "平均取得価格",
+      "profitLoss": "損益",
+      "holdingDays": "{days}日保有"
+    },
+    "sectorDynamics": {
+      "title": "セクター動向"
+    },
+    "tomorrowWatchpoints": {
+      "title": "今後の注目ポイント"
+    }
+  },
   "investmentStyle": {
     "setupPrompt": {
       "title": "投資スタイルを登録しましょう",

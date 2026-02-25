@@ -23,6 +23,10 @@ export function buildPortfolioOverallAnalysisPrompt(params: {
   unprofitablePortfolioNames: string[];
   unprofitableWatchlistNames: string[];
   watchlistForSimulation: WatchlistStockForSimulation[];
+  stockDailyMovementsText: string;
+  soldStocksText: string;
+  sectorTrendsText: string;
+  upcomingEarningsText: string;
 }): string {
   const {
     portfolioCount,
@@ -42,10 +46,14 @@ export function buildPortfolioOverallAnalysisPrompt(params: {
     unprofitablePortfolioNames,
     unprofitableWatchlistNames,
     watchlistForSimulation,
+    stockDailyMovementsText,
+    soldStocksText,
+    sectorTrendsText,
+    upcomingEarningsText,
   } = params;
 
   return `あなたは投資初心者向けのAIコーチです。
-以下のポートフォリオ情報を分析し、総評と指標別の解説を提供してください。
+以下のポートフォリオ情報を分析し、総評と指標別の解説、そして今日の日次コメンタリーを提供してください。
 
 【ポートフォリオ情報】
 - 保有銘柄数: ${portfolioCount}銘柄
@@ -78,6 +86,18 @@ ${unprofitableWatchlistNames.length > 0
 
 【ウォッチリスト銘柄】
 ${watchlistStocksText}
+
+【今日の値動きデータ】
+${stockDailyMovementsText}
+
+【本日の売却取引】
+${soldStocksText}
+
+【セクタートレンド】
+${sectorTrendsText}
+
+【今後7日間の決算予定】
+${upcomingEarningsText}
 
 【回答形式】
 以下のJSON形式で回答してください。
@@ -131,8 +151,53 @@ ${watchlistStocksText}
         }
       }`).join(",")}
     ]
-  }` : "null"}
+  }` : "null"},
+  "dailyCommentary": {
+    "marketSummary": "今日の市場全体の動向と、あなたのポートフォリオへの影響を2-3文で。初心者向けに分かりやすく",
+    "portfolioDailyReturn": "ポートフォリオ全体の日次リターン（例: +1.2%）。値動きデータから加重平均で算出",
+    "stockHighlights": [
+      {
+        "stockName": "銘柄名",
+        "tickerCode": "コード",
+        "sector": "セクター名",
+        "dailyChangeRate": 2.5,
+        "weekChangeRate": 5.0,
+        "analysis": "なぜこの銘柄が今日上昇/下落したか、セクター動向やテクニカル指標を踏まえて1-2文で説明",
+        "technicalContext": "MA乖離率や出来高比など、テクニカル指標から読み取れるポイントを1文で"
+      }
+    ],
+    "soldStocksAnalysis": [
+      {
+        "stockName": "銘柄名",
+        "tickerCode": "コード",
+        "sellPrice": 2500,
+        "averagePurchasePrice": 2000,
+        "profitLossPercent": 25.0,
+        "holdingDays": 45,
+        "timingEvaluation": "売却タイミングの評価（良いタイミング/やや早い/もう少し待てた等）と理由を1-2文で"
+      }
+    ],
+    "sectorHighlights": [
+      {
+        "sector": "セクター名",
+        "avgDailyChange": 1.2,
+        "trendDirection": "up/down/neutral",
+        "compositeScore": 35,
+        "commentary": "セクターの動向とポートフォリオへの影響を1文で"
+      }
+    ],
+    "tomorrowWatchpoints": [
+      "明日以降に注意すべきポイントを箇条書きで（決算発表、テクニカル水準、セクター動向など）"
+    ]
+  }
 }
+
+【日次コメンタリーの指針】
+- stockHighlightsは保有銘柄すべてについて記載する（値動きが大きい順に並べる）
+- soldStocksAnalysisは本日の売却取引がある場合のみ記載（なければ空配列）
+- sectorHighlightsはポートフォリオに関連するセクターのみ記載
+- tomorrowWatchpointsは決算予定、テクニカル指標のシグナル、セクター動向から注目ポイントを2-4個程度
+- 「なぜ下がったか」「なぜ上がったか」の理由をセクター動向やテクニカル指標と関連付けて説明する
 
 【表現の指針】
 - 専門用語には必ず解説を添える（例：「ボラティリティ（値動きの激しさ）」）

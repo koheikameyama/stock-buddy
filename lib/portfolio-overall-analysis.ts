@@ -4,6 +4,8 @@ import { fetchStockPrices } from "@/lib/stock-price-fetcher"
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator"
 import { getOpenAIClient } from "@/lib/openai"
 import { buildPortfolioOverallAnalysisPrompt } from "@/lib/prompts/portfolio-overall-analysis-prompt"
+import { getAllSectorTrends, SectorTrendData } from "@/lib/sector-trend"
+import { getTodayForDB } from "@/lib/date-utils"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -49,6 +51,44 @@ export interface WatchlistSimulation {
   stocks: WatchlistStockSimulation[]
 }
 
+// 日次コメンタリー型定義
+export interface StockDailyHighlight {
+  stockName: string
+  tickerCode: string
+  sector: string
+  dailyChangeRate: number
+  weekChangeRate: number
+  analysis: string
+  technicalContext: string
+}
+
+export interface SoldStockEvaluation {
+  stockName: string
+  tickerCode: string
+  sellPrice: number
+  averagePurchasePrice: number
+  profitLossPercent: number
+  holdingDays: number
+  timingEvaluation: string
+}
+
+export interface SectorDailyHighlight {
+  sector: string
+  avgDailyChange: number
+  trendDirection: string
+  compositeScore: number | null
+  commentary: string
+}
+
+export interface DailyCommentary {
+  marketSummary: string
+  portfolioDailyReturn: string
+  stockHighlights: StockDailyHighlight[]
+  soldStocksAnalysis: SoldStockEvaluation[]
+  sectorHighlights: SectorDailyHighlight[]
+  tomorrowWatchpoints: string[]
+}
+
 export interface OverallAnalysisResult {
   hasAnalysis: boolean
   reason?: "not_enough_stocks"
@@ -75,6 +115,7 @@ export interface OverallAnalysisResult {
   metricsAnalysis?: MetricsAnalysis
   actionSuggestions?: ActionSuggestion[]
   watchlistSimulation?: WatchlistSimulation | null
+  dailyCommentary?: DailyCommentary | null
 }
 
 interface SectorBreakdown {
@@ -100,6 +141,12 @@ interface PortfolioStockData {
   revenueGrowth: number | null
   netIncomeGrowth: number | null
   eps: number | null
+  // 日次データ
+  dailyChangeRate: number | null
+  weekChangeRate: number | null
+  maDeviationRate: number | null
+  volumeRatio: number | null
+  nextEarningsDate: Date | null
 }
 
 interface WatchlistStockData {
@@ -209,7 +256,13 @@ async function generateAnalysisWithAI(
   totalCost: number,
   unrealizedGain: number,
   unrealizedGainPercent: number,
-  portfolioVolatility: number | null
+  portfolioVolatility: number | null,
+  dailyContext: {
+    stockDailyMovementsText: string
+    soldStocksText: string
+    sectorTrendsText: string
+    upcomingEarningsText: string
+  }
 ): Promise<{
   overallSummary: string
   overallStatus: string
@@ -217,6 +270,7 @@ async function generateAnalysisWithAI(
   metricsAnalysis: MetricsAnalysis
   actionSuggestions: ActionSuggestion[]
   watchlistSimulation: WatchlistSimulation | null
+  dailyCommentary: DailyCommentary | null
 }> {
   const openai = getOpenAIClient()
 
@@ -274,6 +328,10 @@ async function generateAnalysisWithAI(
       tickerCode: ws.tickerCode,
       sector: ws.sector,
     })),
+    stockDailyMovementsText: dailyContext.stockDailyMovementsText,
+    soldStocksText: dailyContext.soldStocksText,
+    sectorTrendsText: dailyContext.sectorTrendsText,
+    upcomingEarningsText: dailyContext.upcomingEarningsText,
   })
 
   // MetricAnalysis のスキーマ定義
@@ -323,6 +381,76 @@ async function generateAnalysisWithAI(
       },
     },
     required: ["stockId", "stockName", "tickerCode", "sector", "predictedImpact"],
+    additionalProperties: false,
+  }
+
+  // 日次コメンタリーのスキーマ定義
+  const stockDailyHighlightSchema = {
+    type: "object",
+    properties: {
+      stockName: { type: "string" },
+      tickerCode: { type: "string" },
+      sector: { type: "string" },
+      dailyChangeRate: { type: "number" },
+      weekChangeRate: { type: "number" },
+      analysis: { type: "string" },
+      technicalContext: { type: "string" },
+    },
+    required: ["stockName", "tickerCode", "sector", "dailyChangeRate", "weekChangeRate", "analysis", "technicalContext"],
+    additionalProperties: false,
+  }
+
+  const soldStockEvaluationSchema = {
+    type: "object",
+    properties: {
+      stockName: { type: "string" },
+      tickerCode: { type: "string" },
+      sellPrice: { type: "number" },
+      averagePurchasePrice: { type: "number" },
+      profitLossPercent: { type: "number" },
+      holdingDays: { type: "number" },
+      timingEvaluation: { type: "string" },
+    },
+    required: ["stockName", "tickerCode", "sellPrice", "averagePurchasePrice", "profitLossPercent", "holdingDays", "timingEvaluation"],
+    additionalProperties: false,
+  }
+
+  const sectorDailyHighlightSchema = {
+    type: "object",
+    properties: {
+      sector: { type: "string" },
+      avgDailyChange: { type: "number" },
+      trendDirection: { type: "string", enum: ["up", "down", "neutral"] },
+      compositeScore: { type: ["number", "null"] },
+      commentary: { type: "string" },
+    },
+    required: ["sector", "avgDailyChange", "trendDirection", "compositeScore", "commentary"],
+    additionalProperties: false,
+  }
+
+  const dailyCommentarySchema = {
+    type: "object",
+    properties: {
+      marketSummary: { type: "string" },
+      portfolioDailyReturn: { type: "string" },
+      stockHighlights: {
+        type: "array",
+        items: stockDailyHighlightSchema,
+      },
+      soldStocksAnalysis: {
+        type: "array",
+        items: soldStockEvaluationSchema,
+      },
+      sectorHighlights: {
+        type: "array",
+        items: sectorDailyHighlightSchema,
+      },
+      tomorrowWatchpoints: {
+        type: "array",
+        items: { type: "string" },
+      },
+    },
+    required: ["marketSummary", "portfolioDailyReturn", "stockHighlights", "soldStocksAnalysis", "sectorHighlights", "tomorrowWatchpoints"],
     additionalProperties: false,
   }
 
@@ -379,8 +507,9 @@ async function generateAnalysisWithAI(
                   additionalProperties: false,
                 }
               : { type: "null" },
+            dailyCommentary: dailyCommentarySchema,
           },
-          required: ["overallSummary", "overallStatus", "overallStatusType", "metricsAnalysis", "actionSuggestions", "watchlistSimulation"],
+          required: ["overallSummary", "overallStatus", "overallStatusType", "metricsAnalysis", "actionSuggestions", "watchlistSimulation", "dailyCommentary"],
           additionalProperties: false,
         },
       },
@@ -401,6 +530,7 @@ async function generateAnalysisWithAI(
     metricsAnalysis: result.metricsAnalysis,
     actionSuggestions: result.actionSuggestions || [],
     watchlistSimulation: result.watchlistSimulation,
+    dailyCommentary: result.dailyCommentary || null,
   }
 }
 
@@ -478,6 +608,7 @@ export async function getPortfolioOverallAnalysis(userId: string): Promise<Overa
       metricsAnalysis: analysis.metricsAnalysis as unknown as MetricsAnalysis,
       actionSuggestions: analysis.actionSuggestions as unknown as ActionSuggestion[],
       watchlistSimulation: analysis.watchlistSimulation as unknown as WatchlistSimulation | null,
+      dailyCommentary: analysis.dailyCommentary as unknown as DailyCommentary | null,
     }
   }
 
@@ -555,7 +686,7 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
     const value = currentPrice * quantity
     const cost = averagePurchasePrice.toNumber() * quantity
 
-    // 業績データはDBのStockモデルから取得
+    // 業績データ・日次データはDBのStockモデルから取得
     portfolioStocksData.push({
       stockId: ps.stockId,
       tickerCode: ps.stock.tickerCode,
@@ -571,6 +702,11 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
       revenueGrowth: ps.stock.revenueGrowth ? Number(ps.stock.revenueGrowth) : null,
       netIncomeGrowth: ps.stock.netIncomeGrowth ? Number(ps.stock.netIncomeGrowth) : null,
       eps: ps.stock.eps ? Number(ps.stock.eps) : null,
+      dailyChangeRate: ps.stock.dailyChangeRate ? Number(ps.stock.dailyChangeRate) : null,
+      weekChangeRate: ps.stock.weekChangeRate ? Number(ps.stock.weekChangeRate) : null,
+      maDeviationRate: ps.stock.maDeviationRate ? Number(ps.stock.maDeviationRate) : null,
+      volumeRatio: ps.stock.volumeRatio ? Number(ps.stock.volumeRatio) : null,
+      nextEarningsDate: ps.stock.nextEarningsDate ?? null,
     })
 
     totalValue += value
@@ -597,6 +733,90 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
   const unrealizedGainPercent = totalCost > 0 ? (unrealizedGain / totalCost) * 100 : 0
   const maxSectorConcentration = sectorBreakdown.length > 0 ? sectorBreakdown[0].percentage : 0
 
+  // === 日次コメンタリー用データ収集 ===
+
+  // 銘柄別の日次値動きテキスト
+  const stockDailyMovementsText = portfolioStocksData
+    .map(s => {
+      const daily = s.dailyChangeRate != null ? `前日比 ${s.dailyChangeRate >= 0 ? "+" : ""}${s.dailyChangeRate.toFixed(1)}%` : "前日比 データなし"
+      const weekly = s.weekChangeRate != null ? `週間 ${s.weekChangeRate >= 0 ? "+" : ""}${s.weekChangeRate.toFixed(1)}%` : ""
+      const ma = s.maDeviationRate != null ? `MA乖離 ${s.maDeviationRate >= 0 ? "+" : ""}${s.maDeviationRate.toFixed(1)}%` : ""
+      const vol = s.volumeRatio != null ? `出来高比 ${s.volumeRatio.toFixed(1)}倍` : ""
+      const parts = [daily, weekly, ma, vol].filter(Boolean).join(", ")
+      return `- ${s.name}（${s.tickerCode}）: ${parts}`
+    })
+    .join("\n")
+
+  // 本日の売却取引を取得
+  const todayForDB = getTodayForDB()
+  const tomorrowForDB = new Date(todayForDB.getTime() + 86400000)
+
+  const todaySellTransactions = await prisma.transaction.findMany({
+    where: {
+      portfolioStock: { userId },
+      type: "sell",
+      transactionDate: {
+        gte: todayForDB,
+        lt: tomorrowForDB,
+      },
+    },
+    include: {
+      stock: true,
+      portfolioStock: {
+        include: {
+          transactions: {
+            orderBy: { transactionDate: "asc" },
+          },
+        },
+      },
+    },
+  })
+
+  const soldStocksText = todaySellTransactions.length > 0
+    ? todaySellTransactions.map(tx => {
+        const avgPrice = tx.portfolioStock
+          ? calculatePortfolioFromTransactions(tx.portfolioStock.transactions).averagePurchasePrice.toNumber()
+          : 0
+        const sellPrice = Number(tx.price)
+        const profitLoss = avgPrice > 0 ? ((sellPrice - avgPrice) / avgPrice * 100).toFixed(1) : "不明"
+        // 保有日数を計算
+        const firstBuy = tx.portfolioStock?.transactions.find(t => t.type === "buy")
+        const holdingDays = firstBuy
+          ? Math.round((tx.transactionDate.getTime() - firstBuy.transactionDate.getTime()) / 86400000)
+          : 0
+        return `- ${tx.stock.name}（${tx.stock.tickerCode}）: 売却価格 ¥${sellPrice.toLocaleString()}, 平均取得 ¥${avgPrice.toLocaleString()}, 損益 ${profitLoss}%, 保有日数 ${holdingDays}日, ${tx.quantity}株`
+      }).join("\n")
+    : "本日の売却取引はありません"
+
+  // セクタートレンドを取得（ポートフォリオ内のセクターに絞り込み）
+  const portfolioSectors = new Set(portfolioStocksData.map(s => s.sector || "その他"))
+  const { trends: allSectorTrends } = await getAllSectorTrends()
+  const relevantSectorTrends = allSectorTrends.filter(t => portfolioSectors.has(t.sector))
+
+  const sectorTrendsText = relevantSectorTrends.length > 0
+    ? relevantSectorTrends.map(t => {
+        const daily = t.avgDailyChangeRate != null ? `日次平均 ${t.avgDailyChangeRate >= 0 ? "+" : ""}${t.avgDailyChangeRate.toFixed(1)}%` : ""
+        const score = t.compositeScore != null ? `総合スコア ${t.compositeScore >= 0 ? "+" : ""}${t.compositeScore.toFixed(0)}` : ""
+        const arrow = t.trendDirection === "up" ? "↑" : t.trendDirection === "down" ? "↓" : "→"
+        return `- ${t.sector} ${arrow}: ${[daily, score].filter(Boolean).join(", ")}`
+      }).join("\n")
+    : "セクタートレンドデータなし"
+
+  // 今後7日間の決算予定
+  const sevenDaysLater = new Date(todayForDB.getTime() + 7 * 86400000)
+  const allStocksWithEarnings = [
+    ...portfolioStocksData.map(s => ({ name: s.name, tickerCode: s.tickerCode, nextEarningsDate: s.nextEarningsDate })),
+    ...user.watchlistStocks
+      .filter(ws => ws.stock.nextEarningsDate != null)
+      .map(ws => ({ name: ws.stock.name, tickerCode: ws.stock.tickerCode, nextEarningsDate: ws.stock.nextEarningsDate })),
+  ]
+  const upcomingEarnings = allStocksWithEarnings.filter(
+    s => s.nextEarningsDate && s.nextEarningsDate >= todayForDB && s.nextEarningsDate <= sevenDaysLater
+  )
+  const upcomingEarningsText = upcomingEarnings.length > 0
+    ? upcomingEarnings.map(s => `- ${s.name}（${s.tickerCode}）: ${dayjs(s.nextEarningsDate).format("MM/DD")}`).join("\n")
+    : "今後7日間に決算予定の銘柄はありません"
+
   // AI分析を生成
   const aiResult = await generateAnalysisWithAI(
     portfolioStocksData,
@@ -606,7 +826,13 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
     totalCost,
     unrealizedGain,
     unrealizedGainPercent,
-    portfolioVolatility
+    portfolioVolatility,
+    {
+      stockDailyMovementsText,
+      soldStocksText,
+      sectorTrendsText,
+      upcomingEarningsText,
+    }
   )
 
   // DBに保存
@@ -631,6 +857,9 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
       watchlistSimulation: aiResult.watchlistSimulation
         ? (aiResult.watchlistSimulation as unknown as Prisma.InputJsonValue)
         : Prisma.DbNull,
+      dailyCommentary: aiResult.dailyCommentary
+        ? (aiResult.dailyCommentary as unknown as Prisma.InputJsonValue)
+        : Prisma.DbNull,
     },
     update: {
       analyzedAt: now,
@@ -648,6 +877,9 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
       actionSuggestions: aiResult.actionSuggestions as unknown as Prisma.InputJsonValue,
       watchlistSimulation: aiResult.watchlistSimulation
         ? (aiResult.watchlistSimulation as unknown as Prisma.InputJsonValue)
+        : Prisma.DbNull,
+      dailyCommentary: aiResult.dailyCommentary
+        ? (aiResult.dailyCommentary as unknown as Prisma.InputJsonValue)
         : Prisma.DbNull,
     },
   })
@@ -673,5 +905,6 @@ export async function generatePortfolioOverallAnalysis(userId: string): Promise<
     metricsAnalysis: aiResult.metricsAnalysis,
     actionSuggestions: aiResult.actionSuggestions,
     watchlistSimulation: aiResult.watchlistSimulation,
+    dailyCommentary: aiResult.dailyCommentary,
   }
 }
