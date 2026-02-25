@@ -98,7 +98,8 @@
       "stay": "様子見",
       "hold": "保有",
       "avoid": "見送り",
-      "sell": "売却"
+      "sell": "売却",
+      "rebound": "戻り待ち"
     },
     "simulation": "購入シミュレーション",
     "simulationTitle": "購入後分析シミュレーション",
