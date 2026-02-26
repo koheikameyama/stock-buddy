@@ -495,14 +495,12 @@ export default function PurchaseRecommendation({
     );
   };
 
-  // AI推奨価格セクション（ウォッチリスト：指値 + 購入後の撤退ライン）
+  // AI推奨価格セクション（ウォッチリスト：指値）
   const AIPriceSection = () => {
-    // 指値も撤退ラインもない場合は非表示
-    if (!effectiveData?.limitPrice && !effectiveData?.stopLossPrice) return null;
+    if (!effectiveData?.limitPrice) return null;
 
     const currentPrice = effectiveData.currentPrice;
     const limitPriceNum = effectiveData.limitPrice;
-    const stopLossPriceNum = effectiveData.stopLossPrice;
     const priceDiff =
       currentPrice && limitPriceNum ? limitPriceNum - currentPrice : 0;
     // buy推奨時のみ「今が買い時」と表示する（stay/avoid時は矛盾を避けるため単なる指値として表示）
@@ -536,16 +534,6 @@ export default function PurchaseRecommendation({
                   あと{Math.abs(priceDiff).toLocaleString()}円下落で到達
                 </p>
               )}
-            </div>
-          )}
-          {/* 撤退ライン（購入後の参考） */}
-          {stopLossPriceNum && (
-            <div>
-              <p className="text-xs text-gray-500">撤退ライン</p>
-              <p className="text-base font-bold text-red-600">
-                {stopLossPriceNum.toLocaleString()}円
-              </p>
-              <p className="text-xs text-gray-400">購入後の撤退目安</p>
             </div>
           )}
         </div>
@@ -745,47 +733,6 @@ export default function PurchaseRecommendation({
     return null;
   };
 
-  // リスク管理セクション（撤退ライン率・売却目標率）
-  const RiskManagementSection = () => {
-    const stopLoss = effectiveData?.suggestedExitRate;
-    const takeProfit = effectiveData?.suggestedSellTargetRate;
-    if (!stopLoss && !takeProfit) return null;
-
-    const stopLossPercent = stopLoss ? Math.round(stopLoss * 100) : null;
-    const takeProfitPercent = takeProfit ? Math.round(takeProfit * 100) : null;
-
-    return (
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
-        <p className="text-sm font-semibold text-gray-800 mb-2">
-          {t("riskManagement.title")}
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          {stopLossPercent && (
-            <div>
-              <p className="text-xs text-gray-500">{t("riskManagement.stopLoss")}</p>
-              <p className="text-base font-bold text-red-600">-{stopLossPercent}%</p>
-              <p className="text-xs text-gray-400">
-                {t("riskManagement.stopLossDesc", { rate: String(stopLossPercent) })}
-              </p>
-            </div>
-          )}
-          {takeProfitPercent && (
-            <div>
-              <p className="text-xs text-gray-500">{t("riskManagement.sellTarget")}</p>
-              <p className="text-base font-bold text-green-600">+{takeProfitPercent}%</p>
-              <p className="text-xs text-gray-400">
-                {t("riskManagement.sellTargetDesc", { rate: String(takeProfitPercent) })}
-              </p>
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-gray-400 mt-2">
-          {t("riskManagement.note")}
-        </p>
-      </div>
-    );
-  };
-
   // 投資スタイル切り替えタブ
   const StyleTabs = () => {
     if (!hasStyleAnalyses) return null;
@@ -854,9 +801,6 @@ export default function PurchaseRecommendation({
 
           {/* 購入タイミング */}
           <BuyTimingSection />
-
-          {/* リスク管理（撤退ライン率・売却目標率） */}
-          <RiskManagementSection />
 
           {/* D. パーソナライズ */}
           <PersonalizedSection />
@@ -1052,9 +996,6 @@ export default function PurchaseRecommendation({
             <p className="text-sm text-emerald-800">{effectiveData.buyCondition}</p>
           </div>
         )}
-
-        {/* リスク管理（撤退ライン率・売却目標率） */}
-        <RiskManagementSection />
 
         {/* B. 深掘り評価 */}
         <DeepEvaluationSection />
