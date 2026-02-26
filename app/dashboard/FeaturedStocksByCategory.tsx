@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { UPDATE_SCHEDULES, FETCH_FAIL_WARNING_THRESHOLD, INVESTMENT_THEME_CONFIG } from "@/lib/constants"
+import { UPDATE_SCHEDULES, FETCH_FAIL_WARNING_THRESHOLD, INVESTMENT_THEME_CONFIG, PURCHASE_JUDGMENT_CONFIG } from "@/lib/constants"
 import { CARD_FOOTER_STYLES } from "@/lib/ui-config"
 import StockActionButtons from "@/app/components/StockActionButtons"
 import CopyableTicker from "@/app/components/CopyableTicker"
@@ -17,6 +17,7 @@ interface FeaturedStock {
   reason: string | null
   sellTargetRate: number | null
   exitRate: number | null
+  purchaseJudgment: string | null
   isOwned: boolean // ポートフォリオにある場合
   isRegistered: boolean // ウォッチリストにある場合
   isTracked: boolean // 追跡中の場合
@@ -39,6 +40,7 @@ interface FeaturedStock {
 
 export default function FeaturedStocksByCategory() {
   const t = useTranslations("dashboard.exitStrategy")
+  const tRec = useTranslations("dashboard.recommendation")
   const [personalRecommendations, setPersonalRecommendations] = useState<FeaturedStock[]>([])
   const [pricesLoaded, setPricesLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -226,6 +228,18 @@ export default function FeaturedStocksByCategory() {
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].bg} ${INVESTMENT_THEME_CONFIG[stock.investmentTheme].color}`}>
               <span>{INVESTMENT_THEME_CONFIG[stock.investmentTheme].icon}</span>
               {INVESTMENT_THEME_CONFIG[stock.investmentTheme].text}
+            </span>
+          </div>
+        )}
+
+        {/* おすすめ時点での評価バッジ */}
+        {!isDisabled && stock.purchaseJudgment && PURCHASE_JUDGMENT_CONFIG[stock.purchaseJudgment] && (
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="text-[11px] text-gray-500">
+              {tRec("purchaseJudgmentLabel")}
+            </span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${PURCHASE_JUDGMENT_CONFIG[stock.purchaseJudgment].bg} ${PURCHASE_JUDGMENT_CONFIG[stock.purchaseJudgment].color}`}>
+              {PURCHASE_JUDGMENT_CONFIG[stock.purchaseJudgment].text}
             </span>
           </div>
         )}

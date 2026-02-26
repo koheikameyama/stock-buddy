@@ -50,10 +50,17 @@ def main():
             sys.exit(1)
 
         result = response.json()
-        print(f"Success: {result.get('processed', 0)} users processed")
-        print(f"Failed: {result.get('failed', 0)} users failed")
+        processed = result.get('processed', 0)
+        failed = result.get('failed', 0)
+        print(f"Success: {processed} users processed")
+        print(f"Failed: {failed} users failed")
 
-        if result.get('failed', 0) > 0 and result.get('processed', 0) == 0:
+        # 失敗したユーザーの詳細を出力
+        for r in result.get('results', []):
+            if not r.get('success'):
+                print(f"  - User {r.get('userId', 'unknown')}: {r.get('error', 'unknown error')}")
+
+        if failed > 0:
             sys.exit(1)
 
     except requests.exceptions.Timeout:

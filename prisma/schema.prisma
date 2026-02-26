@@ -523,6 +523,7 @@ model UserDailyRecommendation {
   investmentTheme String? // 投資テーマ: "短期成長" | "中長期安定成長" | "高配当" | "割安反発" | "テクニカル好転" | "安定ディフェンシブ"
   sellTargetRate  Float? // AI推奨売却目標率（現在価格基準、例: 0.15 = 15%）
   exitRate        Float? // AI推奨撤退ライン率（現在価格基準、例: 0.05 = 5%）
+  purchaseJudgment String? // おすすめ時点での購入判断: "buy" | "stay" | "avoid"
   createdAt       DateTime @default(now())
 
   @@unique([userId, date, position])

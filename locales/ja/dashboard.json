@@ -41,6 +41,9 @@
     "exitLine": "推奨撤退ライン",
     "riskReward": "リスクリワード"
   },
+  "recommendation": {
+    "purchaseJudgmentLabel": "おすすめ時点での評価"
+  },
   "nikkei": {
     "title": "日経平均株価",
     "period1m": "1ヶ月",

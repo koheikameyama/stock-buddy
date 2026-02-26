@@ -432,20 +432,22 @@ async function processUser(
   }
 
   // 購入判断で"buy"にならない銘柄をフィルタリング
-  const filteredRecs = await filterByPurchaseRecommendation(
+  const { filtered, all } = await filterByPurchaseRecommendation(
     userId,
     recommendations,
     topCandidates,
   );
 
-  if (filteredRecs.length === 0) {
-    console.log(`  All recommendations filtered out by purchase judgment`);
-    return { userId, success: false, error: "All recommendations filtered out" };
+  const recsToSave = filtered.length > 0 ? filtered : all;
+  if (filtered.length === 0) {
+    console.log(
+      `  All recommendations filtered out by purchase judgment, using original AI selections`,
+    );
   }
 
   const saved = await saveRecommendations(
     userId,
-    filteredRecs,
+    recsToSave,
     topCandidates,
   );
   console.log(`  Saved ${saved} recommendations`);
@@ -453,12 +455,23 @@ async function processUser(
   return {
     userId,
     success: true,
-    recommendations: filteredRecs,
+    recommendations: recsToSave,
   };
 }
 
 const PURCHASE_FILTER_CONCURRENCY = 5;
 const MAX_DAILY_RECOMMENDATIONS = 5;
+
+interface RecWithJudgment {
+  tickerCode: string;
+  reason: string;
+  investmentTheme: string;
+  expectedExitStrategy: {
+    sellTargetRate: number;
+    exitRate: number;
+  };
+  purchaseJudgment: string;
+}
 
 async function filterByPurchaseRecommendation(
   userId: string,
@@ -472,17 +485,7 @@ async function filterByPurchaseRecommendation(
     };
   }>,
   candidates: ScoredStock[],
-): Promise<
-  Array<{
-    tickerCode: string;
-    reason: string;
-    investmentTheme: string;
-    expectedExitStrategy: {
-      sellTargetRate: number;
-      exitRate: number;
-    };
-  }>
-> {
+): Promise<{ filtered: RecWithJudgment[]; all: RecWithJudgment[] }> {
   const stockMap = new Map(candidates.map((s) => [s.tickerCode, s]));
   const limit = pLimit(PURCHASE_FILTER_CONCURRENCY);
 
@@ -490,7 +493,7 @@ async function filterByPurchaseRecommendation(
     recommendations.map((rec) =>
       limit(async () => {
         const stock = stockMap.get(rec.tickerCode);
-        if (!stock) return { rec, keep: true };
+        if (!stock) return { rec, keep: true, judgment: "buy" };
 
         try {
           const result = await executePurchaseRecommendation(userId, stock.id);
@@ -498,23 +501,32 @@ async function filterByPurchaseRecommendation(
           console.log(
             `  ${keep ? "✅" : "❌"} ${rec.tickerCode}: PurchaseRec = ${result.recommendation}`,
           );
-          return { rec, keep };
+          return { rec, keep, judgment: result.recommendation };
         } catch (error) {
           console.warn(
             `  ⚠️ ${rec.tickerCode}: PurchaseRec check failed, keeping`,
             error,
           );
-          return { rec, keep: true };
+          return { rec, keep: true, judgment: "buy" };
         }
       }),
     ),
   );
 
-  const filtered = results.filter((r) => r.keep).map((r) => r.rec);
+  const all = results.map((r) => ({
+    ...r.rec,
+    purchaseJudgment: r.judgment,
+  }));
+  const filtered = results
+    .filter((r) => r.keep)
+    .map((r) => ({ ...r.rec, purchaseJudgment: r.judgment }));
   console.log(
     `  Purchase filter: ${recommendations.length} → ${filtered.length} stocks`,
   );
-  return filtered.slice(0, MAX_DAILY_RECOMMENDATIONS);
+  return {
+    filtered: filtered.slice(0, MAX_DAILY_RECOMMENDATIONS),
+    all,
+  };
 }
 
 async function buildStockContexts(
@@ -911,15 +923,7 @@ ${ctx.technicalContext}${ctx.candlestickContext}${ctx.chartPatternContext}${ctx.
 
 async function saveRecommendations(
   userId: string,
-  recommendations: Array<{
-    tickerCode: string;
-    reason: string;
-    investmentTheme: string;
-    expectedExitStrategy: {
-      sellTargetRate: number;
-      exitRate: number;
-    };
-  }>,
+  recommendations: RecWithJudgment[],
   candidates: ScoredStock[],
 ): Promise<number> {
   const today = getTodayForDB();
@@ -953,6 +957,7 @@ async function saveRecommendations(
           investmentTheme: rec.investmentTheme,
           sellTargetRate: rec.expectedExitStrategy.sellTargetRate,
           exitRate: rec.expectedExitStrategy.exitRate,
+          purchaseJudgment: rec.purchaseJudgment,
         },
         create: {
           userId,
@@ -963,6 +968,7 @@ async function saveRecommendations(
           investmentTheme: rec.investmentTheme,
           sellTargetRate: rec.expectedExitStrategy.sellTargetRate,
           exitRate: rec.expectedExitStrategy.exitRate,
+          purchaseJudgment: rec.purchaseJudgment,
         },
       });
 
