@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import PortfolioOverallAnalysis from "@/app/dashboard/PortfolioOverallAnalysis"
+import DailyMarketNavigator from "@/app/dashboard/DailyMarketNavigator"
 import { useMarkPageSeen } from "@/app/hooks/useMarkPageSeen"
 
 interface Props {
@@ -40,7 +40,7 @@ export default function PortfolioAnalysisClient({
         </Link>
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-            ポートフォリオ総評
+            Daily Market Navigator
           </h1>
           <p className="text-sm text-gray-500">
             保有銘柄と気になる銘柄の総合分析
@@ -49,7 +49,7 @@ export default function PortfolioAnalysisClient({
       </div>
 
       {/* 総評コンテンツ */}
-      <PortfolioOverallAnalysis
+      <DailyMarketNavigator
         portfolioCount={portfolioCount}
         watchlistCount={watchlistCount}
       />
