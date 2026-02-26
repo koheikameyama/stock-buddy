@@ -108,7 +108,7 @@ def generate_analysis_for_user(app_url: str, cron_secret: str, user_id: str, ses
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"  Error: {response.status_code} - {response.text[:200]}")
+            print(f"  Error: {response.status_code} - {response.text[:500]}")
             return None
     except requests.exceptions.Timeout:
         print("  Error: Request timed out")

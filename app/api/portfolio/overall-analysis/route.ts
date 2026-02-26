@@ -65,8 +65,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error generating portfolio overall analysis:", error)
+    const message = error instanceof Error ? error.message : String(error)
+    const stack = error instanceof Error ? error.stack : undefined
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", detail: message, stack },
       { status: 500 }
     )
   }
