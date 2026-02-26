@@ -256,20 +256,6 @@ export const PURCHASE_JUDGMENT_CONFIG: Record<
   avoid: { text: "見送り推奨", color: "text-red-700", bg: "bg-red-50" },
 };
 
-// ポートフォリオ総評ステータス
-export const OVERALL_STATUS_CONFIG: Record<
-  string,
-  {
-    color: string;
-    bg: string;
-  }
-> = {
-  excellent: { color: "text-green-800", bg: "bg-green-100" },
-  good: { color: "text-blue-800", bg: "bg-blue-100" },
-  neutral: { color: "text-gray-800", bg: "bg-gray-100" },
-  caution: { color: "text-yellow-800", bg: "bg-yellow-100" },
-  warning: { color: "text-red-800", bg: "bg-red-100" },
-};
 
 // 指標評価バッジ
 export const EVALUATION_BADGE_CONFIG: Record<

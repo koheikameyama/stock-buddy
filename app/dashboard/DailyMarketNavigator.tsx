@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import type { MarketNavigatorResult, MarketTone, PortfolioStatus } from "@/lib/portfolio-overall-analysis"
+import { DAILY_MARKET_NAVIGATOR } from "@/lib/constants"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface Props {
@@ -60,7 +61,7 @@ export default function DailyMarketNavigator({
   const totalCount = portfolioCount + watchlistCount
 
   useEffect(() => {
-    if (totalCount < 3) {
+    if (totalCount < DAILY_MARKET_NAVIGATOR.MIN_STOCKS) {
       setLoading(false)
       return
     }
@@ -81,7 +82,7 @@ export default function DailyMarketNavigator({
   }, [totalCount])
 
   // Not enough stocks
-  if (totalCount < 3) {
+  if (totalCount < DAILY_MARKET_NAVIGATOR.MIN_STOCKS) {
     return (
       <div className="mb-6 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-4 border border-gray-200">
         <div className="flex items-start gap-3">

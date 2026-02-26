@@ -150,7 +150,8 @@ def main():
                 error_count += 1
                 continue
 
-            print(f"  -> 完了: {result.get('overallStatus', 'N/A')}")
+            portfolio = result.get('portfolio', {})
+            print(f"  -> 完了: {portfolio.get('status', 'N/A')}")
             success_count += 1
 
         print("\n" + "=" * 60)
