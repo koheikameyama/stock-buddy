@@ -438,10 +438,12 @@ async function processUser(
     topCandidates,
   );
 
-  const recsToSave = filtered.length > 0 ? filtered : all;
+  // フォールバック時も "avoid"（見送り推奨）は除外
+  const fallback = all.filter((r) => r.purchaseJudgment !== "avoid");
+  const recsToSave = filtered.length > 0 ? filtered : fallback;
   if (filtered.length === 0) {
     console.log(
-      `  All recommendations filtered out by purchase judgment, using original AI selections`,
+      `  All recommendations filtered out by purchase judgment, using fallback (excluding avoid): ${fallback.length} stocks`,
     );
   }
 
