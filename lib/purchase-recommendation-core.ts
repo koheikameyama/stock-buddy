@@ -17,9 +17,10 @@ import {
   buildVolumeAnalysisContext,
   buildRelativeStrengthContext,
   buildTrendlineContext,
+  buildTimingIndicatorsContext,
 } from "@/lib/stock-analysis-context";
 import { buildPurchaseRecommendationPrompt } from "@/lib/prompts/purchase-recommendation-prompt";
-import { MA_DEVIATION, SELL_TIMING } from "@/lib/constants";
+import { MA_DEVIATION, SELL_TIMING, TIMING_INDICATORS } from "@/lib/constants";
 import {
   calculateDeviationRate,
   calculateSMA,
@@ -111,6 +112,9 @@ export async function executePurchaseRecommendation(
       fiftyTwoWeekHigh: true,
       fiftyTwoWeekLow: true,
       volatility: true,
+      gapUpRate: true,
+      volumeSpikeRate: true,
+      turnoverValue: true,
       isDelisted: true,
       fetchFailCount: true,
     },
@@ -197,6 +201,13 @@ export async function executePurchaseRecommendation(
 
   // トレンドライン
   const trendlineContext = buildTrendlineContext(prices);
+
+  // タイミング補助指標
+  const timingIndicatorsContext = buildTimingIndicatorsContext(
+    stock.gapUpRate ? Number(stock.gapUpRate) : null,
+    stock.volumeSpikeRate ? Number(stock.volumeSpikeRate) : null,
+    stock.turnoverValue ? Number(stock.turnoverValue) : null,
+  );
 
   // 関連ニュースを取得
   const tickerCode = stock.tickerCode.replace(".T", "");
@@ -327,6 +338,7 @@ export async function executePurchaseRecommendation(
     volumeAnalysisContext,
     relativeStrengthContext,
     trendlineContext,
+    timingIndicatorsContext,
     newsContext,
     hasPrediction,
   });
@@ -591,6 +603,34 @@ export async function executePurchaseRecommendation(
       sa.buyCondition = "業績改善や急騰の裏付けとなる材料を確認してから検討してください";
       if (styleKey === "CONSERVATIVE") {
         sa.advice = `赤字企業の急騰は投機的な値動きの可能性が高いため、業績改善を確認してから購入を検討しましょう。`;
+      }
+    }
+
+
+    // ギャップアップ急騰の強制補正（飛びつき買い防止）
+    const gapUpRate = stock.gapUpRate ? Number(stock.gapUpRate) : null;
+    if (!skipSafetyRules && gapUpRate !== null && gapUpRate >= TIMING_INDICATORS.GAP_UP_SURGE_THRESHOLD && sa.recommendation === "buy") {
+      sa.recommendation = "stay";
+      sa.statusType = "ホールド";
+      sa.caution = `当日のギャップアップ率が${gapUpRate.toFixed(1)}%と大きく、飛びつき買いのリスクがあります。${sa.caution}`;
+      sa.buyCondition = "ギャップアップ後の値動きが落ち着いてから検討してください";
+      if (styleKey === "CONSERVATIVE") {
+        sa.advice = `寄付きで${gapUpRate.toFixed(1)}%急騰しています。高値掴みを避けるため、値動きが落ち着いてから購入を検討しましょう。`;
+      }
+    }
+
+    // 異常出来高+急騰の強制補正（仕手株リスク）
+    const volumeSpikeRate = stock.volumeSpikeRate ? Number(stock.volumeSpikeRate) : null;
+    if (!skipSafetyRules && volumeSpikeRate !== null && gapUpRate !== null
+      && volumeSpikeRate >= TIMING_INDICATORS.VOLUME_SPIKE_EXTREME_THRESHOLD
+      && gapUpRate >= TIMING_INDICATORS.GAP_UP_WARNING_THRESHOLD
+      && sa.recommendation === "buy") {
+      sa.recommendation = "stay";
+      sa.statusType = "ホールド";
+      sa.caution = `出来高が通常の${volumeSpikeRate.toFixed(1)}倍に急増し、ギャップアップ率も${gapUpRate.toFixed(1)}%と高いため、仕手株や投機的な値動きの可能性があります。${sa.caution}`;
+      sa.buyCondition = "出来高と値動きが正常化してから検討してください";
+      if (styleKey === "CONSERVATIVE") {
+        sa.advice = `出来高急増と急騰が同時に発生しており、投機的な値動きの可能性があります。様子見を推奨します。`;
       }
     }
 

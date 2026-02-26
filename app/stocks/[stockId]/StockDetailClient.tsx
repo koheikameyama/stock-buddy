@@ -48,6 +48,9 @@ interface StockData {
   latestNetIncome: number | null;
   volatility: number | null;
   weekChangeRate: number | null;
+  gapUpRate: number | null;
+  volumeSpikeRate: number | null;
+  turnoverValue: number | null;
   fetchFailCount: number;
   isDelisted: boolean;
   nextEarningsDate: string | null;
@@ -531,7 +534,7 @@ export default function StockDetailClient({
               </>
             )}
             {activeTab === "analysis" && (
-              <TechnicalAnalysis stockId={stock.id} embedded />
+              <TechnicalAnalysis stockId={stock.id} embedded gapUpRate={stock.gapUpRate} volumeSpikeRate={stock.volumeSpikeRate} turnoverValue={stock.turnoverValue} />
             )}
             {activeTab === "news" && (
               <RelatedNews stockId={stock.id} embedded />
