@@ -189,6 +189,10 @@ export default function FeaturedStocksByCategory() {
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
               {tRec("additionalPurchase")}
             </span>
+          ) : stock.isRegistered ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+              {tRec("watchlistBuyTime")}
+            </span>
           ) : stock.isTracked ? (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
               追跡中
