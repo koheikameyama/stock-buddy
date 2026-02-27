@@ -223,7 +223,7 @@ export default function DailyMarketNavigator({
         <p className="text-sm text-gray-700 mb-2">
           {data.portfolio?.summary}
         </p>
-        <div className="flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 rounded p-2">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-1.5 text-xs text-blue-700 bg-blue-50 rounded p-2">
           <span className="shrink-0 font-semibold">{t("actionPlanLabel")}:</span>
           <span>{data.portfolio?.actionPlan}</span>
         </div>
