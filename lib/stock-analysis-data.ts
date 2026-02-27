@@ -127,24 +127,24 @@ export function getTechnicalIndicators(prices: OHLCVData[]): TechnicalIndicators
   if (rsiValue !== null) {
     let signal: SignalType = "neutral"
     let label = "通常範囲"
-    let description = "特に過熱感なし"
+    let description = "特に過熱感なし（快適な巡航速度）"
 
     if (rsiValue <= 30) {
       signal = "buy"
       label = "売られすぎ"
-      description = "反発の可能性あり"
+      description = "反発の可能性あり（エンスト寸前、アクセルを踏み直す場面）"
     } else if (rsiValue <= 40) {
       signal = "buy"
       label = "やや売られすぎ"
-      description = "買いを検討できる水準"
+      description = "買いを検討できる水準（回転数にまだ余裕あり）"
     } else if (rsiValue >= 70) {
       signal = "sell"
       label = "買われすぎ"
-      description = "下落の可能性あり"
+      description = "下落の可能性あり（レッドゾーン、オーバーヒート注意）"
     } else if (rsiValue >= 60) {
       signal = "sell"
       label = "やや買われすぎ"
-      description = "利益確定を検討"
+      description = "利益確定を検討（回転数が高め、そろそろ減速か）"
     }
 
     rsi = { value: rsiValue, signal, label, description }
@@ -153,20 +153,20 @@ export function getTechnicalIndicators(prices: OHLCVData[]): TechnicalIndicators
   let macd: MACDData | null = null
   if (macdResult.histogram !== null) {
     let trend: TrendType = "neutral"
-    let label = "横ばい"
+    let label = "横ばい（アイドリング状態）"
 
     if (macdResult.histogram > 1) {
       trend = "bullish"
-      label = "上昇トレンド（勢いあり）"
+      label = "上昇トレンド（フルアクセルで加速中）"
     } else if (macdResult.histogram > 0) {
       trend = "bullish"
-      label = "やや上昇傾向"
+      label = "やや上昇傾向（軽くアクセルON）"
     } else if (macdResult.histogram < -1) {
       trend = "bearish"
-      label = "下落トレンド（勢いあり）"
+      label = "下落トレンド（急ブレーキ中）"
     } else if (macdResult.histogram < 0) {
       trend = "bearish"
-      label = "やや下落傾向"
+      label = "やや下落傾向（軽くブレーキ）"
     }
 
     macd = {
@@ -276,20 +276,20 @@ export function getWeekChange(prices: OHLCVData[]): {
   const weekAgoClose = prices[Math.max(0, prices.length - 6)].close
   const rate = ((latestClose - weekAgoClose) / weekAgoClose) * 100
 
-  let label = "安定"
+  let label = "安定（巡航中）"
   let isWarning = false
 
   if (rate >= 30) {
-    label = "急騰"
+    label = "急騰（速度超過注意）"
     isWarning = true
   } else if (rate >= 10) {
-    label = "上昇"
+    label = "上昇（順調に加速中）"
     isWarning = false
   } else if (rate <= -20) {
-    label = "急落"
+    label = "急落（急ブレーキ）"
     isWarning = true
   } else if (rate <= -10) {
-    label = "下落"
+    label = "下落（減速中）"
     isWarning = false
   }
 
@@ -326,9 +326,9 @@ export function getTrendlines(prices: OHLCVData[]): TrendlineAnalysisData | null
   if (!result.support && !result.resistance) return null
 
   const trendLabels: Record<string, string> = {
-    uptrend: "上昇トレンド",
-    downtrend: "下降トレンド",
-    sideways: "横ばい（レンジ）",
+    uptrend: "上昇トレンド（上り坂）",
+    downtrend: "下降トレンド（下り坂）",
+    sideways: "横ばい（平坦な道）",
   }
   const trendLabel = trendLabels[result.overallTrend]
 
