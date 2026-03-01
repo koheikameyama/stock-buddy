@@ -11,10 +11,8 @@ on:
         options:
           - pre-morning
           - morning
-          - mid-morning
           - pre-afternoon
           - afternoon
-          - mid-afternoon
           - close
           - post-close
       notify:
@@ -28,10 +26,8 @@ on:
 #
 #   pre-morning (08:00):   news(JP+US) → trends → navigator(morning)
 #   morning (09:10):       分析ジョブ群
-#   mid-morning (10:10):   分析ジョブ群
-#   pre-afternoon (11:40): news(JP) + prices → trends
+#   pre-afternoon (11:40): news(JP) + prices → trends + navigator(pre-afternoon) + 分析ジョブ群
 #   afternoon (12:40):     分析ジョブ群
-#   mid-afternoon (13:40): 分析ジョブ群
 #   close (15:40):         prices → trends → 分析 + gainers + snapshots
 #   post-close (17:00):    navigator(evening)
 # ──────────────────────────────────────────────
