@@ -25,6 +25,7 @@
     },
     "session": {
       "morning": "朝の戦略",
+      "pre-afternoon": "後場前の戦略",
       "evening": "結果診断"
     },
     "noAnalysis": "分析はまだ生成されていません",
