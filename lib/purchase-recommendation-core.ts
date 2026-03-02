@@ -759,6 +759,7 @@ export async function executePurchaseRecommendation(
       rsi: rsiForTiming,
       sma25: sma25ForTiming,
     },
+    technicalSignal: combinedTechnical,
     skipSafetyRules,
     isMarketPanic: marketData?.isMarketPanic === true,
   });

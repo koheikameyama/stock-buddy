@@ -109,10 +109,11 @@ export function applyPurchaseStyleSafetyRules(params: {
     rsi: number | null;
     sma25: number | null;
   };
+  technicalSignal?: { signal: string; strength: number };
   skipSafetyRules: boolean;
   isMarketPanic?: boolean;
 }): StyleAnalysesMap<PurchaseStyleAnalysis> {
-  const { styleAnalyses, weekChangeRate, deviationRate, buyTimingParams, sellTimingParams, skipSafetyRules, isMarketPanic = false } = params;
+  const { styleAnalyses, weekChangeRate, deviationRate, buyTimingParams, sellTimingParams, technicalSignal, skipSafetyRules, isMarketPanic = false } = params;
 
   const result = {} as StyleAnalysesMap<PurchaseStyleAnalysis>;
 
@@ -224,8 +225,9 @@ export function applyPurchaseStyleSafetyRules(params: {
         devRate !== null && devRate > MA_DEVIATION.DIP_BUY_THRESHOLD;
       const isOverboughtRSI =
         rsi !== null && rsi > MA_DEVIATION.RSI_OVERBOUGHT_THRESHOLD;
+      const isTechnicalSell = technicalSignal?.signal === "sell";
 
-      if (isHighDeviation || isOverboughtRSI) {
+      if (isHighDeviation || isOverboughtRSI || isTechnicalSell) {
         styleResult.buyTiming = "dip";
       } else {
         styleResult.buyTiming = "market";
