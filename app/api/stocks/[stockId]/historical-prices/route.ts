@@ -3,7 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { fetchHistoricalPrices } from "@/lib/stock-price-fetcher"
 import { generatePatternsResponse } from "@/lib/candlestick-patterns"
-import { getTechnicalIndicators, getCandlestickPattern, getChartPatterns, getWeekChange, getTrendlines } from "@/lib/stock-analysis-data"
+import { getTechnicalIndicators, getCandlestickPattern, getChartPatterns, getWeekChange, getTrendlines, getMAAlignment } from "@/lib/stock-analysis-data"
 import type { OHLCVData } from "@/lib/stock-analysis-context"
 
 export async function GET(
@@ -172,6 +172,7 @@ export async function GET(
     const chartPatterns = getChartPatterns(ohlcvData)
     const weekChange = getWeekChange(ohlcvData)
     const trendlines = getTrendlines(ohlcvData)
+    const maAlignment = getMAAlignment(ohlcvData)
 
     return NextResponse.json({
       data,
@@ -192,6 +193,7 @@ export async function GET(
         chartPatterns,
         weekChange,
         trendlines,
+        maAlignment,
       },
     })
   } catch (error) {

@@ -8,6 +8,7 @@ import type {
   CandlestickPatternData,
   ChartPatternData,
   TrendlineAnalysisData,
+  MAAlignmentData,
   SignalType,
 } from "@/lib/stock-analysis-data"
 
@@ -21,6 +22,7 @@ interface TechnicalAnalysisData {
     isWarning: boolean
   } | null
   trendlines: TrendlineAnalysisData | null
+  maAlignment: MAAlignmentData | null
 }
 
 interface Props {
@@ -121,7 +123,7 @@ export default function TechnicalAnalysis({ stockId, embedded = false, gapUpRate
     )
   }
 
-  const { technicalIndicators, candlestickPattern, chartPatterns, weekChange, trendlines } = data
+  const { technicalIndicators, candlestickPattern, chartPatterns, weekChange, trendlines, maAlignment } = data
 
   const getDirectionLabel = (direction: string) => {
     if (direction === "up") return t('trendline.directionUp')
@@ -268,6 +270,43 @@ export default function TechnicalAnalysis({ stockId, embedded = false, gapUpRate
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* 移動平均線アライメント（パーフェクトオーダー） */}
+        {maAlignment && (
+          <div className="border-b border-gray-100 pb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">{t('maAlignment.label')}</span>
+                <span className="text-xs text-gray-500">({t('maAlignment.subtitle')})</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                  maAlignment.trend === "uptrend"
+                    ? "bg-green-100 text-green-700"
+                    : maAlignment.trend === "downtrend"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {maAlignment.trendLabel}
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">{maAlignment.description}</p>
+            {(maAlignment.sma5 !== null || maAlignment.sma25 !== null || maAlignment.sma75 !== null) && (
+              <div className="flex gap-3 text-xs text-gray-500">
+                {maAlignment.sma5 !== null && (
+                  <span>{t('maAlignment.sma5')}: <span className="font-semibold text-gray-700">{maAlignment.sma5.toLocaleString()}</span></span>
+                )}
+                {maAlignment.sma25 !== null && (
+                  <span>{t('maAlignment.sma25')}: <span className="font-semibold text-gray-700">{maAlignment.sma25.toLocaleString()}</span></span>
+                )}
+                {maAlignment.sma75 !== null && (
+                  <span>{t('maAlignment.sma75')}: <span className="font-semibold text-gray-700">{maAlignment.sma75.toLocaleString()}</span></span>
+                )}
+              </div>
+            )}
           </div>
         )}
 

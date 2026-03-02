@@ -9,7 +9,7 @@
 
 import { analyzeSingleCandle, CandlestickData } from "@/lib/candlestick-patterns"
 import { detectChartPatterns, PricePoint, ChartPatternResult } from "@/lib/chart-patterns"
-import { calculateRSI, calculateMACD, detectTrendlines, TrendlineInfo } from "@/lib/technical-indicators"
+import { calculateRSI, calculateMACD, calculateMAAlignment, detectTrendlines, TrendlineInfo } from "@/lib/technical-indicators"
 import { OHLCVData } from "@/lib/stock-analysis-context"
 
 // =====================================================
@@ -91,6 +91,21 @@ export interface TrendlineAnalysisData {
 }
 
 // =====================================================
+// 移動平均線アライメントデータ型
+// =====================================================
+
+export interface MAAlignmentData {
+  trend: "uptrend" | "downtrend" | "none"
+  sma5: number | null
+  sma25: number | null
+  sma75: number | null
+  orderAligned: boolean
+  slopesAligned: boolean
+  trendLabel: string
+  description: string
+}
+
+// =====================================================
 // 統合分析データ型
 // =====================================================
 
@@ -104,6 +119,7 @@ export interface StockAnalysisData {
     isWarning: boolean
   } | null
   trendlines: TrendlineAnalysisData | null
+  maAlignment: MAAlignmentData | null
 }
 
 // =====================================================
@@ -357,6 +373,54 @@ export function getTrendlines(prices: OHLCVData[]): TrendlineAnalysisData | null
 }
 
 // =====================================================
+// 移動平均線アライメント分析
+// =====================================================
+
+/**
+ * 移動平均線の並び・方向性データを取得する（パーフェクトオーダー判定）
+ * @param prices - OHLCV データ（oldest-first）
+ */
+export function getMAAlignment(prices: OHLCVData[]): MAAlignmentData | null {
+  if (prices.length < 80) return null
+
+  // oldest-first → newest-first に変換
+  const pricesNewestFirst = [...prices].reverse().map(p => ({ close: p.close }))
+  const result = calculateMAAlignment(pricesNewestFirst)
+
+  const trendLabels: Record<string, string> = {
+    uptrend: "上昇トレンド（短期→中期→長期の順）",
+    downtrend: "下降トレンド（長期→中期→短期の順）",
+    none: "トレンドなし",
+  }
+  const trendLabel = trendLabels[result.trend]
+
+  let description = ""
+  if (result.trend === "uptrend") {
+    description = "3本の移動平均線が短期→中期→長期の順に並び、全て右肩上がり。安定した上昇トレンドの可能性が高い"
+  } else if (result.trend === "downtrend") {
+    description = "3本の移動平均線が長期→中期→短期の順に並び、全て右肩下がり。下落トレンドが継続する可能性がある"
+  } else if (result.orderAligned && !result.slopesAligned) {
+    const isUptrendOrder = result.sma5 !== null && result.sma75 !== null && result.sma5 > result.sma75
+    description = isUptrendOrder
+      ? "移動平均線の並びは上昇順だが、方向性が揃っていない。トレンド転換の可能性がある"
+      : "移動平均線の並びは下降順だが、方向性が揃っていない。トレンド転換の可能性がある"
+  } else {
+    description = "移動平均線の並びが上昇・下降どちらでもない。レンジ相場または移行期の可能性"
+  }
+
+  return {
+    trend: result.trend,
+    sma5: result.sma5,
+    sma25: result.sma25,
+    sma75: result.sma75,
+    orderAligned: result.orderAligned,
+    slopesAligned: result.slopesAligned,
+    trendLabel,
+    description,
+  }
+}
+
+// =====================================================
 // 統合関数
 // =====================================================
 
@@ -371,5 +435,6 @@ export function getStockAnalysisData(prices: OHLCVData[]): StockAnalysisData {
     chartPatterns: getChartPatterns(prices),
     weekChange: getWeekChange(prices),
     trendlines: getTrendlines(prices),
+    maAlignment: getMAAlignment(prices),
   }
 }

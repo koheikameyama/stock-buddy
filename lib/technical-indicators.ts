@@ -148,6 +148,7 @@ export function getTechnicalSignal(prices: PriceData[]): {
   const rsi = calculateRSI(prices);
   const sma25 = calculateSMA(prices, 25);
   const macd = calculateMACD(prices);
+  const maAlignment = calculateMAAlignment(prices);
   const currentPrice = prices[0].close;
 
   let signal = 0;
@@ -186,6 +187,26 @@ export function getTechnicalSignal(prices: PriceData[]): {
     }
   }
 
+  // 移動平均線の並び・方向性チェック（パーフェクトオーダー）
+  if (maAlignment.trend === "uptrend") {
+    signal += 1;
+    reasons.push("移動平均線が上昇トレンド（短期→中期→長期の順に並び右肩上がり）");
+  } else if (maAlignment.trend === "downtrend") {
+    signal -= 1;
+    reasons.push("移動平均線が下降トレンド（長期→中期→短期の順に並び右肩下がり）");
+  } else if (maAlignment.orderAligned && !maAlignment.slopesAligned) {
+    // 並びは正しいが方向性が揃っていない（トレンド転換の可能性）
+    if (maAlignment.sma5 !== null && maAlignment.sma75 !== null) {
+      if (maAlignment.sma5 > maAlignment.sma75) {
+        signal += 0.3;
+        reasons.push("移動平均線の並びは上昇順だが方向性は不揃い");
+      } else {
+        signal -= 0.3;
+        reasons.push("移動平均線の並びは下降順だが方向性は不揃い");
+      }
+    }
+  }
+
   let strength = "中立";
   if (signal >= 1.5) strength = "強い買い";
   else if (signal >= 0.5) strength = "買い";
@@ -196,6 +217,94 @@ export function getTechnicalSignal(prices: PriceData[]): {
     signal: Math.round(signal * 100) / 100,
     strength,
     reasons,
+  };
+}
+
+/**
+ * 移動平均線の並び順・方向性を評価（パーフェクトオーダー判定）
+ * 上昇トレンド: SMA5 > SMA25 > SMA75、かつ3本とも右肩上がり
+ * 下降トレンド: SMA5 < SMA25 < SMA75、かつ3本とも右肩下がり
+ *
+ * @param prices - 価格データ（新しい順）
+ * @param slopeLookback - 方向性判定のための比較日数（デフォルト5日）
+ */
+export function calculateMAAlignment(
+  prices: PriceData[],
+  slopeLookback: number = 5,
+): {
+  trend: "uptrend" | "downtrend" | "none";
+  sma5: number | null;
+  sma25: number | null;
+  sma75: number | null;
+  orderAligned: boolean;
+  slopesAligned: boolean;
+} {
+  const sma5 = calculateSMA(prices, 5);
+  const sma25 = calculateSMA(prices, 25);
+  const sma75 = calculateSMA(prices, 75);
+
+  const noTrend = {
+    trend: "none" as const,
+    sma5,
+    sma25,
+    sma75,
+    orderAligned: false,
+    slopesAligned: false,
+  };
+
+  if (!sma5 || !sma25 || !sma75) return noTrend;
+
+  const isUptrendOrder = sma5 > sma25 && sma25 > sma75;
+  const isDowntrendOrder = sma5 < sma25 && sma25 < sma75;
+
+  if (!isUptrendOrder && !isDowntrendOrder) return noTrend;
+
+  // N日前のMAと比較して方向性を判定
+  if (prices.length < 75 + slopeLookback) {
+    return { ...noTrend, orderAligned: true };
+  }
+
+  const prevPrices = prices.slice(slopeLookback);
+  const prevSma5 = calculateSMA(prevPrices, 5);
+  const prevSma25 = calculateSMA(prevPrices, 25);
+  const prevSma75 = calculateSMA(prevPrices, 75);
+
+  if (!prevSma5 || !prevSma25 || !prevSma75) {
+    return { ...noTrend, orderAligned: true };
+  }
+
+  const allRising = sma5 > prevSma5 && sma25 > prevSma25 && sma75 > prevSma75;
+  const allFalling = sma5 < prevSma5 && sma25 < prevSma25 && sma75 < prevSma75;
+
+  if (isUptrendOrder && allRising) {
+    return {
+      trend: "uptrend",
+      sma5,
+      sma25,
+      sma75,
+      orderAligned: true,
+      slopesAligned: true,
+    };
+  }
+
+  if (isDowntrendOrder && allFalling) {
+    return {
+      trend: "downtrend",
+      sma5,
+      sma25,
+      sma75,
+      orderAligned: true,
+      slopesAligned: true,
+    };
+  }
+
+  return {
+    trend: "none",
+    sma5,
+    sma25,
+    sma75,
+    orderAligned: true,
+    slopesAligned: false,
   };
 }
 

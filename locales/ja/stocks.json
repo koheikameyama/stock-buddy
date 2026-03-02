@@ -291,6 +291,13 @@
       "subtitle": "複数足フォーメーション",
       "strength": "信頼度:"
     },
+    "maAlignment": {
+      "label": "移動平均線の並び",
+      "subtitle": "トレンド方向",
+      "sma5": "5日MA",
+      "sma25": "25日MA",
+      "sma75": "75日MA"
+    },
     "trendline": {
       "label": "トレンドライン",
       "subtitle": "価格の方向性",
