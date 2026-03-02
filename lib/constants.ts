@@ -491,6 +491,15 @@ export const SELL_TIMING = {
   SELL_PRICE_PROXIMITY_THRESHOLD: 0.02, // 売却目標近接の閾値（比率）
 } as const;
 
+// スタイル間合意度によるconfidence補正
+export const CROSS_STYLE_CONSENSUS = {
+  // 買い推奨スタイル数に応じたconfidenceペナルティ
+  SOLO_BUY_PENALTY: -0.15, // 1/3のみbuy（根拠が弱い）
+  PARTIAL_BUY_PENALTY: -0.05, // 2/3がbuy（やや弱い）
+  // ペナルティ適用後のconfidence閾値（これ未満でbuy→stay）
+  MIN_BUY_CONFIDENCE: 0.6,
+} as const;
+
 // 出来高分析の閾値（下落日 vs 上昇日の出来高比較）
 export const VOLUME_ANALYSIS = {
   ANALYSIS_DAYS: 10, // 分析対象の直近日数

@@ -26,7 +26,8 @@ export type CorrectionRuleId =
   | "delisted_stock"
   | "dangerous_stock_buy_suppression"
   | "extreme_surge_block"
-  | "extreme_overheat_block";
+  | "extreme_overheat_block"
+  | "low_consensus";
 
 /** 補正コンテキスト */
 export interface CorrectionContext {
@@ -67,6 +68,7 @@ const RULE_NAMES: Record<CorrectionRuleId, string> = {
   dangerous_stock_buy_suppression: "危険銘柄買い増し抑制",
   extreme_surge_block: "極端な急騰ブロック",
   extreme_overheat_block: "極端な過熱圏ブロック",
+  low_consensus: "スタイル間合意度不足",
 };
 
 /** 投資スタイルキー→日本語名 */
@@ -143,6 +145,9 @@ export function generateCorrectionExplanation(ctx: CorrectionContext): string {
 
     case "dangerous_stock_buy_suppression":
       return `業績が赤字かつボラティリティが${ctx.actualValue}と高いため、「${ruleName}」が適用され、買い増しは控える判断になりました。`;
+
+    case "low_consensus":
+      return `3つの投資スタイルのうち${ctx.actualValue}のみが買い推奨のため、「${ruleName}」が適用されました。買いの根拠が弱い状態のため、より明確なシグナルを待つ判断になりました。`;
 
     default:
       return `「${ruleName}」により、AIの判断が${ctx.originalRecommendation}から${ctx.correctedRecommendation}に補正されました。`;

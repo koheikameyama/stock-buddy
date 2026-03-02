@@ -23,7 +23,7 @@ import {
   buildExDividendContext,
 } from "@/lib/stock-analysis-context";
 import { buildPurchaseRecommendationPrompt } from "@/lib/prompts/purchase-recommendation-prompt";
-import { MA_DEVIATION, SELL_TIMING, TIMING_INDICATORS, AGGRESSIVE_REBOUND, GAP_UP_MOMENTUM, EARNINGS_SAFETY } from "@/lib/constants";
+import { MA_DEVIATION, SELL_TIMING, TIMING_INDICATORS, AGGRESSIVE_REBOUND, GAP_UP_MOMENTUM, EARNINGS_SAFETY, CROSS_STYLE_CONSENSUS } from "@/lib/constants";
 import {
   calculateDeviationRate,
   calculateSMA,
@@ -894,6 +894,41 @@ export async function executePurchaseRecommendation(
         longTermPriceLow: result.longTermPriceLow,
         longTermPriceHigh: result.longTermPriceHigh,
       });
+    }
+  }
+
+  // --- スタイル間合意度によるconfidence補正 ---
+  // 全ての推奨変更ロジック完了後、買い推奨のスタイル数に応じてconfidenceを調整
+  const buyCount = ALL_STYLE_KEYS.filter(
+    (key) => styleAnalyses[key].recommendation === "buy",
+  ).length;
+
+  if (buyCount > 0 && buyCount < 3) {
+    const penalty =
+      buyCount === 1
+        ? CROSS_STYLE_CONSENSUS.SOLO_BUY_PENALTY
+        : CROSS_STYLE_CONSENSUS.PARTIAL_BUY_PENALTY;
+
+    for (const styleKey of ALL_STYLE_KEYS) {
+      const sa = styleAnalyses[styleKey];
+      if (sa.recommendation !== "buy") continue;
+
+      sa.confidence = Math.max(0, sa.confidence + penalty);
+
+      if (sa.confidence < CROSS_STYLE_CONSENSUS.MIN_BUY_CONFIDENCE) {
+        const styleName = getStyleNameJa(styleKey);
+        sa.recommendation = "stay";
+        sa.buyTiming = null;
+        sa.dipTargetPrice = null;
+        sa.buyCondition = `3つの投資スタイルのうち${buyCount}つのみが買い推奨で、買いの根拠が弱い状態です。より明確なシグナルを待ちましょう。`;
+        sa.correctionExplanation = generateCorrectionExplanation({
+          ruleId: "low_consensus",
+          styleName,
+          originalRecommendation: "buy",
+          correctedRecommendation: "stay",
+          actualValue: `${buyCount}スタイル`,
+        });
+      }
     }
   }
 
