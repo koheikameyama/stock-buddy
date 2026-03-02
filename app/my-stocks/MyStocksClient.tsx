@@ -34,6 +34,7 @@ interface PurchaseRecommendation {
   analyzedAt?: string;
   buyTiming?: "market" | "dip" | null;
   sellTiming?: "market" | "rebound" | null;
+  userFitScore?: number | null;
 }
 
 type TabType = "portfolio" | "watchlist" | "tracked" | "sold";
@@ -255,6 +256,7 @@ export default function MyStocksClient() {
               analyzedAt: result.value.data.analyzedAt,
               buyTiming: result.value.data.buyTiming,
               sellTiming: result.value.data.sellTiming,
+              userFitScore: result.value.data.userFitScore ?? null,
             };
           }
         });
@@ -642,8 +644,13 @@ export default function MyStocksClient() {
       if (isBuyA && !isBuyB) return -1;
       if (!isBuyA && isBuyB) return 1;
 
-      // 両方買い推奨の場合はconfidenceで並べる
+      // 両方買い推奨の場合はuserFitScore（スコア）の高い順、なければconfidenceで並べる
       if (isBuyA && isBuyB) {
+        const scoreA = recA?.userFitScore ?? null;
+        const scoreB = recB?.userFitScore ?? null;
+        if (scoreA !== null && scoreB !== null) {
+          return scoreB - scoreA;
+        }
         return (recB?.confidence ?? 0) - (recA?.confidence ?? 0);
       }
 
