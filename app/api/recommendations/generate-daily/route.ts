@@ -53,7 +53,7 @@ import { insertRecommendationOutcome } from "@/lib/outcome-utils";
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 
 interface GenerateRequest {
-  session?: "morning" | "afternoon" | "evening";
+  session?: "morning" | "afternoon" | "close" | "evening";
   userId?: string;
 }
 

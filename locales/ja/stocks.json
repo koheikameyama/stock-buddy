@@ -339,7 +339,7 @@
   },
   "purchaseSession": {
     "preMarketTitle": "寄り前の分析です",
-    "preMarketDescription": "前日終値をもとにした参考情報です。09:30の開場後分析で最新の判断が更新されます。",
+    "preMarketDescription": "前日終値をもとにした参考情報です。09:30の分析で最新の判断が更新されます。",
     "postMarketTitle": "本日の振り返り分析です",
     "postMarketDescription": "大引け後の分析結果です。明日の取引に向けた参考情報としてご覧ください。"
   },
