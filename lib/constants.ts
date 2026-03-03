@@ -496,6 +496,8 @@ export const SELL_TIMING = {
   NEAR_AVERAGE_PRICE_THRESHOLD: 5, // 平均購入価格から+5%以内は「平均価格に近い」とみなす（指値提案）
   TREND_OVERRIDE_LOSS_THRESHOLD: -15, // 中長期トレンド保護を無視する損失閾値(%)
   SELL_PRICE_PROXIMITY_THRESHOLD: 0.02, // 売却目標近接の閾値（比率）
+  REBOUND_MIN_UPSIDE: 0.03, // 戻り売り目安の最低上乗せ率（volatilityがない場合のフォールバック）
+  REBOUND_VOLATILITY_FACTOR: 0.5, // 戻り売り目安のvolatility倍率（volatility * この値を上乗せ）
 } as const;
 
 // スタイル間合意度によるconfidence補正

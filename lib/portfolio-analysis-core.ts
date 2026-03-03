@@ -454,6 +454,14 @@ function postProcessPortfolioAnalysis(params: {
     sellTargetPrice = userStyleResult.suggestedSellPrice;
   }
 
+  // 戻り売り目安が現在価格以下の場合、volatility連動で補正
+  if (sellTiming === "rebound" && sellTargetPrice && currentPrice && sellTargetPrice <= currentPrice) {
+    const upsideRate = volatility
+      ? Math.max(volatility / 100 * SELL_TIMING.REBOUND_VOLATILITY_FACTOR, SELL_TIMING.REBOUND_MIN_UPSIDE)
+      : SELL_TIMING.REBOUND_MIN_UPSIDE;
+    sellTargetPrice = Math.round(currentPrice * (1 + upsideRate));
+  }
+
   // --- 投資スタイル別のセーフティルールを適用 ---
   const styleAnalyses = applyPortfolioStyleSafetyRules({
     styleAnalyses: Object.fromEntries(
