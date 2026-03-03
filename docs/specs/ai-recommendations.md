@@ -15,15 +15,17 @@ Stock Buddyの中核機能であるAI推奨システムです。3種類の推奨
 **生成フロー**:
 1. 全ユーザーの投資設定を取得
 2. ユーザーごとに並列処理（最大3並列）:
-   a. 残り予算を計算
-   b. 対象銘柄を取得（最新株価データあり）
-   c. 緩い予算フィルタ（予算の1.5倍まで）で候補を広めに取得
+   a. 残り予算を計算（保有コスト方式: 売却済み株は含まない）
+   b. 対象銘柄を取得（最新株価データあり、上場廃止・データ取得失敗を除外）
+   c. 緩い予算フィルタ（残り予算を10万円単位で切り上げた値以内）で候補を広めに取得
    d. スコアリング（投資スタイル別重み + 戦略適合性ボーナス）
    e. セクター分散フィルタ（セクタートレンド連動: 強い追い風7/追い風6/中立5/逆風3/強い逆風2銘柄）
    ※ 保有銘柄・ウォッチリスト銘柄は除外しない（候補として残す）
    f. 予算内の銘柄を優先して絞り込み（5件未満なら予算超の銘柄も安い順に追加）
    g. 上位15銘柄をOpenAIに送信（予算超過時はその旨をプロンプトに含める）
-   h. AIが7銘柄を選定 + 理由生成、上位5銘柄を保存
+   h. AIが7銘柄を選定 + 理由生成
+   i. セーフティフィルタで除外
+   j. 上位5銘柄を保存
 3. `UserDailyRecommendation` テーブルに保存
 
 **スコアリングの方針（戦略適合性のみ）**:
@@ -38,7 +40,7 @@ Stock Buddyの中核機能であるAI推奨システムです。3種類の推奨
 
 **2段階の予算フィルタ**:
 
-1. **緩いフィルタ**（スコアリング前）: 予算の1.5倍までの銘柄を候補に含める
+1. **緩いフィルタ**（スコアリング前）: 残り予算を10万円単位で切り上げた値以内の銘柄を候補に含める（例: 残り3万→10万、残り12万→20万）
 2. **最終絞り込み**（スコアリング後）: 予算内の銘柄を優先。5件未満なら予算超の銘柄も安い順に追加し、AIプロンプトに予算超過の旨を含める
 
 **投資テーマ**:
@@ -57,11 +59,7 @@ Stock Buddyの中核機能であるAI推奨システムです。3種類の推奨
     {
       "tickerCode": "銘柄コード",
       "reason": "おすすめ理由（投資戦略への適合根拠）",
-      "investmentTheme": "短期成長 | 中長期安定成長 | 高配当 | 割安反発 | テクニカル好転 | 安定ディフェンシブ",
-      "expectedExitStrategy": {
-        "sellTargetRate": 0.15,
-        "exitRate": 0.05
-      }
+      "investmentTheme": "短期成長 | 中長期安定成長 | 高配当 | 割安反発 | テクニカル好転 | 安定ディフェンシブ"
     }
   ]
 }
@@ -78,15 +76,13 @@ Stock Buddyの中核機能であるAI推奨システムです。3種類の推奨
   - AIは reason の冒頭に「【注目していた銘柄】」を付与
   - フロントエンドでは「買い時かも」バッジを表示（緑色）
 
-**出口戦略プレビュー**:
+**セッション別のプロンプト**:
 
-各銘柄に投資スタイル別の推奨売却目標率・撤退ライン率を付与。フロントエンドで「推奨売却目標 +15% / 推奨撤退ライン -5% / リスクリワード 3.0」のようにチラ見せ表示する。
-
-| スタイル | 売却目標率 | 撤退ライン率 |
-|----------|--------|----------|
-| 安定配当型 | 5-15% | 3-7% |
-| 成長投資型 | 10-25% | 5-10% |
-| アクティブ型 | 15-50% | 7-20% |
+| セッション | フォーカス | 時間軸 |
+|-----------|----------|--------|
+| morning | 今日の前場に注目したい銘柄 | 今日〜今週 |
+| afternoon | 後場に注目したい銘柄 | 今日の後場〜明日 |
+| evening | 明日以降に仕込みたい銘柄 | 明日〜来週 |
 
 **プロンプトの評価基準**:
 
@@ -135,31 +131,55 @@ AI選定後、購入分析の強制補正ルールと共通のセーフティチ
 
 **入力データ**:
 - 財務指標（20以上の指標）
-- 30日分の株価データ
-- テクニカル指標（RSI, MACD）
+- 3ヶ月分の株価データ（SMA25計算に25営業日以上が必要）
+- テクニカル指標（RSI, MACD, 移動平均乖離率）
 - ローソク足パターン分析
 - チャートパターン（三尊、ダブルボトム等）
 - 出来高分析
+- トレンドライン
+- タイミング補助指標（ギャップアップ率、出来高急増率、売買代金）
 - 相対強度（市場/セクター比較）
 - 関連ニュース（7日分）
 - AI予測（StockAnalysis があれば）
 - 日経225のデータ
 - セクタートレンド
+- 地政学リスク指標（VIX・WTI）
+- 決算・配当落ちスケジュール
 
 **AI出力スキーマ**:
 ```json
 {
   "marketSignal": "bullish | neutral | bearish",
-  "recommendation": "buy | stay | avoid",
-  "confidence": 0.85,
-  "reason": "推奨理由",
-  "caution": "注意点",
+  "shortTermTrend": "up | neutral | down",
+  "shortTermPriceLow": 2300,
+  "shortTermPriceHigh": 2600,
+  "shortTermText": "短期分析テキスト",
+  "midTermTrend": "up | neutral | down",
+  "midTermPriceLow": 2200,
+  "midTermPriceHigh": 2800,
+  "midTermText": "中期分析テキスト",
+  "longTermTrend": "up | neutral | down",
+  "longTermPriceLow": 2100,
+  "longTermPriceHigh": 3000,
+  "longTermText": "長期分析テキスト",
   "positives": "良いところ（箇条書き）",
   "concerns": "不安な点（箇条書き）",
   "suitableFor": "こんな人向け",
-  "buyCondition": "stayの時、どうなったら買い時か",
-  "buyTiming": "market | dip",
-  "dipTargetPrice": 2300,
+  "styleAnalyses": {
+    "CONSERVATIVE": {
+      "recommendation": "buy | stay | avoid",
+      "confidence": 0.85,
+      "advice": "アドバイステキスト",
+      "reason": "推奨理由",
+      "caution": "注意点",
+      "buyCondition": "stayの時、どうなったら買い時か",
+      "suggestedDipPrice": 2300,
+      "suggestedExitRate": 0.05,
+      "suggestedSellTargetRate": 0.15
+    },
+    "BALANCED": { "..." : "同上" },
+    "AGGRESSIVE": { "..." : "同上" }
+  },
   "userFitScore": 78,
   "budgetFit": true,
   "periodFit": true,
@@ -170,19 +190,28 @@ AI選定後、購入分析の強制補正ルールと共通のセーフティチ
 
 **安全補正ルール（ハードオーバーライド）**:
 
+AI生成後、全3スタイルの結果に対して以下の安全補正を順に適用する。
+
 | # | ルール | 条件 | 動作 |
 |---|--------|------|------|
 | 1 | テクニカル売りシグナル | RSI/MACD/ローソク足の売りシグナル強度が閾値以上（安定配当型70%/バランス75%/アクティブ型85%） | buy → stay |
 | 2 | avoid信頼度ゲート | avoidの場合、confidence < 0.8 | avoid → stay |
-| 3 | ギャップアップ急騰 | ギャップアップ率が閾値以上（安定配当型10%/バランス15%/アクティブ型20%） | buy → stay |
-| 4 | 危険銘柄ロック | 赤字 + ボラティリティ > 50% | buy → stay |
-| 5 | 赤字×急騰 | 赤字企業が週間+20%以上急騰 | buy → stay |
-| 6 | 市場暴落 | 日経225が暴落中 | buy → stay |
-| 7 | パニック売り防止 | MA乖離率 ≤ -20% + avoid | avoid → stay |
+| 3 | 危険銘柄ロック | 赤字 + ボラティリティ > 50%（おすすめ銘柄はスキップ） | buy → stay |
+| 4 | 赤字×急騰 | 赤字企業が週間+20%以上急騰 | buy → stay |
+| 5 | ギャップアップ急騰 | ギャップアップ率が閾値以上（安定配当型10%/バランス15%/アクティブ型20%）（おすすめ銘柄はスキップ） | buy → stay |
+| 6 | 異常出来高+急騰 | 出来高急増率が極端閾値以上 + ギャップアップ率が警告閾値以上（仕手株リスク） | buy → stay |
+| 7 | 市場暴落 | 日経225が暴落中 | buy → stay |
+| 8 | 決算直前ブロック | 決算発表まで3日以内 | buy → stay |
+| 9 | 決算間近ペナルティ | 決算発表まで7日以内 | confidence -0.1 |
+| 10 | 下方乖離ボーナス | MA乖離率 ≤ 下限閾値 + 黒字 + 低ボラティリティ | confidence +ボーナス |
+| 11 | パニック売り防止 | MA乖離率 ≤ -20% + avoid | avoid → stay |
+
+※ おすすめ銘柄（当日のUserDailyRecommendationに含まれる銘柄）は一部のセーフティルールをスキップ。ただし危険銘柄や赤字×急騰などのハードブロックは適用される。
 
 **買いタイミングロジック**:
-- `dip`（押し目買い）: RSI > 70 or MA乖離 > 15% → 下がるまで待つ
+- `dip`（押し目買い）: MA乖離 > 閾値 or RSI > 70 or テクニカル売りシグナル → 下がるまで待つ
 - `market`（成り行き）: 上記以外 → すぐ購入OK
+- 押し目価格のフォールバックチェーン: AI推奨価格 → SMA25 → SMA75 → ATR14 → ボラティリティ連動
 
 **投資スタイル別分析（styleAnalyses）**:
 
@@ -204,9 +233,12 @@ AI生成後、非スタイル依存の安全補正（テクニカルブレーキ
 
 | スタイル依存補正 | 条件（スタイルにより閾値が異なる） | 動作 |
 |------------------|--------------------------------------|------|
-| 下落トレンドロック | `isInDecline(weekChangeRate, style)` | buy → stay |
-| 急騰ロック | `isSurgeStock(weekChangeRate, style)` | buy → stay |
-| 過熱チェック | `isOverheated(deviationRate, style)` | buy → stay |
+| 極端な急騰ブロック | 週間変化率 ≥ 50%（skipSafetyRulesでもブロック） | buy → stay |
+| 極端な過熱ブロック | MA乖離率 ≥ 50%（skipSafetyRulesでもブロック） | buy → stay |
+| 下落トレンドロック | `isInDecline(weekChangeRate, style)` 安定配当-10%/成長-15%/アクティブ-20% | buy → stay |
+| 急騰ロック | `isSurgeStock(weekChangeRate, style)` 安定配当+20%/成長+25%/アクティブ+50% | buy → stay |
+| 過熱チェック | `isOverheated(deviationRate, style)` MA乖離率 ≥ 20%（アクティブ型はスキップ） | buy → stay |
+| 市場パニック | 市場パニック時 | confidence低下 |
 
 **アクティブ型リバウンド狙い逆転ロジック**:
 
@@ -216,11 +248,27 @@ AI生成後、非スタイル依存の安全補正（テクニカルブレーキ
 |------|------|
 | 引けにかけて強い | ローソク足が買いシグナル かつ 強度 ≥ 55% |
 | 出来高が伴っている | 出来高急増率（20日平均比）≥ 1.5倍 |
+| ギャップアップモメンタム | 小幅ギャップアップ(2-5%) + 引け強い(70%以上) + 出来高(1.3倍以上) の2条件以上 |
 
 - 上記のいずれかを満たせばリバウンド昇格の対象
 - 両方が揃った場合は confidence をより高く設定（0.65）
 - ハードセーフティ（危険銘柄、赤字×急騰、市場暴落、仕手株リスク）は逆転しない
 - 既に `buy` のアクティブ型に対しても、引け強い/出来高ありの場合は confidence を +0.05 ブースト
+
+**期間分析ベースの売却目標率・撤退ライン率**:
+
+短期予測価格（shortTermPriceHigh/Low）から売却目標率・撤退ライン率を逆算し、AIが出力した率よりも優先して使用する。予測価格が現在価格と矛盾する場合はAIの率にフォールバック。
+
+**トレンド乖離（ねじれ）検出**:
+
+短期トレンドと長期トレンドの方向が異なる場合（例: 短期上昇＋長期下落）、乖離の種類を検出してスタイル別の解説を付与。リバウンド警戒（下降トレンド中の一時的な反発）の場合は buy → stay に補正。
+
+**スタイル間合意度によるconfidence補正**:
+
+全ての推奨変更ロジック完了後、3スタイルのうち買い推奨の数に応じてconfidenceを調整:
+- 1/3のみbuy: confidence -0.15
+- 2/3がbuy: confidence -0.05
+- ペナルティ後のconfidenceが0.6未満の場合: buy → stay に変更
 
 結果は `PurchaseRecommendation.styleAnalyses` と `StockAnalysis.styleAnalyses` に JSON として保存。フロントエンドでタブ切り替えにより3スタイルの結果を比較表示できます。
 
@@ -289,10 +337,12 @@ AI生成後、非スタイル依存の安全補正（テクニカルブレーキ
 - `app/api/recommendations/generate-daily/route.ts` - 日次おすすめ生成
 - `app/api/recommendations/regenerate/route.ts` - おすすめ手動再生成
 - `app/api/featured-stocks/route.ts` - おすすめ銘柄取得
-- `lib/purchase-recommendation-core.ts` - 購入判断ロジック
+- `lib/purchase-recommendation-core.ts` - 購入判断ロジック（安全補正・タイミング判定・期間分析）
 - `lib/style-analysis.ts` - 投資スタイル別セーフティルール
 - `lib/recommendation-scoring.ts` - スコアリング
-- `lib/stock-safety-rules.ts` - 安全ルール
+- `lib/stock-safety-rules.ts` - 安全ルール（おすすめ・購入共通）
+- `lib/correction-explanation.ts` - 補正理由の解説テキスト生成
+- `lib/trend-divergence.ts` - トレンド乖離（ねじれ）検出
 - `lib/outcome-utils.ts` - 結果追跡ユーティリティ
 - `lib/prompts/daily-recommendation-prompt.ts` - 日次おすすめプロンプト
 - `lib/prompts/purchase-recommendation-prompt.ts` - 購入判断プロンプト

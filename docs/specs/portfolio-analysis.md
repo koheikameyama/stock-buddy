@@ -13,56 +13,86 @@
 保有銘柄ごとにAIが売買判断を生成します。
 
 **分析に使用するデータ**:
-- 株価データ（30日分のOHLCV）
+- 株価データ（3ヶ月分のOHLCV）
 - テクニカル指標（RSI, MACD, 移動平均乖離率）
 - チャートパターン（逆三尊、ダブルボトム等）
+- ローソク足パターン分析
 - 出来高分析
-- 財務指標（PER, PBR, ROE, 配当利回り）
+- 窓埋め判定
+- 支持線・抵抗線
+- トレンドライン
+- 財務指標（PER, PBR, ROE, 配当利回りなど20以上）
 - 関連ニュース（7日分）
 - セクタートレンド
 - 日経225の動向
+- 地政学リスク指標（VIX・WTI）
+- 決算・配当落ちスケジュール
+- 相対強度（市場/セクター比較）
 - ユーザー設定（投資スタイル、売却目標/撤退ライン）
+- 直近の購入判断（購入から7日以内の場合のみ）
 
 **AI出力スキーマ**:
 
 ```json
 {
   "marketSignal": "bullish | neutral | bearish",
-  "shortTerm": "短期分析テキスト",
+  "shortTerm": "短期分析テキスト（全体共通）",
   "mediumTerm": "中期分析テキスト",
   "longTerm": "長期分析テキスト",
   "shortTermTrend": "up | neutral | down",
   "shortTermPriceLow": 2300,
   "shortTermPriceHigh": 2600,
-  "recommendation": "buy | hold | sell",
-  "suggestedSellPrice": 2500,
-  "suggestedSellPercent": 50,
-  "sellReason": "売却理由",
-  "sellCondition": "売却条件",
-  "holdCondition": "hold時の待機目標（例: ○○円付近まで下がったら買い増し検討）",
-  "advice": "アドバイステキスト",
-  "confidence": 0.85,
+  "midTermTrend": "up | neutral | down",
+  "midTermPriceLow": 2200,
+  "midTermPriceHigh": 2800,
+  "longTermTrend": "up | neutral | down",
+  "longTermPriceLow": 2100,
+  "longTermPriceHigh": 3000,
   "isCriticalChange": false,
-  "reconciliationMessage": null
+  "reconciliationMessage": null,
+  "styleAnalyses": {
+    "CONSERVATIVE": {
+      "recommendation": "buy | hold | sell",
+      "confidence": 0.85,
+      "advice": "アドバイステキスト",
+      "shortTerm": "短期分析テキスト（スタイル別）",
+      "holdCondition": "hold時の待機目標",
+      "sellReason": "売却理由",
+      "sellCondition": "売却条件",
+      "suggestedSellPercent": 75,
+      "suggestedExitRate": 0.05,
+      "suggestedSellTargetRate": 0.15
+    },
+    "BALANCED": { "..." : "同上" },
+    "AGGRESSIVE": { "..." : "同上" }
+  }
 }
 ```
 
 **安全補正ルール（AIの判断をルールベースで上書き）**:
 
-| ルール | 条件 | 動作 |
-|--------|------|------|
-| パニック売り防止 | MA乖離率 ≤ -20% | sell → hold に変更 |
-| 急騰銘柄保護 | 週間変化率がスタイル別閾値以上（安定配当型+20%/バランス+25%/アクティブ型+50%） | buy → hold に変更 |
-| 危険銘柄ブロック | 赤字 + ボラティリティ > 50% | buy → hold に変更 |
-| 上場廃止強制 | isDelisted = true | 強制 sell |
-| 中長期上昇時のsell抑制 | スタイル別: 安定配当型は長期upのみ保護（※含み益+3%以上 + 短期下落予兆時は保護無効化）、バランスは中期or長期up、アクティブ型は保護なし（損失 > -15%の場合のみ） | sell → hold に変更 |
-| 直近購入保護 | 購入から7日未満 | sell をブロック（isCriticalChange時のみ許可） |
-| 相対強度保護 | 市場比+5%以上のアウトパフォーム | 地合い要因として sell をブロック |
-| 利益確定促進 | 含み益あり + 短期下落予兆（shortTermTrend=down）。安定配当型: +3%以上、成長投資型: +8%以上、アクティブ型: +15%以上 | hold → sell（戻り売り）に変更。安定配当型は75%売却、成長投資型は50%売却、アクティブ型は25%売却を推奨 |
+AI生成後、全3スタイルの結果に対して以下の安全補正を順に適用する。
+
+| # | ルール | 条件 | 動作 |
+|---|--------|------|------|
+| 1 | パニック売り防止 | MA乖離率 ≤ -20% | sell → hold に変更 |
+| 2 | データ取得不可強制 | isDelisted = true | 強制 sell |
+| 3 | 危険銘柄ブロック | 赤字 + ボラティリティ > 50% | buy → hold に変更 |
+| 4 | 中長期上昇時のsell抑制 | スタイル別: 安定配当型は長期upのみ保護（※含み益+5%以上 + 短期下落予兆時は保護無効化）、バランスは中期or長期up、アクティブ型は保護なし（損失 > -15%の場合のみ） | sell → hold に変更 |
+| 5 | 相対強度保護 | 市場比+5%以上のアウトパフォーム | 地合い要因として sell → hold に変更 |
+| 6 | 配当権利落ち後の保護 | 権利落ち日から3日以内 + 含み損が軽微（-5%超） | sell → hold に変更 |
+| 7 | 利益確定促進 | 含み益あり + 短期下落予兆（shortTermTrend=down）。安定配当型: +5%以上、成長投資型: +8%以上、アクティブ型: +15%以上 | hold → sell（利確）に変更。売却数量は100株（単元株）単位で算出 |
+
+※ 直近購入保護（購入から7日以内）はAIプロンプトで誠実な対応を指示する形で実現。ポストプロセスのハードルールではなく、AIに「isCriticalChange時のみ売りを許可」する旨をプロンプトに含める。
+
+**利益確定促進の詳細**:
+- 推奨売却割合: 安定配当型75%、成長投資型50%、アクティブ型25%
+- 保有数が1単元（100株）未満の場合はスキップ
+- 理想の割合で1単元以上売れない場合は、1単元売れる最小の割合に引き上げ
 
 **投資スタイル別分析（styleAnalyses）**:
 
-AIが1回のAPIコールで3つの投資スタイル（安定配当型/成長投資型/アクティブ型）ごとに異なる判断（recommendation/confidence/advice/shortTerm/sellReason/sellCondition/holdCondition/suggestedSellPercent）を直接生成します。各スタイルの判断傾向:
+AIが1回のAPIコールで3つの投資スタイル（安定配当型/成長投資型/アクティブ型）ごとに異なる判断（recommendation/confidence/advice/shortTerm/sellReason/sellCondition/holdCondition/suggestedSellPercent/suggestedExitRate/suggestedSellTargetRate）を直接生成します。各スタイルの判断傾向:
 
 | スタイル | 判断傾向 | アドバイスのトーン |
 |----------|----------|-------------------|
@@ -79,7 +109,12 @@ AI生成後、非スタイル依存の安全補正（上記テーブルの大半
 
 | スタイル依存補正 | 条件（スタイルにより閾値が異なる） | 動作 |
 |------------------|--------------------------------------|------|
-| 急騰銘柄の買い増し抑制 | `isSurgeStock(weekChangeRate, style)` | buy → hold に変更 |
+| 急騰銘柄の買い増し抑制 | `isSurgeStock(weekChangeRate, style)` 安定配当+20%/成長+25%/アクティブ+50% | buy → hold に変更 |
+| 市場パニック | 市場パニック時のbuy推奨 | confidence低下 |
+
+**トレンド乖離（ねじれ）検出**:
+
+短期トレンドと長期トレンドの方向が異なる場合（例: 短期上昇＋長期下落）、乖離の種類を検出してスタイル別の解説を付与。各スタイルの結果に `divergenceType`、`divergenceLabel`、`divergenceExplanation` が追加される。
 
 **holdCondition（待機目標）**:
 - recommendation="hold" の場合、AIが `holdCondition` に具体的な待機目標を記載（例: 「○○円付近まで下がったら買い増し検討」「RSIが30以下になったら買い増し検討」）
@@ -378,7 +413,7 @@ PortfolioSnapshot テーブルからの時系列データ。
 | モデル | OpenAI GPT-4o-mini |
 | Temperature | 0.3（分析的） |
 | レスポンス形式 | JSON Schema（strict mode） |
-| 最大トークン | 800 |
+| 最大トークン | 1600 |
 
 ### Daily Market Navigator
 
@@ -470,8 +505,11 @@ PortfolioSnapshot テーブルからの時系列データ。
 - `app/api/portfolio/benchmark-metrics/route.ts` - ベンチマーク指標 API
 - `app/dashboard/NikkeiSummary.tsx` - 日経225 & ベンチマーク比較コンポーネント
 - `lib/portfolio-overall-analysis.ts` - Daily Market Navigator ロジック（型定義・生成・取得）
-- `lib/portfolio-analysis-core.ts` - 個別銘柄分析ロジック
+- `lib/portfolio-analysis-core.ts` - 個別銘柄分析ロジック（安全補正・価格算出・売りタイミング判定）
 - `lib/portfolio-calculator.ts` - 計算ロジック
 - `lib/style-analysis.ts` - 投資スタイル別セーフティルール
+- `lib/stock-safety-rules.ts` - 共通安全ルール（危険銘柄、配当権利落ち判定等）
+- `lib/correction-explanation.ts` - 補正理由の解説テキスト生成
+- `lib/trend-divergence.ts` - トレンド乖離（ねじれ）検出
 - `lib/prompts/portfolio-analysis-prompt.ts` - 個別分析プロンプト
 - `lib/prompts/portfolio-overall-analysis-prompt.ts` - Daily Market Navigator プロンプト
