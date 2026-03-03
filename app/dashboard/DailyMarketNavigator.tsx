@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
-import type { MarketNavigatorResult, MarketTone, PortfolioStatus, NavigatorSession } from "@/lib/portfolio-overall-analysis"
+import type { MarketNavigatorResult, MarketTone, PortfolioStatus } from "@/lib/portfolio-overall-analysis"
 import { DAILY_MARKET_NAVIGATOR } from "@/lib/constants"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
@@ -33,15 +33,6 @@ function formatChangeRate(rate: number): { text: string; color: string } {
   }
 }
 
-function getCurrentSessionFromTime(): NavigatorSession {
-  const now = new Date()
-  const jst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }))
-  const hour = jst.getHours()
-  const minute = jst.getMinutes()
-  if (hour >= DAILY_MARKET_NAVIGATOR.EVENING_SESSION_START_HOUR) return "evening"
-  if (hour > 11 || (hour === 11 && minute >= 40)) return "pre-afternoon"
-  return "morning"
-}
 
 function Skeleton() {
   return (
@@ -64,7 +55,6 @@ export default function DailyMarketNavigator({
   watchlistCount,
 }: Props) {
   const t = useTranslations("dashboard.marketNavigator")
-  const activeSession = getCurrentSessionFromTime()
   const [data, setData] = useState<MarketNavigatorResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDetails, setShowDetails] = useState(false)
@@ -80,7 +70,7 @@ export default function DailyMarketNavigator({
     const fetchData = async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/portfolio/overall-analysis?session=${activeSession}`)
+        const res = await fetch("/api/portfolio/overall-analysis")
         const result = await res.json()
         setData(result)
       } catch (error) {
@@ -91,7 +81,7 @@ export default function DailyMarketNavigator({
     }
 
     fetchData()
-  }, [totalCount, activeSession])
+  }, [totalCount])
 
   // Not enough stocks
   if (totalCount < DAILY_MARKET_NAVIGATOR.MIN_STOCKS) {
@@ -119,8 +109,7 @@ export default function DailyMarketNavigator({
     return <Skeleton />
   }
 
-  // データのセッション情報を優先し、なければ現在時刻から判定
-  const displaySession = data?.session ?? activeSession
+  const displaySession = data?.session ?? "morning"
   const sessionIcon = displaySession === "evening" ? "🌙" : displaySession === "pre-afternoon" ? "📊" : "🧭"
 
   // No analysis yet

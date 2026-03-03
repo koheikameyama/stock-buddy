@@ -412,8 +412,6 @@ async function generateAnalysisWithAI(
  * ユーザーのポートフォリオ総評分析を取得
  */
 export async function getPortfolioOverallAnalysis(userId: string, session?: NavigatorSession): Promise<MarketNavigatorResult> {
-  const resolvedSession = session ?? getCurrentSession()
-
   // ポートフォリオとウォッチリストを取得
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -454,10 +452,23 @@ export async function getPortfolioOverallAnalysis(userId: string, session?: Navi
     }
   }
 
-  // 既存の分析があるか確認（複合ユニークキーで直接取得）
-  const analysis = await prisma.portfolioOverallAnalysis.findUnique({
-    where: { userId_session: { userId, session: resolvedSession } },
-  })
+  // sessionが指定されている場合はそのセッションのデータを取得
+  // 指定なしの場合は当日の最新分析を取得
+  let analysis
+  if (session) {
+    analysis = await prisma.portfolioOverallAnalysis.findUnique({
+      where: { userId_session: { userId, session } },
+    })
+  } else {
+    const todayStart = dayjs().tz("Asia/Tokyo").startOf("day").toDate()
+    analysis = await prisma.portfolioOverallAnalysis.findFirst({
+      where: {
+        userId,
+        analyzedAt: { gte: todayStart },
+      },
+      orderBy: { analyzedAt: "desc" },
+    })
+  }
 
   if (analysis) {
     const todayJST = dayjs().tz("Asia/Tokyo").startOf("day")
@@ -468,7 +479,7 @@ export async function getPortfolioOverallAnalysis(userId: string, session?: Navi
       hasAnalysis: true,
       analyzedAt: analysis.analyzedAt.toISOString(),
       isToday,
-      session: resolvedSession,
+      session: analysis.session as NavigatorSession,
       portfolioCount,
       watchlistCount,
       market: {
