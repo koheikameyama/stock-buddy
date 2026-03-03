@@ -4,15 +4,21 @@
  * Pythonスクリプト (generate_personal_recommendations.py) から移植
  */
 
-import { PERSPECTIVE_BONUS } from "@/lib/constants"
+import { PERSPECTIVE_BONUS, SECTOR_TREND } from "@/lib/constants"
 import { getSectorScoreBonus, type SectorTrendData } from "@/lib/sector-trend"
 
 // 設定
 export const SCORING_CONFIG = {
-  MAX_PER_SECTOR: 5,          // 各セクターからの最大銘柄数
+  MAX_PER_SECTOR: 5,          // 各セクターからの最大銘柄数（デフォルト）
   MAX_CANDIDATES_FOR_AI: 15,  // AIに渡す最大銘柄数
   MAX_VOLATILITY: 50,         // ボラティリティ上限（%）
   BUDGET_ROUND_UP_UNIT: 100_000, // 予算切り上げ単位（円）
+  // セクタートレンド連動の銘柄数上限
+  SECTOR_LIMIT_STRONG_UP: 7,   // compositeScore >= 40
+  SECTOR_LIMIT_UP: 6,          // compositeScore >= 20
+  SECTOR_LIMIT_NEUTRAL: 5,     // -20 < score < 20
+  SECTOR_LIMIT_DOWN: 3,        // compositeScore <= -20
+  SECTOR_LIMIT_STRONG_DOWN: 2, // compositeScore <= -40
 }
 
 // 赤字 AND 高ボラティリティ銘柄へのスコアペナルティ（投資スタイル別）
@@ -294,17 +300,34 @@ export function calculateStockScores(
 }
 
 /**
- * セクター分散を適用（各セクターから最大N銘柄）
+ * セクタートレンドに応じたセクター別銘柄数上限を取得
  */
-export function applySectorDiversification(stocks: ScoredStock[]): ScoredStock[] {
+function getSectorLimit(trend: SectorTrendData | undefined): number {
+  if (!trend) return SCORING_CONFIG.SECTOR_LIMIT_NEUTRAL
+  const score = trend.compositeScore ?? trend.score3d
+  if (score >= SECTOR_TREND.STRONG_UP_THRESHOLD) return SCORING_CONFIG.SECTOR_LIMIT_STRONG_UP
+  if (score >= SECTOR_TREND.UP_THRESHOLD) return SCORING_CONFIG.SECTOR_LIMIT_UP
+  if (score <= SECTOR_TREND.STRONG_DOWN_THRESHOLD) return SCORING_CONFIG.SECTOR_LIMIT_STRONG_DOWN
+  if (score <= SECTOR_TREND.DOWN_THRESHOLD) return SCORING_CONFIG.SECTOR_LIMIT_DOWN
+  return SCORING_CONFIG.SECTOR_LIMIT_NEUTRAL
+}
+
+/**
+ * セクター分散を適用（セクタートレンドに応じて銘柄数上限を動的に調整）
+ */
+export function applySectorDiversification(
+  stocks: ScoredStock[],
+  sectorTrends?: Record<string, SectorTrendData>,
+): ScoredStock[] {
   const sectorCounts: Record<string, number> = {}
   const diversified: ScoredStock[] = []
 
   for (const stock of stocks) {
     const sector = stock.sector || "その他"
     const count = sectorCounts[sector] || 0
+    const limit = getSectorLimit(sectorTrends?.[sector])
 
-    if (count < SCORING_CONFIG.MAX_PER_SECTOR) {
+    if (count < limit) {
       diversified.push(stock)
       sectorCounts[sector] = count + 1
     }
