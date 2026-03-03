@@ -114,6 +114,7 @@ export default function MyStockDetailClient({
   const router = useRouter();
   const t = useTranslations("stocks.detail");
   const tTabs = useTranslations("stocks.tabs");
+  const tPortfolio = useTranslations("portfolio");
   const { setStockContext } = useChatContext();
   const { price, loading, isStale } = useStockPrice(stock.stock.tickerCode);
   const [selectedTransaction, setSelectedTransaction] =
@@ -134,6 +135,9 @@ export default function MyStockDetailClient({
     number | null
   >(stock.targetBuyPrice ?? null);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [showZeroStockModal, setShowZeroStockModal] = useState(false);
+  const [zeroStockActionInProgress, setZeroStockActionInProgress] =
+    useState(false);
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [watchlistTab, setWatchlistTab] = useState("ai-judgment");
@@ -884,8 +888,16 @@ export default function MyStockDetailClient({
           createdAt: "",
           updatedAt: "",
         }}
-        onSuccess={() => {
+        onSuccess={(updatedStock) => {
           setShowTransactionDialog(false);
+          // 全株売却時は選択モーダルを表示
+          if (
+            updatedStock.type === "portfolio" &&
+            (updatedStock.quantity ?? 0) === 0
+          ) {
+            setShowZeroStockModal(true);
+            return;
+          }
           router.refresh();
         }}
         transactionType={transactionType}
@@ -1099,6 +1111,174 @@ export default function MyStockDetailClient({
           latestPrice: currentPrice || null,
         }}
       />
+
+      {/* 全株売却後の選択モーダル */}
+      {showZeroStockModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              {tPortfolio("zeroStockOptions.title")}
+            </h3>
+            <p className="text-sm text-gray-600 mb-2">
+              <span className="font-semibold">{stock.stock.name}</span>
+            </p>
+            <p className="text-sm text-gray-500 mb-5">
+              {tPortfolio("zeroStockOptions.description")}
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  setZeroStockActionInProgress(true);
+                  try {
+                    const response = await fetch("/api/user-stocks", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        tickerCode: stock.stock.tickerCode,
+                        type: "watchlist",
+                      }),
+                    });
+                    if (!response.ok) {
+                      const data = await response.json();
+                      throw new Error(
+                        data.error || "Failed to add to watchlist",
+                      );
+                    }
+                    toast.success(
+                      tPortfolio("zeroStockOptions.addedToWatchlist"),
+                    );
+                    router.push("/my-stocks");
+                  } catch (err) {
+                    toast.error(
+                      err instanceof Error
+                        ? err.message
+                        : "追加に失敗しました",
+                    );
+                  } finally {
+                    setZeroStockActionInProgress(false);
+                  }
+                }}
+                disabled={zeroStockActionInProgress}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors disabled:opacity-50 text-left"
+              >
+                <svg
+                  className="w-5 h-5 text-blue-600 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {tPortfolio("zeroStockOptions.watchlist")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {tPortfolio("zeroStockOptions.watchlistDescription")}
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={async () => {
+                  setZeroStockActionInProgress(true);
+                  try {
+                    const response = await fetch("/api/tracked-stocks", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        tickerCode: stock.stock.tickerCode,
+                      }),
+                    });
+                    if (!response.ok) {
+                      const data = await response.json();
+                      throw new Error(data.error || "追跡に失敗しました");
+                    }
+                    toast.success(
+                      tPortfolio("zeroStockOptions.addedToTracked"),
+                    );
+                    router.push("/my-stocks");
+                  } catch (err) {
+                    toast.error(
+                      err instanceof Error
+                        ? err.message
+                        : "追跡に失敗しました",
+                    );
+                  } finally {
+                    setZeroStockActionInProgress(false);
+                  }
+                }}
+                disabled={zeroStockActionInProgress}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors disabled:opacity-50 text-left"
+              >
+                <svg
+                  className="w-5 h-5 text-green-600 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {tPortfolio("zeroStockOptions.track")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {tPortfolio("zeroStockOptions.trackDescription")}
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  toast.success(
+                    tPortfolio("zeroStockOptions.movedToSold"),
+                  );
+                  router.push("/my-stocks");
+                }}
+                disabled={zeroStockActionInProgress}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 text-left"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {tPortfolio("zeroStockOptions.dismiss")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {tPortfolio("zeroStockOptions.dismissDescription")}
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Individual Settings Modal */}
       <IndividualSettingsModal
