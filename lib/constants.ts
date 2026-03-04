@@ -687,19 +687,49 @@ export const EARNINGS_SAFETY = {
   POST_EX_DIVIDEND_DAYS: 3, // 権利落ち後3日間は配当落ち保護
 } as const;
 
-// 10セクターの定義
-export const SECTORS = [
-  "半導体・電子部品",
-  "自動車",
-  "金融",
-  "医薬品",
-  "IT・サービス",
-  "エネルギー",
-  "通信",
-  "小売",
-  "不動産",
-  "素材",
-] as const;
+/**
+ * セクターマスタ
+ * - key: セクターグループ名（UIフィルター、ニュース分類、セクタートレンドで使用）
+ * - value: 対応する東証業種分類の配列（Stock.sectorとのマッチングに使用）
+ */
+export const SECTOR_MASTER: Record<string, readonly string[]> = {
+  "半導体・電子部品": ["電気機器", "精密機器"],
+  "自動車": ["輸送用機器"],
+  "金融": ["銀行業", "証券、商品先物取引業", "保険業", "卸売業"],
+  "医薬品": ["医薬品"],
+  "IT・サービス": ["情報・通信業", "サービス業"],
+  "エネルギー": ["電気・ガス業", "鉱業", "石油・石炭製品"],
+  "小売": ["小売業", "食料品"],
+  "不動産": ["不動産業", "建設業"],
+  "素材": ["化学", "鉄鋼", "非鉄金属", "金属製品", "ガラス・土石製品", "繊維製品"],
+  "運輸": ["陸運業", "海運業", "空運業"],
+  "その他": ["その他製品"],
+};
+
+// UIフィルター用のセクターリスト（マスタから自動生成）
+export const SECTORS = Object.keys(SECTOR_MASTER);
+
+// TSE業種 → セクターグループの逆引きマップ
+export const TSE_TO_SECTOR: Record<string, string> = Object.entries(SECTOR_MASTER).reduce(
+  (acc, [group, industries]) => {
+    for (const industry of industries) {
+      acc[industry] = group;
+    }
+    return acc;
+  },
+  {} as Record<string, string>,
+);
+
+/** Stock.sector（東証業種分類）からセクターグループ名を取得 */
+export function getSectorGroup(tseSector: string | null): string | null {
+  if (!tseSector) return null;
+  return TSE_TO_SECTOR[tseSector] ?? null;
+}
+
+/** セクターグループ名から東証業種分類の配列を取得 */
+export function getTseIndustries(sectorGroup: string): string[] {
+  return [...(SECTOR_MASTER[sectorGroup] ?? [])];
+}
 
 // ベンチマーク比較指標の閾値
 export const BENCHMARK_METRICS = {
@@ -734,14 +764,14 @@ export const GAP_PREDICTION = {
   // severity判定閾値（|gapRate| %）
   HIGH_SEVERITY_THRESHOLD: 2.0,
   MEDIUM_SEVERITY_THRESHOLD: 0.8,
-  // セクター別NASDAQ重み上乗せ
+  // セクター別NASDAQ重み上乗せ（セクターグループ名で定義）
   SECTOR_NASDAQ_BONUS: {
     "半導体・電子部品": 0.15,
     "IT・サービス": 0.10,
     "自動車": 0.05,
     "不動産": -0.05,
   } as Record<string, number>,
-  // セクター別為替感応度
+  // セクター別為替感応度（セクターグループ名で定義）
   SECTOR_FX_SENSITIVITY: {
     "半導体・電子部品": 1.5,
     "自動車": 1.5,
@@ -750,7 +780,6 @@ export const GAP_PREDICTION = {
     "医薬品": 1.0,
     "エネルギー": 1.0,
     "金融": 0.5,
-    "通信": 0.5,
     "小売": 0.3,
     "不動産": 0.3,
   } as Record<string, number>,
