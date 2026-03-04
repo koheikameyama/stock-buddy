@@ -209,17 +209,20 @@ export default function DailyMarketNavigator({
                 {data.details.stockHighlights.map((stock) => {
                   const daily = formatChangeRate(stock.dailyChangeRate)
                   const weekly = formatChangeRate(stock.weekChangeRate)
+                  const CardWrapper = stock.stockId
+                    ? ({ children, className }: { children: React.ReactNode; className: string }) => (
+                        <Link href={`/stocks/${stock.stockId}`} className={`${className} hover:bg-gray-100 transition-colors`}>
+                          {children}
+                        </Link>
+                      )
+                    : ({ children, className }: { children: React.ReactNode; className: string }) => (
+                        <div className={className}>{children}</div>
+                      )
                   return (
-                    <div key={stock.tickerCode} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <CardWrapper key={stock.tickerCode} className="block bg-gray-50 rounded-lg p-3 border border-gray-100">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
                         <div className="flex items-center gap-2">
-                          {stock.stockId ? (
-                            <Link href={`/stocks/${stock.stockId}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline">
-                              {stock.stockName}
-                            </Link>
-                          ) : (
-                            <span className="text-sm font-medium text-gray-900">{stock.stockName}</span>
-                          )}
+                          <span className="text-sm font-medium text-gray-900">{stock.stockName}</span>
                           <span className="text-xs text-gray-400">(<CopyableTicker tickerCode={stock.tickerCode} />)</span>
                           {stock.source && (
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
@@ -237,7 +240,7 @@ export default function DailyMarketNavigator({
                         </div>
                       </div>
                       <p className="text-xs text-gray-600">{stock.analysis}</p>
-                    </div>
+                    </CardWrapper>
                   )
                 })}
               </div>

@@ -31,6 +31,7 @@ interface NikkeiHistoricalPoint {
 interface PortfolioHistoryItem {
   date: string
   totalValue: number
+  unrealizedGainPercent: number
 }
 
 interface ChartDataPoint {
@@ -102,16 +103,13 @@ export default function NikkeiSummary() {
 
       const nikkeiBase = nikkeiPrices[0].close
 
-      // Build portfolio lookup by date
+      // Build portfolio lookup by date (含み損益率の変化で比較)
       const portfolioMap = new Map<string, number>()
       if (portfolioHistory.length > 0) {
-        const portfolioBase = portfolioHistory[0].totalValue
+        const baseGainPercent = portfolioHistory[0].unrealizedGainPercent
         for (const item of portfolioHistory) {
           const dateKey = item.date.slice(0, 10)
-          const pct =
-            portfolioBase > 0
-              ? ((item.totalValue - portfolioBase) / portfolioBase) * 100
-              : 0
+          const pct = item.unrealizedGainPercent - baseGainPercent
           portfolioMap.set(dateKey, pct)
         }
       }
