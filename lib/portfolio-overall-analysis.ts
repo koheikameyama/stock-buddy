@@ -472,12 +472,8 @@ export async function getPortfolioOverallAnalysis(userId: string, session?: Navi
       where: { userId_session: { userId, session } },
     })
   } else {
-    const todayStart = dayjs().tz("Asia/Tokyo").startOf("day").toDate()
     analysis = await prisma.portfolioOverallAnalysis.findFirst({
-      where: {
-        userId,
-        analyzedAt: { gte: todayStart },
-      },
+      where: { userId },
       orderBy: { analyzedAt: "desc" },
     })
   }
