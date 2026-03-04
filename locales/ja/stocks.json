@@ -712,5 +712,42 @@
     "earningsToday": "本日決算発表予定",
     "earningsInDays": "{days}日後に決算発表予定",
     "otherSector": "その他"
+  },
+  "list": {
+    "title": "銘柄一覧",
+    "searchPlaceholder": "銘柄名・コードで検索",
+    "search": "検索",
+    "directionAll": "全て",
+    "directionUp": "上昇",
+    "directionDown": "下落",
+    "sectorAll": "全セクター",
+    "minPrice": "最低価格",
+    "maxPrice": "最高価格",
+    "apply": "適用",
+    "sortLabel": "並び替え",
+    "sort": {
+      "dailyChangeRate_desc": "上昇率順",
+      "dailyChangeRate_asc": "下落率順",
+      "latestPrice_desc": "株価（高い順）",
+      "latestPrice_asc": "株価（安い順）",
+      "marketCap_desc": "時価総額順",
+      "name_asc": "銘柄名順"
+    },
+    "noStocks": "条件に一致する銘柄がありません",
+    "showingRange": "{total}件中 {from}〜{to}件を表示",
+    "pagination": {
+      "prev": "前へ",
+      "next": "次へ"
+    },
+    "score": "おすすめ度 {score}点",
+    "weekChange": "週間",
+    "noRecommendation": "分析なし",
+    "addPortfolio": "+購入",
+    "addWatchlist": "+気になる",
+    "addedToPortfolio": "保有銘柄に追加しました",
+    "addedToWatchlist": "気になるに追加しました",
+    "statusPortfolio": "保有中",
+    "statusWatchlist": "気になる",
+    "statusTracked": "追跡中"
   }
 }
