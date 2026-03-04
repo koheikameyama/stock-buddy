@@ -5,7 +5,7 @@
  */
 
 import { PERSPECTIVE_BONUS, SECTOR_TREND, getSectorGroup } from "@/lib/constants"
-import { getSectorScoreBonus, type SectorTrendData } from "@/lib/sector-trend"
+import { computeSectorRankBonuses, getSectorScoreBonus, type SectorTrendData } from "@/lib/sector-trend"
 
 // 設定
 export const SCORING_CONFIG = {
@@ -171,6 +171,11 @@ export function calculateStockScores(
   const penalty = RISK_PENALTY[style] || -20
   const scoredStocks: ScoredStock[] = []
 
+  // セクター順位ボーナスを事前計算
+  const sectorRankBonuses = sectorTrends
+    ? computeSectorRankBonuses(sectorTrends)
+    : {}
+
   for (const stock of stocks) {
     let totalScore = 0
     const scoreBreakdown: Record<string, number> = {}
@@ -201,13 +206,18 @@ export function calculateStockScores(
       scoreBreakdown["unknownEarningsPenalty"] = -5
     }
 
-    // セクタートレンドによるボーナス/ペナルティ
+    // セクタートレンドによる連続ボーナス + 順位ボーナス
     const stockSectorGroup = getSectorGroup(stock.sector)
     if (sectorTrends && stockSectorGroup && sectorTrends[stockSectorGroup]) {
-      const bonus = getSectorScoreBonus(sectorTrends[stockSectorGroup])
-      if (bonus !== 0) {
-        totalScore += bonus
-        scoreBreakdown["sectorTrendBonus"] = bonus
+      const continuousBonus = getSectorScoreBonus(sectorTrends[stockSectorGroup])
+      const rankBonus = sectorRankBonuses[stockSectorGroup] || 0
+      if (continuousBonus !== 0) {
+        totalScore += continuousBonus
+        scoreBreakdown["sectorTrendBonus"] = continuousBonus
+      }
+      if (rankBonus !== 0) {
+        totalScore += rankBonus
+        scoreBreakdown["sectorRankBonus"] = rankBonus
       }
     }
 

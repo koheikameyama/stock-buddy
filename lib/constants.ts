@@ -665,11 +665,11 @@ export const SECTOR_TREND = {
   // 強弱閾値
   STRONG_UP_THRESHOLD: 40, // 強い追い風の閾値
   STRONG_DOWN_THRESHOLD: -40, // 強い逆風の閾値
-  // おすすめスコアリングへのボーナス/ペナルティ
-  STRONG_UP_BONUS: 15, // compositeScore >= 40 → +15点
-  UP_BONUS: 10, // compositeScore >= 20 → +10点
-  DOWN_PENALTY: -5, // compositeScore <= -20 → -5点
-  STRONG_DOWN_PENALTY: -10, // compositeScore <= -40 → -10点
+  // おすすめスコアリングへの連続ボーナス（閾値ベース → 連続関数）
+  SCORE_CONTINUOUS_FACTOR: 0.25, // compositeScore × factor = 連続ボーナス
+  SCORE_CONTINUOUS_CLAMP: 50, // compositeScore を ±50 にクランプ
+  // セクター順位ボーナス（compositeScore 降順: 1位→11位）
+  RANK_BONUSES: [6, 4, 2, 0, 0, 0, 0, 0, -2, -4, -6] as readonly number[],
 } as const;
 
 // 決算発表日バッジの閾値（日数）

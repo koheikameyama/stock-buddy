@@ -114,28 +114,56 @@ export function formatSectorTrendForPrompt(trend: SectorTrendData): string {
 
 /**
  * 全セクタートレンドをAIプロンプト用テキストに変換（おすすめ生成用）
+ * compositeScore降順で順位付きで出力する
  */
 export function formatAllSectorTrendsForPrompt(trends: SectorTrendData[]): string {
   if (trends.length === 0) return ""
 
-  const lines = trends.map(formatSectorTrendForPrompt)
+  // compositeScore降順でソート済みの想定だが、念のためソート
+  const sorted = [...trends].sort((a, b) =>
+    (b.compositeScore ?? b.score3d) - (a.compositeScore ?? a.score3d))
+
+  const lines = sorted.map((trend, index) =>
+    `${index + 1}位: ${formatSectorTrendForPrompt(trend)}`)
   return `
-## 市場セクター動向
-以下は直近のセクター別トレンド（ニュース + 株価統合）です。銘柄選定の参考にしてください。
+## 市場セクター動向（強い順）
+以下は直近のセクター別トレンド（ニュース + 株価統合）を強い順にランキングしたものです。上位セクターの銘柄を優先的に検討してください。
 ${lines.join("\n")}
 `
 }
 
 /**
- * おすすめスコアリング用のセクターボーナスを計算
+ * おすすめスコアリング用のセクター連続ボーナスを計算
+ * compositeScore に比例した連続値を返す（デッドゾーンなし）
  */
 export function getSectorScoreBonus(trend: SectorTrendData | null): number {
   if (!trend) return 0
   const score = trend.compositeScore ?? trend.score3d
+  const clamped = Math.max(-SECTOR_TREND.SCORE_CONTINUOUS_CLAMP,
+    Math.min(SECTOR_TREND.SCORE_CONTINUOUS_CLAMP, score))
+  return Math.round(clamped * SECTOR_TREND.SCORE_CONTINUOUS_FACTOR * 10) / 10
+}
 
-  if (score >= SECTOR_TREND.STRONG_UP_THRESHOLD) return SECTOR_TREND.STRONG_UP_BONUS
-  if (score >= SECTOR_TREND.UP_THRESHOLD) return SECTOR_TREND.UP_BONUS
-  if (score <= SECTOR_TREND.STRONG_DOWN_THRESHOLD) return SECTOR_TREND.STRONG_DOWN_PENALTY
-  if (score <= SECTOR_TREND.DOWN_THRESHOLD) return SECTOR_TREND.DOWN_PENALTY
-  return 0
+/**
+ * 全セクターの順位ボーナスを計算
+ * compositeScore 降順で並べ、上位に加点・下位に減点
+ */
+export function computeSectorRankBonuses(
+  sectorTrends: Record<string, SectorTrendData>,
+): Record<string, number> {
+  const entries = Object.entries(sectorTrends)
+    .map(([sector, trend]) => ({
+      sector,
+      score: trend.compositeScore ?? trend.score3d,
+    }))
+    .sort((a, b) => b.score - a.score)
+
+  const bonuses = SECTOR_TREND.RANK_BONUSES
+  const result: Record<string, number> = {}
+
+  for (let i = 0; i < entries.length; i++) {
+    result[entries[i].sector] = i < bonuses.length ? bonuses[i] : 0
+  }
+
+  return result
 }
