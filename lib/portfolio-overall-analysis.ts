@@ -23,6 +23,7 @@ export type NavigatorSession = "morning" | "pre-afternoon" | "evening"
 
 export interface StockHighlight {
   stockId?: string
+  userStockId?: string
   stockName: string
   tickerCode: string
   sector: string
@@ -867,17 +868,21 @@ export async function generatePortfolioOverallAnalysis(userId: string, session: 
     }
   )
 
-  // stockHighlightsにstockIdを付与
+  // stockHighlightsにstockId・userStockIdを付与
   const tickerToStockId = new Map<string, string>()
+  const tickerToUserStockId = new Map<string, string>()
   for (const ps of user.portfolioStocks) {
     tickerToStockId.set(ps.stock.tickerCode, ps.stockId)
+    tickerToUserStockId.set(ps.stock.tickerCode, ps.id)
   }
   for (const ws of user.watchlistStocks) {
     tickerToStockId.set(ws.stock.tickerCode, ws.stockId)
+    tickerToUserStockId.set(ws.stock.tickerCode, ws.id)
   }
   const enrichedStockHighlights = aiResult.stockHighlights.map(sh => ({
     ...sh,
     stockId: tickerToStockId.get(sh.tickerCode),
+    userStockId: tickerToUserStockId.get(sh.tickerCode),
   }))
 
   // DBに保存

@@ -209,9 +209,14 @@ export default function DailyMarketNavigator({
                 {data.details.stockHighlights.map((stock) => {
                   const daily = formatChangeRate(stock.dailyChangeRate)
                   const weekly = formatChangeRate(stock.weekChangeRate)
-                  const CardWrapper = stock.stockId
+                  const linkHref = stock.userStockId
+                    ? `/my-stocks/${stock.userStockId}`
+                    : stock.stockId
+                      ? `/stocks/${stock.stockId}`
+                      : null
+                  const CardWrapper = linkHref
                     ? ({ children, className }: { children: React.ReactNode; className: string }) => (
-                        <Link href={`/stocks/${stock.stockId}`} className={`${className} hover:bg-gray-100 transition-colors`}>
+                        <Link href={linkHref} className={`${className} hover:bg-gray-100 transition-colors`}>
                           {children}
                         </Link>
                       )
