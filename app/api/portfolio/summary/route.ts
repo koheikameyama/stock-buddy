@@ -130,13 +130,14 @@ export async function GET() {
     }
 
     // 保有も売却もない場合
-    if (totalCost <= 0 && totalRealizedCost <= 0) {
+    const totalInvested = totalCost + totalRealizedCost
+    if (totalInvested <= 0) {
       return NextResponse.json({ summary: null })
     }
 
     const dailyChange = totalPrevValue > 0 ? totalValue - totalPrevValue : 0
-    const dailyChangePercent = totalPrevValue > 0
-      ? (dailyChange / totalPrevValue) * 100
+    const dailyChangePercent = totalInvested > 0
+      ? (dailyChange / totalInvested) * 100
       : 0
 
     const unrealizedGain = totalValue - totalCost
@@ -145,7 +146,6 @@ export async function GET() {
       : 0
 
     const totalGain = unrealizedGain + realizedGain
-    const totalInvested = totalCost + totalRealizedCost
     const totalGainPercent = totalInvested > 0
       ? (totalGain / totalInvested) * 100
       : 0
