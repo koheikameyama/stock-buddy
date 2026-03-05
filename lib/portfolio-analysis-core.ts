@@ -190,6 +190,19 @@ function postProcessPortfolioAnalysis(params: {
       });
     }
 
+    // 短期下降トレンドの買い増し抑制
+    if (result.shortTermTrend === "down" && sa.recommendation === "buy") {
+      sa.recommendation = "hold";
+      sa.holdCondition = `短期的に下落トレンドが予測されているため、下げ止まりを確認してから買い増しを検討してください。`;
+      sa.shortTerm = `短期的に下落が予測されているため、買い増しは下げ止まりを確認してからを推奨します。${sa.shortTerm}`;
+      sa.correctionExplanation = generateCorrectionExplanation({
+        ruleId: "short_term_downtrend",
+        styleName,
+        originalRecommendation: "buy",
+        correctedRecommendation: "hold",
+      });
+    }
+
     // 中長期トレンドによる売り保護（投資スタイル別、重大な変化がない場合のみ）
     // CONSERVATIVE: 長期upの場合のみ保護（中期upだけでは保護しない）
     //   ※ 含み益あり + 短期下落予兆の場合は保護を無効化（利確を優先）
@@ -358,6 +371,30 @@ function postProcessPortfolioAnalysis(params: {
           additionalInfo: `${styleName}の基準（含み益+${minProfit}%以上）を満たしており、${sellShares}株（${sellPercent}%）の利益確定を推奨します。`,
         });
       }
+    }
+
+    // 全面下降トレンド + 含み損 → hold を sell（損切り促進）に変更
+    if (
+      sa.recommendation === "hold" &&
+      profitPercent !== null &&
+      profitPercent < 0 &&
+      result.shortTermTrend === "down" &&
+      result.midTermTrend === "down" &&
+      result.longTermTrend === "down"
+    ) {
+      sa.recommendation = "sell";
+      sa.suggestedSellPercent = 100;
+      sa.sellReason = `短期・中期・長期すべてのトレンドが下降で含み損${profitPercent.toFixed(1)}%のため、損切りを推奨します。`;
+      sa.sellCondition = `すべてのトレンドが下降しており回復の見通しが立たないため、損切りを検討してください。`;
+      sa.shortTerm = `【損切り検討】全トレンドが下降中で含み損${profitPercent.toFixed(1)}%です。回復の兆候が見られないため、損切りを検討してください。${sa.shortTerm}`;
+      sa.advice = `短期・中期・長期すべてで下落が続いており、含み損${profitPercent.toFixed(1)}%の状態です。損失拡大を防ぐため、損切りを検討しましょう。`;
+      sa.correctionExplanation = generateCorrectionExplanation({
+        ruleId: "all_trends_down_loss",
+        styleName,
+        originalRecommendation: "hold",
+        correctedRecommendation: "sell",
+        actualValue: `${profitPercent.toFixed(1)}%`,
+      });
     }
   }
 
