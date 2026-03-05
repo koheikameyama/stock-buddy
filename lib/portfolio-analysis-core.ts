@@ -375,7 +375,7 @@ function postProcessPortfolioAnalysis(params: {
       const sa = result.styleAnalyses[styleKey];
       // 期間分析ベースの率を優先、フォールバックはAIの率
       // スタイル差はATR補正で自動的に出る（安定配当型: 2.0x, 成長投資型: 2.5x, アクティブ型: 3.0x）
-      const { suggestedSellPrice, suggestedStopLossPrice } =
+      const { suggestedSellPrice, suggestedStopLossPrice, effectiveExitRate } =
         calculatePricesFromRates({
           currentPrice,
           averagePrice,
@@ -386,6 +386,16 @@ function postProcessPortfolioAnalysis(params: {
         });
       sa.suggestedSellPrice = suggestedSellPrice;
       sa.suggestedStopLossPrice = suggestedStopLossPrice;
+
+      // 撤退ライン率がスタイル別上限を超えたらbuy→holdに降格
+      if (effectiveExitRate != null && sa.recommendation === "buy") {
+        const style = styleKey as keyof typeof ATR_EXIT_STRATEGY.MAX_EXIT_RATE_FOR_BUY;
+        const maxExitRate = ATR_EXIT_STRATEGY.MAX_EXIT_RATE_FOR_BUY[style];
+        if (maxExitRate != null && effectiveExitRate > maxExitRate) {
+          sa.recommendation = "hold";
+          sa.advice = `撤退ラインが${Math.round(effectiveExitRate * 100)}%と深く、リスクが高いため買い増し推奨を見送ります。${sa.advice || ""}`;
+        }
+      }
     }
   }
 
@@ -544,6 +554,7 @@ function calculatePricesFromRates(params: {
 }): {
   suggestedSellPrice: number | null;
   suggestedStopLossPrice: number | null;
+  effectiveExitRate: number | null;
 } {
   const { currentPrice, averagePrice, sellTargetRate, exitRate, atr14, investmentStyle } = params;
 
@@ -583,10 +594,10 @@ function calculatePricesFromRates(params: {
       ? Math.max(rawStopLoss, Math.round(averagePrice))
       : rawStopLoss;
 
-    return { suggestedSellPrice: adjustedSellPrice, suggestedStopLossPrice };
+    return { suggestedSellPrice: adjustedSellPrice, suggestedStopLossPrice, effectiveExitRate };
   }
 
-  return { suggestedSellPrice, suggestedStopLossPrice };
+  return { suggestedSellPrice, suggestedStopLossPrice, effectiveExitRate: null };
 }
 
 export interface PortfolioAnalysisResult {
