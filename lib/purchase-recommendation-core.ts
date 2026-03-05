@@ -787,6 +787,22 @@ export async function executePurchaseRecommendation(
       });
     }
 
+    // 短期下降トレンドの強制補正（AI予測が短期下降の場合は buy → stay）
+    if (result.shortTermTrend === "down" && sa.recommendation === "buy") {
+      sa.recommendation = "stay";
+      sa.reason = `短期的に下落トレンドが予測されているため、下げ止まりを確認してからの購入を推奨します。${sa.reason}`;
+      sa.buyCondition = "短期トレンドが下げ止まり・反転を確認してから検討してください";
+      if (styleKey === "CONSERVATIVE") {
+        sa.advice = `短期的な下落が予想されています。下げ止まりを確認してから購入を検討しましょう。`;
+      }
+      sa.correctionExplanation = generateCorrectionExplanation({
+        ruleId: "short_term_downtrend",
+        styleName,
+        originalRecommendation: "buy",
+        correctedRecommendation: "stay",
+      });
+    }
+
     // 決算間近のconfidenceペナルティ（7日前以内）
     if (isEarningsNear(stock.nextEarningsDate) && sa.recommendation === "buy") {
       sa.confidence = Math.max(0.3, sa.confidence + EARNINGS_SAFETY.EARNINGS_NEAR_CONFIDENCE_PENALTY);

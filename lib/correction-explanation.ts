@@ -31,7 +31,8 @@ export type CorrectionRuleId =
   | "rebound_warning"
   | "unprofitable_decline_avoid"
   | "technical_negative_avoid"
-  | "prolonged_decline_avoid";
+  | "prolonged_decline_avoid"
+  | "short_term_downtrend";
 
 /** 補正コンテキスト */
 export interface CorrectionContext {
@@ -77,6 +78,7 @@ const RULE_NAMES: Record<CorrectionRuleId, string> = {
   unprofitable_decline_avoid: "業績悪化×下落トレンドルール",
   technical_negative_avoid: "テクニカル全面ネガティブルール",
   prolonged_decline_avoid: "長期下落トレンドルール",
+  short_term_downtrend: "短期下降トレンドブロック",
 };
 
 /** 投資スタイルキー→日本語名 */
@@ -165,6 +167,9 @@ export function generateCorrectionExplanation(ctx: CorrectionContext): string {
 
     case "prolonged_decline_avoid":
       return `25日移動平均線から${ctx.actualValue}の下方乖離が続いており、反発の兆候もないため「${ruleName}」に該当しました。下落トレンドが長期化しているため、見送り推奨に変更されました。`;
+
+    case "short_term_downtrend":
+      return `短期予測トレンドが下降のため、「${ruleName}」が発動しました。下落基調が続く可能性があるため、下げ止まりを確認してからの購入を推奨します。`;
 
     default:
       return `「${ruleName}」により、AIの判断が${ctx.originalRecommendation}から${ctx.correctedRecommendation}に補正されました。`;
