@@ -240,16 +240,17 @@ export default function MyStocksClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, trackedStocks.length]);
 
-  // Fetch purchase recommendations for watchlist stocks
+  // Fetch report data for portfolio and watchlist stocks
   useEffect(() => {
     async function fetchRecommendations() {
-      const watchlistStocks = userStocks.filter((s) => s.type === "watchlist");
-      if (watchlistStocks.length === 0) return;
+      const targetStocks = userStocks.filter(
+        (s) => s.type === "watchlist" || (s.type === "portfolio" && (s.quantity ?? 0) > 0),
+      );
+      if (targetStocks.length === 0) return;
 
       try {
-        // Fetch recommendations for each watchlist stock
         const results = await Promise.allSettled(
-          watchlistStocks.map((stock) =>
+          targetStocks.map((stock) =>
             fetch(`/api/stocks/${stock.stockId}/report`)
               .then((res) => (res.ok ? res.json() : null))
               .then((data) => ({ stockId: stock.stockId, data })),
@@ -619,20 +620,29 @@ export default function MyStocksClient() {
     }
   };
 
+  // 健全性×シグナル スコア計算（A=5,B=4,C=3,D=2,E=1 × bullish=3,neutral=2,bearish=1）
+  const getHealthSignalScore = useCallback((stockId: string) => {
+    const rec = recommendations[stockId];
+    const rankScore: Record<string, number> = { A: 5, B: 4, C: 3, D: 2, E: 1 };
+    const signalScore: Record<string, number> = { bullish: 3, neutral: 2, bearish: 1 };
+    const health = rankScore[rec?.healthRank ?? "C"] ?? 3;
+    const signal = signalScore[rec?.marketSignal ?? "neutral"] ?? 2;
+    return health * signal;
+  }, [recommendations]);
+
   // Filter stocks by type
   // quantity > 0 のものだけを保有中として表示（0株は「過去の保有」に表示される）
-  // ポートフォリオをリスクレベル順に並び替え
-  // 1. リスクの高い銘柄を上に（high > medium > low）
-  // 2. 同じリスクレベルの場合は保有金額の大きい順
+  // ポートフォリオを健全性×シグナルのスコア順に並び替え
+  // 1. スコアの高い銘柄を上に（健全性A×bullish が最高）
+  // 2. 同じスコアの場合は保有金額の大きい順
   const portfolioStocks = useMemo(() => {
     const filtered = userStocks.filter(
       (s) => s.type === "portfolio" && (s.quantity ?? 0) > 0,
     );
-    const riskOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
     return filtered.sort((a, b) => {
-      const riskA = riskOrder[a.riskLevel ?? "medium"] ?? 1;
-      const riskB = riskOrder[b.riskLevel ?? "medium"] ?? 1;
-      if (riskA !== riskB) return riskA - riskB;
+      const scoreA = getHealthSignalScore(a.stockId);
+      const scoreB = getHealthSignalScore(b.stockId);
+      if (scoreA !== scoreB) return scoreB - scoreA;
 
       // 保有金額の大きい順
       const priceA =
@@ -643,34 +653,23 @@ export default function MyStocksClient() {
       const holdingB = (b.quantity ?? 0) * priceB;
       return holdingB - holdingA;
     });
-  }, [userStocks, prices]);
+  }, [userStocks, prices, getHealthSignalScore]);
 
-  // ウォッチリストを healthRank × セクター順位で並び替え
-  // 1. healthRank: A > B > C > D > E の順
-  // 2. セクター compositeScore の高い順
+  // ウォッチリストを健全性×シグナルのスコア順に並び替え
+  // 1. スコアの高い銘柄を上に（健全性A×bullish が最高）
+  // 2. 同じスコアの場合は追加日時の新しい順
   const watchlistStocks = useMemo(() => {
     const filtered = userStocks.filter((s) => s.type === "watchlist");
 
-    const rankOrder: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4 };
-
     return filtered.sort((a, b) => {
-      const recA = recommendations[a.stockId];
-      const recB = recommendations[b.stockId];
-
-      // healthRankの良い順（A > B > C > D > E）
-      const orderA = rankOrder[recA?.healthRank ?? "C"] ?? 2;
-      const orderB = rankOrder[recB?.healthRank ?? "C"] ?? 2;
-      if (orderA !== orderB) return orderA - orderB;
-
-      // セクター compositeScore の高い順
-      const sectorA = a.stock.sector ? (sectorTrends[a.stock.sector]?.compositeScore ?? -Infinity) : -Infinity;
-      const sectorB = b.stock.sector ? (sectorTrends[b.stock.sector]?.compositeScore ?? -Infinity) : -Infinity;
-      if (sectorA !== sectorB) return sectorB - sectorA;
+      const scoreA = getHealthSignalScore(a.stockId);
+      const scoreB = getHealthSignalScore(b.stockId);
+      if (scoreA !== scoreB) return scoreB - scoreA;
 
       // 同じ場合は追加日時の新しい順
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [userStocks, recommendations, sectorTrends]);
+  }, [userStocks, getHealthSignalScore]);
 
   const displayStocks =
     activeTab === "portfolio" ? portfolioStocks : watchlistStocks;
