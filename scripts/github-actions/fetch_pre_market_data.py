@@ -182,24 +182,26 @@ def log_divergence(conn, data: dict) -> None:
         print("\n[乖離率] CME日経先物データなし — スキップ")
         return
 
-    # 前日のPortfolioSnapshotからnikkeiChangePercentを取得
+    # 直近2日分のnikkeiCloseから変化率を算出
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT "nikkeiChangePercent"
+            SELECT "nikkeiClose"
             FROM "PortfolioSnapshot"
-            WHERE "nikkeiChangePercent" IS NOT NULL
+            WHERE "nikkeiClose" IS NOT NULL
             ORDER BY date DESC
-            LIMIT 1
+            LIMIT 2
             """
         )
-        row = cur.fetchone()
+        rows = cur.fetchall()
 
-    if not row or row[0] is None:
-        print("\n[乖離率] 前日の日経変化率データなし — スキップ")
+    if len(rows) < 2 or rows[0][0] is None or rows[1][0] is None:
+        print("\n[乖離率] 日経終値データが2日分ないため — スキップ")
         return
 
-    spot_change = float(row[0])
+    latest_close = float(rows[0][0])
+    prev_close = float(rows[1][0])
+    spot_change = round((latest_close - prev_close) / prev_close * 100, 2)
     divergence = round(futures_change - spot_change, 2)
 
     signal = (
