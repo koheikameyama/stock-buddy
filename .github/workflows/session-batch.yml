@@ -15,7 +15,6 @@ on:
           - pre-afternoon
           - afternoon
           - close
-          - post-close
       notify:
         description: 'Push通知を送信する'
         required: false
@@ -30,8 +29,7 @@ on:
 #   morning (09:30):       prices → trends → 購入判断 + PF分析 + おすすめ（開場30分後・値動き安定後の再判定）
 #   pre-afternoon (11:40): news(JP) + prices → trends → 購入判断 + PF分析 → navigator(pre-afternoon)
 #   afternoon (13:00):     購入判断 + PF分析 + おすすめ（後場開始30分後の再判定）
-#   close (15:40):         prices → trends → 購入判断 + PF分析 + おすすめ + gainers + snapshots
-#   post-close (17:00):    navigator(evening) ← close の分析結果を集約
+#   close (15:40):         prices → trends → 購入判断 + PF分析 + おすすめ + gainers + snapshots → navigator(evening)
 # ──────────────────────────────────────────────
 
 jobs:
@@ -73,7 +71,7 @@ jobs:
 
   purchase-recommendations:
     needs: [fetch-news, calculate-sector-trends]
-    if: "!failure() && !cancelled() && inputs.session != 'post-close' && inputs.session != 'market-open'"
+    if: "!failure() && !cancelled() && inputs.session != 'market-open'"
     uses: ./.github/workflows/session-purchase-recommendations.yml
     with:
       session: ${{ inputs.session }}
@@ -81,7 +79,7 @@ jobs:
 
   portfolio-analysis:
     needs: [fetch-news, calculate-sector-trends]
-    if: "!failure() && !cancelled() && inputs.session != 'post-close' && inputs.session != 'market-open'"
+    if: "!failure() && !cancelled() && inputs.session != 'market-open'"
     uses: ./.github/workflows/session-portfolio-analysis.yml
     secrets: inherit
 
@@ -109,7 +107,7 @@ jobs:
 
   daily-market-navigator:
     needs: [fetch-news, calculate-sector-trends, purchase-recommendations, portfolio-analysis, personal-recommendations]
-    if: "!failure() && !cancelled() && (inputs.session == 'pre-morning' || inputs.session == 'pre-afternoon' || inputs.session == 'post-close')"
+    if: "!failure() && !cancelled() && (inputs.session == 'pre-morning' || inputs.session == 'pre-afternoon' || inputs.session == 'close')"
     uses: ./.github/workflows/session-daily-market-navigator.yml
     with:
       session: ${{ inputs.session == 'pre-morning' && 'morning' || inputs.session == 'pre-afternoon' && 'pre-afternoon' || 'evening' }}

@@ -82,14 +82,13 @@ MONTHLY
 | 09:30 | session-batch | session=morning | 株価取得+開場30分後の再判定（値動き安定後） | 送信 |
 | 11:40 | session-batch | session=pre-afternoon | 前場株価取得+ニュース更新+分析 | 送信 |
 | 13:00 | session-batch | session=afternoon | 後場開始30分後の再判定 | 送信 |
-| 15:40 | session-batch | session=close | 大引け後の最終分析+ランキング+スナップショット | 抑制（情報提供モード） |
-| 17:00 | session-batch | session=post-close | Navigator(evening)で結果集約 | - |
+| 15:40 | session-batch | session=close | 大引け後の最終分析+ランキング+スナップショット+Navigator(evening) | 抑制（情報提供モード） |
 
 ## ワークフロー一覧
 
 ### 1. 株価分析オーケストレーター（session-batch.yml）
 
-cron-job.org から `workflow_dispatch` でセッション（pre-morning/morning/pre-afternoon/afternoon/close/post-close）を指定してトリガー。
+cron-job.org から `workflow_dispatch` でセッション（pre-morning/morning/pre-afternoon/afternoon/close）を指定してトリガー。
 
 **実行フロー（`needs` で順序保証）**:
 

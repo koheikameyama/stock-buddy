@@ -51,23 +51,22 @@
 | pre-afternoon | 11:40 | news(JP), prices, trends |
 | afternoon | 13:00 | purchase, portfolio, personal |
 | mid-afternoon | 14:00 | purchase, portfolio, personal |
-| close | 15:40 | prices, trends, purchase, portfolio, personal, gainers, snapshots |
-| post-close | 17:00 | navigator(evening) |
+| close | 15:40 | prices, trends, purchase, portfolio, personal, gainers, snapshots, navigator(evening) |
 
 ### ジョブ実行条件
 
-| ジョブ | pre-morning | morning | mid-morning | pre-afternoon | afternoon | mid-afternoon | close | post-close |
-|--------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| fetch-news | JP+US | - | - | JP | - | - | - | - |
-| fetch-stock-prices | - | - | - | o | - | - | o | - |
-| calculate-sector-trends | o | - | - | o | - | - | o | - |
-| purchase-recommendations | - | o | o | - | o | o | o | - |
-| portfolio-analysis | - | o | o | - | o | o | o | - |
-| personal-recommendations | - | o | o | - | o | o | o | - |
-| gainers-losers | - | - | - | - | - | - | o | - |
-| portfolio-snapshots | - | - | - | - | - | - | o | - |
-| navigator | morning | - | - | - | - | - | - | evening |
-| notify | o | o | o | o | o | o | o | o |
+| ジョブ | pre-morning | morning | mid-morning | pre-afternoon | afternoon | mid-afternoon | close |
+|--------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| fetch-news | JP+US | - | - | JP | - | - | - |
+| fetch-stock-prices | - | - | - | o | - | - | o |
+| calculate-sector-trends | o | - | - | o | - | - | o |
+| purchase-recommendations | - | o | o | - | o | o | o |
+| portfolio-analysis | - | o | o | - | o | o | o |
+| personal-recommendations | - | o | o | - | o | o | o |
+| gainers-losers | - | - | - | - | - | - | o |
+| portfolio-snapshots | - | - | - | - | - | - | o |
+| navigator | morning | - | - | pre-afternoon | - | - | evening |
+| notify | o | o | o | o | o | o | o |
 
 ### 設計意図
 
@@ -75,8 +74,7 @@
 - **morning / afternoon**: 分析ジョブ群（ニュースは pre セッションで取得済み）
 - **mid-morning / mid-afternoon**: 分析ジョブのみ（データ更新なし）
 - **pre-afternoon**: 昼の株価・セクタートレンドを更新（afternoon の分析で使用）
-- **close**: 終値取得 → 全分析 + ランキング + スナップショット
-- **post-close**: 夕方ナビゲーター生成（close完了後のデータを使用）
+- **close**: 終値取得 → 全分析 + ランキング + スナップショット → 夕方ナビゲーター生成
 
 ## 独立バッチ（cron-job.org）
 
