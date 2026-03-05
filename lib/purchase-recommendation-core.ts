@@ -29,7 +29,7 @@ import {
   type FuturesContextData,
 } from "@/lib/stock-analysis-context";
 import { buildPurchaseRecommendationPrompt } from "@/lib/prompts/purchase-recommendation-prompt";
-import { MA_DEVIATION, SELL_TIMING, TIMING_INDICATORS, AGGRESSIVE_REBOUND, GAP_UP_MOMENTUM, EARNINGS_SAFETY, CROSS_STYLE_CONSENSUS, GEOPOLITICAL_RISK, AVOID_CONFIDENCE_THRESHOLD, AVOID_ESCALATION, getSectorGroup } from "@/lib/constants";
+import { MA_DEVIATION, SELL_TIMING, TIMING_INDICATORS, AGGRESSIVE_REBOUND, GAP_UP_MOMENTUM, EARNINGS_SAFETY, CROSS_STYLE_CONSENSUS, GEOPOLITICAL_RISK, AVOID_CONFIDENCE_THRESHOLD, AVOID_ESCALATION, INVESTMENT_STYLE_COEFFICIENTS, ATR_EXIT_STRATEGY, getSectorGroup } from "@/lib/constants";
 import {
   calculateDeviationRate,
   calculateSMA,
@@ -975,27 +975,26 @@ export async function executePurchaseRecommendation(
     );
   }
 
-  // --- 期間分析ベースの率を優先 ---
-  // 短期予測価格から売却目標率・撤退ライン率を逆算し、AIの率を上書き
+  // --- ATRベースの撤退ライン最低保証 ---
+  // AIが生成した率をそのまま使い、ATRベースの最低幅を保証する
+  // （短期予測安値/高値による上書きは廃止: 予測値が近すぎて寄り付きで刺さる問題の対策）
   if (currentPrice > 0) {
-    const shortTermPriceHigh = result.shortTermPriceHigh;
-    const shortTermPriceLow = result.shortTermPriceLow;
-    const predictionSellTargetRate =
-      shortTermPriceHigh && shortTermPriceHigh > currentPrice
-        ? (shortTermPriceHigh - currentPrice) / currentPrice
-        : null;
-    const predictionExitRate =
-      shortTermPriceLow && shortTermPriceLow > 0 && shortTermPriceLow < currentPrice
-        ? (currentPrice - shortTermPriceLow) / currentPrice
-        : null;
+    const atr14 = stock.atr14 ? Number(stock.atr14) : null;
 
     for (const styleKey of ALL_STYLE_KEYS) {
       const sa = styleAnalyses[styleKey];
-      if (predictionSellTargetRate !== null) {
-        sa.suggestedSellTargetRate = predictionSellTargetRate;
-      }
-      if (predictionExitRate !== null) {
-        sa.suggestedExitRate = predictionExitRate;
+      const style = styleKey as keyof typeof INVESTMENT_STYLE_COEFFICIENTS.STOP_LOSS;
+      const stopLossMultiplier = INVESTMENT_STYLE_COEFFICIENTS.STOP_LOSS[style] ?? 2.5;
+
+      // 撤退ライン率: ATRベースのフロアを適用
+      if (sa.suggestedExitRate != null) {
+        if (atr14 != null && atr14 > 0) {
+          const atrBasedRate = (atr14 * stopLossMultiplier) / currentPrice;
+          sa.suggestedExitRate = Math.max(sa.suggestedExitRate, atrBasedRate);
+        } else {
+          const fallback = ATR_EXIT_STRATEGY.FALLBACK_STOP_LOSS[style] ?? 8;
+          sa.suggestedExitRate = Math.max(sa.suggestedExitRate, fallback / 100);
+        }
       }
     }
   }

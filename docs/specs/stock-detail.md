@@ -226,10 +226,9 @@ OHLCV + RSI + MACD データ。
 
 **期間分析テキスト**: 短期・中期・長期の予測テキスト（shortTermText/midTermText/longTermText）は、テクニカル指標名と数値を含む具体的な根拠を2-3文で記載（150文字以内）。
 
-**売却目標率・撤退ライン率の期間分析ベース算出**:
-- 短期予測価格（shortTermPriceHigh/Low）から率を逆算し、AIの率よりも優先して使用
-- 算出: `suggestedSellTargetRate = (shortTermPriceHigh - currentPrice) / currentPrice`、`suggestedExitRate = (currentPrice - shortTermPriceLow) / currentPrice`
-- 予測価格が現在価格と矛盾する場合はAIの率にフォールバック
+**撤退ライン率のATRベース最低保証**:
+- AIが生成した撤退ライン率をそのまま使用し、ATR × スタイル別係数で最低幅を保証
+- 売却目標率はAI生成の値をそのまま使用
 
 #### `POST /api/stocks/[stockId]/simulated-portfolio-analysis`
 

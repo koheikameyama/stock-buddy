@@ -122,10 +122,10 @@ AI生成後、非スタイル依存の安全補正（上記テーブルの大半
 - 安全補正ルールで hold に変更された場合も、補正理由に基づいた holdCondition が自動設定される
 - buy/sell の場合は null
 
-**売却目標・撤退ラインの期間分析ベース算出**:
+**売却目標・撤退ラインの算出**:
 - 短期予測価格（shortTermPriceHigh/Low）から売却目標率・撤退ライン率を逆算し、AIの率よりも優先して使用
-- 算出: `sellTargetRate = (shortTermPriceHigh - currentPrice) / currentPrice`、`exitRate = (currentPrice - shortTermPriceLow) / currentPrice`
-- ATR補正（スタイル別: 安定配当型2.0x/バランス2.5x/アクティブ型3.0x）とトレーリングストップは既存ロジックをそのまま適用
+- ATRベースの最低保証（スタイル別: 安定配当型1.5x/成長投資型2.5x/アクティブ型4.0x）を適用し、予測値が近すぎる場合でも最低幅を保証
+- トレーリングストップ: 含み益がある場合、撤退ラインの下限は平均取得単価
 - 予測価格が現在価格と矛盾する場合（High ≤ 現在価格等）はAIの率にフォールバック
 
 スタイル別の結果は `StockAnalysis.styleAnalyses` に JSON として保存され、フロントエンドでタブ切り替えにより比較表示できます。ユーザーの設定した投資スタイルがデフォルトタブとして表示されます。

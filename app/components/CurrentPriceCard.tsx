@@ -72,8 +72,6 @@ export default function CurrentPriceCard({
                     {new Date(price.marketTime * 1000).toLocaleString("ja-JP", {
                       month: "numeric",
                       day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
                     })}
                     {t("asOf")}
                   </p>
