@@ -243,6 +243,11 @@ export default function StockCard({
                 </span>
               );
             })()}
+            {/* テクニカルシグナルバッジ - 信頼度の下に表示 */}
+            {(() => {
+              const signal = recommendation?.marketSignal || stock.marketSignal;
+              return signal && signal !== "neutral" ? <TechnicalSignalBadge marketSignal={signal} /> : null;
+            })()}
           </div>
         )}
 
@@ -289,10 +294,6 @@ export default function StockCard({
               {stock.stock.sector && ` • ${stock.stock.sector}`}
             </span>
             {sectorTrend && <SectorTrendBadge compositeScore={sectorTrend.compositeScore} trendDirection={sectorTrend.trendDirection} />}
-            {(() => {
-              const signal = recommendation?.marketSignal || stock.marketSignal;
-              return signal && signal !== "neutral" ? <TechnicalSignalBadge marketSignal={signal} /> : null;
-            })()}
           </p>
         </div>
 

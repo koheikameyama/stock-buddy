@@ -23,11 +23,14 @@ export default function StockHeader({ name, tickerCode, sector, sectorTrend, mar
 
   return (
     <div className="mb-6 sm:mb-8">
-      {badge && (
+      {(badge || (marketSignal && marketSignal !== "neutral")) && (
         <div className="flex items-center gap-2 mb-1">
-          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClassName || "bg-gray-100 text-gray-600"}`}>
-            {badge}
-          </span>
+          {badge && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClassName || "bg-gray-100 text-gray-600"}`}>
+              {badge}
+            </span>
+          )}
+          {marketSignal && marketSignal !== "neutral" && <TechnicalSignalBadge marketSignal={marketSignal} />}
         </div>
       )}
       <h1
@@ -43,7 +46,6 @@ export default function StockHeader({ name, tickerCode, sector, sectorTrend, mar
           {sector && ` • ${sector}`}
         </span>
         {sectorTrend && <SectorTrendBadge compositeScore={sectorTrend.compositeScore} trendDirection={sectorTrend.trendDirection} />}
-        {marketSignal && marketSignal !== "neutral" && <TechnicalSignalBadge marketSignal={marketSignal} />}
       </p>
     </div>
   )
