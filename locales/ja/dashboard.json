@@ -34,7 +34,25 @@
     "minStocksRequired": "3銘柄以上登録するとDaily Market Navigatorが利用できます",
     "dailyChange": "前日比",
     "weekChange": "週間",
-    "subtitle": "市場の流れとあなたの銘柄の健康診断"
+    "subtitle": "市場の流れとあなたの銘柄の健康診断",
+    "eveningReview": {
+      "tradeReviewTitle": "今日の売買を振り返る",
+      "missedOpportunitiesTitle": "見逃した銘柄",
+      "missedOpportunitiesSummary": "機会損失の総括",
+      "improvementTitle": "あなたの投資パターン",
+      "action": {
+        "buy": "買い",
+        "sell": "売り"
+      },
+      "evaluation": {
+        "excellent": "素晴らしい",
+        "good": "良好",
+        "neutral": "普通",
+        "questionable": "見直しの余地あり"
+      },
+      "sourceWatchlist": "気になるリスト",
+      "sourceRecommendation": "AI推奨"
+    }
   },
   "investmentStyle": {
     "setupPrompt": {

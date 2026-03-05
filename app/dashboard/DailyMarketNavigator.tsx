@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
-import type { MarketNavigatorResult, MarketTone, PortfolioStatus } from "@/lib/portfolio-overall-analysis"
+import type { MarketNavigatorResult, MarketTone, PortfolioStatus, EveningReview } from "@/lib/portfolio-overall-analysis"
 import CopyableTicker from "@/app/components/CopyableTicker"
 
 interface Props {
@@ -33,6 +33,102 @@ function formatChangeRate(rate: number): { text: string; color: string } {
   }
 }
 
+
+const evaluationStyles: Record<string, { bg: string; text: string }> = {
+  excellent: { bg: "bg-green-100", text: "text-green-700" },
+  good: { bg: "bg-blue-100", text: "text-blue-700" },
+  neutral: { bg: "bg-gray-100", text: "text-gray-700" },
+  questionable: { bg: "bg-orange-100", text: "text-orange-700" },
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function EveningReviewSection({ review, t }: { review: EveningReview; t: any }) {
+  const hasTradeReviewContent = review.tradeReview.trades.length > 0
+  const hasMissedOpportunities = review.missedOpportunities.stocks.length > 0
+
+  return (
+    <div className="px-4 pb-4 space-y-3">
+      {/* 売買判断の振り返り */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-sm">📋</span>
+          <span className="text-xs font-semibold text-gray-500">
+            {t("eveningReview.tradeReviewTitle")}
+          </span>
+        </div>
+        <p className="text-sm text-gray-700 mb-2">{review.tradeReview.summary}</p>
+        {hasTradeReviewContent && (
+          <div className="space-y-2">
+            {review.tradeReview.trades.map((trade) => {
+              const evalStyle = evaluationStyles[trade.evaluation] || evaluationStyles.neutral
+              return (
+                <div key={`${trade.tickerCode}-${trade.action}`} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium text-gray-900">{trade.stockName}</span>
+                    <span className="text-xs text-gray-400">(<CopyableTicker tickerCode={trade.tickerCode} />)</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                      trade.action === "buy" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}>
+                      {t(`eveningReview.action.${trade.action}`)}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${evalStyle.bg} ${evalStyle.text}`}>
+                      {t(`eveningReview.evaluation.${trade.evaluation}`)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600">{trade.comment}</p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 機会損失の指摘 */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-sm">💡</span>
+          <span className="text-xs font-semibold text-gray-500">
+            {t("eveningReview.missedOpportunitiesTitle")}
+          </span>
+        </div>
+        <p className="text-sm text-gray-700 mb-2">{review.missedOpportunities.summary}</p>
+        {hasMissedOpportunities && (
+          <div className="space-y-2">
+            {review.missedOpportunities.stocks.map((stock) => {
+              const change = formatChangeRate(stock.dailyChangeRate)
+              return (
+                <div key={stock.tickerCode} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium text-gray-900">{stock.stockName}</span>
+                    <span className="text-xs text-gray-400">(<CopyableTicker tickerCode={stock.tickerCode} />)</span>
+                    <span className={`text-sm font-bold ${change.color}`}>{change.text}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">
+                      {t(`eveningReview.source${stock.source === "watchlist" ? "Watchlist" : "Recommendation"}`)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600">{stock.comment}</p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 行動パターンの改善提案 */}
+      <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-sm">🎯</span>
+          <span className="text-xs font-semibold text-gray-500">
+            {t("eveningReview.improvementTitle")}
+          </span>
+        </div>
+        <p className="text-sm text-gray-800 font-medium mb-1">{review.improvementSuggestion.pattern}</p>
+        <p className="text-xs text-gray-700 mb-2">{review.improvementSuggestion.suggestion}</p>
+        <p className="text-xs text-amber-700 italic">{review.improvementSuggestion.encouragement}</p>
+      </div>
+    </div>
+  )
+}
 
 function Skeleton() {
   return (
@@ -174,6 +270,11 @@ export default function DailyMarketNavigator({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Section: Evening Review */}
+      {displaySession === "evening" && data.eveningReview && (
+        <EveningReviewSection review={data.eveningReview} t={t} />
       )}
 
       {/* Toggle details button */}

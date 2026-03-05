@@ -42,6 +42,40 @@ export interface SectorHighlight {
   watchlistStocks?: { stockName: string; tickerCode: string }[]
 }
 
+// ── イブニングレビュー型定義 ──
+
+export interface TradeReviewItem {
+  stockName: string
+  tickerCode: string
+  action: "buy" | "sell"
+  evaluation: "excellent" | "good" | "neutral" | "questionable"
+  comment: string
+}
+
+export interface MissedOpportunityItem {
+  stockName: string
+  tickerCode: string
+  dailyChangeRate: number
+  source: "watchlist" | "recommendation"
+  comment: string
+}
+
+export interface EveningReview {
+  tradeReview: {
+    summary: string
+    trades: TradeReviewItem[]
+  }
+  missedOpportunities: {
+    summary: string
+    stocks: MissedOpportunityItem[]
+  }
+  improvementSuggestion: {
+    pattern: string
+    suggestion: string
+    encouragement: string
+  }
+}
+
 export interface MarketNavigatorResult {
   hasAnalysis: boolean
   analyzedAt?: string
@@ -71,6 +105,7 @@ export interface MarketNavigatorResult {
     stockHighlights: StockHighlight[]
     sectorHighlights: SectorHighlight[]
   }
+  eveningReview?: EveningReview
   hasPortfolio?: boolean
   portfolioCount?: number
   watchlistCount?: number
@@ -248,6 +283,10 @@ async function generateAnalysisWithAI(
     watchlistStocksText: string
     hasPortfolio: boolean
     watchlistCount: number
+    // evening review用データ
+    todayBuyTransactionsText?: string
+    missedOpportunityText?: string
+    behavioralPatternText?: string
   }
 ): Promise<{
   marketHeadline: string
@@ -259,6 +298,7 @@ async function generateAnalysisWithAI(
   buddyMessage: string
   stockHighlights: StockHighlight[]
   sectorHighlights: SectorHighlight[]
+  eveningReview?: EveningReview
 }> {
   const openai = getOpenAIClient()
 
@@ -314,6 +354,9 @@ async function generateAnalysisWithAI(
     upcomingEarningsText: dailyContext.upcomingEarningsText,
     benchmarkText: dailyContext.benchmarkText,
     marketOverviewText: dailyContext.marketOverviewText,
+    todayBuyTransactionsText: dailyContext.todayBuyTransactionsText,
+    missedOpportunityText: dailyContext.missedOpportunityText,
+    behavioralPatternText: dailyContext.behavioralPatternText,
   })
 
   // StockHighlight のスキーマ定義
@@ -358,6 +401,89 @@ async function generateAnalysisWithAI(
     additionalProperties: false as const,
   }
 
+  // Evening Review スキーマ（evening セッション限定）
+  const eveningReviewSchema = {
+    type: "object" as const,
+    properties: {
+      tradeReview: {
+        type: "object" as const,
+        properties: {
+          summary: { type: "string" as const },
+          trades: {
+            type: "array" as const,
+            items: {
+              type: "object" as const,
+              properties: {
+                stockName: { type: "string" as const },
+                tickerCode: { type: "string" as const },
+                action: { type: "string" as const, enum: ["buy", "sell"] },
+                evaluation: { type: "string" as const, enum: ["excellent", "good", "neutral", "questionable"] },
+                comment: { type: "string" as const },
+              },
+              required: ["stockName", "tickerCode", "action", "evaluation", "comment"] as const,
+              additionalProperties: false as const,
+            },
+          },
+        },
+        required: ["summary", "trades"] as const,
+        additionalProperties: false as const,
+      },
+      missedOpportunities: {
+        type: "object" as const,
+        properties: {
+          summary: { type: "string" as const },
+          stocks: {
+            type: "array" as const,
+            items: {
+              type: "object" as const,
+              properties: {
+                stockName: { type: "string" as const },
+                tickerCode: { type: "string" as const },
+                dailyChangeRate: { type: "number" as const },
+                source: { type: "string" as const, enum: ["watchlist", "recommendation"] },
+                comment: { type: "string" as const },
+              },
+              required: ["stockName", "tickerCode", "dailyChangeRate", "source", "comment"] as const,
+              additionalProperties: false as const,
+            },
+          },
+        },
+        required: ["summary", "stocks"] as const,
+        additionalProperties: false as const,
+      },
+      improvementSuggestion: {
+        type: "object" as const,
+        properties: {
+          pattern: { type: "string" as const },
+          suggestion: { type: "string" as const },
+          encouragement: { type: "string" as const },
+        },
+        required: ["pattern", "suggestion", "encouragement"] as const,
+        additionalProperties: false as const,
+      },
+    },
+    required: ["tradeReview", "missedOpportunities", "improvementSuggestion"] as const,
+    additionalProperties: false as const,
+  }
+
+  const baseProperties: Record<string, unknown> = {
+    marketHeadline: { type: "string" },
+    marketTone: { type: "string", enum: ["bullish", "bearish", "neutral", "sector_rotation"] },
+    marketKeyFactor: { type: "string" },
+    portfolioStatus: { type: "string", enum: ["healthy", "caution", "warning", "critical"] },
+    portfolioSummary: { type: "string" },
+    actionPlan: { type: "string" },
+    buddyMessage: { type: "string" },
+    stockHighlights: { type: "array", items: stockHighlightSchema },
+    sectorHighlights: { type: "array", items: sectorHighlightSchema },
+  }
+  const baseRequired = ["marketHeadline", "marketTone", "marketKeyFactor", "portfolioStatus", "portfolioSummary", "actionPlan", "buddyMessage", "stockHighlights", "sectorHighlights"]
+
+  if (session === "evening") {
+    baseProperties.eveningReview = eveningReviewSchema
+    baseRequired.push("eveningReview")
+  }
+
   const response = await openai.chat.completions.create({
     model: DAILY_MARKET_NAVIGATOR.OPENAI_MODEL,
     messages: [
@@ -386,24 +512,8 @@ async function generateAnalysisWithAI(
         strict: true,
         schema: {
           type: "object",
-          properties: {
-            marketHeadline: { type: "string" },
-            marketTone: { type: "string", enum: ["bullish", "bearish", "neutral", "sector_rotation"] },
-            marketKeyFactor: { type: "string" },
-            portfolioStatus: { type: "string", enum: ["healthy", "caution", "warning", "critical"] },
-            portfolioSummary: { type: "string" },
-            actionPlan: { type: "string" },
-            buddyMessage: { type: "string" },
-            stockHighlights: {
-              type: "array",
-              items: stockHighlightSchema,
-            },
-            sectorHighlights: {
-              type: "array",
-              items: sectorHighlightSchema,
-            },
-          },
-          required: ["marketHeadline", "marketTone", "marketKeyFactor", "portfolioStatus", "portfolioSummary", "actionPlan", "buddyMessage", "stockHighlights", "sectorHighlights"],
+          properties: baseProperties,
+          required: baseRequired,
           additionalProperties: false,
         },
       },
@@ -427,6 +537,7 @@ async function generateAnalysisWithAI(
     buddyMessage: result.buddyMessage,
     stockHighlights: result.stockHighlights || [],
     sectorHighlights: result.sectorHighlights || [],
+    eveningReview: session === "evening" ? result.eveningReview : undefined,
   }
 }
 
@@ -515,6 +626,9 @@ export async function getPortfolioOverallAnalysis(userId: string, session?: Navi
         stockHighlights: analysis.stockHighlights as unknown as StockHighlight[],
         sectorHighlights: analysis.sectorHighlights as unknown as SectorHighlight[],
       },
+      eveningReview: analysis.eveningReview
+        ? analysis.eveningReview as unknown as EveningReview
+        : undefined,
       hasPortfolio,
     }
   }
@@ -669,6 +783,126 @@ export async function generatePortfolioOverallAnalysis(userId: string, session: 
         return `- ${tx.stock.name}（${tx.stock.tickerCode}）: 売却価格 ¥${sellPrice.toLocaleString()}, 平均取得 ¥${avgPrice.toLocaleString()}, 損益 ${profitLoss}%, 保有日数 ${holdingDays}日, ${tx.quantity}株`
       }).join("\n")
     : "本日の売却取引はありません"
+
+  // === イブニングレビュー用データ（evening セッション限定） ===
+  let todayBuyTransactionsText: string | undefined
+  let missedOpportunityText: string | undefined
+  let behavioralPatternText: string | undefined
+
+  if (session === "evening") {
+    // 本日の買い取引
+    const todayBuyTransactions = !hasPortfolio ? [] : await prisma.transaction.findMany({
+      where: {
+        portfolioStock: { userId },
+        type: "buy",
+        transactionDate: { gte: todayForDB, lt: tomorrowForDB },
+      },
+      include: { stock: true },
+    })
+
+    todayBuyTransactionsText = todayBuyTransactions.length > 0
+      ? todayBuyTransactions.map(tx =>
+          `- ${tx.stock.name}（${tx.stock.tickerCode}）: ¥${Number(tx.price).toLocaleString()} x ${tx.quantity}株`
+        ).join("\n")
+      : "本日の買い取引はありません"
+
+    // 機会損失データ: 気になるリストの急騰銘柄
+    const portfolioStockIds = new Set(user.portfolioStocks.map(ps => ps.stockId))
+    const watchlistMoves = user.watchlistStocks
+      .filter(ws => {
+        const dailyChange = ws.stock.dailyChangeRate ? Number(ws.stock.dailyChangeRate) : 0
+        return dailyChange >= DAILY_MARKET_NAVIGATOR.MISSED_OPPORTUNITY_DAILY_CHANGE_THRESHOLD
+      })
+      .map(ws => `- ${ws.stock.name}（${ws.stock.tickerCode}）: 日次+${Number(ws.stock.dailyChangeRate).toFixed(1)}%${ws.stock.weekChangeRate ? `（週間${Number(ws.stock.weekChangeRate) >= 0 ? "+" : ""}${Number(ws.stock.weekChangeRate).toFixed(1)}%）` : ""}`)
+      .slice(0, DAILY_MARKET_NAVIGATOR.MAX_MISSED_OPPORTUNITY_STOCKS)
+
+    // AI推奨したが未購入の銘柄（直近7日間）
+    const recentBuyRecs = await prisma.userDailyRecommendation.findMany({
+      where: {
+        userId,
+        date: { gte: getDaysAgoForDB(DAILY_MARKET_NAVIGATOR.MISSED_OPPORTUNITY_REC_LOOKBACK_DAYS) },
+        purchaseJudgment: "buy",
+      },
+      include: { stock: true },
+    })
+    const missedRecs = recentBuyRecs
+      .filter(rec => !portfolioStockIds.has(rec.stockId))
+      .filter(rec => {
+        const dailyChange = rec.stock.dailyChangeRate ? Number(rec.stock.dailyChangeRate) : 0
+        return dailyChange > 0
+      })
+      .map(rec => `- ${rec.stock.name}（${rec.stock.tickerCode}）: AI推奨（buy）→ 現在日次+${Number(rec.stock.dailyChangeRate).toFixed(1)}%`)
+      .slice(0, DAILY_MARKET_NAVIGATOR.MAX_MISSED_OPPORTUNITY_STOCKS)
+
+    const missedParts: string[] = []
+    if (watchlistMoves.length > 0) missedParts.push(`気になるリストの急騰銘柄（本日+${DAILY_MARKET_NAVIGATOR.MISSED_OPPORTUNITY_DAILY_CHANGE_THRESHOLD}%以上）:\n${watchlistMoves.join("\n")}`)
+    if (missedRecs.length > 0) missedParts.push(`AI推奨したが未購入の上昇銘柄:\n${missedRecs.join("\n")}`)
+    missedOpportunityText = missedParts.length > 0 ? missedParts.join("\n\n") : "該当する機会損失銘柄はありません"
+
+    // 行動パターン統計（全売却済み銘柄）
+    let winCount = 0, loseCount = 0
+    const holdingDaysList: number[] = []
+    const returnRates: number[] = []
+    const earlyProfitCases: string[] = []
+    const lateStopLossCases: string[] = []
+
+    for (const ps of user.portfolioStocks) {
+      const { quantity } = calculatePortfolioFromTransactions(ps.transactions)
+      if (quantity > 0) continue
+
+      const buyTxs = ps.transactions.filter(t => t.type === "buy")
+      const sellTxs = ps.transactions.filter(t => t.type === "sell")
+      if (buyTxs.length === 0 || sellTxs.length === 0) continue
+
+      const totalBuyAmount = buyTxs.reduce((sum, t) => sum + Number(t.totalAmount), 0)
+      const totalSellAmount = sellTxs.reduce((sum, t) => sum + Number(t.totalAmount), 0)
+      const profit = totalSellAmount - totalBuyAmount
+      const returnRate = totalBuyAmount > 0 ? (profit / totalBuyAmount) * 100 : 0
+
+      if (profit >= 0) winCount++
+      else loseCount++
+      returnRates.push(returnRate)
+
+      const firstBuyDate = buyTxs[0].transactionDate
+      const lastSellDate = sellTxs[sellTxs.length - 1].transactionDate
+      const days = Math.round((lastSellDate.getTime() - firstBuyDate.getTime()) / 86400000)
+      holdingDaysList.push(days)
+
+      // 早期利確検出
+      if (returnRate > 0 && returnRate < DAILY_MARKET_NAVIGATOR.EARLY_PROFIT_TAKING_THRESHOLD) {
+        const currentPrice = priceMap.get(ps.stock.tickerCode) ?? 0
+        const lastSellPrice = Number(sellTxs[sellTxs.length - 1].price)
+        if (currentPrice > lastSellPrice * DAILY_MARKET_NAVIGATOR.EARLY_PROFIT_TAKING_CONTINUED_RISE) {
+          earlyProfitCases.push(ps.stock.name)
+        }
+      }
+
+      // 損切り遅延検出
+      if (returnRate < DAILY_MARKET_NAVIGATOR.LATE_STOP_LOSS_THRESHOLD) {
+        lateStopLossCases.push(ps.stock.name)
+      }
+    }
+
+    const soldCount = winCount + loseCount
+    if (soldCount > 0) {
+      const winRate = ((winCount / soldCount) * 100).toFixed(0)
+      const avgReturn = (returnRates.reduce((a, b) => a + b, 0) / returnRates.length).toFixed(1)
+      const avgHoldingDays = holdingDaysList.length > 0
+        ? Math.round(holdingDaysList.reduce((a, b) => a + b, 0) / holdingDaysList.length)
+        : 0
+
+      const patternParts = [
+        `- 勝敗: ${winCount}勝${loseCount}敗（勝率${winRate}%）`,
+        `- 平均リターン: ${avgReturn}%`,
+        `- 平均保有日数: ${avgHoldingDays}日`,
+      ]
+      if (earlyProfitCases.length > 0) patternParts.push(`- 利確が早い傾向の銘柄（小幅利益で売却後、さらに上昇）: ${earlyProfitCases.join("、")}`)
+      if (lateStopLossCases.length > 0) patternParts.push(`- 損切りが遅い傾向の銘柄（${DAILY_MARKET_NAVIGATOR.LATE_STOP_LOSS_THRESHOLD}%以上の損失）: ${lateStopLossCases.join("、")}`)
+      behavioralPatternText = patternParts.join("\n")
+    } else {
+      behavioralPatternText = "売却済み銘柄がないため、行動パターンの分析はできません"
+    }
+  }
 
   // 気になるリストをセクター別にグルーピング
   const watchlistBySector = new Map<string, { name: string; tickerCode: string }[]>()
@@ -865,6 +1099,9 @@ export async function generatePortfolioOverallAnalysis(userId: string, session: 
       watchlistStocksText,
       hasPortfolio,
       watchlistCount,
+      todayBuyTransactionsText,
+      missedOpportunityText,
+      behavioralPatternText,
     }
   )
 
@@ -905,6 +1142,9 @@ export async function generatePortfolioOverallAnalysis(userId: string, session: 
     buddyMessage: aiResult.buddyMessage,
     stockHighlights: enrichedStockHighlights as unknown as Prisma.InputJsonValue,
     sectorHighlights: aiResult.sectorHighlights as unknown as Prisma.InputJsonValue,
+    ...(session === "evening" && aiResult.eveningReview
+      ? { eveningReview: aiResult.eveningReview as unknown as Prisma.InputJsonValue }
+      : {}),
   }
   await prisma.portfolioOverallAnalysis.upsert({
     where: { userId_session: { userId, session } },
@@ -944,5 +1184,6 @@ export async function generatePortfolioOverallAnalysis(userId: string, session: 
       stockHighlights: enrichedStockHighlights,
       sectorHighlights: aiResult.sectorHighlights,
     },
+    eveningReview: aiResult.eveningReview,
   }
 }

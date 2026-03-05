@@ -591,6 +591,9 @@ model PortfolioOverallAnalysis {
   stockHighlights  Json // 銘柄ハイライト
   sectorHighlights Json // セクターハイライト
 
+  // イブニングレビュー（夜セッション限定）
+  eveningReview Json? // 売買振り返り・機会損失・行動パターン改善
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

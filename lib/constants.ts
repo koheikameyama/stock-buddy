@@ -278,6 +278,13 @@ export const DAILY_MARKET_NAVIGATOR = {
   EVENING_SESSION_START_HOUR: 15,
   // AIプロンプトに含めるセクタートレンドの最大数
   MAX_SECTOR_TRENDS_FOR_AI: 10,
+  // イブニングレビュー設定
+  MISSED_OPPORTUNITY_DAILY_CHANGE_THRESHOLD: 3.0, // 気になるリストの急騰閾値(%)
+  MISSED_OPPORTUNITY_REC_LOOKBACK_DAYS: 7, // 推奨見逃し遡り日数
+  LATE_STOP_LOSS_THRESHOLD: -15, // 損切り遅延検出閾値(%)
+  EARLY_PROFIT_TAKING_THRESHOLD: 5, // 早期利確検出閾値(%)
+  EARLY_PROFIT_TAKING_CONTINUED_RISE: 1.05, // 売却後さらに5%上昇で早期利確判定
+  MAX_MISSED_OPPORTUNITY_STOCKS: 5, // 機会損失最大表示数
 } as const;
 
 // チャットAI設定

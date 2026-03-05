@@ -26,6 +26,10 @@ export function buildPortfolioOverallAnalysisPrompt(params: {
   upcomingEarningsText: string;
   benchmarkText: string;
   marketOverviewText: string;
+  // evening review用データ
+  todayBuyTransactionsText?: string;
+  missedOpportunityText?: string;
+  behavioralPatternText?: string;
 }): string {
   const {
     session,
@@ -53,6 +57,9 @@ export function buildPortfolioOverallAnalysisPrompt(params: {
     upcomingEarningsText,
     benchmarkText,
     marketOverviewText,
+    todayBuyTransactionsText,
+    missedOpportunityText,
+    behavioralPatternText,
   } = params;
 
   const roleAndSteps =
@@ -77,6 +84,7 @@ export function buildPortfolioOverallAnalysisPrompt(params: {
         hasEarningsData, profitableCount, increasingCount, decreasingCount, unprofitablePortfolioNames,
         portfolioAnalysisText, purchaseRecommendationText, soldStocksText,
         benchmarkText,
+        todayBuyTransactionsText, missedOpportunityText, behavioralPatternText,
       })
     : buildMarketOnlyDataSection({ watchlistStocksText, watchlistCount, purchaseRecommendationText });
 
@@ -121,12 +129,17 @@ function buildPortfolioDataSection(params: {
   purchaseRecommendationText: string;
   soldStocksText: string;
   benchmarkText: string;
+  // evening review用データ
+  todayBuyTransactionsText?: string;
+  missedOpportunityText?: string;
+  behavioralPatternText?: string;
 }): string {
   const {
     session, portfolioCount, totalValue, totalCost, unrealizedGain, unrealizedGainPercent,
     portfolioVolatility, sectorBreakdownText, portfolioStocksText, watchlistStocksText, watchlistCount,
     hasEarningsData, profitableCount, increasingCount, decreasingCount, unprofitablePortfolioNames,
     portfolioAnalysisText, purchaseRecommendationText, soldStocksText, benchmarkText,
+    todayBuyTransactionsText, missedOpportunityText, behavioralPatternText,
   } = params;
 
   const soldStocksSection = (session === "evening" || session === "pre-afternoon")
@@ -166,7 +179,16 @@ ${portfolioAnalysisText}
 
 【購入判断の結果（直近AI分析）】
 ${purchaseRecommendationText}
-${soldStocksSection}
+${soldStocksSection}${session === "evening" ? `
+【本日の買い取引】
+${todayBuyTransactionsText ?? "データなし"}
+
+【機会損失の候補データ】
+${missedOpportunityText ?? "データなし"}
+
+【売買パターン統計（全期間）】
+${behavioralPatternText ?? "データなし"}
+` : ""}
 【ベンチマーク比較】
 ${benchmarkText}`;
 }
@@ -415,6 +437,35 @@ function buildEveningRoleAndSteps(investmentStyle: string, hasPortfolio: boolean
 - 気になるリストに銘柄がある場合は、明日の買い時候補を評価
 - まだ銘柄を持っていないユーザーに、銘柄選びのヒントを提供する`;
 
+  const step4 = hasPortfolio
+    ? `【STEP 4: 売買判断の振り返り】
+本日行った売買取引を振り返ってください：
+- 買い: 購入タイミングは適切だったか？ 購入判断の分析結果と整合しているか？
+- 売り: 売却タイミングは適切だったか？ 利益確定/損切りの判断は妥当だったか？
+- 取引がない日は「本日は取引がありませんでした」と簡潔にまとめる`
+    : `【STEP 4: 売買判断の振り返り】
+- ポートフォリオ未登録のため、取引の振り返りはスキップ
+- 「まだ取引がないため、振り返りはありません」と簡潔にまとめる`;
+
+  const step5 = `【STEP 5: 機会損失の指摘】
+気になるリストやAI推奨銘柄の中から、「買っておけばよかった」銘柄を分析してください：
+- 気になるリストの急騰銘柄（本日+3%以上）を特定
+- AI推奨（buy判断）したが未購入の銘柄で上昇したものを特定
+- 機会損失がない場合は「今日は見逃した銘柄はありませんでした」とポジティブにまとめる
+- 機会損失の指摘は責めるのではなく、次のチャンスへの学びとして伝える`;
+
+  const step6 = hasPortfolio
+    ? `【STEP 6: 行動パターンの改善提案】
+ユーザーの過去の売買統計から、行動パターンの傾向を分析してください：
+- 利確が早い傾向はないか（小幅利益で売却後、さらに上昇するケース）
+- 損切りが遅い傾向はないか（大きな損失を抱えてから売却するケース）
+- 勝率やリターンから、全体的な傾向を評価
+- 統計データが少ない場合は「まだデータが少ないため、取引を重ねて傾向を把握しましょう」と励ます
+- 改善提案は具体的なアクション（例: 「売却前に1日待つルールを試してみましょう」）を含める`
+    : `【STEP 6: 行動パターンの改善提案】
+- まだ取引データがないため、一般的な投資のヒントを提供する
+- 投資スタイル（${investmentStyle}）に合った基本的なアドバイスを1つ添える`;
+
   return `## あなたの役割
 あなたはStock Buddyの「アナリスト兼コーチ」です。
 今日の市場が閉まった後に、ユーザーのポートフォリオを振り返り、明日の準備を手伝います。
@@ -422,7 +473,7 @@ function buildEveningRoleAndSteps(investmentStyle: string, hasPortfolio: boolean
 
 ## ユーザーの投資スタイル: ${investmentStyle}
 
-## 分析の3ステップ
+## 分析の6ステップ
 
 【STEP 1: 市場の総評】
 今日何が起きたかを振り返ってください：
@@ -433,7 +484,13 @@ function buildEveningRoleAndSteps(investmentStyle: string, hasPortfolio: boolean
 
 ${step2}
 
-${step3}`;
+${step3}
+
+${step4}
+
+${step5}
+
+${step6}`;
 }
 
 function buildEveningOutputRules(investmentStyle: string, hasPortfolio: boolean): string {
@@ -476,6 +533,26 @@ ${actionPlanRule}
 ${stockHighlightsRule}
 - sectorHighlights: 保有銘柄に関連するセクター、および注目度の高いセクター（compositeScore上位）。セクター内に気になるリスト銘柄がある場合はwatchlistStocksに含めること。【重要】各セクターのcommentaryはtrendDirection（↑/↓/→）と整合性を取ること。下落トレンド（↓）のセクターに対してポジティブなcommentaryを書かないこと
 ${soldStocksRule}
+## eveningReview の出力ルール
+
+【tradeReview（売買判断の振り返り）】
+- summary: 本日の売買判断の総括を1-2文で。取引がない場合は「本日は取引がありませんでした」
+- trades: 本日の各取引の評価。取引がない場合は空配列
+  - action: "buy"（買い）または "sell"（売り）
+  - evaluation: "excellent"（素晴らしい判断）/ "good"（良い判断）/ "neutral"（普通）/ "questionable"（見直しの余地あり）
+  - comment: 判断の根拠を具体的な数値データで説明。初心者に分かりやすく
+
+【missedOpportunities（機会損失の指摘）】
+- summary: 機会損失の総括を1文で。なければ「今日は見逃した銘柄はありませんでした」
+- stocks: 買っておけばよかった銘柄。なければ空配列
+  - source: "watchlist"（気になるリスト）または "recommendation"（AI推奨）
+  - comment: なぜ買っておくべきだったかを簡潔に。責めるのではなく学びとして伝える
+
+【improvementSuggestion（行動パターンの改善提案）】
+- pattern: 検出された行動パターン。データ不足の場合は「まだ売買データが少なく、傾向を判断するには早い段階です」
+- suggestion: 具体的な改善提案（例: 「売却前に1日待つルールを試してみましょう」）。データ不足の場合は投資スタイルに合った一般的なアドバイスを1つ
+- encouragement: 励ましのメッセージ。ネガティブにならず、成長を実感できるような言葉を
+
 【表現の指針】
 - 専門用語には必ず解説を添える（例：「ボラティリティ（値動きの激しさ）」）
 - 数値の基準を具体的に説明する（例：「20%以下は比較的安定」）
