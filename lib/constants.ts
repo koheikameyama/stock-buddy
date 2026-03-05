@@ -77,6 +77,8 @@ export const ATR_EXIT_STRATEGY = {
   },
   // 利確マイルストーン（%）: この利益率に達したら通知
   PROFIT_MILESTONES: [10, 20, 30],
+  // 最低リスクリワード比（売却目標率 >= 撤退ライン率 × この値）
+  MIN_RISK_REWARD_RATIO: 3,
 } as const;
 
 // 投資スタイル別の表示設定（他の設定と形式を統一）

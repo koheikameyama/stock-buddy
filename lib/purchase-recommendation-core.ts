@@ -995,6 +995,12 @@ export async function executePurchaseRecommendation(
           const fallback = ATR_EXIT_STRATEGY.FALLBACK_STOP_LOSS[style] ?? 8;
           sa.suggestedExitRate = Math.max(sa.suggestedExitRate, fallback / 100);
         }
+
+        // リスクリワード比1:3の最低保証
+        if (sa.suggestedSellTargetRate != null) {
+          const minSellTargetRate = sa.suggestedExitRate * ATR_EXIT_STRATEGY.MIN_RISK_REWARD_RATIO;
+          sa.suggestedSellTargetRate = Math.max(sa.suggestedSellTargetRate, minSellTargetRate);
+        }
       }
     }
   }

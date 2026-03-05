@@ -570,11 +570,20 @@ function calculatePricesFromRates(params: {
       effectiveExitRate = Math.max(exitRate, fallbackRate);
     }
 
+    // リスクリワード比1:3の最低保証
+    const minSellTargetRate = effectiveExitRate * ATR_EXIT_STRATEGY.MIN_RISK_REWARD_RATIO;
+    const effectiveSellTargetRate = sellTargetRate != null
+      ? Math.max(sellTargetRate, minSellTargetRate)
+      : minSellTargetRate;
+    const adjustedSellPrice = Math.round(currentPrice * (1 + effectiveSellTargetRate));
+
     const rawStopLoss = Math.round(currentPrice * (1 - effectiveExitRate));
     const hasUnrealizedGain = currentPrice > averagePrice;
     suggestedStopLossPrice = hasUnrealizedGain
       ? Math.max(rawStopLoss, Math.round(averagePrice))
       : rawStopLoss;
+
+    return { suggestedSellPrice: adjustedSellPrice, suggestedStopLossPrice };
   }
 
   return { suggestedSellPrice, suggestedStopLossPrice };
