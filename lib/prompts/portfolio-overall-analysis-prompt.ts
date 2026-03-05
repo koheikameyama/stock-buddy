@@ -129,7 +129,7 @@ function buildPortfolioDataSection(params: {
     portfolioAnalysisText, purchaseRecommendationText, soldStocksText, benchmarkText,
   } = params;
 
-  const soldStocksSection = session === "evening"
+  const soldStocksSection = (session === "evening" || session === "pre-afternoon")
     ? `\n【本日の売却取引】\n${soldStocksText}\n`
     : "";
 
@@ -306,7 +306,8 @@ function buildPreAfternoonRoleAndSteps(investmentStyle: string, hasPortfolio: bo
 - 利確検討: 前場で大きく上昇し、過熱感がある場合
 - 損切り検討: 想定と逆方向に動き、損切りラインに近づいている場合
 - 追加購入検討: 押し目買いのシグナルが出ており、投資スタイルと合致する場合
-- 指値設定: ウォッチリスト銘柄で後場に狙いたい価格帯がある場合`
+- 指値設定: ウォッチリスト銘柄で後場に狙いたい価格帯がある場合
+- 前場で売却した銘柄がある場合は、その判断の振り返りと後場への影響を簡潔にコメントする`
     : `【STEP 3: 後場の投資チャンスを提案する】
 投資スタイルに合わせて、後場の行動を提案してください：
 - 注目セクターの中から後場に狙えそうな銘柄やセクターを提案
@@ -349,6 +350,14 @@ function buildPreAfternoonOutputRules(investmentStyle: string, hasPortfolio: boo
     ? ``
     : `- portfolioStatus: ポートフォリオ未登録のため "healthy" を設定\n`;
 
+  const soldStocksRule = hasPortfolio
+    ? `\n【売却銘柄への言及ルール】
+- 前場で売却した銘柄がある場合は、portfolioSummaryまたはactionPlanで簡潔に言及すること
+- 売却損益と売却タイミングの評価を添える
+- 売却で得た資金を後場でどう活用するかの方針も提案する
+- 売却データがない場合はこのルールは無視してよい\n`
+    : "";
+
   const stockHighlightsRule = hasPortfolio
     ? `- stockHighlights: 保有銘柄と気になるリスト銘柄の中から、後場に注目すべきもののみ（全部ではない）。後場の行動が必要な順に並べる。sourceフィールドで保有銘柄は"portfolio"、気になるリスト銘柄は"watchlist"を設定する
   - analysisには「後場にどう動くべきか」（利確 / 損切り / 保有継続 / 指値設定）をデータの数値（MA乖離率・出来高比・前日比）を根拠として記載すること
@@ -366,7 +375,7 @@ ${actionPlanRule}
 - buddyMessage: 前場の結果を受け止め、後場に冷静に臨めるよう背中を押す1文。前場が良くても悪くても落ち着いたトーンで
 ${stockHighlightsRule}
 - sectorHighlights: 保有銘柄に関連するセクター、および注目度の高いセクター（compositeScore上位）。セクター内に気になるリスト銘柄がある場合はwatchlistStocksに含めること。【重要】各セクターのcommentaryはtrendDirection（↑/↓/→）と整合性を取ること。下落トレンド（↓）のセクターに対してポジティブなcommentaryを書かないこと
-
+${soldStocksRule}
 【表現の指針】
 - 専門用語には必ず解説を添える（例：「出来高比（通常の何倍取引されているか）」）
 - 前場の結果は事実として伝え、後場の行動を明確に提案する
@@ -386,7 +395,8 @@ function buildEveningRoleAndSteps(investmentStyle: string, hasPortfolio: boolean
 ユーザーの保有銘柄を点検してください：
 - 損切りライン（投資スタイルに応じた許容損失）に接近している銘柄はないか
 - 今日の値動きで堅調だった銘柄、軟調だった銘柄を判定
-- 含み損益の変化に注目`
+- 含み損益の変化に注目
+- 本日売却した銘柄がある場合は、その売却判断を振り返る（売却タイミングの妥当性、損益結果、保有期間の評価）`
     : `【STEP 2: 注目セクターの今日のパフォーマンスを振り返る】
 セクタートレンドデータから、今日の動きを振り返ってください：
 - 上昇セクター: 今後も注目すべき理由の分析
@@ -432,12 +442,21 @@ function buildEveningOutputRules(investmentStyle: string, hasPortfolio: boolean)
     : `- portfolioSummary: 今日の市場動向と注目セクターのまとめを1-2文で`;
 
   const actionPlanRule = hasPortfolio
-    ? `- actionPlan: 投資スタイル（${investmentStyle}）に基づく明日に向けた具体的な準備。今日の結果を踏まえた最優先のアクション（具体的な銘柄名と根拠）とセクタートレンドに基づく明日の戦略を中心に2-3文で。決算を控える銘柄がある場合やリスク要因がある場合は言及すること。【重要】セクターを推奨する際は、そのセクターのtrendDirection（↑/↓/→）と矛盾しないこと。下落トレンド（↓）のセクターをポジティブに推奨してはならない`
+    ? `- actionPlan: 投資スタイル（${investmentStyle}）に基づく明日に向けた具体的な準備。今日の結果を踏まえた最優先のアクション（具体的な銘柄名と根拠）とセクタートレンドに基づく明日の戦略を中心に2-3文で。本日売却した銘柄がある場合は、売却で得た資金の活用方針や次の投資候補にも触れること。決算を控える銘柄がある場合やリスク要因がある場合は言及すること。【重要】セクターを推奨する際は、そのセクターのtrendDirection（↑/↓/→）と矛盾しないこと。下落トレンド（↓）のセクターをポジティブに推奨してはならない`
     : `- actionPlan: 投資スタイル（${investmentStyle}）に基づく、明日の投資チャンスの提案。今日の動きを踏まえた注目セクターと気になるリスト銘柄の評価を中心に2-3文で。決算を控える銘柄がある場合やリスク要因がある場合は言及すること。【重要】セクターを推奨する際は、そのセクターのtrendDirection（↑/↓/→）と矛盾しないこと。下落トレンド（↓）のセクターをポジティブに推奨してはならない。逆張り候補として挙げる場合は根拠を明示すること`;
 
   const portfolioStatusRule = hasPortfolio
     ? ``
     : `- portfolioStatus: ポートフォリオ未登録のため "healthy" を設定\n`;
+
+  const soldStocksRule = hasPortfolio
+    ? `\n【売却銘柄への言及ルール】
+- 本日売却した銘柄がある場合は、stockHighlightsまたはportfolioSummary/actionPlanで必ず言及すること
+- 売却損益（プラスかマイナスか）、保有期間、売却タイミングの妥当性を簡潔に評価する
+- 利益確定の場合は「良い判断」「やや早い」など評価を添える
+- 損切りの場合は「適切な損切り」「もう少し粘る手もあった」など学びになるコメントを添える
+- 売却データがない場合はこのルールは無視してよい\n`
+    : "";
 
   const stockHighlightsRule = hasPortfolio
     ? `- stockHighlights: 保有銘柄と気になるリスト銘柄の中から、今日の動きが注目すべきもののみ（全部ではない）。値動きが大きい順に並べる。sourceフィールドで保有銘柄は"portfolio"、気になるリスト銘柄は"watchlist"を設定する。気になるリスト銘柄は購入検討中のため、買い時の判断材料となる分析を添える
@@ -456,7 +475,7 @@ ${actionPlanRule}
 - buddyMessage: 親しみやすい口調で今日の労いと明日への期待を込めた1文
 ${stockHighlightsRule}
 - sectorHighlights: 保有銘柄に関連するセクター、および注目度の高いセクター（compositeScore上位）。セクター内に気になるリスト銘柄がある場合はwatchlistStocksに含めること。【重要】各セクターのcommentaryはtrendDirection（↑/↓/→）と整合性を取ること。下落トレンド（↓）のセクターに対してポジティブなcommentaryを書かないこと
-
+${soldStocksRule}
 【表現の指針】
 - 専門用語には必ず解説を添える（例：「ボラティリティ（値動きの激しさ）」）
 - 数値の基準を具体的に説明する（例：「20%以下は比較的安定」）
