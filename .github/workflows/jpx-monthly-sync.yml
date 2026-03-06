@@ -1,9 +1,9 @@
 name: Sync JPX Stock Master
 
 on:
-  schedule:
+  # schedule:
     # 毎月1日 朝9時（JST）= 前日24時（UTC）に実行
-    - cron: "0 0 1 * *"
+    # - cron: "0 0 1 * *"
   workflow_dispatch: # 手動実行も可能
 
 concurrency:
