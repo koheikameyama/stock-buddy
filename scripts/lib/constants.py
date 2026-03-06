@@ -39,7 +39,7 @@ MIN_CHART_DATA_POINTS = 20
 # =============================================================================
 
 # yf.download() 1回あたりの最大銘柄数
-DOWNLOAD_BATCH_SIZE = 50
+DOWNLOAD_BATCH_SIZE = 100
 
 # DB更新のバッチサイズ
 DB_BATCH_SIZE = 100
@@ -55,7 +55,7 @@ YFINANCE_RATE_LIMIT_MAX_RETRIES = 5
 YFINANCE_RATE_LIMIT_WAIT_SECONDS = [30, 60, 120, 240, 480]
 
 # バッチ間のスリープ時間（秒）: レート制限を避けるため
-YFINANCE_BATCH_SLEEP_SECONDS = 3
+YFINANCE_BATCH_SLEEP_SECONDS = 1
 
 # =============================================================================
 # 業績データ取得
