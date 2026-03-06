@@ -17,6 +17,7 @@ import DeleteButton from "@/app/components/DeleteButton";
 import AddStockDialog from "@/app/my-stocks/AddStockDialog";
 import Tabs from "@/app/components/Tabs";
 import TechnicalAnalysis from "@/app/components/TechnicalAnalysis";
+import StockKeyMetrics from "@/app/components/StockKeyMetrics";
 import { useStockPrice } from "@/app/hooks/useStockPrice";
 import { useChatContext } from "@/app/contexts/ChatContext";
 import { EARNINGS_DATE_BADGE } from "@/lib/constants";
@@ -59,6 +60,14 @@ interface StockData {
   volumeSpikeRate: number | null;
   turnoverValue: number | null;
   atr14: number | null;
+  marketCap: number | null;
+  dividendYield: number | null;
+  dailyChangeRate: number | null;
+  volumeRatio: number | null;
+  maDeviationRate: number | null;
+  latestOpen: number | null;
+  exDividendDate: string | null;
+  businessDescription: string | null;
   fetchFailCount: number;
   isDelisted: boolean;
   nextEarningsDate: string | null;
@@ -107,6 +116,8 @@ interface Props {
     trendDirection: string;
   } | null;
   marketSignal?: string | null;
+  supportLevel?: number | null;
+  resistanceLevel?: number | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   trendConvergence?: Record<string, any> | null;
 }
@@ -122,6 +133,8 @@ export default function StockDetailClient({
   soldStockInfo,
   sectorAvg,
   marketSignal,
+  supportLevel,
+  resistanceLevel,
   trendConvergence,
 }: Props) {
   const router = useRouter();
@@ -343,6 +356,11 @@ export default function StockDetailClient({
         loading={loading}
         fiftyTwoWeekHigh={stock.fiftyTwoWeekHigh}
         fiftyTwoWeekLow={stock.fiftyTwoWeekLow}
+        latestOpen={stock.latestOpen}
+        supportLevel={supportLevel}
+        resistanceLevel={resistanceLevel}
+        volumeRatio={stock.volumeRatio}
+        maDeviationRate={stock.maDeviationRate}
         isDelisted={stock.isDelisted}
         isStale={isStale}
         actions={
@@ -374,6 +392,9 @@ export default function StockDetailClient({
           )
         }
       />
+
+      {/* Key Metrics Section */}
+      <StockKeyMetrics stock={stock} />
 
       {/* Sold Stock Info Section */}
       {soldStockInfo && (

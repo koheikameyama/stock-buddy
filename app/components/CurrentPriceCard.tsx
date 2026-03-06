@@ -16,6 +16,11 @@ interface CurrentPriceCardProps {
   loading: boolean
   fiftyTwoWeekHigh?: number | null
   fiftyTwoWeekLow?: number | null
+  latestOpen?: number | null
+  supportLevel?: number | null
+  resistanceLevel?: number | null
+  volumeRatio?: number | null
+  maDeviationRate?: number | null
   actions?: ReactNode
   bottomActions?: ReactNode
   isDelisted?: boolean
@@ -28,6 +33,11 @@ export default function CurrentPriceCard({
   loading,
   fiftyTwoWeekHigh,
   fiftyTwoWeekLow,
+  latestOpen,
+  supportLevel,
+  resistanceLevel,
+  volumeRatio,
+  maDeviationRate,
   actions,
   bottomActions,
   isDelisted = false,
@@ -79,12 +89,63 @@ export default function CurrentPriceCard({
               </div>
             </div>
 
+            {latestOpen != null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t("openPrice")}</span>
+                <span className="font-semibold text-gray-900">
+                  ¥{latestOpen.toLocaleString()}
+                </span>
+              </div>
+            )}
+
             {(fiftyTwoWeekHigh || fiftyTwoWeekLow) && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">{t("fiftyTwoWeekRange")}</span>
                 <span className="font-semibold text-gray-900">
                   ¥{(fiftyTwoWeekHigh || 0).toLocaleString()} / ¥
                   {(fiftyTwoWeekLow || 0).toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            {(supportLevel != null || resistanceLevel != null) && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t("supportResistance")}</span>
+                <span className="font-semibold">
+                  {supportLevel != null && (
+                    <span className="text-green-600">¥{supportLevel.toLocaleString()}</span>
+                  )}
+                  {supportLevel != null && resistanceLevel != null && (
+                    <span className="text-gray-400"> / </span>
+                  )}
+                  {resistanceLevel != null && (
+                    <span className="text-red-600">¥{resistanceLevel.toLocaleString()}</span>
+                  )}
+                </span>
+              </div>
+            )}
+
+            {(volumeRatio != null || maDeviationRate != null) && (
+              <div className="flex items-center justify-between text-sm">
+                {volumeRatio != null && (
+                  <>
+                    <span className="text-gray-600">{t("volumeRatio")}</span>
+                    <span className={`font-semibold ${volumeRatio >= 1.5 ? "text-amber-600" : "text-gray-900"}`}>
+                      {volumeRatio.toFixed(1)}{t("times")}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+            {maDeviationRate != null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t("maDeviation")}</span>
+                <span className={`font-semibold ${
+                  maDeviationRate >= 20 ? "text-red-600"
+                    : maDeviationRate <= -20 ? "text-blue-600"
+                    : "text-gray-900"
+                }`}>
+                  {maDeviationRate >= 0 ? "+" : ""}{maDeviationRate.toFixed(1)}%
                 </span>
               </div>
             )}

@@ -37,7 +37,10 @@ async function StockDetailContent({
 }) {
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true },
+    select: {
+      id: true,
+      settings: { select: { investmentStyle: true } },
+    },
   });
 
   if (!user) {
@@ -76,6 +79,13 @@ async function StockDetailContent({
   if (!userStock) {
     redirect("/my-stocks");
   }
+
+  // Fetch support/resistance from latest stock report
+  const latestReport = await prisma.stockReport.findFirst({
+    where: { stockId: userStock.stockId },
+    orderBy: { date: "desc" },
+    select: { supportLevel: true, resistanceLevel: true },
+  });
 
   // Calculate portfolio values from transactions
   let calculatedQuantity: number | undefined;
@@ -136,7 +146,7 @@ async function StockDetailContent({
     | undefined;
 
   if (watchlistStock && !portfolioStock) {
-    const [allPortfolioStocks, userSettings] = await Promise.all([
+    const [allPortfolioStocks, budgetSettings] = await Promise.all([
       prisma.portfolioStock.findMany({
         where: { userId: user.id },
         include: {
@@ -211,7 +221,7 @@ async function StockDetailContent({
       }))
       .sort((a, b) => b.value - a.value);
 
-    const totalBudget = userSettings?.investmentBudget ?? null;
+    const totalBudget = budgetSettings?.investmentBudget ?? null;
     const remainingBudget =
       totalBudget !== null ? Math.max(0, totalBudget - holdingsCost) : null;
 
@@ -297,6 +307,14 @@ async function StockDetailContent({
       isDelisted: userStock.stock.isDelisted,
       delistingNewsDetectedAt: userStock.stock.delistingNewsDetectedAt?.toISOString() ?? null,
       delistingNewsReason: userStock.stock.delistingNewsReason ?? null,
+      // Key metrics
+      marketCap: userStock.stock.marketCap ? Number(userStock.stock.marketCap) : null,
+      dividendYield: userStock.stock.dividendYield ? Number(userStock.stock.dividendYield) : null,
+      volumeRatio: userStock.stock.volumeRatio ? Number(userStock.stock.volumeRatio) : null,
+      maDeviationRate: userStock.stock.maDeviationRate ? Number(userStock.stock.maDeviationRate) : null,
+      latestOpen: userStock.stock.latestOpen ? Number(userStock.stock.latestOpen) : null,
+      exDividendDate: userStock.stock.exDividendDate?.toISOString() ?? null,
+      businessDescription: userStock.stock.businessDescription ?? null,
     },
   };
 
@@ -305,6 +323,9 @@ async function StockDetailContent({
       stock={stockData}
       portfolioDetails={portfolioDetails}
       purchaseSimulationData={purchaseSimulationData}
+      userInvestmentStyle={user.settings?.investmentStyle ?? undefined}
+      supportLevel={latestReport?.supportLevel ? Number(latestReport.supportLevel) : null}
+      resistanceLevel={latestReport?.resistanceLevel ? Number(latestReport.resistanceLevel) : null}
     />
   );
 }

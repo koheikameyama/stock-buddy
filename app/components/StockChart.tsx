@@ -605,52 +605,25 @@ export default function StockChart({ stockId, embedded = false }: StockChartProp
             </div>
           )}
 
-          {/* トレンドラインの凡例・情報 */}
+          {/* Trendline legend (compact - text details are in Analysis tab) */}
           {showTrendlines && trendlines && !showNikkeiComparison && (
-            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-semibold text-gray-900">{tChart("trendlineAnalysis")}</span>
-                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                  trendlines.overallTrend === "uptrend"
-                    ? "bg-green-100 text-green-700"
-                    : trendlines.overallTrend === "downtrend"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-gray-100 text-gray-700"
-                }`}>
-                  {trendlines.trendLabel}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 text-xs mb-2">
-                {trendlines.support && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-0 border-t-2 border-dashed border-green-500"></div>
-                    <span className="text-gray-600">
-                      {tChart("support")} {formatPrice(trendlines.support.currentProjectedPrice)}
-                      {trendlines.support.broken && (
-                        <span className="text-red-500 ml-1">{tChart("broken")}</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-                {trendlines.resistance && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-0 border-t-2 border-dashed border-red-500"></div>
-                    <span className="text-gray-600">
-                      {tChart("resistance")} {formatPrice(trendlines.resistance.currentProjectedPrice)}
-                      {trendlines.resistance.broken && (
-                        <span className="text-green-500 ml-1">{tChart("breakout")}</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-gray-500">
-                {trendlines.overallTrend === "uptrend"
-                  ? tChart("trendDescUptrend")
-                  : trendlines.overallTrend === "downtrend"
-                  ? tChart("trendDescDowntrend")
-                  : tChart("trendDescSideways")}
-              </p>
+            <div className="mt-3 flex items-center gap-4 text-xs">
+              {trendlines.support && (
+                <div className="flex items-center gap-1">
+                  <div className="w-4 h-0 border-t-2 border-dashed border-green-500"></div>
+                  <span className="text-gray-600">
+                    {tChart("support")} {formatPrice(trendlines.support.currentProjectedPrice)}
+                  </span>
+                </div>
+              )}
+              {trendlines.resistance && (
+                <div className="flex items-center gap-1">
+                  <div className="w-4 h-0 border-t-2 border-dashed border-red-500"></div>
+                  <span className="text-gray-600">
+                    {tChart("resistance")} {formatPrice(trendlines.resistance.currentProjectedPrice)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

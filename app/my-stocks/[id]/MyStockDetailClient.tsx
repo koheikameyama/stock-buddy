@@ -17,6 +17,7 @@ import CurrentPriceCard from "@/app/components/CurrentPriceCard";
 import DeleteButton from "@/app/components/DeleteButton";
 import Tabs from "@/app/components/Tabs";
 import TechnicalAnalysis from "@/app/components/TechnicalAnalysis";
+import StockKeyMetrics from "@/app/components/StockKeyMetrics";
 import EditTransactionDialog from "../EditTransactionDialog";
 import AdditionalPurchaseDialog from "../AdditionalPurchaseDialog";
 import AddStockDialog from "../AddStockDialog";
@@ -84,6 +85,14 @@ interface Stock {
     isDelisted?: boolean;
     delistingNewsDetectedAt?: string | null;
     delistingNewsReason?: string | null;
+    // Key metrics
+    marketCap: number | null;
+    dividendYield: number | null;
+    volumeRatio: number | null;
+    maDeviationRate: number | null;
+    latestOpen: number | null;
+    exDividendDate: string | null;
+    businessDescription: string | null;
   };
 }
 
@@ -122,12 +131,18 @@ interface Props {
     profitPercent: number;
   };
   purchaseSimulationData?: PurchaseSimulationData;
+  userInvestmentStyle?: string;
+  supportLevel?: number | null;
+  resistanceLevel?: number | null;
 }
 
 export default function MyStockDetailClient({
   stock,
   portfolioDetails,
   purchaseSimulationData,
+  userInvestmentStyle,
+  supportLevel,
+  resistanceLevel,
 }: Props) {
   const router = useRouter();
   const t = useTranslations("stocks.detail");
@@ -521,6 +536,9 @@ export default function MyStockDetailClient({
             </div>
           </section>
 
+          {/* Key Metrics Section */}
+          <StockKeyMetrics stock={stock.stock} />
+
           {/* AI Analysis Section */}
           <section className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
             <StockAnalysisCard
@@ -678,6 +696,11 @@ export default function MyStockDetailClient({
             loading={loading}
             fiftyTwoWeekHigh={stock.stock.fiftyTwoWeekHigh}
             fiftyTwoWeekLow={stock.stock.fiftyTwoWeekLow}
+            latestOpen={stock.stock.latestOpen}
+            supportLevel={supportLevel}
+            resistanceLevel={resistanceLevel}
+            volumeRatio={stock.stock.volumeRatio}
+            maDeviationRate={stock.stock.maDeviationRate}
             isDelisted={stock.stock.isDelisted ?? false}
             isStale={isStale}
             actions={
@@ -719,6 +742,9 @@ export default function MyStockDetailClient({
               </button>
             }
           />
+
+          {/* Key Metrics Section */}
+          <StockKeyMetrics stock={stock.stock} />
 
           {/* Gap Prediction - 予測/実績寄り付き (Watchlist) */}
           {gapPrediction && !(stock.stock.isDelisted) && (gapPrediction.predictedOpenPrice || gapPrediction.actualOpenPrice) && (
@@ -812,6 +838,7 @@ export default function MyStockDetailClient({
                 <>
                   <StockReport
                     stockId={stock.stockId}
+                    userInvestmentStyle={userInvestmentStyle}
                     onAnalysisDateLoaded={setAnalysisDate}
                   />
                 </>

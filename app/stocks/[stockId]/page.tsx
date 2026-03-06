@@ -91,7 +91,7 @@ async function StockDetailContent({
     prisma.stockReport.findFirst({
       where: { stockId },
       orderBy: { date: "desc" },
-      select: { marketSignal: true },
+      select: { marketSignal: true, supportLevel: true, resistanceLevel: true },
     }),
     // Get latest stock analysis for trendConvergence
     prisma.stockAnalysis.findFirst({
@@ -155,6 +155,14 @@ async function StockDetailContent({
     volumeSpikeRate: stock.volumeSpikeRate ? Number(stock.volumeSpikeRate) : null,
     turnoverValue: stock.turnoverValue ? Number(stock.turnoverValue) : null,
     atr14: stock.atr14 ? Number(stock.atr14) : null,
+    marketCap: stock.marketCap ? Number(stock.marketCap) : null,
+    dividendYield: stock.dividendYield ? Number(stock.dividendYield) : null,
+    dailyChangeRate: stock.dailyChangeRate ? Number(stock.dailyChangeRate) : null,
+    volumeRatio: stock.volumeRatio ? Number(stock.volumeRatio) : null,
+    maDeviationRate: stock.maDeviationRate ? Number(stock.maDeviationRate) : null,
+    latestOpen: stock.latestOpen ? Number(stock.latestOpen) : null,
+    exDividendDate: stock.exDividendDate?.toISOString() ?? null,
+    businessDescription: stock.businessDescription ?? null,
     fetchFailCount: stock.fetchFailCount,
     isDelisted: stock.isDelisted,
     nextEarningsDate: stock.nextEarningsDate?.toISOString() ?? null,
@@ -286,6 +294,8 @@ async function StockDetailContent({
       soldStockInfo={soldStockInfo}
       sectorAvg={sectorAvg}
       marketSignal={latestRecommendation?.marketSignal ?? null}
+      supportLevel={latestRecommendation?.supportLevel ? Number(latestRecommendation.supportLevel) : null}
+      resistanceLevel={latestRecommendation?.resistanceLevel ? Number(latestRecommendation.resistanceLevel) : null}
       trendConvergence={latestAnalysis?.trendConvergence as Record<string, unknown> | null | undefined}
     />
   );
