@@ -272,5 +272,24 @@
     },
     "stopLossTightened": "損切りライン引き締め中",
     "factors": "要因"
+  },
+  "dailyHighlights": {
+    "title": "今日の注目データ",
+    "staleWarning": "最新のデータではありません（{date}時点）",
+    "regenerate": "再生成",
+    "regenerating": "生成中...",
+    "badge": {
+      "owned": "保有中",
+      "watched": "ウォッチ中",
+      "tracked": "追跡中"
+    },
+    "highlightType": {
+      "volume_spike": "出来高急増",
+      "technical_change": "テクニカル変化",
+      "price_movement": "価格変動",
+      "ma_divergence": "移動平均乖離",
+      "earnings_upcoming": "決算間近",
+      "sector_trend": "セクタートレンド"
+    }
   }
 }

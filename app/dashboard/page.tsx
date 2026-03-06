@@ -13,6 +13,7 @@ import NikkeiSummary from "./NikkeiSummary";
 import BudgetSummary from "./BudgetSummary";
 import GeopoliticalRiskCard from "./GeopoliticalRiskCard"
 import { SectorTrendHeatmap } from "./SectorTrendHeatmap";
+import DailyHighlights from "./DailyHighlights";
 import { getRichStyleLabel } from "@/lib/constants";
 import { calculatePortfolioFromTransactions } from "@/lib/portfolio-calculator";
 import { getTranslations } from 'next-intl/server';
@@ -228,6 +229,8 @@ export default async function DashboardPage() {
           {/* セクタートレンドヒートマップ */}
           <SectorTrendHeatmap />
 
+          {/* 今日の注目データ */}
+          <DailyHighlights />
 
         </div>
       </main>
