@@ -17,6 +17,7 @@ import {
   RISK_LEVEL_CONFIG,
   FETCH_FAIL_WARNING_THRESHOLD,
   EARNINGS_DATE_BADGE,
+  getStyleFitScoreColor,
 } from "@/lib/constants";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
@@ -92,6 +93,7 @@ interface StockReportData {
   marketSignal?: string | null;
   supportLevel?: number | null;
   resistanceLevel?: number | null;
+  styleFitScore?: number | null;
 }
 
 interface StockCardProps {
@@ -202,6 +204,15 @@ export default function StockCard({
             >
               {aiJudgment.text}
             </span>
+            {/* 適合度バッジ */}
+            {recommendation?.styleFitScore != null && (() => {
+              const fitColor = getStyleFitScoreColor(recommendation.styleFitScore)
+              return (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${fitColor.bg} ${fitColor.color}`}>
+                  {t("styleFitBadge", { score: recommendation.styleFitScore })}
+                </span>
+              )
+            })()}
             {/* テクニカルシグナルバッジ */}
             {(() => {
               const signal = recommendation?.marketSignal || stock.marketSignal;

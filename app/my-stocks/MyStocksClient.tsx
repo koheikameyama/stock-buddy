@@ -38,6 +38,7 @@ interface StockReportData {
   marketSignal?: string | null;
   supportLevel?: number | null;
   resistanceLevel?: number | null;
+  styleFitScore?: number | null;
 }
 
 type TabType = "portfolio" | "watchlist" | "tracked" | "sold";
@@ -282,6 +283,7 @@ export default function MyStocksClient() {
               marketSignal: result.value.data.marketSignal ?? null,
               supportLevel: result.value.data.supportLevel ?? null,
               resistanceLevel: result.value.data.resistanceLevel ?? null,
+              styleFitScore: result.value.data.styleFitScore ?? null,
             };
           }
         });

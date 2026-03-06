@@ -68,7 +68,8 @@
     "expectedRangeValue": "±{yen}円（±{percent}%）",
     "supportLevel": "S: ¥{price}",
     "resistanceLevel": "R: ¥{price}",
-    "supportResistance": "注文水準"
+    "supportResistance": "注文水準",
+    "styleFitBadge": "適合度{score}"
   },
   "deleteConfirm": {
     "title": "銘柄を削除しますか？",
@@ -242,7 +243,9 @@
     "expectedRangeValue": "±{yen}円（±{percent}%）",
     "supportLevel": "S: ¥{price}",
     "resistanceLevel": "R: ¥{price}",
-    "supportResistance": "注文水準"
+    "supportResistance": "注文水準",
+    "styleFitBadge": "適合度{score}",
+    "staleDataWarning": "前日以前のデータです"
   },
   "detailClient": {
     "deleteLabel": "削除",

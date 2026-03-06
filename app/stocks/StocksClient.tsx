@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import CopyableTicker from "@/app/components/CopyableTicker"
 import AddStockDialog from "@/app/my-stocks/AddStockDialog"
-import { SECTORS, HEALTH_RANK_CONFIG } from "@/lib/constants"
+import { SECTORS, HEALTH_RANK_CONFIG, getStyleFitScoreColor } from "@/lib/constants"
 import { StocksListSkeleton } from "@/components/skeletons"
 
 interface StockListItem {
@@ -28,6 +28,13 @@ interface StockListItem {
     recommendation: string
     confidence: number
     userFitScore: number | null
+    date: string
+  } | null
+  latestReport: {
+    healthRank: string
+    technicalScore: number
+    fundamentalScore: number
+    styleFitScore: number | null
     date: string
   } | null
   userStatus: "portfolio" | "watchlist" | "tracked" | null
@@ -311,9 +318,12 @@ export default function StocksClient() {
             const isUp = changeRate !== null && changeRate > 0
             const isDown = changeRate !== null && changeRate < 0
             const rec = stock.latestRecommendation
-            const recConfig = rec
-              ? HEALTH_RANK_CONFIG[rec.recommendation]
-              : null
+            const report = stock.latestReport
+            const recConfig = report
+              ? HEALTH_RANK_CONFIG[report.healthRank]
+              : rec
+                ? HEALTH_RANK_CONFIG[rec.recommendation]
+                : null
 
             return (
               <div
@@ -369,14 +379,22 @@ export default function StocksClient() {
                         {t("buySignal")}
                       </span>
                     )}
-                    {recConfig && rec && (
+                    {recConfig && (
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${recConfig.color} ${recConfig.bg}`}
                       >
                         {recConfig.text}
                       </span>
                     )}
-                    {rec && rec.userFitScore !== null && (
+                    {report?.styleFitScore != null && (() => {
+                      const fitColor = getStyleFitScoreColor(report.styleFitScore)
+                      return (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${fitColor.color} ${fitColor.bg}`}>
+                          {t("score", { score: report.styleFitScore })}
+                        </span>
+                      )
+                    })()}
+                    {!report?.styleFitScore && rec && rec.userFitScore !== null && (
                       <span className="text-xs text-gray-500">
                         {t("score", { score: rec.userFitScore })}
                       </span>
@@ -394,7 +412,7 @@ export default function StocksClient() {
                         {t("weekChange")} {formatChangeRate(stock.weekChangeRate)}
                       </span>
                     )}
-                    {!rec && (
+                    {!rec && !report && (
                       <span className="text-xs text-gray-400">
                         {t("noRecommendation")}
                       </span>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { getActionButtonClass, ACTION_BUTTON_LABELS, CARD_FOOTER_STYLES } from "@/lib/ui-config"
-import { FETCH_FAIL_WARNING_THRESHOLD, EARNINGS_DATE_BADGE } from "@/lib/constants"
+import { FETCH_FAIL_WARNING_THRESHOLD, EARNINGS_DATE_BADGE, getStyleFitScoreColor } from "@/lib/constants"
 import dayjs from "dayjs"
 import timezone from "dayjs/plugin/timezone"
 import utc from "dayjs/plugin/utc"
@@ -50,6 +50,7 @@ interface TrackedStockReportData {
   marketSignal?: string | null
   supportLevel?: number | null
   resistanceLevel?: number | null
+  styleFitScore?: number | null
 }
 
 interface TrackedStockCardProps {
@@ -67,6 +68,7 @@ export default function TrackedStockCard({ trackedStock, isStale = false, priceL
   const { stock, currentPrice, changePercent } = trackedStock
   const t = useTranslations("portfolio.trackedStockCard")
   const [signal, setSignal] = useState<Signal | null>(null)
+  const [isStaleData, setIsStaleData] = useState(false)
 
   // Fetch signal asynchronously
   useEffect(() => {
@@ -80,6 +82,14 @@ export default function TrackedStockCard({ trackedStock, isStale = false, priceL
             signal: data.patterns.combined.signal,
             strength: data.patterns.combined.strength,
           })
+        }
+        // 最新データ日付と今日(JST)を比較して前場分析前かどうか判定
+        const endDate = data.summary?.endDate
+        if (endDate) {
+          const todayJST = dayjs().tz("Asia/Tokyo").format("YYYY-MM-DD")
+          const dayOfWeek = dayjs().tz("Asia/Tokyo").day()
+          const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5
+          setIsStaleData(endDate < todayJST && isWeekday)
         }
       } catch (err) {
         console.error("Error fetching signal:", err)
@@ -122,6 +132,14 @@ export default function TrackedStockCard({ trackedStock, isStale = false, priceL
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${healthConfig.bg} ${healthConfig.color}`}>
               {healthConfig.text}
             </span>
+            {recommendation.styleFitScore != null && (() => {
+              const fitColor = getStyleFitScoreColor(recommendation.styleFitScore)
+              return (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${fitColor.bg} ${fitColor.color}`}>
+                  {t("styleFitBadge", { score: recommendation.styleFitScore })}
+                </span>
+              )
+            })()}
             {recommendation.marketSignal && recommendation.marketSignal !== "neutral" && (
               <TechnicalSignalBadge marketSignal={recommendation.marketSignal} />
             )}
@@ -184,6 +202,15 @@ export default function TrackedStockCard({ trackedStock, isStale = false, priceL
             delistingNewsReason={stock.delistingNewsReason}
             compact
           />
+        </div>
+      )}
+
+      {/* 前場分析前の注意バッジ */}
+      {isStaleData && !isDisabled && (
+        <div className="mb-2">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+            ⚠️ {t("staleDataWarning")}
+          </span>
         </div>
       )}
 

@@ -38,7 +38,7 @@ export async function GET(
 
     // セッションからユーザーの投資スタイルを取得
     const session = await auth()
-    let userStyle = "BALANCED"
+    let userStyle = "CONSERVATIVE"
     if (session?.user?.id) {
       const userSettings = await prisma.userSettings.findUnique({
         where: { userId: session.user.id },
@@ -94,6 +94,7 @@ export async function GET(
       technicalScore: report.technicalScore,
       fundamentalScore: report.fundamentalScore,
       healthRank: report.healthRank,
+      styleFitScore: (styleData?.score as number) ?? null,
       alerts: report.alerts,
       reason: (styleData?.reason as string) ?? report.reason,
       caution: (styleData?.caution as string) ?? report.caution,

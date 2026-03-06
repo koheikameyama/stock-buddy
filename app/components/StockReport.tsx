@@ -43,6 +43,7 @@ interface ReportData {
   longTermTrend: string | null;
   longTermText: string | null;
   advice: string | null;
+  styleAnalyses: Record<string, { score: number; outlook: string; caution: string; keyCondition: string | null }> | null;
 }
 
 function ScoreBar({
@@ -352,6 +353,28 @@ export default function StockReport({
           score={data.fundamentalScore}
         />
       </div>
+
+      {/* 投資スタイル別適合度 */}
+      {data.styleAnalyses && (
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t("styleFit.title")}</h3>
+          <div className="space-y-2">
+            {(["CONSERVATIVE", "BALANCED", "AGGRESSIVE"] as const).map((style) => {
+              const sa = data.styleAnalyses?.[style];
+              if (!sa) return null;
+              const styleLabel = style === "CONSERVATIVE" ? t("styleFit.conservative")
+                : style === "BALANCED" ? t("styleFit.balanced")
+                : t("styleFit.aggressive");
+              return (
+                <div key={style}>
+                  <ScoreBar label={styleLabel} score={sa.score} />
+                  <p className="text-xs text-gray-500 mt-0.5 ml-1">{sa.outlook}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Alerts */}
       {data.alerts && data.alerts.length > 0 && (

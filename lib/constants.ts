@@ -377,6 +377,13 @@ export const HEALTH_RANK_CONFIG: Record<
   E: { text: "健全性E", color: "text-red-700", bg: "bg-red-50" },
 };
 
+// 適合度スコアの色分け
+export function getStyleFitScoreColor(score: number): { color: string; bg: string } {
+  if (score >= 70) return { color: "text-green-700", bg: "bg-green-50" };
+  if (score >= 40) return { color: "text-yellow-700", bg: "bg-yellow-50" };
+  return { color: "text-red-700", bg: "bg-red-50" };
+}
+
 // リスクレベル（PortfolioStock.riskLevel / StockAnalysis.riskLevel）
 export const RISK_LEVEL_CONFIG: Record<
   string,

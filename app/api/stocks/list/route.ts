@@ -122,6 +122,7 @@ export async function GET(request: NextRequest) {
         healthRank: true,
         technicalScore: true,
         fundamentalScore: true,
+        styleAnalyses: true,
         date: true,
       },
     },
@@ -147,7 +148,7 @@ export async function GET(request: NextRequest) {
     },
   }
 
-  const [stocks, total] = await Promise.all([
+  const [stocks, total, userSettings] = await Promise.all([
     prisma.stock.findMany({
       where,
       select: stockSelect,
@@ -156,7 +157,12 @@ export async function GET(request: NextRequest) {
       take: limit,
     }),
     prisma.stock.count({ where }),
+    prisma.userSettings.findUnique({
+      where: { userId: user.id },
+      select: { investmentStyle: true },
+    }),
   ])
+  const userStyle = userSettings?.investmentStyle || "CONSERVATIVE"
 
   const mapStock = (s: (typeof stocks)[number]) => {
     return {
@@ -174,6 +180,10 @@ export async function GET(request: NextRequest) {
             healthRank: s.stockReports[0].healthRank,
             technicalScore: s.stockReports[0].technicalScore,
             fundamentalScore: s.stockReports[0].fundamentalScore,
+            styleFitScore: (() => {
+              const sa = s.stockReports[0].styleAnalyses as Record<string, Record<string, unknown>> | null
+              return (sa?.[userStyle]?.score as number) ?? null
+            })(),
             date: s.stockReports[0].date.toISOString(),
           }
         : null,

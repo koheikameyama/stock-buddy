@@ -386,7 +386,8 @@
       "labelDaily": "想定変動幅（1日）",
       "value": "±{yen}円（±{percent}%）",
       "disclaimer": "過去14日の平均的な値動き幅（ATR）に基づく統計値です。実際の値動きがこの範囲を超えることもあります。"
-    }
+    },
+    "staleDataWarning": "前日以前のデータです。投資判断は前場分析（09:30更新）を待ってから行うことを推奨します。"
   },
   "purchaseSession": {
     "preMarketTitle": "寄り前の分析です",
@@ -759,7 +760,23 @@
     "statusWatchlist": "気になる",
     "statusTracked": "追跡中"
   },
+  "styleFit": {
+    "label": "適合度",
+    "badge": "適合度{score}",
+    "sectionTitle": "投資スタイル別適合度",
+    "conservative": "安定配当型",
+    "balanced": "成長投資型",
+    "aggressive": "アクティブ型",
+    "yourStyle": "あなたのスタイル",
+    "description": "あなたの投資スタイルとの相性を示すスコアです"
+  },
   "stockReport": {
+    "styleFit": {
+      "title": "投資スタイル別適合度",
+      "conservative": "安定配当型",
+      "balanced": "成長投資型",
+      "aggressive": "アクティブ型"
+    },
     "healthRank": {
       "descA": "両スコアとも高く、懸念材料が少ない",
       "descB": "全体的にポジティブだが一部課題あり",
